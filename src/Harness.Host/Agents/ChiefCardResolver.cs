@@ -141,8 +141,19 @@ public static class ChiefCardResolver
         // observabilidade) resolviam para `frontend-specialist` — e como só a conta de
         // frontend serve esse papel, a fase inteira parou quando aquela conta caiu, com
         // `role_not_allowed` em todas as outras. A persona já dizia "Arquiteto"; o papel dizia
-        // outra coisa. Um card de arquitetura que fale de tela ou React continua sendo
-        // frontend pelos termos que restaram.
+        // outra coisa.
+        //
+        // E o enquadramento de ARQUITETURA vem antes: um SAD de quatro mil caracteres cita
+        // "tela" uma vez, e uma única ocorrência num texto longo passava a decidir o papel do
+        // card inteiro. Trabalho de arquitetura é trabalho de arquitetura mesmo quando fala de
+        // interface — a especialização de frontend é para quem vai MEXER na interface, não
+        // para quem a descreve. O papel passa a seguir o mesmo enquadramento que já escolhia
+        // a persona, em vez de contradizê-lo.
+        if (IsArchitectureWork(text))
+        {
+            return AgentRoles.BackendSpecialist;
+        }
+
         if (MentionsAny(text, "frontend", "front-end", " ui ", "ui/", "/ui", " ux ", " tela", "css", "react"))
         {
             return AgentRoles.FrontendSpecialist;
@@ -151,9 +162,12 @@ public static class ChiefCardResolver
         return AgentRoles.BackendSpecialist;
     }
 
+    private static bool IsArchitectureWork(string text) =>
+        MentionsAny(text, "arquitetura", "architecture", "adr", "fronteira", "boundary", "decisão técnica");
+
     private static string InferPersona(string text, string role)
     {
-        if (MentionsAny(text, "arquitetura", "architecture", "adr", "fronteira", "boundary", "decisão técnica"))
+        if (IsArchitectureWork(text))
         {
             return Architect;
         }

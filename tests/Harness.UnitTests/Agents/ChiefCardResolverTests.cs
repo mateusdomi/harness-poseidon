@@ -39,6 +39,24 @@ public sealed class ChiefCardResolverTests
         Assert.Equal(ChiefCardResolver.Architect, r.PersonaKey);
     }
 
+    /// <summary>
+    /// Um SAD de quatro mil caracteres cita "tela" uma vez. Enquanto uma única ocorrência num
+    /// texto longo decidia o papel, o card de arquitetura inteiro virava trabalho de frontend.
+    /// A especialização de frontend é para quem vai MEXER na interface, não para quem a
+    /// descreve — e o papel passa a seguir o mesmo enquadramento que já escolhia a persona.
+    /// </summary>
+    [Fact]
+    public void OneMentionOfAScreenDoesNotTurnAnArchitectureDocumentIntoFrontendWork()
+    {
+        var r = Resolve(
+            "3-Arquitetura — SAD Ideal e Restrito",
+            "Descrever a arquitetura do sistema, suas fronteiras e integrações. " +
+            "O fluxo começa na tela de cadastro do equipamento.");
+
+        Assert.Equal(AgentRoles.BackendSpecialist, r.Role);
+        Assert.Equal(ChiefCardResolver.Architect, r.PersonaKey);
+    }
+
     [Fact]
     public void ArchitectureWorkGoesToTheArchitect()
     {
