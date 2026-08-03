@@ -118,6 +118,16 @@ public sealed class ClaudeCodeExternalAgentExecutor(
             }
         }
 
+        /// <summary>
+        /// A frase do limite de sessão da assinatura. Deliberadamente ancorada em "session
+        /// limit" e "limite de sessão": "limit" sozinho apareceria em trabalho legítimo sobre
+        /// limites, e um falso positivo aqui tira uma conta boa da eleição até o relógio virar.
+        /// </summary>
+        internal static bool MentionsSessionLimit(string? text) =>
+            text is not null &&
+            (text.Contains("session limit", StringComparison.OrdinalIgnoreCase) ||
+             text.Contains("limite de sessão", StringComparison.OrdinalIgnoreCase));
+
         public void Complete()
         {
         }
@@ -267,6 +277,22 @@ public sealed class ClaudeCodeExternalAgentExecutor(
                 FinalMessage?.Contains("Please run /login", StringComparison.OrdinalIgnoreCase) == true)
             {
                 FailureCode = "executor.authentication_required";
+                yield return new ExternalAgentEvent(
+                    ExternalAgentEventKind.Failed, Code: FailureCode);
+                yield break;
+            }
+
+            // O LIMITE DE SESSÃO da assinatura veste o mesmo disfarce que a falta de credencial
+            // vestia: a CLI não emite código de cota nenhum — ela escreve
+            // "You've hit your session limit · resets 11:30am" como TEXTO do assistente, marca
+            // `is_error` e sai com código 1. Sem esta sentinela isso virava
+            // `executor.exit_code_1`, que a classificação lê como TRANSITÓRIO: a conta
+            // permanecia "disponível", voltava à eleição a cada rodada e a esteira ficava
+            // batendo numa parede que só o relógio abre. Medido em 03/08/2026 — uma hora e meia
+            // de tentativas sem um único token, com o quadro do dono parado e sem explicação.
+            if (MentionsSessionLimit(FinalMessage))
+            {
+                FailureCode = "executor.quota_exhausted";
                 yield return new ExternalAgentEvent(
                     ExternalAgentEventKind.Failed, Code: FailureCode);
                 yield break;

@@ -171,7 +171,7 @@ public sealed class PlanMaterializationService(
         {
             var phase = await activePhases.ResolveSnapshotAsync(
                 tenantId, current.ProjectId, cancellationToken);
-            if (phase is null || phase.Order < 5)
+            if (phase is null || phase.Order < ActivePhaseResolver.DevelopmentPhaseOrder)
             {
                 return new PlanMaterializationOutcome(
                     PlanMaterializationResult.Deferred,

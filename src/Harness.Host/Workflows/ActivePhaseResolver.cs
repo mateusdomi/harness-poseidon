@@ -23,6 +23,16 @@ public sealed class ActivePhaseResolver(
     IWorkflowCatalogStore catalog,
     IWorkflowStore authority)
 {
+    /// <summary>
+    /// Ordem da fase a partir da qual o Playbook LIBERA construção.
+    ///
+    /// Existe como constante única porque dois lugares decidem sobre a mesma fronteira: quem
+    /// ADIA os cards de implementação até ela chegar e quem IMPEDE a fase executiva de fechar
+    /// sem eles. Enquanto o número estava escrito literalmente nos dois, mover a fronteira num
+    /// deles abriria exatamente o buraco que o outro existe para tapar.
+    /// </summary>
+    public const int DevelopmentPhaseOrder = 5;
+
     private readonly IWorkflowCatalogStore _catalog =
         catalog ?? throw new ArgumentNullException(nameof(catalog));
 

@@ -58,6 +58,7 @@ public sealed class WorkflowPhaseDriver(
     IPhaseObligationStore obligations,
     IWorkflowDocumentTemplateStore documentTemplates,
     IConversationStore conversations,
+    IPlanMaterializationStore materializations,
     IClock clock)
 {
     /// <summary>Tipo de objetivo cujo entregável é um documento produzível por agente.</summary>
@@ -105,6 +106,8 @@ public sealed class WorkflowPhaseDriver(
         documentTemplates ?? throw new ArgumentNullException(nameof(documentTemplates));
     private readonly IConversationStore _conversations =
         conversations ?? throw new ArgumentNullException(nameof(conversations));
+    private readonly IPlanMaterializationStore _materializations =
+        materializations ?? throw new ArgumentNullException(nameof(materializations));
     private readonly IClock _clock = clock ?? throw new ArgumentNullException(nameof(clock));
 
     /// <summary>
@@ -321,6 +324,34 @@ public sealed class WorkflowPhaseDriver(
         if (PhaseObligationPlanner.HasArtifactWithoutProducer(current))
         {
             _failures.Add($"phase:{phase.Key}:obligation_without_producer");
+        }
+
+        // DOCUMENTO NÃO CONCLUI FASE EXECUTIVA.
+        //
+        // Os cards de implementação nascem de um compromisso DURÁVEL por demanda, e esse
+        // compromisso fica deliberadamente adiado enquanto o Playbook não libera construção
+        // (`PlanMaterializationService`, `workflow.development_not_released`). Quem o cumpre é um
+        // reconciliador com ritmo próprio, independente deste ciclo — então existe uma janela real
+        // em que a fase já é executiva, os documentos dela estão todos aceitos e NENHUM card de
+        // implementação nasceu ainda. Sem esta guarda o portão aprovaria nessa janela, e a fase de
+        // Desenvolvimento fecharia com briefing técnico, code review e métricas escritos e nenhuma
+        // linha implementada — o desfecho exato que a esteira existe para impedir.
+        //
+        // O sinal é o compromisso, não a contagem de cards: contar cards confundiria "ainda não
+        // materializou" com "materializou e o trabalho é pequeno".
+        if (phase.Order >= ActivePhaseResolver.DevelopmentPhaseOrder)
+        {
+            foreach (var demand in demands.Where(item => !item.Internal))
+            {
+                var commitment = await _materializations.GetAsync(
+                    tenantId, demand.Id, cancellationToken);
+                if (commitment is not null && !string.Equals(
+                        commitment.Status, PlanMaterializationStatus.Completed, StringComparison.Ordinal))
+                {
+                    _failures.Add(
+                        $"phase:{phase.Key}:implementation_not_materialized:{demand.Id}");
+                }
+            }
         }
 
         // ---- PORTÃO: quem decide depende do MODO configurado pelo dono ----

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Harness.Modules.Agents.Application.Accounts;
+using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Agents.Application.Execution.External;
 using Harness.Modules.Agents.Contracts;
 
@@ -781,5 +782,56 @@ public sealed class ExternalAgentExecutorTests : IDisposable
             });
 
         Assert.Equal("https://api.z.ai/api/anthropic", environment["ANTHROPIC_BASE_URL"]);
+    }
+
+    /// <summary>
+    /// O limite de SESSÃO da assinatura veste o mesmo disfarce que a falta de credencial: a
+    /// CLI não emite código de cota — escreve "You've hit your session limit · resets 11:30am"
+    /// como texto do assistente, marca `is_error` e sai com 1. Sem sentinela isso virava
+    /// `exit_code_1`, que a classificação lê como TRANSITÓRIO — a conta seguia "disponível",
+    /// voltava à eleição a cada rodada e a esteira batia numa parede que só o relógio abre.
+    /// Medido em 03/08/2026: uma hora e meia sem um único token.
+    /// </summary>
+    [Fact]
+    public void TheSubscriptionSessionLimitIsQuotaAndNotATransientFailure()
+    {
+        var parser = new ClaudeCodeExternalAgentExecutor.ClaudeStreamJsonParser();
+
+        var failed = parser.ParseLine(
+            """{"type":"result","subtype":"error","is_error":true,"result":"You've hit your session limit · resets 11:30am (America/Sao_Paulo)"}""")
+            .Single();
+
+        Assert.Equal("executor.quota_exhausted", parser.FailureCode);
+        Assert.Equal(ExternalAgentEventKind.Failed, failed.Kind);
+    }
+
+    /// <summary>
+    /// E a cota tem de sobreviver à travessia até a política: é ela que manda a conta para
+    /// cooldown em vez de reelegê-la na rodada seguinte.
+    /// </summary>
+    [Fact]
+    public void ASessionLimitSendsTheAccountToCooldownInsteadOfBackToTheElection()
+    {
+        var outcome = AgentRunOutcomeClassifier.Classify(
+            ExternalAgentRunStatus.Failed, "executor.quota_exhausted");
+
+        Assert.Equal(AgentRunOutcomeKind.QuotaExhausted, outcome.Kind);
+        Assert.NotNull(outcome.SuggestedCooldown);
+    }
+
+    /// <summary>
+    /// O contrapeso: "limit" sozinho aparece em trabalho legítimo sobre limites, e um falso
+    /// positivo tira uma conta boa da eleição até o relógio virar.
+    /// </summary>
+    [Fact]
+    public void TalkingAboutLimitsIsNotHittingOne()
+    {
+        var parser = new ClaudeCodeExternalAgentExecutor.ClaudeStreamJsonParser();
+
+        _ = parser.ParseLine(
+            """{"type":"result","subtype":"success","is_error":false,"result":"Documentei o rate limit da API e o limite de upload."}""")
+            .ToArray();
+
+        Assert.Null(parser.FailureCode);
     }
 }
