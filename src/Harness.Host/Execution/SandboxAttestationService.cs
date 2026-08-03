@@ -45,6 +45,7 @@ public sealed class SandboxAttestationService(
     /// </summary>
     public async Task<SandboxAttestationRecord> AttestAsync(
         string tenantId, string projectId, string attemptId,
+        string? resourceSelector = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
@@ -56,7 +57,7 @@ public sealed class SandboxAttestationService(
                 tenantId, projectId, attemptId,
                 "Isolated execution is disabled on this host; no sandbox was created.", now)
             : await _provider.AttestAsync(
-                new SandboxAttestationRequest(tenantId, projectId, attemptId, now),
+                new SandboxAttestationRequest(tenantId, projectId, attemptId, now, resourceSelector),
                 cancellationToken);
 
         var record = await _store.SaveAsync(ToRecord(attestation), cancellationToken);

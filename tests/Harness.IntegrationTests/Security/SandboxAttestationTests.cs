@@ -31,7 +31,7 @@ public sealed class SandboxAttestationTests
         await using var fixture = await Fixture.StartAsync(timeout.Token);
         var service = fixture.Service(IsolatedExecutionMode.Disabled, provider: null);
 
-        var attestation = await service.AttestAsync(Tenant, Project, Attempt, timeout.Token);
+        var attestation = await service.AttestAsync(Tenant, Project, Attempt, cancellationToken: timeout.Token);
 
         // A ausência vira FATO gravado — não um silêncio que cada leitor interpreta como quiser.
         Assert.False(attestation.Verified);
@@ -51,7 +51,7 @@ public sealed class SandboxAttestationTests
         await using var fixture = await Fixture.StartAsync(timeout.Token);
         var service = fixture.Service(IsolatedExecutionMode.Fake, new FakeSandboxProvider());
 
-        var attestation = await service.AttestAsync(Tenant, Project, Attempt, timeout.Token);
+        var attestation = await service.AttestAsync(Tenant, Project, Attempt, cancellationToken: timeout.Token);
         Assert.True(attestation.Verified);
         Assert.Equal("fake", attestation.Provider);
         Assert.True(await service.IsSandboxActiveAsync(Tenant, Attempt, timeout.Token));
@@ -74,7 +74,7 @@ public sealed class SandboxAttestationTests
             IsolatedExecutionMode.Docker,
             new HalfContainedProvider());
 
-        var attestation = await service.AttestAsync(Tenant, Project, Attempt, timeout.Token);
+        var attestation = await service.AttestAsync(Tenant, Project, Attempt, cancellationToken: timeout.Token);
         Assert.False(attestation.Verified);
         Assert.False(await service.IsSandboxActiveAsync(Tenant, Attempt, timeout.Token));
         Assert.False(Evaluate(sandboxActive: false).Allowed);
@@ -86,11 +86,11 @@ public sealed class SandboxAttestationTests
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         await using var fixture = await Fixture.StartAsync(timeout.Token);
         var disabled = fixture.Service(IsolatedExecutionMode.Disabled, provider: null);
-        await disabled.AttestAsync(Tenant, Project, Attempt, timeout.Token);
+        await disabled.AttestAsync(Tenant, Project, Attempt, cancellationToken: timeout.Token);
 
         // Uma segunda emissão "melhor" não pode reescrever a avaliação da execução em curso.
         var later = fixture.Service(IsolatedExecutionMode.Fake, new FakeSandboxProvider());
-        var second = await later.AttestAsync(Tenant, Project, Attempt, timeout.Token);
+        var second = await later.AttestAsync(Tenant, Project, Attempt, cancellationToken: timeout.Token);
 
         Assert.False(second.Verified);
         Assert.Equal(SandboxAttestation.NoneProvider, second.Provider);
@@ -103,7 +103,7 @@ public sealed class SandboxAttestationTests
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         await using var fixture = await Fixture.StartAsync(timeout.Token);
         var service = fixture.Service(IsolatedExecutionMode.Disabled, provider: null);
-        await service.AttestAsync(Tenant, Project, Attempt, timeout.Token);
+        await service.AttestAsync(Tenant, Project, Attempt, cancellationToken: timeout.Token);
 
         // Decisão do proprietário (31/07/2026): o contêiner é pré-requisito nos DOIS modos. Não
         // existe mais aceite de risco que dispense a sandbox — uma exceção "temporária" que o

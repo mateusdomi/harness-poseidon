@@ -2544,15 +2544,31 @@ public sealed partial class ChiefBacklogLoopService(
         {
             token.ThrowIfCancellationRequested();
             var attempts = await board.ListAttemptsAsync(tenantId, task.Id, null, 100, token);
+            // Reprovação de review tem state 'rejected' — contar 'failed' fazia a mensagem
+            // dizer "reprovou 0 vezes" sobre um card reprovado duas (OPS-025, prova limpa).
             var rejected = attempts.Count(attempt =>
-                string.Equals(attempt.State, "failed", StringComparison.Ordinal));
-            var findings = "(o review não registrou achados estruturados)";
-            if (attempts.Count > 0)
+                string.Equals(attempt.State, "rejected", StringComparison.Ordinal));
+            // Os achados valem da tentativa que os PRODUZIU, não da última: quando a mais
+            // recente morreu por infraestrutura (cancelamento, cota), a nota do review fica
+            // na anterior — e sem ela o dono era chamado a decidir às cegas.
+            string? findings = null;
+            foreach (var attempt in attempts.Reverse().Take(5))
             {
-                var events = await board.ListAttemptEventsAsync(tenantId, attempts[^1].Id, null, 50, token);
+                var events = await board.ListAttemptEventsAsync(tenantId, attempt.Id, null, 50, token);
                 findings = events.LastOrDefault(entry =>
-                    string.Equals(entry.Kind, "note", StringComparison.Ordinal))?.Content ?? findings;
+                    string.Equals(entry.Kind, "note", StringComparison.Ordinal) &&
+                    !string.IsNullOrWhiteSpace(entry.Content))?.Content;
+                if (findings is not null)
+                {
+                    break;
+                }
             }
+
+            // Sem achado estruturado, o motivo canônico da escalação (blocked_reason) ainda é
+            // melhor que o placeholder vazio: ele diz POR QUE o card parou.
+            findings ??= string.IsNullOrWhiteSpace(task.BlockedReason)
+                ? "(o review não registrou achados estruturados)"
+                : task.BlockedReason;
 
             var content =
                 $"{EscalationMarker} **{task.Title}**.\n\n" +

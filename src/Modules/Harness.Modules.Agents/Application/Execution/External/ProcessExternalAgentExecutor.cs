@@ -15,6 +15,7 @@ public abstract class ProcessExternalAgentExecutor : IExternalAgentExecutor
 {
     private readonly AccountProfileProvisioner _profiles;
     private readonly ExecutorProbe _probe;
+    private SandboxedCommand? _sandbox;
 
     protected ProcessExternalAgentExecutor(
         ExecutorProfile profile, AccountProfileProvisioner profiles, ExecutorProbe? probe = null)
@@ -22,6 +23,33 @@ public abstract class ProcessExternalAgentExecutor : IExternalAgentExecutor
         Profile = profile ?? throw new ArgumentNullException(nameof(profile));
         _profiles = profiles ?? throw new ArgumentNullException(nameof(profiles));
         _probe = probe ?? new ExecutorProbe();
+    }
+
+    /// <summary>
+    /// Comando de sandbox resolvido: executável do host (o cliente <c>docker</c>), argumentos de
+    /// prefixo (o <c>docker exec …</c> completo), os valores de ambiente que o contêiner herda
+    /// por <c>--env NOME</c> e os caminhos DE DENTRO do contêiner. Primitivos em vez do tipo do
+    /// plano para o módulo de agentes não depender do módulo de execução.
+    /// </summary>
+    public sealed record SandboxedCommand(
+        string HostExecutablePath,
+        IReadOnlyList<string> ExecutablePrefixArguments,
+        IReadOnlyDictionary<string, string>? ContainerEnvironment,
+        /// <summary>O workdir do agente no contêiner (a worktree montada).</summary>
+        string AgentWorkingDirectory,
+        /// <summary>O volume de estado gravável do contêiner.</summary>
+        string ContainerStateDirectory);
+
+    /// <summary>
+    /// Liga o executor a uma sessão de sandbox já aberta: o processo hospedado passa a ser o
+    /// <c>docker run</c> do plano, e os argumentos da CLI são acrescentados depois do prefixo.
+    /// A autenticação e o ambiente chegam ao contêiner pela sessão (montagem somente-leitura +
+    /// <c>--env</c> sem valor no argv) — nunca por argumento nem por log.
+    /// </summary>
+    public void AttachSandbox(SandboxedCommand sandbox)
+    {
+        ArgumentNullException.ThrowIfNull(sandbox);
+        _sandbox = sandbox;
     }
 
     public ExecutorProfile Profile { get; }
@@ -60,25 +88,34 @@ public abstract class ProcessExternalAgentExecutor : IExternalAgentExecutor
         ArgumentNullException.ThrowIfNull(request);
         Validate(request);
 
+        var effectiveRequest = ResolveSandboxedRequest(request, _sandbox);
         var context = new ExternalAgentRunContext(
             RunId: $"run-{Guid.NewGuid():N}",
-            LastMessagePath: Path.Combine(
-                request.Profile.SessionStorePath, $"last-message-{Guid.NewGuid():N}.txt"));
+            LastMessagePath: ResolveLastMessagePath(
+                request, _sandbox, $"last-message-{Guid.NewGuid():N}.txt"));
 
-        var arguments = BuildArguments(request, context);
+        var arguments = BuildArguments(effectiveRequest, context);
         GuardArguments(arguments);
 
         var promptAsArgument = PromptDelivery == ExternalPromptDelivery.PositionalArgument;
 
         var startInfo = new ProcessStartInfo
         {
-            FileName = Profile.Command,
+            FileName = _sandbox?.HostExecutablePath ?? Profile.Command,
             WorkingDirectory = request.WorkingDirectory,
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
         };
+
+        if (_sandbox is { } sandbox)
+        {
+            foreach (var argument in sandbox.ExecutablePrefixArguments)
+            {
+                startInfo.ArgumentList.Add(argument);
+            }
+        }
 
         foreach (var argument in arguments)
         {
@@ -101,9 +138,34 @@ public abstract class ProcessExternalAgentExecutor : IExternalAgentExecutor
         // Ambiente ZERADO e remontado pela allowlist do perfil isolado: a conta nunca herda
         // credencial de outra conta nem variável não declarada.
         startInfo.Environment.Clear();
-        foreach (var entry in _profiles.BuildEnvironment(request.Profile, Profile))
+        if (_sandbox is not null)
         {
-            startInfo.Environment[entry.Key] = entry.Value;
+            // Sandbox: o processo hospedado é o CLIENTE docker. Ele precisa do mínimo de
+            // identidade para rodar (PATH/HOME) e dos valores que o prefixo declarou como
+            // `--env NOME` — o docker os encaminha ao contêiner. A montagem do ambiente por
+            // allowlist do perfil não se aplica aqui: quem define o ambiente do contêiner é
+            // a sessão de sandbox, no momento em que ela é aberta.
+            foreach (var inherited in new[] { "PATH", "HOME", "USER", "LANG", "DOCKER_HOST" })
+            {
+                var inheritedValue = Environment.GetEnvironmentVariable(inherited);
+                if (!string.IsNullOrEmpty(inheritedValue))
+                {
+                    startInfo.Environment[inherited] = inheritedValue;
+                }
+            }
+
+            foreach (var entry in _sandbox.ContainerEnvironment ??
+                (IReadOnlyDictionary<string, string>)new Dictionary<string, string>())
+            {
+                startInfo.Environment[entry.Key] = entry.Value;
+            }
+        }
+        else
+        {
+            foreach (var entry in _profiles.BuildEnvironment(request.Profile, Profile))
+            {
+                startInfo.Environment[entry.Key] = entry.Value;
+            }
         }
 
         var process = Process.Start(startInfo)
@@ -140,6 +202,25 @@ public abstract class ProcessExternalAgentExecutor : IExternalAgentExecutor
 
         return session;
     }
+
+    /// <summary>
+    /// Com sandbox, os caminhos que a CLI recebe são os DE DENTRO do contêiner: a worktree é o
+    /// workdir do plano. Um caminho do host não existe lá dentro (observado ao vivo: o codex
+    /// falhou o turno tentando gravar a mensagem final no session store do host).
+    /// </summary>
+    internal static ExternalAgentRunRequest ResolveSandboxedRequest(
+        ExternalAgentRunRequest request, SandboxedCommand? sandbox) =>
+        sandbox is null ? request : request with { WorkingDirectory = sandbox.AgentWorkingDirectory };
+
+    /// <summary>
+    /// O arquivo de mensagem final mora no volume de estado do contêiner quando há sandbox. O
+    /// parser do host não o encontra e cai no fallback do stream, que já carrega a mensagem.
+    /// </summary>
+    internal static string ResolveLastMessagePath(
+        ExternalAgentRunRequest request, SandboxedCommand? sandbox, string fileName) =>
+        sandbox is null
+            ? Path.Combine(request.Profile.SessionStorePath, fileName)
+            : $"{sandbox.ContainerStateDirectory}/{fileName}";
 
     private void Validate(ExternalAgentRunRequest request)
     {

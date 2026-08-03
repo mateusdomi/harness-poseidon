@@ -213,6 +213,49 @@ public sealed class ExternalAgentExecutorTests : IDisposable
     }
 
     [Fact]
+    public void ClaudeAuthFailureInTheResultTextBecomesTheStructuredAuthCode()
+    {
+        // A falta de credencial chega no TEXTO do resultado (stdout em stream-json), não no
+        // erro padrão — dentro do contêiner a credencial do Keychain não existe e a CLI diz
+        // exatamente isto. Sem a tradução para o código estruturado, a conta caía como
+        // transitória e queimava o circuito de cards saudáveis.
+        var parser = new ClaudeCodeExternalAgentExecutor.ClaudeStreamJsonParser();
+
+        var failed = Assert.Single(parser.ParseLine(
+            """{"type":"result","subtype":"error_during_execution","is_error":true,"result":"Not logged in · Please run /login"}""")
+            .ToArray());
+
+        Assert.Equal(ExternalAgentEventKind.Failed, failed.Kind);
+        Assert.Equal("executor.authentication_required", parser.FailureCode);
+    }
+
+    [Fact]
+    public void SandboxedExecutionRewritesHostPathsToContainerPaths()
+    {
+        var provisioner = new AccountProfileProvisioner(_root);
+        var handle = Provision(provisioner, "worker-codex-frontend", ExecutorCatalog.Codex);
+        var request = Request(handle);
+        var sandbox = new ProcessExternalAgentExecutor.SandboxedCommand(
+            "/usr/local/bin/docker",
+            ["exec", "--interactive", "harness-sandbox-wsp-x", "sh", "-c", "b", "sh", "codex"],
+            null,
+            "/workspace",
+            "/codex-state");
+
+        var effective = ProcessExternalAgentExecutor.ResolveSandboxedRequest(request, sandbox);
+        var lastMessage = ProcessExternalAgentExecutor.ResolveLastMessagePath(
+            request, sandbox, "last-message-test.txt");
+
+        Assert.Equal("/workspace", effective.WorkingDirectory);
+        Assert.Equal("/codex-state/last-message-test.txt", lastMessage);
+        // Sem sandbox, nada muda — os caminhos do host seguem valendo.
+        Assert.Same(request, ProcessExternalAgentExecutor.ResolveSandboxedRequest(request, null));
+        Assert.Equal(
+            Path.Combine(handle.Layout.SessionStorePath, "last-message-test.txt"),
+            ProcessExternalAgentExecutor.ResolveLastMessagePath(request, null, "last-message-test.txt"));
+    }
+
+    [Fact]
     public void GlmContradictorySuccessEnvelopeDoesNotDiscardCompletedWork()
     {
         var parser = new ClaudeCodeExternalAgentExecutor.ClaudeStreamJsonParser();

@@ -94,7 +94,16 @@ public sealed class GitWorktreeManager : IDisposable
 
             if (Directory.Exists(destination) || File.Exists(destination))
             {
-                throw new InvalidOperationException("The worktree destination exists but is not registered by Git.");
+                // Um diretório VAZIO não é trabalho de ninguém: é o ponto de montagem que a
+                // sandbox precisa ver antes de o Git criar a worktree (a abertura da sessão
+                // acontece antes da preparação para a attestation ter um contêiner vivo).
+                // Cheio e não registrado continua proibido — sobrescrever trabalho alheio,
+                // não.
+                if (File.Exists(destination) ||
+                    Directory.EnumerateFileSystemEntries(destination).Any())
+                {
+                    throw new InvalidOperationException("The worktree destination exists but is not registered by Git.");
+                }
             }
 
             var branchExists = await RunGitAsync(

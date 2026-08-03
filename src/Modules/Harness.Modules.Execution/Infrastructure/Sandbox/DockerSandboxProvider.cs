@@ -80,6 +80,24 @@ public sealed partial class DockerSandboxProvider : ISandboxProvider
                         cancellationToken));
             }
 
+            // Volumes nascem do daemon com dono root; o contêiner do agente roda como UID 10001
+            // (decisão das imagens, para a worktree ter dono previsível) e não conseguiria gravar
+            // o próprio estado — EACCES no primeiro mkdir. Um init one-shot como root ajusta o
+            // dono ANTES de a sandbox subir; o contêiner do agente segue sem privilégio.
+            EnsureSuccess(
+                "chown the process volumes to the sandbox user",
+                await RunDockerAsync(
+                    [
+                        "run", "--rm", "--entrypoint", "sh", "--user", "0:0",
+                        "--label", ManagedLabel,
+                        "--label", attemptLabel,
+                        "--mount", $"type=volume,source={cacheVolume},target=/cache",
+                        "--mount", $"type=volume,source={stateVolume},target=/codex-state",
+                        request.AgentImageName,
+                        "-c", "chown 10001:10001 /cache /codex-state",
+                    ],
+                    cancellationToken));
+
             EnsureSuccess(
                 "start the process egress proxy",
                 await RunDockerAsync(
@@ -110,9 +128,16 @@ public sealed partial class DockerSandboxProvider : ISandboxProvider
 
             var worktreeMount =
                 $"type=bind,source={Path.GetFullPath(request.WorktreePath)},target=/workspace";
-            var prefixArguments = new List<string>
+
+            // O contêiner da sandbox é criado VIVO e OCIOSO na abertura da sessão — e não no
+            // spawn do agente — por uma razão de ordem: a attestation precisa de um contêiner
+            // real para inspecionar ANTES de autorizar as ferramentas da tentativa. Um
+            // `docker run` adiado para o spawn deixava a attestation sem objeto (ela resolvia
+            // `unverified:none` e toda persona com ferramentas era recusada), e atestar antes
+            // de criar seria atestar uma intenção, não uma fronteira.
+            var createArguments = new List<string>
             {
-                "run", "--interactive", "--rm",
+                "run", "--detach", "--rm",
                 "--name", sandboxContainer,
                 "--label", ManagedLabel,
                 "--label", attemptLabel,
@@ -133,9 +158,51 @@ public sealed partial class DockerSandboxProvider : ISandboxProvider
                 "--memory", request.MemoryBytes.ToString(CultureInfo.InvariantCulture),
                 "--cpus", request.CpuLimit.ToString(CultureInfo.InvariantCulture),
                 "--pids-limit", request.PidsLimit.ToString(CultureInfo.InvariantCulture),
-                request.AgentImageName,
-                request.ContainerExecutable,
             };
+
+            // O config home ISOLADO da conta entra somente-leitura em /account-config e é
+            // copiado para o volume de estado gravável no arranque do agente: a autenticação
+            // chega ao contêiner sem segredo em camada de imagem, e o CLI continua podendo
+            // gravar sessão.
+            if (request.AccountConfigHomePath is { Length: > 0 } configHome)
+            {
+                createArguments.Add("--mount");
+                createArguments.Add(
+                    $"type=bind,source={Path.GetFullPath(configHome)},target=/account-config,readonly");
+            }
+
+            // Ambiente do contêiner: no argv vai SÓ o nome da variável (`--env NOME`); o valor
+            // é entregue ao processo cliente no momento da criação (RunDockerAsync abaixo).
+            // `--env NOME=valor` colocaria credencial na tabela de processos.
+            foreach (var name in (request.ContainerEnvironment?.Keys ?? Enumerable.Empty<string>()))
+            {
+                createArguments.Add("--env");
+                createArguments.Add(name);
+            }
+
+            // `--entrypoint sh`: a imagem pode definir um ENTRYPOINT próprio (o serviço de
+            // sandbox do PoC, por exemplo) — sem o override, o comando ocioso viraria argumento
+            // do serviço, que morreria de imediato e levaria o contêiner (--rm) junto.
+            createArguments.Add("--entrypoint");
+            createArguments.Add("sh");
+            createArguments.Add(request.AgentImageName);
+            createArguments.AddRange("-c", "while :; do sleep 3600; done");
+            EnsureSuccess(
+                "start the idle sandbox container",
+                await RunDockerAsync(createArguments, cancellationToken, request.ContainerEnvironment));
+
+            // O agente entra DEPOIS, por `docker exec`: o argv final vira
+            // `sh -c '<bootstrap>; exec "$@"' sh <cli> <args...>` — o bootstrap hidrata o
+            // estado gravável a partir do config home montado e o `exec` entrega o processo
+            // ao CLI com os argumentos do executor intactos (stdin/stdou via -i).
+            var prefixArguments = new List<string>
+            {
+                "exec", "--interactive", sandboxContainer,
+                "sh", "-c",
+                "if [ -d /account-config ]; then cp -a /account-config/. /codex-state/ 2>/dev/null || true; fi; exec \"$@\"",
+                "sh", request.ContainerExecutable,
+            };
+
             var plan = new SandboxProcessPlan(
                 _dockerExecutable,
                 prefixArguments,
@@ -341,7 +408,8 @@ public sealed partial class DockerSandboxProvider : ISandboxProvider
         SandboxResourceInventory inventory;
         try
         {
-            inventory = await DetectResourcesAsync(request.AttemptId, cancellationToken);
+            inventory = await DetectResourcesAsync(
+                request.ResourceSelector ?? request.AttemptId, cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -351,7 +419,16 @@ public sealed partial class DockerSandboxProvider : ISandboxProvider
                 request.IssuedAt);
         }
 
-        var container = inventory.Containers.Count > 0 ? inventory.Containers[0] : null;
+        // O inventário traz TODOS os recursos do rótulo — proxy, alvo e sandbox. A fronteira
+        // que interessa à política é a do contêiner onde o agente roda; atestar o proxy (a
+        // ordenação alfabética o colocaria primeiro) mediria a caixa errada.
+        var selector = request.ResourceSelector ?? request.AttemptId;
+        var container = inventory.Containers.Count > 0
+            ? inventory.Containers.FirstOrDefault(
+                  name => string.Equals(
+                      name, $"harness-sandbox-{selector}", StringComparison.Ordinal)) ??
+                inventory.Containers[0]
+            : null;
         if (container is null)
         {
             return SandboxAttestation.Absent(
@@ -376,11 +453,18 @@ public sealed partial class DockerSandboxProvider : ISandboxProvider
                 request.IssuedAt);
         }
 
-        // `none` é a única política de rede que nega egresso por construção. Qualquer outra —
-        // inclusive uma rede dedicada com proxy — precisa ser provada separadamente antes de ser
-        // aceita como restrita, e por isso não é aceita aqui.
+        // `none` nega egresso por construção. A arquitetura de SESSÃO usa outra fronteira
+        // equivalente: o contêiner é ligado somente a uma rede `--internal` (sem gateway para
+        // fora) cujo único outro membro é o proxy gerenciado — o egresso possível passa pela
+        // allowlist do proxy. A prova é o flag Internal da própria rede, lido do runtime,
+        // não a configuração que pedimos.
         var egressRestricted = string.Equals(
             inspection.NetworkMode, "none", StringComparison.OrdinalIgnoreCase);
+        if (!egressRestricted && InternalNetworkName().IsMatch(inspection.NetworkMode))
+        {
+            egressRestricted = await IsInternalNetworkAsync(
+                inspection.NetworkMode, cancellationToken);
+        }
         var limitsApplied = inspection.MemoryBytes > 0 && inspection.CpuLimit > 0 &&
             inspection.PidsLimit > 0;
         var verified = inspection.RootFilesystemReadOnly && egressRestricted && limitsApplied;
@@ -403,6 +487,28 @@ public sealed partial class DockerSandboxProvider : ISandboxProvider
                 : $"Container '{container}' does not satisfy the boundary: rootfsReadOnly={inspection.RootFilesystemReadOnly}, network='{inspection.NetworkMode}', limits={limitsApplied}.",
             request.IssuedAt);
     }
+
+    private async Task<bool> IsInternalNetworkAsync(
+        string networkName,
+        CancellationToken cancellationToken)
+    {
+        // O nome vem da inspeção do contêiner e é validado antes de virar argumento.
+        if (!InternalNetworkName().IsMatch(networkName))
+        {
+            return false;
+        }
+
+        var result = await RunDockerAsync(
+            ["network", "inspect", networkName, "--format", "{{.Internal}}"], cancellationToken);
+        return result.ExitCode == 0 &&
+            string.Equals(result.StandardOutput.Trim(), "true", StringComparison.OrdinalIgnoreCase);
+    }
+
+    [GeneratedRegex("^harness-internal-[a-z0-9-]+$", RegexOptions.CultureInvariant)]
+    private static partial Regex InternalNetworkName();
+
+    [GeneratedRegex("^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.CultureInvariant)]
+    private static partial Regex EnvironmentVariableName();
 
     private async Task<SandboxInspection> InspectSandboxAsync(
         string containerName,
@@ -465,7 +571,8 @@ public sealed partial class DockerSandboxProvider : ISandboxProvider
 
     private async Task<DockerCommandResult> RunDockerAsync(
         IReadOnlyList<string> arguments,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyDictionary<string, string>? environment = null)
     {
         var startInfo = new ProcessStartInfo
         {
@@ -478,6 +585,16 @@ public sealed partial class DockerSandboxProvider : ISandboxProvider
         foreach (var argument in arguments)
         {
             startInfo.ArgumentList.Add(argument);
+        }
+
+        if (environment is not null)
+        {
+            // Valores entregues ao processo cliente (o argv levou só `--env NOME`): é assim
+            // que uma credencial chega ao contêiner sem aparecer na tabela de processos.
+            foreach (var entry in environment)
+            {
+                startInfo.Environment[entry.Key] = entry.Value;
+            }
         }
 
         using var process = Process.Start(startInfo)
@@ -509,6 +626,26 @@ public sealed partial class DockerSandboxProvider : ISandboxProvider
         ValidateImageName(request.ProxyImageName);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.ProxyCommand);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.ContainerExecutable);
+        if (request.AccountConfigHomePath is { Length: > 0 } configHome &&
+            !Directory.Exists(configHome))
+        {
+            throw new DirectoryNotFoundException(
+                $"The account config home to mount was not found: {configHome}");
+        }
+
+        if (request.ContainerEnvironment is { } environment)
+        {
+            foreach (var name in environment.Keys)
+            {
+                if (!EnvironmentVariableName().IsMatch(name))
+                {
+                    throw new ArgumentException(
+                        $"Invalid container environment variable name: {name}",
+                        nameof(request));
+                }
+            }
+        }
+
         ValidateResourceLimits(
             request.ExecutionRoot,
             request.WorktreePath,

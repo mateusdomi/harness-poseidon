@@ -604,7 +604,9 @@ public static class HostApplication
                 services.GetRequiredService<ExecutionCheckpointService>(),
                 services.GetRequiredService<Harness.Host.Governance.PromotedSkillProvider>(),
                 services.GetRequiredService<IAgentCatalogStore>(),
-                services.GetRequiredService<ILogger<AgentRunOrchestrator>>()));
+                services.GetRequiredService<IsolatedExecutionSettings>(),
+                services.GetRequiredService<ILogger<AgentRunOrchestrator>>(),
+                services.GetService<ISandboxProvider>()));
             // A mesma instância singleton governa o shutdown: cancela tokens, mata as árvores das
             // CLIs e aguarda a finalização durável antes que os stores sejam descartados.
             builder.Services.AddHostedService(services =>

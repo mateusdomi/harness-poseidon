@@ -1,8 +1,8 @@
 {
   "operation": "poseidon-final-validation",
   "schemaVersion": 1,
-  "updatedAt": "2026-08-03T00:05:00Z",
-  "updatedBy": "integrator",
+  "updatedAt": "2026-08-03T01:35:00Z",
+  "updatedBy": "integrator-kimi",
   "branch": "develop",
   "baselineCommit": "a25bb1ff",
   "headCommit": "54dc03f9",
@@ -42,7 +42,11 @@
   },
   "metricsInstrumented": false,
   "metricsNote": "Custo, tokens, invocacoes e transient-failure-waste NAO foram instrumentados (SPEC 31/32). Nao inventar numeros: reportar como nao medido ate existir coleta real.",
-  "nextAction": "OPS-023 (bloqueador critico): ligar a execucao isolada ao caminho de run — attestation e emitida antes de o conteiner existir e o AgentRunOrchestrator nunca cria conteiner; sem isto toda persona com ferramentas e recusada (sandbox_required) e a fase 5 nao executa.",
-  "humanDecisionRequired": false,
-  "externalBlockers": []
+  "nextAction": "E2E limpo na fase 3 com 7 cards prontos e zero escalados, mas SEM CONTA APTA a executar: glm com cota semanal ate 06/08 (OPS-028), codex com plano recusando todos os modelos (OPS-029), claude-secondary sem credencial alcancavel no conteiner (OPS-030). Execucao isolada provada ponta a ponta ate o provedor. Quando uma conta voltar, o despacho retoma sozinho.",
+  "humanDecisionRequired": true,
+  "externalBlockers": [
+    "OPS-030: contas claude sem credencial dentro do conteiner — decidir extracao do OAuth do Keychain, ANTHROPIC_API_KEY ou frota reduzida",
+    "OPS-029: conta codex/ChatGPT recusa todos os modelos do CLI 0.44.0 — verificar plano ou atualizar CLI/modelo",
+    "OPS-028: GLM com cota semanal ate 2026-08-06 10:11 UTC — aguardar ou provisionar outra conta"
+  ]
 }

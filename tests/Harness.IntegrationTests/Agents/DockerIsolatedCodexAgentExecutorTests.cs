@@ -84,7 +84,12 @@ public sealed class DockerIsolatedCodexAgentExecutorTests
                     ChiefTurnOutputContract.Parse(result.StructuredOutput).Response);
                 Assert.True(File.Exists(Path.Combine(worktree, "docker-codex-ran.txt")));
                 var inventory = await provider.DetectResourcesAsync(attemptId, timeout.Token);
-                Assert.Single(inventory.Containers);
+                // Proxy E sandbox vivos durante a sessão inteira: o contêiner do agente agora
+                // existe antes da execução — é o que permite à attestation inspecionar a
+                // fronteira real em vez de uma intenção.
+                Assert.Equal(2, inventory.Containers.Count);
+                Assert.Contains(inventory.Containers, name => name.StartsWith(
+                    "harness-sandbox-", StringComparison.Ordinal));
                 Assert.Equal(2, inventory.Networks.Count);
                 Assert.Equal(2, inventory.Volumes.Count);
                 Assert.Single(inventory.Images);

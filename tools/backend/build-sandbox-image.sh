@@ -15,11 +15,19 @@ readonly TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPOSITORY_ROOT="$(cd "${TOOLS_DIR}/../.." && pwd)"
 readonly CONTEXT="${REPOSITORY_ROOT}/infra/sandbox/agent"
 readonly IMAGE="${HARNESS_SANDBOX_IMAGE:-harness-sandbox-agent:latest}"
+readonly PROXY_CONTEXT="${REPOSITORY_ROOT}/infra/sandbox/proxy"
+readonly PROXY_IMAGE="${HARNESS_SANDBOX_PROXY_IMAGE:-harness-sandbox-proxy:latest}"
 
 if ! docker version --format '{{.Server.Version}}' >/dev/null 2>&1; then
   echo "Preciso do Docker para construir a imagem — instale ou inicie o Docker e me chame de novo." >&2
   exit 3
 fi
+
+# O proxy de egresso é a única porta de saída das sandboxes: sem a imagem dele toda sessão
+# falha ao abrir (`sandbox.unavailable`) — e, como antes com a imagem do agente, nada dizia
+# que ela era sequer necessária.
+echo "Construindo ${PROXY_IMAGE} a partir de ${PROXY_CONTEXT}…"
+docker build --tag "${PROXY_IMAGE}" "${PROXY_CONTEXT}"
 
 echo "Construindo ${IMAGE} a partir de ${CONTEXT}…"
 docker build --tag "${IMAGE}" "${CONTEXT}"
@@ -48,3 +56,28 @@ docker run --rm --network=none --read-only \
   "${IMAGE}" python3 /opt/harness/artifact_extract_selftest.py
 
 echo "Imagem ${IMAGE} pronta."
+
+# Verificação de que o proxy SERVE: um destino fora da allowlist precisa receber 403 — um
+# proxy que aceita tudo é pior que nenhum, porque daria aparência de fronteira sem fronteira
+# nenhuma. O cliente de teste é a própria imagem (python), sem dependência nova.
+echo "Verificando o proxy de egresso…"
+docker run --detach --rm --name harness-proxy-selftest "${PROXY_IMAGE}" >/dev/null
+sleep 1
+denied="$(docker run --rm --network container:harness-proxy-selftest \
+  --entrypoint python "${PROXY_IMAGE}" -c "
+import urllib.request
+opener = urllib.request.build_opener(
+    urllib.request.ProxyHandler({'https': 'http://127.0.0.1:8080'}))
+try:
+    opener.open('https://example.com/', timeout=5)
+    print('ALLOWED')
+except Exception as exc:
+    print('403' if '403' in str(exc) else f'ERROR:{exc}')
+" 2>/dev/null || true)"
+docker rm --force harness-proxy-selftest >/dev/null 2>&1 || true
+if [[ "${denied}" != "403" ]]; then
+  echo "O proxy não negou um destino fora da allowlist (resposta: '${denied}')." >&2
+  exit 5
+fi
+
+echo "Imagem ${PROXY_IMAGE} pronta e negando destino fora da allowlist."

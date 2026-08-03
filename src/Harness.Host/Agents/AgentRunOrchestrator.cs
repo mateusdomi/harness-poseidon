@@ -25,6 +25,7 @@ using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Providers;
 using Harness.SharedKernel.Time;
 using Harness.Host.Execution;
+using Harness.Modules.Execution.Application.Sandbox;
 using Harness.Persistence.Abstractions.Execution;
 
 namespace Harness.Host.Agents;
@@ -61,9 +62,12 @@ public sealed partial class AgentRunOrchestrator(
     ExecutionCheckpointService checkpoints,
     Harness.Host.Governance.PromotedSkillProvider promotedSkills,
     IAgentCatalogStore personas,
-    ILogger<AgentRunOrchestrator> logger) : IHostedService
+    IsolatedExecutionSettings isolatedSettings,
+    ILogger<AgentRunOrchestrator> logger,
+    ISandboxProvider? sandboxProvider = null) : IHostedService
 {
     private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
+    private readonly IsolatedExecutionOptions isolatedOptions = isolatedSettings.ToOptions();
 
     [LoggerMessage(Level = LogLevel.Error,
         Message = "Agent run {AttemptId} terminou fora do caminho normal ({ErrorType}); reconciliando o estado durável.")]
@@ -93,6 +97,15 @@ public sealed partial class AgentRunOrchestrator(
                   "{Outcome}. Diagnóstico do executor: {Diagnostic}")]
     private static partial void LogRunFailureDiagnostic(
         ILogger logger, string attemptId, string alias, string failureCode, string outcome, string diagnostic);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Agent run {AttemptId} falhou no orquestrador ({ErrorType}): {Detail}")]
+    private static partial void LogRunOrchestratorException(
+        ILogger logger, string attemptId, string errorType, string detail);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Agent run {AttemptId}: sandbox NÃO abriu ({ErrorType}); run recusado como sandbox.unavailable.")]
+    private static partial void LogSandboxOpenFailure(ILogger logger, string attemptId, string errorType);
 
     private readonly ConcurrentDictionary<string, LiveRun> _live = new(StringComparer.Ordinal);
     private int _acceptingRuns = 1;
@@ -316,18 +329,6 @@ public sealed partial class AgentRunOrchestrator(
             return Rejected(runId, command, "executor.adapter_not_implemented", account.ExecutorId);
         }
 
-        // Fase 0B1 (BR-002): a evidência de contenção precisa existir ANTES da autorização. Emitir
-        // a attestation aqui é o que permite negar por FATO — antes, a política recebia
-        // `SandboxActive: true` por literal e autorizava ferramenta crítica sem sandbox nenhuma.
-        var attestation = await sandboxAttestations.AttestAsync(
-            command.TenantId, command.ProjectId, command.AttemptId, cancellationToken);
-        var toolDecision = await AuthorizeRequiredToolsAsync(
-            command, attestation, cancellationToken);
-        if (!toolDecision.Allowed)
-        {
-            return Rejected(runId, command, toolDecision.Code, account.ExecutorId);
-        }
-
         // 2b. Disponibilidade DURÁVEL: uma conta em cota/cooldown/login não recebe trabalho até
         // voltar. Isso evita queimar tentativas numa conta que já sabemos indisponível — o
         // agendador a reabilita quando a janela reseta.
@@ -391,12 +392,96 @@ public sealed partial class AgentRunOrchestrator(
                 $"workspace.{acquired.Status}".ToLowerInvariant());
         }
 
+        // 4b. A sandbox abre AQUI — depois da aquisição, antes do Accepted — por duas razões de
+        // ordem. A autorização de ferramentas exige a attestation de um contêiner VIVO (antes
+        // disto ela era emitida sem contêiner nenhum, resolvia `unverified:none` e toda persona
+        // com ferramentas era recusada com `sandbox_required`); e a recusa precisa chegar
+        // SÍNCRONA ao despachante, que aplica backoff — uma recusa assíncrona reabriria o card
+        // no ciclo seguinte e faria a fábrica girar criando redes e contêineres para nada.
+        var executor = executors.Create(account.ExecutorId);
+        ISandboxProcessSession? sandboxSession = null;
+        // Docker é a fronteira REAL: o processo do agente passa a viver no contêiner. O modo
+        // Fake atesta a fronteira por simulação mas executa no host — é a costura de teste do
+        // fluxo isolado, e tratá-lo como Docker transformaria o executor num `/usr/bin/true`.
+        if (isolatedSettings.Mode == IsolatedExecutionMode.Docker && sandboxProvider is not null)
+        {
+            if (executor is not ProcessExternalAgentExecutor processExecutor)
+            {
+                profiles.ReleaseLock(command.AccountAlias, accountLock.FencingToken);
+                return Rejected(runId, command, "executor.sandbox_unsupported", account.ExecutorId);
+            }
+
+            var sandboxLabel = IsolatedAttemptOrchestrator.SandboxAttemptLabel(command.AttemptId);
+            try
+            {
+                // O git cria a worktree DEPOIS, neste mesmo caminho — o diretório precisa existir
+                // para a montagem; `git worktree add` aceita (e exige) o diretório vazio.
+                Directory.CreateDirectory(command.WorktreePath);
+                sandboxSession = await sandboxProvider.OpenProcessSessionAsync(
+                    new SandboxProcessRequest(
+                        sandboxLabel,
+                        System.IO.Path.GetFullPath(command.ControlledRoot),
+                        command.WorktreePath,
+                        isolatedOptions.AgentImageName,
+                        isolatedOptions.ProxyImageName,
+                        isolatedOptions.ProxyCommand,
+                        executorProfile.Command,
+                        isolatedOptions.CpuLimit,
+                        isolatedOptions.MemoryBytes,
+                        isolatedOptions.WritableDiskBytes,
+                        isolatedOptions.PidsLimit,
+                        handle.Layout.ConfigHomePath,
+                        BuildContainerEnvironment(handle.Layout, executorProfile)),
+                    cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // Docker fora, imagem ausente ou recurso negado: a recusa é sincronizada com o
+                // despachante (backoff), NUNCA derruba o ciclo — e fica classificada à parte de
+                // `sandbox_required`, porque aqui a sandbox nem chegou a ser avaliada.
+                LogSandboxOpenFailure(logger, command.AttemptId, exception.GetType().Name);
+                TryDeleteEmptyWorktreeDirectory(command.WorktreePath);
+                profiles.ReleaseLock(command.AccountAlias, accountLock.FencingToken);
+                return Rejected(runId, command, "sandbox.unavailable", account.ExecutorId);
+            }
+
+            processExecutor.AttachSandbox(new ProcessExternalAgentExecutor.SandboxedCommand(
+                sandboxSession.ProcessPlan.HostExecutablePath,
+                sandboxSession.ProcessPlan.ExecutablePrefixArguments,
+                sandboxSession.ProcessPlan.ContainerEnvironment,
+                sandboxSession.ProcessPlan.AgentWorkingDirectory,
+                sandboxSession.ProcessPlan.ContainerStateDirectory));
+        }
+
+        // Fase 0B1 (BR-002): a evidência de contenção existe ANTES da autorização — agora de
+        // fato: com a sessão aberta, a attestation inspeciona o contêiner vivo da tentativa
+        // (rootfs somente-leitura, rede interna sem egresso direto, limites aplicados).
+        var attestation = await sandboxAttestations.AttestAsync(
+            command.TenantId,
+            command.ProjectId,
+            command.AttemptId,
+            sandboxSession is null ? null : IsolatedAttemptOrchestrator.SandboxAttemptLabel(command.AttemptId),
+            cancellationToken);
+        var toolDecision = await AuthorizeRequiredToolsAsync(
+            command, attestation, cancellationToken);
+        if (!toolDecision.Allowed)
+        {
+            if (sandboxSession is not null)
+            {
+                await sandboxSession.DisposeAsync();
+            }
+
+            TryDeleteEmptyWorktreeDirectory(command.WorktreePath);
+            profiles.ReleaseLock(command.AccountAlias, accountLock.FencingToken);
+            return Rejected(runId, command, toolDecision.Code, account.ExecutorId);
+        }
+
         await PublishStateAsync(runId, command, AgentRunStatus.Accepted, cancellationToken);
 
         var cancellation = new CancellationTokenSource();
         var completion = Task.Run(
             () => ExecuteAsync(runId, command, account, executorProfile, handle, accountLock,
-                acquired.Workspace, cancellation.Token),
+                acquired.Workspace, executor, sandboxSession, cancellation.Token),
             CancellationToken.None);
 
         _live[command.AttemptId] = new LiveRun(
@@ -1140,6 +1225,8 @@ public sealed partial class AgentRunOrchestrator(
         AccountProfileHandle handle,
         AccountProfileLock accountLock,
         AttemptWorkspaceSnapshot workspace,
+        IExternalAgentExecutor executor,
+        ISandboxProcessSession? sandboxSession,
         CancellationToken cancellationToken)
     {
         GitWorktreeManager? manager = null;
@@ -1261,7 +1348,8 @@ public sealed partial class AgentRunOrchestrator(
             await AuthorizeExecutionAsync(command, account, accountLock, cancellationToken);
 
             // 7. Executor externo real, no perfil isolado da conta e na worktree da tentativa.
-            var executor = executors.Create(account.ExecutorId);
+            // Com sandbox aberta, o executor já vem ligado ao plano dela (AttachSandbox no
+            // StartAsync): o processo hospedado é o `docker exec` no contêiner atestado.
             session = await executor.StartAsync(
                 new ExternalAgentRunRequest
                 {
@@ -1379,11 +1467,29 @@ public sealed partial class AgentRunOrchestrator(
         {
             var sanitized = AttemptWorkspaceErrorSanitizer.Sanitize(
                 ExternalAgentRedaction.Redact($"{exception.GetType().Name}"));
+            // O tipo sozinho não diagnostica: um InvalidOperationException pode ser o docker
+            // recusando uma montagem, o git recusando uma worktree ou um contrato interno —
+            // três causas com remédios diferentes. A MENSAGEM passa pelo redator de segredos e
+            // é truncada; sem ela, cada falha vira uma sessão de adivinhação (OPS-009/026).
+            LogRunOrchestratorException(
+                logger,
+                command.AttemptId,
+                sanitized,
+                ExternalAgentRedaction.Redact(exception.Message) is { Length: > 400 } detail
+                    ? detail[..400]
+                    : ExternalAgentRedaction.Redact(exception.Message));
             // Uma exceção do orquestrador é tratada como transitória (candidata a retry com
-            // backoff), classificada pelo tipo sanitizado.
-            var failureOutcome = AgentRunOutcomeClassifier.Classify(
-                ExternalAgentRunStatus.Failed, sanitized);
-            RecordAvailability(command.AccountAlias, failureOutcome, clock.UtcNow);
+            // backoff), classificada pelo tipo sanitizado. EXCETO o cancelamento: uma parada
+            // do Host no meio do run é decisão NOSSA, não falha da conta — gravá-la como
+            // falha permanente derrubava a disponibilidade de contas saudáveis a cada
+            // reinício operacional (observado: conta glm "permanent" após stop do Host).
+            var failureOutcome = exception is OperationCanceledException
+                ? new AgentRunOutcome(AgentRunOutcomeKind.Cancelled, "run.cancelled", null)
+                : AgentRunOutcomeClassifier.Classify(ExternalAgentRunStatus.Failed, sanitized);
+            if (failureOutcome.Kind is not AgentRunOutcomeKind.Cancelled)
+            {
+                RecordAvailability(command.AccountAlias, failureOutcome, clock.UtcNow);
+            }
             // A falha também consome capacidade e custa tempo: registrar é parte do fato. Um
             // erro AQUI não pode mascarar a falha original, então não propaga.
             try
@@ -1429,6 +1535,12 @@ public sealed partial class AgentRunOrchestrator(
             {
                 await session.CleanupAsync(CancellationToken.None);
                 await session.DisposeAsync();
+            }
+
+            if (sandboxSession is not null)
+            {
+                // Derruba o contêiner ocioso e remove redes, volumes e proxy do rótulo.
+                await sandboxSession.DisposeAsync();
             }
 
             if (manager is not null)
@@ -1551,6 +1663,62 @@ public sealed partial class AgentRunOrchestrator(
             Observability.PoseidonTelemetry.RecordPersonaBundle("unavailable");
             return null;
         }
+    }
+
+    /// <summary>
+    /// O diretório criado para a montagem do sandbox quando a worktree ainda não existia. Só é
+    /// removido se estiver VAZIO — um diretório com conteúdo é trabalho de alguém e fica para a
+    /// recuperação governada.
+    /// </summary>
+    private static void TryDeleteEmptyWorktreeDirectory(string worktreePath)
+    {
+        try
+        {
+            if (Directory.Exists(worktreePath) &&
+                !Directory.EnumerateFileSystemEntries(worktreePath).Any())
+            {
+                Directory.Delete(worktreePath);
+            }
+        }
+        catch (IOException)
+        {
+            // Limpeza best effort: a recuperação por lease cuida do resto.
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
+    /// <summary>
+    /// O ambiente do contêiner deriva do ambiente por allowlist da conta, com três ajustes de
+    /// fronteira: PATH do host (macOS) não se aplica à imagem Linux; o config home aponta para
+    /// o volume de estado GRAVÁVEL (hidratado do mount somente-leitura no arranque); e HOME/USER
+    /// ganham identidade de contêiner — o git e os CLIs exigem as duas, e a identidade real do
+    /// host não existe lá dentro.
+    /// </summary>
+    private Dictionary<string, string> BuildContainerEnvironment(
+        AccountProfileLayout layout,
+        ExecutorProfile profile)
+    {
+        var container = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var entry in profiles.BuildEnvironment(layout, profile))
+        {
+            if (entry.Key is "PATH" or "HOME" or "USER")
+            {
+                continue;
+            }
+
+            container[entry.Key] = entry.Value;
+        }
+
+        if (profile.ConfigHomeEnvironmentVariable is { Length: > 0 } configHomeVariable)
+        {
+            container[configHomeVariable] = "/codex-state";
+        }
+
+        container["HOME"] = "/codex-state";
+        container["USER"] = "poseidon-worker";
+        return container;
     }
 
     /// <summary>

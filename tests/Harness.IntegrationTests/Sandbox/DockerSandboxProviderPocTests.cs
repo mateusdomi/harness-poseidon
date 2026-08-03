@@ -89,6 +89,87 @@ public sealed class DockerSandboxProviderPocTests
         }
     }
 
+    [Fact]
+    public async Task ProcessSessionContainerIsAttestedVerifiedThroughTheInternalNetworkProof()
+    {
+        // OPS-023: a attestation de uma sessão de processo resolvia `unverified:none` por dois
+        // motivos — o contêiner só nasceria no spawn do agente (depois da autorização) e a prova
+        // de egresso só aceitava network='none', enquanto a sessão usa rede --internal + proxy.
+        // Este teste trava a nova verdade: sessão aberta → contêiner VIVO → attestation
+        // VERIFICADA, com a rede interna provada pelo flag Internal do próprio runtime.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+        var repositoryRoot = FindRepositoryRoot();
+        var attemptId = $"poc6a-{Guid.NewGuid():N}"[..17];
+        var artifactRoot = Path.Combine(
+            AppContext.BaseDirectory,
+            "poc-artifacts",
+            "poc-6-attestation",
+            attemptId);
+        var worktreePath = Path.Combine(artifactRoot, "worktree");
+        var imageName = $"harness-sandbox-poc6:{attemptId}";
+        var provider = new DockerSandboxProvider();
+
+        Directory.CreateDirectory(worktreePath);
+        try
+        {
+            await provider.BuildImageAsync(
+                attemptId,
+                imageName,
+                Path.Combine(repositoryRoot, "infra", "sandbox", "poc6"),
+                timeout.Token);
+
+            await using (var session = await provider.OpenProcessSessionAsync(
+                new SandboxProcessRequest(
+                    attemptId,
+                    artifactRoot,
+                    worktreePath,
+                    imageName,
+                    imageName,
+                    "proxy",
+                    "fake-codex",
+                    CpuLimit: 0.5m,
+                    MemoryBytes: 64 * 1024 * 1024,
+                    WritableDiskBytes: 8 * 1024 * 1024,
+                    PidsLimit: 64),
+                timeout.Token))
+            {
+                var attestation = await provider.AttestAsync(
+                    new SandboxAttestationRequest(
+                        "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                        "01ARZ3NDEKTSV4RRFFQ69G5FAW",
+                        attemptId,
+                        DateTimeOffset.UtcNow),
+                    timeout.Token);
+
+                Assert.True(attestation.Verified, attestation.VerificationDetail);
+                Assert.True(attestation.IsEffective, attestation.VerificationDetail);
+                Assert.Equal("docker", attestation.Provider);
+                Assert.Equal($"harness-sandbox-{attemptId}", attestation.SandboxIdentity);
+                Assert.StartsWith(
+                    "harness-internal-", attestation.NetworkPolicy, StringComparison.Ordinal);
+            }
+
+            // Depois da sessão, nada sobra para ser atestado: a fronteira morre com ela.
+            var after = await provider.AttestAsync(
+                new SandboxAttestationRequest(
+                    "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                    "01ARZ3NDEKTSV4RRFFQ69G5FAW",
+                    attemptId,
+                    DateTimeOffset.UtcNow),
+                timeout.Token);
+            Assert.False(after.Verified);
+        }
+        finally
+        {
+            using var cleanupTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            await provider.CleanupAsync(attemptId, cleanupTimeout.Token);
+            if (Directory.Exists(artifactRoot))
+            {
+                Directory.Delete(artifactRoot, recursive: true);
+            }
+        }
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

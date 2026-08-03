@@ -236,7 +236,14 @@ public sealed class ClaudeCodeExternalAgentExecutor(
             // também é fail-closed: subtipo `error_*` falha mesmo se o booleano vier incorreto.
             if (errorSubtype || (isError && !successSubtype))
             {
-                FailureCode = $"executor.result_{subtype ?? "error"}";
+                // Falta de credencial chega no TEXTO do resultado (stdout em stream-json), não
+                // no erro padrão — por isso ela nunca alcançava o classificador e a conta caía
+                // como transitória, queimando circuito de card saudável (claude-secondary
+                // dentro do contêiner, cuja credencial vive no Keychain do host).
+                FailureCode = FinalMessage?.Contains("Not logged in", StringComparison.OrdinalIgnoreCase) == true ||
+                    FinalMessage?.Contains("Please run /login", StringComparison.OrdinalIgnoreCase) == true
+                    ? "executor.authentication_required"
+                    : $"executor.result_{subtype ?? "error"}";
                 yield return new ExternalAgentEvent(
                     ExternalAgentEventKind.Failed, Code: FailureCode);
                 yield break;

@@ -97,4 +97,11 @@ public sealed record SandboxAttestationRequest(
     string TenantId,
     string ProjectId,
     string AttemptId,
-    DateTimeOffset IssuedAt);
+    DateTimeOffset IssuedAt,
+    /// <summary>
+    /// Seletor dos recursos Docker da tentativa (o rótulo <c>com.harness.attempt</c>
+    /// efetivamente aplicado). Difere do <see cref="AttemptId"/> quando quem criou a sandbox
+    /// rotulou os recursos com um nome derivado — a attestation continua emitida para o
+    /// attempt real; o seletor só diz ONDE procurar o contêiner.
+    /// </summary>
+    string? ResourceSelector = null);

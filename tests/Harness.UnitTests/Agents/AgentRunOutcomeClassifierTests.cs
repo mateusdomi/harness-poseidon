@@ -119,9 +119,49 @@ public sealed class AgentRunOutcomeClassifierTests
     }
 
     /// <summary>
+    /// A frase EXATA da CLI é reconhecida no diagnóstico: observado ao vivo na prova limpa — a
+    /// conta claude-secondary, cuja credencial vive no Keychain do macOS (inalcançável de dentro
+    /// do contêiner), falhou com `exit_code_1` e "Not logged in · Please run /login" no erro
+    /// padrão. Como transitória, ela voltava em minutos e queimava o circuito de cards
+    /// saudáveis; como autenticação, ela sai da eleição até um humano decidir.
+    /// </summary>
+    [Fact]
+    public void AuthenticationIsRecognizedFromTheExactCliPhraseInTheDiagnostic()
+    {
+        var outcome = AgentRunOutcomeClassifier.Classify(
+            ExternalAgentRunStatus.Failed,
+            "executor.exit_code_1",
+            "Not logged in · Please run /login");
+
+        Assert.Equal(AgentRunOutcomeKind.AuthenticationRequired, outcome.Kind);
+        Assert.True(outcome.NeedsHuman);
+        Assert.False(outcome.ShouldRetry);
+    }
+
+    /// <summary>
+    /// A conta que não consegue servir modelo nenhum do CLI instalado sai da eleição como
+    /// "precisa de humano", com código próprio — classificar como permanente escalaria o CARD
+    /// por culpa da conta (observado ao vivo com o backend do ChatGPT e o codex 0.44.0).
+    /// </summary>
+    [Fact]
+    public void AnUnsupportedAccountModelNeedsAHumanAndDoesNotEscalateTheCard()
+    {
+        var outcome = AgentRunOutcomeClassifier.Classify(
+            ExternalAgentRunStatus.Failed,
+            "executor.exit_code_1",
+            "unexpected status 400 Bad Request: {\"detail\":\"The 'gpt-5-codex' model is not " +
+            "supported when using Codex with a ChatGPT account.\"}");
+
+        Assert.Equal(AgentRunOutcomeKind.AuthenticationRequired, outcome.Kind);
+        Assert.Equal("run.account_model_unsupported", outcome.ReasonCode);
+        Assert.True(outcome.NeedsHuman);
+        Assert.False(outcome.ShouldRetry);
+    }
+
+    /// <summary>
     /// Autenticação NÃO é inferida de texto solto: ela exige ação humana e não se recupera
-    /// sozinha, então um falso positivo vindo do erro padrão pararia a conta até alguém intervir.
-    /// O diagnóstico serve só para cota.
+    /// sozinha, então um falso positivo vindo do erro padrão pararia a conta até alguém
+    /// intervir. Só as frases exatas da CLI qualificam — "unauthorized" de trabalho, não.
     /// </summary>
     [Fact]
     public void AuthenticationIsNeverInferredFromTheDiagnostic()

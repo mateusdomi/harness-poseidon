@@ -65,6 +65,28 @@ public static class AgentRunOutcomeClassifier
         ["authentication_required", "not_logged_in", "logged in", "log in", "unauthorized",
          "401", "invalid_api_key", "/login"];
 
+    /// <summary>
+    /// Frases EXATAS de falta de credencial reconhecidas no diagnóstico (a cauda do erro
+    /// padrão do executor). Nada de texto solto: "unauthorized" ou "login" aparecem em saída
+    /// de trabalho e um falso positivo pararia a conta até um humano intervir. Estas duas
+    /// formas são a frase que a CLI imprime quando a credencial não existe — observado ao
+    /// vivo: a conta claude-secondary falhou dentro do contêiner (a credencial dela vive no
+    /// Keychain do macOS, inalcançável de lá), saiu com `exit_code_1` e queimou o circuito de
+    /// três cards saudáveis antes de alguém entender por quê.
+    /// </summary>
+    private static readonly string[] DiagnosticAuthSignals =
+        ["not logged in", "please run /login"];
+
+    /// <summary>
+    /// A CONTA não consegue servir o modelo pedido — observado ao vivo: o backend do ChatGPT
+    /// respondeu `The 'gpt-5-codex' model is not supported when using Codex with a ChatGPT
+    /// account` para todos os modelos conhecidos do CLI instalado. Não é falha do card nem
+    /// transitória: até um humano trocar plano, chave ou CLI, reeleger a conta é ruído, e
+    /// classificar como permanente escalaria o CARD por culpa da conta.
+    /// </summary>
+    private static readonly string[] DiagnosticAccountModelSignals =
+        ["not supported when using"];
+
     private static readonly string[] TransientSignals =
         ["timeout", "no_output", "tool_permission_denied", "prompt_write_failed", "start_failed",
          "connection", "reset", "econnreset", "socket", "temporarily", "overloaded", "503", "502", "exit_code"];
@@ -80,9 +102,10 @@ public static class AgentRunOutcomeClassifier
     /// ~200s e derrubava outra rodada do card. Três dessas e um card saudável morria por um
     /// problema que era da CONTA.
     ///
-    /// O diagnóstico é consultado APENAS para cota. Autenticação continua vindo só do código
-    /// estruturado: ela exige ação humana e não se recupera sozinha, então um falso positivo
-    /// vindo de texto solto pararia a conta até alguém intervir — pior que o defeito.
+    /// O diagnóstico é consultado para cota e para as frases EXATAS de falta de credencial
+    /// (<see cref="DiagnosticAuthSignals"/>) — nunca para texto solto de "login": ela exige
+    /// ação humana e não se recupera sozinha, então um falso positivo vindo do erro padrão
+    /// pararia a conta até alguém intervir — pior que o defeito.
     /// </param>
     public static AgentRunOutcome Classify(
         ExternalAgentRunStatus status, string? failureCode, string? failureDiagnostic = null)
@@ -108,9 +131,16 @@ public static class AgentRunOutcomeClassifier
             return new AgentRunOutcome(AgentRunOutcomeKind.QuotaExhausted, "run.quota_exhausted", DefaultQuotaCooldown);
         }
 
-        if (Matches(code, AuthSignals))
+        if (Matches(code, AuthSignals) ||
+            Matches(failureDiagnostic ?? string.Empty, DiagnosticAuthSignals))
         {
             return new AgentRunOutcome(AgentRunOutcomeKind.AuthenticationRequired, "run.authentication_required", null);
+        }
+
+        if (Matches(failureDiagnostic ?? string.Empty, DiagnosticAccountModelSignals))
+        {
+            return new AgentRunOutcome(
+                AgentRunOutcomeKind.AuthenticationRequired, "run.account_model_unsupported", null);
         }
 
         if (Matches(code, TransientSignals))
