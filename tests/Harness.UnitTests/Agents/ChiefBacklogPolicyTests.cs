@@ -274,4 +274,31 @@ public sealed class ChiefBacklogPolicyTests : IDisposable
             Directory.Delete(_dir, recursive: true);
         }
     }
+
+    /// <summary>
+    /// Quando existe conta ELEGÍVEL e o card mesmo assim não sai, o que faltou foi SLOT — não
+    /// conta. Dizer "aguardando retorno de conta", e ainda por cima com a hora de reset de
+    /// outra conta, manda quem investiga para o lugar errado: em 03/08/2026 um card aparecia
+    /// esperando um retorno marcado para trinta minutos ANTES do relógio, enquanto a conta
+    /// certa estava apenas ocupada. Slot cheio volta no ciclo seguinte e não tem hora.
+    /// </summary>
+    [Fact]
+    public void AFullSlotIsReportedAsAFullSlotAndNotAsAMissingAccount()
+    {
+        var registry = RegistryWith(
+            ("worker-claude-secondary", ExecutorCatalog.ClaudeCode, AgentRoles.BackendSpecialist, 1));
+
+        var backlog = new[]
+        {
+            Card("t-primeiro", AgentRoles.BackendSpecialist, 90),
+            Card("t-segundo", AgentRoles.BackendSpecialist, 80),
+        };
+
+        var plan = new ChiefBacklogPolicy().Plan(backlog, registry, Ledger(), maxConcurrentDispatch: 5, Now);
+
+        var deferral = Assert.Single(plan.Deferred);
+        Assert.Equal("t-segundo", deferral.Card.TaskId);
+        Assert.Equal("chief.account_slots_full", deferral.ReasonCode);
+        Assert.Null(deferral.RetryAfter);
+    }
 }

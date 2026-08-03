@@ -154,6 +154,19 @@ public sealed class ChiefBacklogPolicy(AgentAccountScheduler? scheduler = null)
                     continue;
                 }
 
+                // Existe conta ELEGÍVEL e mesmo assim não despachamos? Então o que faltou foi
+                // slot, não conta — e dizer "aguardando retorno de conta" com a hora de reset de
+                // OUTRA conta manda quem investiga para o lugar errado. Custou vinte minutos em
+                // 03/08/2026: o card aparecia esperando um retorno marcado para trinta minutos
+                // ANTES do relógio, enquanto a conta certa estava apenas ocupada com outro card.
+                // Slot cheio volta no ciclo seguinte; não há hora a anunciar.
+                if (decision.Candidates.Any(candidate => candidate.Eligible))
+                {
+                    deferred.Add(new ChiefDeferral(
+                        card, "chief.account_slots_full", null, decision.Candidates));
+                    continue;
+                }
+
                 var retryAfter = NextReturn(decision, quotas);
                 deferred.Add(new ChiefDeferral(
                     card,
@@ -297,6 +310,13 @@ public sealed class ChiefBacklogPolicy(AgentAccountScheduler? scheduler = null)
         DateTimeOffset? soonest = null;
         foreach (var candidate in decision.Candidates)
         {
+            // Só conta o relógio de quem está REALMENTE fora. O reset de uma conta que já está
+            // disponível não é o que segura este card, e anunciá-lo é apontar o culpado errado.
+            if (candidate.Eligible)
+            {
+                continue;
+            }
+
             if (quotas.TryGetValue(candidate.Alias, out var quota) && quota.ResetAt is { } reset &&
                 (soonest is null || reset < soonest))
             {
