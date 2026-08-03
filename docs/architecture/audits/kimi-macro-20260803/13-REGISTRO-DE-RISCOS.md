@@ -1,6 +1,6 @@
 # 13 — Registro de riscos e achados
 
-> 25 achados, classificados por **tipo** (defeito ≠ risco arquitetural ≠ dívida ≠ lacuna de
+> 27 achados, classificados por **tipo** (defeito ≠ risco arquitetural ≠ dívida ≠ lacuna de
 > observabilidade ≠ otimização ≠ funcionalidade futura) porque essa distinção é o que permite
 > estimar prazo.
 
@@ -84,8 +84,13 @@ de defeito que custou 1h40 em 03/08.
 **DEFECT** · 4 adiamentos × 5 min → `escalated`; e o replanejamento — único caminho de volta —
 recusava tentativa em `awaiting_review` por estado inválido.
 **Evidência:** 6 cards `escalated/blocked` desde 18:06Z de 03/08.
-**Conserto existe no working tree, NÃO commitado nem provado** (`ReviewerShortageGrace = 2h`,
-`CriticRosterHasCandidate`, `WorkAttemptIsReplannable` negando só `running`/`approved`).
+**Corrigido DURANTE esta auditoria**, por outra sessão viva, em três camadas:
+`e3c4025a` (carência por relógio + `WorkAttemptIsReplannable` negando só `running`/`approved`),
+`7ea4b60e` (a chave de idempotência prometia estabilidade que a carga não tinha — o sintoma
+trocou para conflito de idempotência assim que o estado inválido saiu) e
+`75971b37` (esperar até a hora que o **provedor** declarou, não até uma constante).
+**Estado: IMPL ✅ · TEST ✅ · commit ✅ · E2E ❌** — os 6 cards seguem `escalated`, porque o
+bloqueador real é `F-03`, não `F-12`.
 
 ### `F-13` — Chaves de assento do Conselho que não existem no catálogo
 **DEFECT** · `AgentCouncilPolicy` usa `playbook-po` e `playbook-sre-devops`;

@@ -41,7 +41,7 @@ escrever, testar e entregar software — nunca aconteceu.
 | # | Bloqueador | Achado | Esforço |
 |---|---|---|---|
 | 1 | O Conselho não pode concluir com 2 contas critic | `F-03` | 🟢 config (3ª conta critic) + 🟡 decisão de política |
-| 2 | Cards escalados por falta de revisor não voltam | `F-12` | 🟡 commitar + provar o conserto que já existe |
+| 2 | Cards escalados por falta de revisor não voltam | `F-12` | 🟢 **já commitado durante esta auditoria** (`e3c4025a`, `7ea4b60e`, `75971b37`) — falta publicar o binário e provar ao vivo |
 | 3 | Sem coordenador de recurso pesado — a máquina trava | `F-20` | 🔴 |
 
 ### Para autonomia real (o dono ausente)
@@ -64,7 +64,7 @@ escrever, testar e entregar software — nunca aconteceu.
 
 ```mermaid
 flowchart LR
-    A["1. Destravar o Conselho<br/>3ª conta critic + decisão de política"] --> B["2. Commitar e provar<br/>o conserto de F-12"]
+    A["1. Destravar o Conselho<br/>3ª conta critic + decisão de política"] --> B["2. Publicar e provar<br/>o conserto de F-12"]
     B --> C["3. Conselho conclui<br/>veredito consolidado"]
     C --> D["4. Gate da fase 4 aprova"]
     D --> E["5. FASE 5 — o primeiro card<br/>de CÓDIGO da história do produto"]

@@ -27,12 +27,16 @@ segura tudo, dissenso registrado, mínimo de 3 lentes). A revisão por par do pa
 camada que custa mais do que entrega, e o próprio código já reconhece que "o conselho não decide,
 ele critica".
 
-### R-02 · Commitar e provar o conserto de `F-12`
+### R-02 · ~~Commitar~~ **Publicar e provar** o conserto de `F-12`
 
-O working tree já tem `ReviewerShortageGrace = 2h`, `CriticRosterHasCandidate()` e
-`WorkAttemptIsReplannable` corrigido. **Está fora do controle de versão** — some se a máquina
-reiniciar. Rodar `verify.sh`, commitar, publicar e confirmar ao vivo que um card escalado
-por falta de revisor volta sozinho.
+**Feito durante esta auditoria**, por outra sessão viva: `e3c4025a`, `7ea4b60e` e `75971b37`,
+com testes em `ReviewerShortageWaitTests.cs` e `WorkChainStoreBehavior.cs`. O último deles é
+notável — a carência fixa de 2 h escalaria os cards às 00:24 sendo que o único crítico elegível
+volta às 01:21, ou seja, **uma hora antes de a resposta poder existir**; agora a espera é o maior
+entre a carência mínima e a janela declarada pelo provedor.
+
+**O que falta:** rodar `verify.sh`, publicar o binário e confirmar **ao vivo** que os 6 cards
+voltam sozinhos. Enquanto isso não acontecer, o conserto é `TESTADO`, não `PROVADO`.
 
 ### R-03 · Configuração imediata (2 minutos, zero código)
 

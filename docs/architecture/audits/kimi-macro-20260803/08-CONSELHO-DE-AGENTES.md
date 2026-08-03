@@ -219,20 +219,27 @@ não podia haver, porque só uma conta critic estava viva.
 
 ---
 
-## 6. O conserto que já existe, e não está commitado
+## 6. O conserto — commitado DURANTE esta auditoria
 
-O working tree contém trabalho **não commitado** que corrige as duas metades do bug (de outra
-sessão, preservado — nada foi resetado):
+Quando comecei a auditar, este conserto estava apenas no working tree. **Outra sessão viva no
+mesmo repositório o commitou enquanto eu escrevia** — e foi além do que eu tinha visto. Três
+commits, em camadas, cada um revelado pelo anterior:
 
-| Arquivo | Mudança |
+| Commit | O que corrige |
 |---|---|
-| `ChiefBacklogLoopService.cs` | `ReviewerShortageReasons`, `ReviewerShortageGrace = 2h`, `ShouldWaitForReviewer()`, `CriticRosterHasCandidate()` — separa "ninguém disponível AGORA" de "ninguém serve para isto" |
-| `IWorkChainStore.cs` | `WorkAttemptIsReplannable` passa de lista de permitidos para negação explícita: `not ("running" or "approved")` — inclui `awaiting_review` |
-| `WorkChainStoreBehavior.cs` | testes correspondentes |
+| `e3c4025a` | **Duas camadas.** (1) O teto de adiamentos conta FALHA, e ausência de revisor não é falha: o elenco passa a ser consultado à parte (`CriticRosterHasCandidate`) e quem decide desistir é o relógio, não um contador de 20 minutos. (2) Escalado, o card só volta por replanejamento, e a precondição enumerava `rejected/cancelled/abandoned` — a tentativa parou em `awaiting_review`. O predicado agora **nega** os dois estados que a regra nomeia |
+| `7ea4b60e` | Tirado o estado inválido, os seis assentos **trocaram de sintoma**: conflito de idempotência. A chave era card+versão+hash, mas a carga levava um ULID sorteado a cada rodada — mesma chave, carga diferente. E como o inbox guarda também as mutações recusadas, a primeira recusa trancava todas as rodadas seguintes, inclusive as já corrigidas |
+| `75971b37` | A carência fixa de 2h criava o erro seguinte: o único crítico elegível volta às 01:21 e os cards escalariam às 00:24 — **uma hora antes de a resposta poder existir**. Agora a espera é o maior entre a carência mínima e a **janela declarada pelo provedor**, com teto de 12 h |
 
-**Estado: IMPL (working tree), TEST (novos casos), commit = NÃO, E2E = NÃO.**
-Esse trabalho não estava no binário que rodou às 18:06 — foi por isso que a escalação aconteceu
-com 4 tentativas em vez de 2 horas de carência.
+Testes novos: `tests/Harness.UnitTests/Agents/ReviewerShortageWaitTests.cs`,
+`tests/Harness.IntegrationTests/Persistence/WorkChainStoreBehavior.cs`.
+
+**Estado agora: IMPL ✅ · TEST ✅ · commit ✅ · E2E ❌ — os 6 cards continuam `escalated`.**
+
+O último commit é a evidência de que a análise deste documento está certa: mesmo com o conserto,
+**o Conselho não anda enquanto `worker-codex-critic` estiver sem cota** (medido durante esta
+auditoria: `QuotaLimited` até `2026-08-04T01:21:25Z`). O achado `F-03` — o Conselho consome o
+próprio elenco de críticos — **permanece aberto e é o bloqueador real.**
 
 ---
 
@@ -241,7 +248,7 @@ com 4 tentativas em vez de 2 horas de carência.
 | ID | Sev. | Tipo | Título | Bloqueia piloto? | Bloqueia autonomia? |
 |---|---|---|---|---|---|
 | `F-03` | **CRITICAL** | ARCHITECTURAL RISK | O Conselho consome o próprio elenco de críticos: com 2 contas critic, uma é sempre o ator e a outra é o único revisor possível de todos os 6 assentos | **SIM** | **SIM** |
-| `F-12` | **HIGH** | DEFECT | Falta momentânea de revisor escala o CARD em 15 min e o prende para sempre (o replanejamento recusava `awaiting_review`). Conserto existe no working tree, **não commitado nem provado** | **SIM** | **SIM** |
+| `F-12` | **HIGH** | DEFECT | Falta momentânea de revisor escala o CARD em 15 min e o prende para sempre (o replanejamento recusava `awaiting_review`). **Corrigido em `e3c4025a`+`7ea4b60e`+`75971b37` durante esta auditoria; testado, ainda não provado em E2E** | **SIM** | **SIM** |
 | `F-13` | **HIGH** | DEFECT | `playbook-po` e `playbook-sre-devops` não existem no catálogo de personas: o assento de Product Owner foi ocupado por um Software Architect, destruindo a diversidade de lente que é a razão de existir do Conselho | Não | **SIM** |
 | `F-14` | **MEDIUM** | ARCHITECTURAL RISK | As 6 lentes do Conselho rodaram no mesmo modelo, mesma conta, mesmo effort — a diversidade é só de prompt | Não | Não |
 | `F-15` | **LOW** | OBSERVABILITY GAP | `council.incomplete` descreve o sintoma e esconde a causa; a mesma mensagem apareceu para path scope negado e para ausência de revisor | Não | Não |

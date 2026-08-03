@@ -96,7 +96,7 @@ centralizada qual modelo cada papel usa** — registrado como problema de govern
 | `F-04` | HIGH | A Bruna nunca recebe `governance/core.md` — degrada em silêncio para 6 linhas |
 | `F-05` | HIGH | Modelo e effort nunca chegam à CLI |
 | `F-06` | HIGH | Taxonomia tipada pela metade — 10 classificadores por substring em caminho de decisão |
-| `F-12` | HIGH | Falta de revisor escala o card em 15 min e o prende (conserto no working tree, **não commitado**) |
+| `F-12` | HIGH | Falta de revisor escala o card em 15 min e o prende — **corrigido durante esta auditoria** (`e3c4025a`, `7ea4b60e`, `75971b37`); testado, falta publicar e provar |
 | `F-13` | HIGH | `playbook-po` não existe no catálogo — o assento de Product Owner virou Software Architect |
 | `F-16` | HIGH | Fases 6–9 são documentais com gate humano |
 | `F-20` | HIGH | Não existe coordenador de recurso pesado |
