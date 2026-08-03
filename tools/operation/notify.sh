@@ -7,6 +7,15 @@
 #
 #   notify.sh "texto"
 #
+# ATENÇÃO — este caminho NÃO é a Bruna. O `governance/core.md` diz que só ela publica para o
+# usuário, e o Output Gateway do produto recusa qualquer outro autor (`DeniedNotChief`). Este
+# script existe porque o alarme precisa sair MESMO com o Host fora do ar, que é justamente
+# quando a Bruna não pode falar. O preço é que ele não passa pelas checagens dela — e em
+# 03/08/2026 isso custou caro: o dono recebeu "nenhuma conta de ator disponível" quando as
+# contas dele tinham cota e estavam apenas sendo desviadas para outro endpoint. Por isso toda
+# mensagem daqui sai IDENTIFICADA como alarme automático: quem lê precisa saber que aquilo não
+# foi a Bruna que disse, e que ninguém verificou.
+#
 # Saídas: 0 enviado · 10 sem destino (o dono ainda não falou com o bot) · 1 falha
 set -uo pipefail
 
@@ -37,7 +46,8 @@ fi
 CODE="$(curl -s -o /tmp/poseidon-notify.out -w '%{http_code}' --max-time 20 \
   -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
   --data-urlencode "chat_id=${CHAT}" \
-  --data-urlencode "text=${TEXT}")"
+  --data-urlencode "text=[alarme automático da operação — não é a Bruna]
+${TEXT}")"
 
 if [[ "$CODE" == "200" ]]; then
   echo "notificado (chat ${CHAT})"
