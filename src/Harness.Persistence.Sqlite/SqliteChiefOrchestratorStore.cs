@@ -53,11 +53,31 @@ public sealed class SqliteChiefOrchestratorStore(SqliteWriteDispatcher dispatche
         if (chief.State != agentState)
             await AppendAgentEventAsync(connection, tx, command.TenantId, chief.Id, chief.State, agentState, null, command.OccurredAt, token);
         var action = pause ? "chief.paused" : "chief.resumed";
-        var detail = pause ? "Project orchestration paused." : "Project orchestration resumed.";
+        // Pausar interrompe o DESPACHO; não alcança a tentativa que já está em execução (para
+        // isso existe o drain). Silenciar essa diferença fez a pausa de 2026-08-03 parecer
+        // total enquanto duas tentativas seguiam vivas segurando a única conta disponível.
+        var inFlight = pause ? await CountRunningAttemptsAsync(connection, tx, command, token) : 0;
+        var detail = pause
+            ? inFlight == 0
+                ? "Project orchestration paused."
+                : $"Project orchestration paused. {inFlight} attempt(s) already running continue until they finish; use drain to cancel them."
+            : "Project orchestration resumed.";
         await AppendAuditEventAsync(connection, tx, command.TenantId, command.ProjectId,
             command.ActorProfileId, action, detail, command.OccurredAt, token);
         await tx.CommitAsync(token);
         return (await ReadProjectAsync(connection, null, command.TenantId, command.ProjectId, token))!;
+    }
+
+    private static async Task<int> CountRunningAttemptsAsync(
+        SqliteConnection connection, SqliteTransaction tx, ChiefProjectCommand command, CancellationToken token)
+    {
+        await using var query = connection.CreateCommand();
+        query.Transaction = tx;
+        query.CommandText =
+            "SELECT COUNT(*) FROM work_attempts WHERE tenant_id=$tenant AND project_id=$project AND operational_state='running';";
+        Add(query, "$tenant", command.TenantId);
+        Add(query, "$project", command.ProjectId);
+        return Convert.ToInt32(await query.ExecuteScalarAsync(token), CultureInfo.InvariantCulture);
     }
 
     private static async Task<AgentRecord> HandoffCoreAsync(

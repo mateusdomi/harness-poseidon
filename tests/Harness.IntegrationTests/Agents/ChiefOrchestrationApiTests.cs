@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Harness.Host;
 using Harness.Host.Agents;
+using Harness.Host.Governance;
 using Harness.Host.Organizations;
 using Harness.Host.Profiles;
 using Harness.Host.Providers;
@@ -207,6 +208,15 @@ public sealed class ChiefOrchestrationApiTests
                         Assert.Equal(HttpStatusCode.OK, pause.StatusCode); Assert.Equal("paused", paused?.State);
                     }
                     Assert.Equal("waiting", (await client.GetFromJsonAsync<AgentContract>($"/api/v1/agents/{oldChiefId}", timeout.Token))?.State);
+
+                    // Pausar interrompe o DESPACHO e não alcança a tentativa que já está em
+                    // execução — aqui existe uma. Enquanto o registro dizia apenas "paused", a
+                    // pausa parecia total: em 2026-08-03 dezesseis projetos foram pausados e
+                    // duas tentativas seguiram vivas segurando a única conta com cota.
+                    var pauseAudit = await client.GetFromJsonAsync<AuditEventPage>(
+                        "/api/v1/audit-events?action=chief.paused&limit=1", timeout.Token);
+                    Assert.Contains("already running", Assert.Single(pauseAudit!.Items).Detail);
+                    Assert.Contains("drain", Assert.Single(pauseAudit.Items).Detail);
                     using (var resume = await client.PostAsync($"/api/v1/projects/{projectId}/chief/resume", null, timeout.Token))
                     {
                         var resumed = await resume.Content.ReadFromJsonAsync<ProjectResponse>(timeout.Token);

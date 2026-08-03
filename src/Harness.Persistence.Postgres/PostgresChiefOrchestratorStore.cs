@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Harness.Persistence.Abstractions.Agents;
 using Harness.Persistence.Abstractions.Foundation;
@@ -59,6 +60,21 @@ public sealed class PostgresChiefOrchestratorStore(NpgsqlDataSource dataSource) 
         return DrainCoreAsync(command, cancellationToken);
     }
 
+    private static async Task<int> CountRunningAttemptsAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        ChiefProjectCommand command,
+        CancellationToken cancellationToken)
+    {
+        await using var query = connection.CreateCommand();
+        query.Transaction = transaction;
+        query.CommandText =
+            "SELECT COUNT(*) FROM harness.work_attempts WHERE tenant_id=$1 AND project_id=$2 AND operational_state='running';";
+        query.Parameters.Add(Text(command.TenantId));
+        query.Parameters.Add(Text(command.ProjectId));
+        return Convert.ToInt32(await query.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
+    }
+
     private async Task<ProjectRecord> SetPauseStateAsync(
         ChiefProjectCommand command, bool pause, CancellationToken cancellationToken)
     {
@@ -103,7 +119,17 @@ public sealed class PostgresChiefOrchestratorStore(NpgsqlDataSource dataSource) 
         }
 
         var action = pause ? "chief.paused" : "chief.resumed";
-        var detail = pause ? "Project orchestration paused." : "Project orchestration resumed.";
+        // Pausar interrompe o DESPACHO; não alcança a tentativa que já está em execução (para
+        // isso existe o drain). Silenciar essa diferença fez a pausa de 2026-08-03 parecer
+        // total enquanto duas tentativas seguiam vivas segurando a única conta disponível.
+        var inFlight = pause
+            ? await CountRunningAttemptsAsync(connection, transaction, command, cancellationToken)
+            : 0;
+        var detail = pause
+            ? inFlight == 0
+                ? "Project orchestration paused."
+                : $"Project orchestration paused. {inFlight} attempt(s) already running continue until they finish; use drain to cancel them."
+            : "Project orchestration resumed.";
         await AppendAuditEventAsync(
             connection, transaction, command.TenantId, command.ProjectId,
             command.ActorProfileId, action, detail, command.OccurredAt, cancellationToken);
