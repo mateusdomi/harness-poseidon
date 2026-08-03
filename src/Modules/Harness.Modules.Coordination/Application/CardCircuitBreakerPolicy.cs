@@ -46,7 +46,12 @@ public sealed record CardCircuitSnapshot(
 /// </summary>
 public static class CardCircuitBreakerPolicy
 {
-    /// <summary>Três falhas consecutivas abrem o circuito do card.</summary>
+    /// <summary>
+    /// Três falhas consecutivas abrem o circuito do card. É o DEFAULT — o operador pode
+    /// mudá-lo por configuração (<c>AgentRunSettings.CardCircuitFailureThreshold</c>), porque
+    /// quantas falhas dizem "o enunciado está errado" depende de quanto a infraestrutura da vez
+    /// está confiável, e isso o código não sabe.
+    /// </summary>
     public const int ConsecutiveFailureThreshold = 3;
 
     public const string ReasonCircuitOpen = "card.circuit_open";
@@ -55,9 +60,17 @@ public static class CardCircuitBreakerPolicy
     public static CardCircuitSnapshot RecordFailure(
         CardCircuitSnapshot snapshot,
         DateTimeOffset now,
-        string? reasonCode = null)
+        string? reasonCode = null,
+        int threshold = ConsecutiveFailureThreshold)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
+
+        // Limiar abaixo de 1 abriria o circuito antes da primeira falha — o card nasceria
+        // condenado. Configuração inválida cai no default em vez de virar comportamento novo.
+        if (threshold < 1)
+        {
+            threshold = ConsecutiveFailureThreshold;
+        }
 
         // Circuito já aberto não conta de novo: ele não deveria ter sido despachado.
         if (snapshot.State == CardCircuitState.Open)
@@ -66,7 +79,7 @@ public static class CardCircuitBreakerPolicy
         }
 
         var failures = snapshot.ConsecutiveFailures + 1;
-        return failures >= ConsecutiveFailureThreshold
+        return failures >= threshold
             ? snapshot with
             {
                 State = CardCircuitState.Open,

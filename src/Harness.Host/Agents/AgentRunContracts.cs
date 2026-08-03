@@ -1,3 +1,4 @@
+using Harness.Modules.Coordination.Application;
 using System.Text.Json.Serialization;
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Contracts;
@@ -72,6 +73,18 @@ public sealed record AgentRunSettings
 
     /// <summary>Teto de despachos concorrentes por ciclo — trava de segurança do auto-dispatch.</summary>
     public int AutoDispatchMaxConcurrent { get; init; } = 2;
+
+    /// <summary>
+    /// Falhas consecutivas que abrem o circuito de um card. O default é o histórico (3).
+    ///
+    /// É configurável porque o número certo depende de quanto a infraestrutura da vez está
+    /// confiável, e essa é uma informação do OPERADOR, não do código: numa noite em que as
+    /// contas caem por motivo externo, três falhas seguidas dizem mais sobre o provedor do que
+    /// sobre o enunciado do card. Continua sendo um limiar, e não um interruptor: valor menor
+    /// que 1 não desliga o circuito, é recusado no uso.
+    /// </summary>
+    public int CardCircuitFailureThreshold { get; init; } =
+        CardCircuitBreakerPolicy.ConsecutiveFailureThreshold;
 }
 
 /// <summary>Situação de um run de agente. Conjunto fechado.</summary>

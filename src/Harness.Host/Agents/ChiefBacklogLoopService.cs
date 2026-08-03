@@ -265,7 +265,8 @@ public sealed partial class ChiefBacklogLoopService(
         // A raiz gerenciada: todo projeto criado pelo próprio Poseidon nasce sob ela.
         var repositories = scope.ServiceProvider.GetRequiredService<Harness.Host.Projects.ProjectRepositoryStorage>();
         var circuits = new CardCircuitBreakerService(
-            scope.ServiceProvider.GetRequiredService<ICardCircuitBreakerStore>());
+            scope.ServiceProvider.GetRequiredService<ICardCircuitBreakerStore>(),
+            settings.CardCircuitFailureThreshold);
 
         var profileList = await profiles.ListAsync(token);
         if (profileList.Count == 0)

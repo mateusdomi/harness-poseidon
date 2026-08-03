@@ -14,10 +14,15 @@ namespace Harness.Host.Agents;
 /// O replanejamento é a exceção: ele não está no histórico de tentativas, é um ato da Bruna, e por
 /// isso vive no estado durável e prevalece sobre as falhas anteriores a ele.
 /// </summary>
-internal sealed class CardCircuitBreakerService(ICardCircuitBreakerStore store)
+internal sealed class CardCircuitBreakerService(
+    ICardCircuitBreakerStore store,
+    int failureThreshold = CardCircuitBreakerPolicy.ConsecutiveFailureThreshold)
 {
     private readonly ICardCircuitBreakerStore _store =
         store ?? throw new ArgumentNullException(nameof(store));
+
+    /// <summary>Limiar em vigor. Vem da configuração do operador; o default é o histórico.</summary>
+    private readonly int _failureThreshold = failureThreshold;
 
     /// <summary>
     /// Recalcula o circuito a partir das tentativas e persiste. As tentativas devem vir em ordem
@@ -44,7 +49,8 @@ internal sealed class CardCircuitBreakerService(ICardCircuitBreakerStore store)
             if (IsFailure(attempt))
             {
                 snapshot = CardCircuitBreakerPolicy.RecordFailure(
-                    snapshot, attempt.OccurredAt, attempt.FailureReason ?? attempt.State);
+                    snapshot, attempt.OccurredAt, attempt.FailureReason ?? attempt.State,
+                    _failureThreshold);
                 lastFailureAt = attempt.OccurredAt;
                 lastReason = attempt.FailureReason ?? attempt.State;
             }
@@ -81,7 +87,7 @@ internal sealed class CardCircuitBreakerService(ICardCircuitBreakerStore store)
             await _store.RecordFailureAsync(
                 tenantId, projectId, taskId,
                 lastFailureAt ?? DateTimeOffset.UtcNow,
-                CardCircuitBreakerPolicy.ConsecutiveFailureThreshold,
+                _failureThreshold,
                 lastReason,
                 cancellationToken);
         }

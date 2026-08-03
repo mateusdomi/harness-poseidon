@@ -115,4 +115,40 @@ public sealed class CardCircuitBreakerPolicyTests
 
         return circuit;
     }
+
+    /// <summary>
+    /// O limiar é do OPERADOR: numa noite em que as contas caem por motivo externo, três
+    /// falhas seguidas dizem mais sobre o provedor do que sobre o enunciado do card.
+    /// </summary>
+    [Fact]
+    public void TheOperatorCanRequireMoreFailuresBeforeOpeningTheCircuit()
+    {
+        var circuit = CardCircuitSnapshot.Closed("card-1");
+        for (var index = 0; index < 4; index++)
+        {
+            circuit = CardCircuitBreakerPolicy.RecordFailure(
+                circuit, DateTimeOffset.UnixEpoch.AddMinutes(index), "agent.run_failed", threshold: 5);
+        }
+
+        Assert.Equal(CardCircuitState.Closed, circuit.State);
+
+        circuit = CardCircuitBreakerPolicy.RecordFailure(
+            circuit, DateTimeOffset.UnixEpoch.AddMinutes(5), "agent.run_failed", threshold: 5);
+
+        Assert.Equal(CardCircuitState.Open, circuit.State);
+    }
+
+    /// <summary>
+    /// Limiar abaixo de 1 abriria o circuito antes da primeira falha — o card nasceria
+    /// condenado. Configuração inválida cai no default em vez de virar comportamento novo.
+    /// </summary>
+    [Fact]
+    public void AnInvalidThresholdFallsBackToTheDefaultInsteadOfCondemningTheCard()
+    {
+        var circuit = CardCircuitBreakerPolicy.RecordFailure(
+            CardCircuitSnapshot.Closed("card-1"), DateTimeOffset.UnixEpoch, "agent.run_failed", threshold: 0);
+
+        Assert.Equal(CardCircuitState.Closed, circuit.State);
+        Assert.Equal(1, circuit.ConsecutiveFailures);
+    }
 }
