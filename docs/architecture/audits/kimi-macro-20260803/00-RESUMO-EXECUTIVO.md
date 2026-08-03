@@ -154,14 +154,23 @@ projeto em dado medido.
 ## Referência remota
 
 ```
-REMOTE REVIEW REF:  origin/develop
-SHA:                (registrado ao final da publicação — ver seção de publicação abaixo)
+REMOTE REVIEW REF:  origin/audit/kimi-macro-20260803
+SHA:                32802eea52c8675e75f8d6189946af816766a9d4
 BASE AUDITADA:      520dd71e9e383f7dcc389d4f6fb4a2c04775f658
 ```
 
-Trabalho **não commitado preservado** no working tree (conserto de `F-12`, de outra sessão):
-`ChiefBacklogLoopService.cs`, `IWorkChainStore.cs`, `WorkChainStoreBehavior.cs`.
-**Nada foi resetado, sobrescrito ou descartado.**
+Qualquer LLM pode consultar **exatamente** o código auditado nessa ref.
+
+**Por que não `origin/develop`:** o `develop` local está 213 commits à frente e 0 atrás de
+`origin/develop` — ou seja, um *fast-forward* seguro, sem force. Mesmo assim **não movi o ref**:
+`STATE.json` registra `pushedToOrigin: false` e há outra sessão viva no repositório. Publicar 213
+commits de trabalho alheio em `develop` é decisão do proprietário, não da auditoria. A branch
+`audit/kimi-macro-20260803` carrega **os mesmos objetos**, então a revisão remota não perde nada.
+Para promover: `git push origin develop` (fast-forward, sem `--force`).
+
+**Preservação de trabalho:** nada foi resetado, sobrescrito ou descartado. O conserto de `F-12`,
+que estava no working tree quando a auditoria começou, foi commitado por outra sessão viva
+durante o trabalho (`e3c4025a`, `7ea4b60e`, `75971b37`) e está incluído nesta ref.
 
 ---
 
