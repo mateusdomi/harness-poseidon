@@ -1,3 +1,4 @@
+using System.Reflection;
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Agents.Application.Execution.External;
@@ -95,6 +96,31 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         Assert.Contains("\"action\":\"replan\"", prompt, StringComparison.Ordinal);
         Assert.Contains("cardActions", prompt, StringComparison.Ordinal);
         Assert.Contains("voltou a andar", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EveryContractFieldHasACounterpartInTheSerializationBridge()
+    {
+        // A ponte já perdeu um campo DUAS vezes (teamActions, depois cardActions — OPS-024): dois
+        // records mantidos em sincronia à mão, e o sintoma é sempre o pior — a Bruna afirmando ao
+        // dono ter feito algo que não fez. Este teste é o alarme do TERCEIRO campo: quem adicionar
+        // uma propriedade ao contrato sem contraparte na ponte reprova aqui, em vez de na
+        // conversa com o dono.
+        var contractProperties = typeof(ChiefTurnOutput)
+            .GetProperties()
+            .Select(property => property.Name)
+            .ToArray();
+        var bridge = typeof(ConversationChiefAgentExecutor)
+            .GetNestedType("ChiefStructuredOutput", BindingFlags.NonPublic);
+        Assert.NotNull(bridge);
+        var bridgeProperties = bridge.GetProperties().Select(property => property.Name).ToArray();
+
+        foreach (var property in contractProperties)
+        {
+            Assert.True(
+                bridgeProperties.Contains(property, StringComparer.Ordinal),
+                $"A propriedade '{property}' do contrato não tem contraparte na ponte de serialização.");
+        }
     }
 
     [Fact]

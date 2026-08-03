@@ -626,7 +626,7 @@ public sealed partial class SqliteWorkChainStore
             Add(mutation, "$chiefAgentId", command.ChiefAgentId);
             Add(mutation, "$nextTaskVersion", nextTaskVersion);
             Add(mutation, "$expectedTaskVersion", command.ExpectedTaskVersion);
-            Add(mutation, "$circuitNote", command.Reason);
+            Add(mutation, "$circuitNote", WorkChainMutationValidator.TruncateCircuitReplanNote(command.Reason));
             await mutation.ExecuteNonQueryAsync(cancellationToken);
             receipt = new WorkChainMutationReceipt(
                 WorkChainMutationStatus.Applied,

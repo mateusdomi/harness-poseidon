@@ -726,6 +726,25 @@ public static class WorkChainMutationValidator
             command.EvidenceReference);
     }
 
+    /// <summary>O limite da coluna <c>card_circuit_breakers.replan_note</c> (CHECK nos dois provedores).</summary>
+    public const int CircuitReplanNoteMaxLength = 2_000;
+
+    /// <summary>
+    /// A nota de proveniência do circuito precisa caber na coluna. O <c>Reason</c> do comando
+    /// aceita 10.000 caracteres e o ledger/evento guardam o texto INTEGRAL — só a nota do
+    /// circuito é recortada, com o marcador deixando o truncamento explícito. Sem isto, uma
+    /// decisão do dono em prosa (o passo natural seguinte) abortaria a mutação INTEIRA por
+    /// violação de CHECK — e como o replanejamento é o único caminho de volta do card escalado,
+    /// a falha se apresentaria igual ao OPS-024: card parado sem ninguém entender por quê.
+    /// </summary>
+    public static string TruncateCircuitReplanNote(string reason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        return reason.Length <= CircuitReplanNoteMaxLength
+            ? reason
+            : string.Concat(reason.AsSpan(0, CircuitReplanNoteMaxLength - 1), "…");
+    }
+
     public static void Validate(WorkTaskReplanCommand command)
     {
         ArgumentNullException.ThrowIfNull(command);

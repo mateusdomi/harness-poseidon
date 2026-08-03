@@ -592,7 +592,7 @@ public sealed partial class PostgresWorkChainStore
                 Text(command.TaskId),
                 Text(row.ProjectId),
                 Timestamp(command.OccurredAt),
-                Text(command.Reason));
+                Text(WorkChainMutationValidator.TruncateCircuitReplanNote(command.Reason)));
             receipt = new WorkChainMutationReceipt(
                 WorkChainMutationStatus.Applied,
                 command.TaskId,

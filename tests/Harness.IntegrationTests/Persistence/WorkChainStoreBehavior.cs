@@ -1467,6 +1467,50 @@ internal static class WorkChainStoreBehavior
         Assert.Null(closed.OpenedAt);
         Assert.Equal(replanAt, closed.ReplannedAt);
         Assert.Equal("owner.decision_after_escalation", closed.ReplanNote);
+
+        // Segunda rodada, com a decisão em PROSA longa: a nota é recortada no limite da coluna
+        // (com marcador) em vez de abortar a mutação por violação de CHECK — o motivo integral
+        // segue no ledger. Os dois limites eram 10.000 na validação e 2.000 na coluna.
+        var reescalated = await store.EscalateUndispatchableTaskAsync(
+            new WorkTaskUndispatchableCommand(
+                chain.TenantId,
+                chain.SolicitationId,
+                chain.TaskId,
+                "Circuito aberto novamente para a prova do recorte.",
+                $"card:{chain.TaskId}",
+                replan.TaskVersion!.Value,
+                "work-chain:task:undispatchable:circuit:again",
+                chain.OccurredAt.AddMinutes(6)),
+            cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, reescalated.Status);
+
+        var longReason = new string('d', 5_000);
+        var replan2At = chain.OccurredAt.AddMinutes(7);
+        var replan2 = await store.ReplanEscalatedTaskAsync(
+            new WorkTaskReplanCommand(
+                chain.TenantId,
+                chain.SolicitationId,
+                chain.TaskId,
+                "01ARZ3NDEKTSV4RRFFQ69G5G27",
+                revised + " Segunda revisão.",
+                Convert.ToHexString(SHA256.HashData(
+                    Encoding.UTF8.GetBytes(revised + " Segunda revisão."))),
+                "01ARZ3NDEKTSV4RRFFQ69G5FAY",
+                longReason,
+                "turn:01ARZ3NDEKTSV4RRFFQ69G5G28",
+                reescalated.TaskVersion!.Value,
+                "work-chain:task:replan:circuit:prosa",
+                replan2At),
+            cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, replan2.Status);
+
+        var truncated = await circuits.GetAsync(chain.TenantId, chain.TaskId, cancellationToken);
+        Assert.NotNull(truncated);
+        Assert.False(truncated.IsOpen);
+        Assert.NotNull(truncated.ReplanNote);
+        Assert.Equal(WorkChainMutationValidator.CircuitReplanNoteMaxLength, truncated.ReplanNote.Length);
+        Assert.EndsWith("…", truncated.ReplanNote, StringComparison.Ordinal);
+        Assert.Equal(replan2At, truncated.ReplannedAt);
     }
 
     private static async Task AssertInitialLifecycleAsync(
