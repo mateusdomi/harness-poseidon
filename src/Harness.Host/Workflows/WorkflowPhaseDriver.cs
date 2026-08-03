@@ -1219,6 +1219,9 @@ public sealed class WorkflowPhaseDriver(
         {
             builder.Append("- Template: ").Append(template.Code).Append(" — ").Append(template.Name)
                 .Append("\n- Campos obrigatórios: `").Append(template.RequiredFieldsJson).Append("`\n")
+                // O gate documental recusa por ORDEM e por chave não reconhecida, e nada disso era
+                // dito aqui: o autor só descobria a regra depois de perder a tentativa inteira.
+                .Append("- Cada campo obrigatório vira uma seção própria, NA ORDEM ACIMA, com a chave do campo escrita como código no título (por exemplo `## Cobertura OWASP (`owasp_2025`)`). Reordenar ou omitir a chave faz o gate recusar a entrega.\n")
                 .Append("- Formatos de métricas: `").Append(template.MetricFormatsJson).Append("`\n")
                 .Append("- O que precisa provar: ").Append(Clean(template.Guidance, 2_000)).Append('\n');
         }

@@ -65,9 +65,12 @@ public static class DocumentTemplateCompliance
             return new Result([], []);
         }
 
-        var headings = StructuralLabels(body ?? string.Empty)
-            .Select(Normalize)
-            .ToArray();
+        var labels = StructuralLabels(body ?? string.Empty);
+        var headings = labels.Select(Normalize).ToArray();
+        // A chave declarada, escrita como código no próprio título, é uma referência EXPLÍCITA ao
+        // campo — não uma palavra que a prosa deixou cair ali. Por isso ela vale em qualquer
+        // posição do título, enquanto o nome solto continua preso ao início.
+        var declaredKeys = labels.Select(CodeSpanKeys).ToArray();
         var normalizedRequired = required.Select(Normalize).ToArray();
 
         var missing = new List<string>();
@@ -80,6 +83,16 @@ public static class DocumentTemplateCompliance
                 headings,
                 heading => string.Equals(heading, normalizedField, StringComparison.Ordinal) ||
                            heading.StartsWith(normalizedField + " ", StringComparison.Ordinal));
+            if (index < 0)
+            {
+                // `## 7. Cobertura OWASP:2025 (`owasp_2025`)` nomeia o campo com a chave do
+                // template, só que depois do assunto. Sem esta regra o gate recusava um documento
+                // que trazia a seção exigida, e cada recusa custava uma tentativa inteira.
+                index = Array.FindIndex(
+                    declaredKeys,
+                    keys => keys.Contains(normalizedField, StringComparer.Ordinal));
+            }
+
             if (index < 0)
             {
                 // Um campo fora do início só conta quando o mesmo delimitador combina dois
@@ -147,6 +160,43 @@ public static class DocumentTemplateCompliance
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// As chaves escritas como código dentro de um delimitador estrutural, já normalizadas.
+    ///
+    /// Só conta o trecho entre crases: `Cobertura OWASP:2025 (`owasp_2025`)` declara `owasp_2025`
+    /// e nada mais. Uma crase sem par não declara nada — meio delimitador é erro de digitação,
+    /// não intenção.
+    /// </summary>
+    private static HashSet<string> CodeSpanKeys(string label)
+    {
+        var keys = new HashSet<string>(StringComparer.Ordinal);
+        var offset = 0;
+        while (offset < label.Length)
+        {
+            var opening = label.IndexOf('`', offset);
+            if (opening < 0)
+            {
+                break;
+            }
+
+            var closing = label.IndexOf('`', opening + 1);
+            if (closing < 0)
+            {
+                break;
+            }
+
+            var key = Normalize(label[(opening + 1)..closing]);
+            if (key.Length > 0)
+            {
+                keys.Add(key);
+            }
+
+            offset = closing + 1;
+        }
+
+        return keys;
     }
 
     /// <summary>Campos declarados pelo template, na ordem. JSON inválido devolve lista vazia.</summary>

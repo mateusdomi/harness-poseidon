@@ -14,3 +14,5 @@
 {"at":"2026-08-03T06:23:05.0536170\u002B00:00","type":"operation.human_notify","payload":{"sent":true,"exitCode":0,"reason":""}}
 {"at":"2026-08-03T10:23:05.1814380\u002B00:00","type":"operation.human_unblocked","payload":{"cycle":1}}
 {"at":"2026-08-03T11:11:55.7628450\u002B00:00","type":"integrator.launch","payload":{"cycle":1,"reasons":["prova limpa 1-9: running (esperado pass)","produto gerado iniciado e testado: pending (esperado pass)","2 item(ns) de trabalho execut\u00E1vel conhecido"]}}
+{"at":"2026-08-03T11:19:00.2677710\u002B00:00","type":"integrator.yield","payload":{"cycle":1,"exitCode":0,"durationSeconds":424,"decision":"Relaunch","Reason":"yield ap\u00F3s trabalho"}}
+{"at":"2026-08-03T11:19:30.2788350\u002B00:00","type":"integrator.launch","payload":{"cycle":2,"reasons":["prova limpa 1-9: running (esperado pass)","produto gerado iniciado e testado: pending (esperado pass)","2 item(ns) de trabalho execut\u00E1vel conhecido"]}}

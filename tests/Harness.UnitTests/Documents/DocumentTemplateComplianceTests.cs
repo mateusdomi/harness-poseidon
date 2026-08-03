@@ -274,6 +274,73 @@ public sealed class DocumentTemplateComplianceTests
         Assert.Contains("status", result.MissingFields);
     }
 
+    [Fact]
+    public void TheDeclaredKeyWrittenAsCodeSatisfiesTheSectionEvenAfterTheSubject()
+    {
+        // Regressão viva: o Threat Model da prova limpa trazia a seção `owasp_2025` com a chave
+        // depois do assunto, e o gate a declarou ausente — 32 mil tokens recusados por posição.
+        const string threatModel =
+            """["ativos","superficie_ataque","ameacas_stride","controles","riscos_residuais","owasp_2025"]""";
+        var body = """
+            # Threat Model STRIDE
+
+            ## 3. Ativos (`ativos`)
+            Equipamento e empréstimo.
+
+            ## 4. Superfície de ataque (`superficie_ataque`)
+            Aplicação única.
+
+            ## 5. Ameaças STRIDE (`ameacas_stride`)
+            Falsificação de identidade.
+
+            ## 6. Controles (`controles`)
+            Registro de quem devolveu.
+
+            ## 7. Riscos residuais (`riscos_residuais`)
+            Sem aceite formal até aqui.
+
+            ## 8. Cobertura OWASP:2025 (`owasp_2025`)
+            Mapeamento das dez categorias.
+            """;
+
+        var result = DocumentTemplateCompliance.Check(body, threatModel);
+
+        Assert.True(result.IsCompliant, result.Describe());
+    }
+
+    [Fact]
+    public void AKeyDeclaredAsCodeStillHasToRespectTheTemplateOrder()
+    {
+        // A chave explícita resolve QUAL seção é; não dispensa a ordem. Foi assim que o Threat
+        // Model da prova limpa falhou de verdade — o gate só não conseguia dizer isso.
+        const string required = """["riscos_residuais","owasp_2025"]""";
+        var body = """
+            ## 7. Cobertura OWASP:2025 (`owasp_2025`)
+            Mapeamento das dez categorias.
+
+            ## 8. Riscos residuais (`riscos_residuais`)
+            Sem aceite formal até aqui.
+            """;
+
+        var result = DocumentTemplateCompliance.Check(body, required);
+
+        Assert.Empty(result.MissingFields);
+        Assert.Contains("owasp_2025", result.OutOfOrderFields);
+    }
+
+    [Fact]
+    public void ASubjectWithoutTheDeclaredKeyStillDoesNotSatisfyTheSection()
+    {
+        // O contrapeso da regra acima: sem a chave escrita como código, o título continua preso ao
+        // início. Senão "Registros de decisão" passaria a valer pela seção `decisao`.
+        const string required = """["decisao","status"]""";
+
+        var result = DocumentTemplateCompliance.Check(
+            "# Registros de decisão\nTexto.\n\n## Status\nAceita.", required);
+
+        Assert.Contains("decisao", result.MissingFields);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]
