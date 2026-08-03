@@ -42,6 +42,14 @@ ele pode subir AGORA, no meio da sessão, e assumir a madrugada sozinho quando e
 Estado do supervisor em um olhar: `cat coordination/final-operation/LEASE.json` (pid,
 heartbeat, ciclo) e `coordination/final-operation/supervisor.log`.
 
+**Ele também toma a vaga de uma Integradora que parou.** Processo vivo não prova trabalho —
+uma sessão que encerrou o raciocínio mas cuja janela continua aberta seguraria a vaga para
+sempre. O sinal usado é o repositório andando: sem commit por 45 minutos
+(`POSEIDON_INTEGRATOR_IDLE_MINUTES`), a vaga é tratada como devolvida e a sucessora sobe.
+Consequência prática que você precisa saber: **pode existir uma sessão antiga aberta na tela
+enquanto você trabalha.** Ela não vai mexer em nada sozinha; se o dono digitar nela, aí sim
+existem duas — e quem chegou depois é você.
+
 ## Onde a operação está
 
 | eixo | situação |
