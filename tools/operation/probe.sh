@@ -14,7 +14,8 @@
 # ainda não terminou, sai com 10 = "ainda em voo, volte depois" — e quem chamou fica livre
 # para investigar outra coisa em vez de olhar para uma tela.
 #
-# Saídas: 0 concluído · 10 em voo · 20 STALLED · 2 uso inválido
+# Saídas: 0 fora de voo · 10 em voo · 20 STALLED · 2 uso inválido
+# O veredito diz O QUE aconteceu: COMPLETED, FAILED, IDLE (voltou para a fila) ou SETTLED.
 set -uo pipefail
 
 DB="${POSEIDON_DB:-$HOME/.harness-poseidon/harness.db}"
@@ -51,6 +52,21 @@ is_terminal() {
   esac
 }
 
+# O VEREDITO precisa dizer o que aconteceu, e não apenas que a espera acabou.
+#
+# `ready` estava na mesma sacola de `completed` e a sonda respondia COMPLETED para um card
+# que tinha voltado à fila depois de cinquenta tentativas fracassadas — a leitura mais
+# perigosa possível, porque quem pergunta conclui que o trabalho saiu. Sair da espera não é
+# ter terminado: um card em `ready` não está em voo, mas também não entregou nada.
+verdict_for() {
+  case "$1" in
+    completed|done|merged|approved) echo "COMPLETED" ;;
+    failed|cancelled|rejected|escalated|blocked) echo "FAILED" ;;
+    ready) echo "IDLE" ;;
+    *) echo "SETTLED" ;;
+  esac
+}
+
 # Sinais reais de que algo ainda acontece — a diferença entre esperar e estar travado.
 has_live_signal() {
   local inflight
@@ -67,7 +83,7 @@ last=""
 while (( SECONDS - started < BUDGET )); do
   last="$(read_state | head -1)"
   if [[ -n "$last" ]] && is_terminal "$last"; then
-    echo "subject=$kind:$subject state=$last verdict=COMPLETED"
+    echo "subject=$kind:$subject state=$last verdict=$(verdict_for "$last")"
     exit 0
   fi
   sleep "$INTERVAL"
