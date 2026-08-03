@@ -1270,9 +1270,37 @@ internal static class WorkChainStoreBehavior
             cancellationToken);
         Assert.Equal(WorkChainMutationStatus.InvalidState, again.Status);
 
+        // BECO SEM SAÍDA DO CARD NÃO-REVISADO (regressão 2026-08-03).
+        //
+        // A entrega está íntegra e a tentativa parou em `awaiting_review` — ninguém a reprovou
+        // porque ninguém a revisou. O replanejamento é o ÚNICO caminho de volta, e a precondição
+        // enumerava `rejected`/`cancelled`/`abandoned`: o card ficava escalado para sempre mesmo
+        // depois de o crítico voltar. Foi o que travou os seis assentos do Conselho da fase 4 da
+        // prova limpa, quatro horas depois de a causa ter deixado de existir.
+        const string replanAfterNoReview =
+            "Replanejar o card que entregou e nunca foi revisado.";
+        var replanUnreviewed = await store.ReplanEscalatedTaskAsync(
+            new WorkTaskReplanCommand(
+                chain.TenantId,
+                chain.SolicitationId,
+                chain.TaskId,
+                UlidValue.New(chain.OccurredAt.AddMinutes(5)).ToString(),
+                replanAfterNoReview,
+                Convert.ToHexString(SHA256.HashData(
+                    Encoding.UTF8.GetBytes(replanAfterNoReview))),
+                "bruna",
+                "chief.replan_after_escalation",
+                "attempts:unreviewed",
+                escalated.TaskVersion!.Value,
+                "work-chain:task:replan:unreviewed",
+                chain.OccurredAt.AddMinutes(5)),
+            cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, replanUnreviewed.Status);
+        Assert.Equal("ready", replanUnreviewed.TaskState);
+
         var final = await store.ReadAsync(chain.TenantId, chain.SolicitationId, cancellationToken);
         Assert.NotNull(final);
-        Assert.Equal("escalated", final.TaskState);
+        Assert.Equal("ready", final.TaskState);
     }
 
     /// <summary>

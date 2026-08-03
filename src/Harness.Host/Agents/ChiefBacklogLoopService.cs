@@ -1313,6 +1313,49 @@ public sealed partial class ChiefBacklogLoopService(
         new(StringComparer.Ordinal);
 
     /// <summary>
+    /// Motivo que significa "não havia ninguém para revisar", e não "a revisão falhou". A distinção
+    /// existe porque o teto acima mede FALHA, e ausência de revisor não é falha de nada: é espera.
+    /// Um crítico que foi eleito e cujo executor quebrou (`critic.executor_unavailable`) continua
+    /// contando — ali houve tentativa real, e insistir nela sem limite é o laço que o teto impede.
+    /// </summary>
+    private static readonly HashSet<string> ReviewerShortageReasons = new(
+        ["critic.none_available"],
+        StringComparer.Ordinal);
+
+    /// <summary>
+    /// Quanto tempo se espera por um revisor que EXISTE no elenco antes de admitir que ele não vem.
+    ///
+    /// O teto de quatro adiamentos com backoff de cinco minutos dava vinte minutos — menos que
+    /// qualquer janela de cota — e depois disso o card era escalado como se a ENTREGA tivesse
+    /// problema. Foi o que aconteceu com os seis assentos do Conselho: a única outra conta com
+    /// papel de crítico estava em resfriamento, os seis escalaram em oito minutos e continuaram
+    /// escalados horas depois de o crítico voltar. Contar tentativas mede a frequência com que
+    /// perguntamos; o que importa aqui é há quanto tempo ninguém pode responder.
+    /// </summary>
+    internal static readonly TimeSpan ReviewerShortageGrace = TimeSpan.FromHours(2);
+
+    /// <summary>
+    /// Este adiamento é ESPERA por um revisor que existe, e não mais uma falha a caminho da
+    /// escalação? Só é espera enquanto o elenco tem quem revise, o motivo é ausência de revisor
+    /// e a carência não venceu. Fora disso, o card vira impedimento — esperar para sempre é o
+    /// erro simétrico de escalar em vinte minutos.
+    /// </summary>
+    internal static bool ShouldWaitForReviewer(
+        bool reviewerMayReturn,
+        string reasonCode,
+        TimeSpan waited) =>
+        reviewerMayReturn &&
+        ReviewerShortageReasons.Contains(reasonCode) &&
+        waited < ReviewerShortageGrace;
+
+    /// <summary>
+    /// Desde quando esta tentativa espera por um revisor que o elenco ainda pode fornecer. Zera
+    /// junto com o backoff quando um veredito real é aplicado.
+    /// </summary>
+    private readonly Dictionary<string, DateTimeOffset> _reviewerShortageSince =
+        new(StringComparer.Ordinal);
+
+    /// <summary>
     /// Abertura fixa do aviso de etapa concluída. É por ela — mais o nome da etapa — que um aviso
     /// já publicado é reconhecido depois de um reinício do Host.
     /// </summary>
@@ -1754,8 +1797,28 @@ public sealed partial class ChiefBacklogLoopService(
         string reasonCode,
         IWorkChainStore chain,
         DateTimeOffset now,
-        CancellationToken token)
+        CancellationToken token,
+        bool reviewerMayReturn = false)
     {
+        // ESPERA ≠ FALHA. Quando o elenco tem um crítico elegível que está apenas ocupado ou em
+        // resfriamento, adiar não é insistir num caminho quebrado: é aguardar quem já se sabe que
+        // volta. Contar isso no teto de falhas escalava o card por culpa de terceiro, e o
+        // replanejamento — único caminho de volta — o encontrava com a entrega intacta e recusava
+        // por estado inválido. O relógio, não o contador, é quem decide desistir: passada a
+        // carência, o revisor declaradamente não veio e aí sim é impedimento.
+        if (reviewerMayReturn && ReviewerShortageReasons.Contains(reasonCode))
+        {
+            var waitingSince = _reviewerShortageSince.TryGetValue(attemptId, out var since)
+                ? since
+                : now;
+            _reviewerShortageSince[attemptId] = waitingSince;
+            if (ShouldWaitForReviewer(reviewerMayReturn, reasonCode, now - waitingSince))
+            {
+                _reviewBackoff[attemptId] = now.Add(ReviewRetryBackoff);
+                return false;
+            }
+        }
+
         var failures = _reviewInfrastructureFailures.TryGetValue(attemptId, out var previous)
             ? previous + 1
             : 1;
@@ -1788,6 +1851,7 @@ public sealed partial class ChiefBacklogLoopService(
         LogReviewUnavailableEscalated(logger, task.Id, attemptId, reasonCode, failures);
         _reviewBackoff.Remove(attemptId);
         _reviewInfrastructureFailures.Remove(attemptId);
+        _reviewerShortageSince.Remove(attemptId);
         return true;
     }
 
@@ -1796,6 +1860,7 @@ public sealed partial class ChiefBacklogLoopService(
     {
         _reviewBackoff.Remove(attemptId);
         _reviewInfrastructureFailures.Remove(attemptId);
+        _reviewerShortageSince.Remove(attemptId);
     }
 
     /// <summary>
@@ -2081,7 +2146,8 @@ public sealed partial class ChiefBacklogLoopService(
             {
                 LogNoCriticAvailable(logger, task.Id, producerAlias);
                 _ = await DeferOrEscalateReviewAsync(
-                    tenantId, task, awaiting.Id, "critic.none_available", chain, now, token);
+                    tenantId, task, awaiting.Id, "critic.none_available", chain, now, token,
+                    reviewerMayReturn: CriticRosterHasCandidate(producerAlias));
                 continue;
             }
 
@@ -3878,6 +3944,22 @@ public sealed partial class ChiefBacklogLoopService(
     /// Escolhe a conta do crítico: papel `critic`, HABILITADA, adapter real, alias DIFERENTE do
     /// ator, fora de cooldown/circuito — por prioridade e desempate determinístico por alias.
     /// </summary>
+    /// <summary>
+    /// Existe no ELENCO um crítico que pode revisar este ator — ignorando se ele está livre agora.
+    ///
+    /// É a pergunta que separa "ninguém está disponível neste instante" de "ninguém serve para
+    /// isto". A primeira se resolve esperando; a segunda, não. <see cref="SelectCriticAliases"/>
+    /// já descartava ambas pelo mesmo caminho e devolvia uma lista vazia idêntica nos dois casos —
+    /// e foi essa perda de informação que fez a falta momentânea de revisor virar impedimento
+    /// permanente do card.
+    /// </summary>
+    private bool CriticRosterHasCandidate(string producerAlias) =>
+        accounts.List().Any(account =>
+            account.State != AgentAccountState.Disabled &&
+            account.AllowedRoles.Contains("critic", StringComparer.OrdinalIgnoreCase) &&
+            !string.Equals(account.Alias, producerAlias, StringComparison.OrdinalIgnoreCase) &&
+            ExternalAgentExecutorFactory.IsImplemented(account.ExecutorId));
+
     private string[] SelectCriticAliases(string producerAlias, DateTimeOffset now)
     {
         var signals = CapacitySignals(now);

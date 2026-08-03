@@ -666,9 +666,16 @@ public static class WorkChainMutationValidator
     /// sem motivo de falha). As três significam a mesma coisa para o replanejamento: aquela
     /// rodada acabou e não entregou. O que NÃO é replanejável é tentativa ainda viva (`running`)
     /// ou já aprovada — não há o que reescrever.
+    ///
+    /// A regra é essa — e por três vezes a LISTA foi mais estreita que ela. Faltava
+    /// `awaiting_review`: a tentativa entregou, ninguém a reprovou e ninguém a aprovou, porque
+    /// não havia revisor. O card escalava como não-revisável, o replanejamento (único caminho de
+    /// volta) era recusado como estado inválido e ele ficava preso para sempre — foi o que travou
+    /// os seis assentos do Conselho da fase 4 da prova limpa. Enumerar os estados permitidos
+    /// repetiu o erro; agora o predicado NEGA exatamente os dois que a regra nomeia.
     /// </summary>
     public static bool WorkAttemptIsReplannable(string? attemptState) =>
-        attemptState is "rejected" or "cancelled" or "abandoned";
+        attemptState is not ("running" or "approved");
 
     public static void Validate(WorkTaskBlockCommand command)
     {
