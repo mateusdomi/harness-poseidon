@@ -17,6 +17,8 @@ namespace Harness.UnitTests.Agents;
 public sealed class ReviewerShortageWaitTests
 {
     private const string Shortage = "critic.none_available";
+    private static readonly DateTimeOffset Entrega =
+        new(2026, 8, 3, 22, 24, 0, TimeSpan.Zero);
 
     [Fact]
     public void SemRevisorNoElencoNaoHaOQueEsperar()
@@ -25,29 +27,61 @@ public sealed class ReviewerShortageWaitTests
         // adiar em silêncio esconderia do dono um impedimento real.
         Assert.False(
             ChiefBacklogLoopService.ShouldWaitForReviewer(
-                reviewerMayReturn: false, Shortage, TimeSpan.FromMinutes(1)));
+                null, Shortage, Entrega, Entrega.AddMinutes(1)));
     }
 
     [Fact]
     public void RevisorOcupadoDentroDaCarenciaEEspera()
     {
-        // O caso medido: o crítico existe e está apenas em resfriamento. Aos vinte minutos — onde
-        // o teto antigo escalava — a resposta certa ainda é aguardar.
+        // O caso medido: o crítico existe e está apenas ocupado, sem data declarada. Aos vinte
+        // minutos — onde o teto antigo escalava — a resposta certa ainda é aguardar.
         Assert.True(
             ChiefBacklogLoopService.ShouldWaitForReviewer(
-                reviewerMayReturn: true, Shortage, TimeSpan.FromMinutes(20)));
+                Entrega, Shortage, Entrega, Entrega.AddMinutes(20)));
     }
 
     [Fact]
-    public void PassadaACarenciaOImpedimentoEReal()
+    public void PassadaACarenciaSemDataDeclaradaOImpedimentoEReal()
     {
         // Esperar para sempre é o erro simétrico de escalar cedo demais: ninguém saberia que a
         // entrega está parada.
         Assert.False(
             ChiefBacklogLoopService.ShouldWaitForReviewer(
-                reviewerMayReturn: true,
+                Entrega,
                 Shortage,
-                ChiefBacklogLoopService.ReviewerShortageGrace));
+                Entrega,
+                Entrega + ChiefBacklogLoopService.ReviewerShortageGrace));
+    }
+
+    [Fact]
+    public void AJanelaDeclaradaPeloProvedorEstendeAEspera()
+    {
+        // O caso real de 2026-08-03 22:24Z: o único crítico elegível volta às 01:21Z, três horas
+        // depois. Com a carência fixa de duas horas o card escalaria às 00:24 — uma hora antes de
+        // a resposta poder existir, e por culpa de terceiro. O provedor DIZ quando volta.
+        var voltaEm = new DateTimeOffset(2026, 8, 4, 1, 21, 0, TimeSpan.Zero);
+
+        Assert.True(
+            ChiefBacklogLoopService.ShouldWaitForReviewer(
+                voltaEm, Shortage, Entrega, new DateTimeOffset(2026, 8, 4, 0, 24, 0, TimeSpan.Zero)));
+        Assert.False(
+            ChiefBacklogLoopService.ShouldWaitForReviewer(
+                voltaEm, Shortage, Entrega, voltaEm));
+    }
+
+    [Fact]
+    public void UmRetornoDistanteDemaisNaoViraEsperaIndefinida()
+    {
+        // "O provedor disse que volta" não pode virar espera sem fim: a cota semanal de uma conta
+        // volta em três dias, e nesse prazo o dono precisa saber que a entrega está parada.
+        var voltaEmTresDias = Entrega.AddDays(3);
+
+        Assert.False(
+            ChiefBacklogLoopService.ShouldWaitForReviewer(
+                voltaEmTresDias,
+                Shortage,
+                Entrega,
+                Entrega + ChiefBacklogLoopService.ReviewerShortageMaximumWait));
     }
 
     [Fact]
@@ -57,13 +91,14 @@ public sealed class ReviewerShortageWaitTests
         // exatamente o laço que o teto de falhas existe para impedir.
         Assert.False(
             ChiefBacklogLoopService.ShouldWaitForReviewer(
-                reviewerMayReturn: true,
+                Entrega,
                 "critic.executor_unavailable",
-                TimeSpan.FromMinutes(1)));
+                Entrega,
+                Entrega.AddMinutes(1)));
     }
 
     [Fact]
-    public void ACarenciaCobreUmaJanelaDeCotaTipica()
+    public void ACarenciaMinimaCobreUmaJanelaDeCotaTipica()
     {
         // O teto antigo dava vinte minutos — menos que qualquer janela de cota de provedor.
         Assert.True(

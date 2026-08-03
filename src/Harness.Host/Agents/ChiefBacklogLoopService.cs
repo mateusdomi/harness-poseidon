@@ -1335,18 +1335,46 @@ public sealed partial class ChiefBacklogLoopService(
     internal static readonly TimeSpan ReviewerShortageGrace = TimeSpan.FromHours(2);
 
     /// <summary>
-    /// Este adiamento é ESPERA por um revisor que existe, e não mais uma falha a caminho da
-    /// escalação? Só é espera enquanto o elenco tem quem revise, o motivo é ausência de revisor
-    /// e a carência não venceu. Fora disso, o card vira impedimento — esperar para sempre é o
-    /// erro simétrico de escalar em vinte minutos.
+    /// Teto absoluto da espera por revisor. Existe para que "o provedor disse que volta" não vire
+    /// espera indefinida se ele disser uma data distante: passado isto, é impedimento e o dono
+    /// precisa saber.
+    /// </summary>
+    internal static readonly TimeSpan ReviewerShortageMaximumWait = TimeSpan.FromHours(12);
+
+    /// <summary>
+    /// Este adiamento é ESPERA por um revisor que existe, ou uma falha a caminho da escalação?
+    ///
+    /// <paramref name="reviewerReturnsBy"/> é o que o SISTEMA já sabe sobre o retorno: nulo quando
+    /// ninguém no elenco serve este ator (esperar não muda esse fato), o próprio instante atual
+    /// quando há candidato sem restrição, e a janela declarada pelo provedor quando o candidato
+    /// está em cota. Usar uma constante em vez dessa data repetiria o erro que a operação já
+    /// pagou três vezes: o provedor DIZ quando volta, e o código decidia sem ler. Com o crítico de
+    /// volta às 01:21 e uma carência fixa de duas horas, o card escalaria às 00:24 — uma hora
+    /// antes da resposta existir.
     /// </summary>
     internal static bool ShouldWaitForReviewer(
-        bool reviewerMayReturn,
+        DateTimeOffset? reviewerReturnsBy,
         string reasonCode,
-        TimeSpan waited) =>
-        reviewerMayReturn &&
-        ReviewerShortageReasons.Contains(reasonCode) &&
-        waited < ReviewerShortageGrace;
+        DateTimeOffset waitingSince,
+        DateTimeOffset now)
+    {
+        if (reviewerReturnsBy is not { } returnsBy ||
+            !ReviewerShortageReasons.Contains(reasonCode))
+        {
+            return false;
+        }
+
+        // A carência mínima cobre o revisor que está apenas ocupado, sem data declarada; a janela
+        // do provedor estende a espera quando ela é maior. O teto vale sobre as duas.
+        var deadline = waitingSince + ReviewerShortageGrace;
+        if (returnsBy > deadline)
+        {
+            deadline = returnsBy;
+        }
+
+        var ceiling = waitingSince + ReviewerShortageMaximumWait;
+        return now < (deadline < ceiling ? deadline : ceiling);
+    }
 
     /// <summary>
     /// Desde quando esta tentativa espera por um revisor que o elenco ainda pode fornecer. Zera
@@ -1798,7 +1826,7 @@ public sealed partial class ChiefBacklogLoopService(
         IWorkChainStore chain,
         DateTimeOffset now,
         CancellationToken token,
-        bool reviewerMayReturn = false)
+        DateTimeOffset? reviewerReturnsBy = null)
     {
         // ESPERA ≠ FALHA. Quando o elenco tem um crítico elegível que está apenas ocupado ou em
         // resfriamento, adiar não é insistir num caminho quebrado: é aguardar quem já se sabe que
@@ -1806,13 +1834,13 @@ public sealed partial class ChiefBacklogLoopService(
         // replanejamento — único caminho de volta — o encontrava com a entrega intacta e recusava
         // por estado inválido. O relógio, não o contador, é quem decide desistir: passada a
         // carência, o revisor declaradamente não veio e aí sim é impedimento.
-        if (reviewerMayReturn && ReviewerShortageReasons.Contains(reasonCode))
+        if (reviewerReturnsBy is not null && ReviewerShortageReasons.Contains(reasonCode))
         {
             var waitingSince = _reviewerShortageSince.TryGetValue(attemptId, out var since)
                 ? since
                 : now;
             _reviewerShortageSince[attemptId] = waitingSince;
-            if (ShouldWaitForReviewer(reviewerMayReturn, reasonCode, now - waitingSince))
+            if (ShouldWaitForReviewer(reviewerReturnsBy, reasonCode, waitingSince, now))
             {
                 _reviewBackoff[attemptId] = now.Add(ReviewRetryBackoff);
                 return false;
@@ -2147,7 +2175,7 @@ public sealed partial class ChiefBacklogLoopService(
                 LogNoCriticAvailable(logger, task.Id, producerAlias);
                 _ = await DeferOrEscalateReviewAsync(
                     tenantId, task, awaiting.Id, "critic.none_available", chain, now, token,
-                    reviewerMayReturn: CriticRosterHasCandidate(producerAlias));
+                    reviewerReturnsBy: CriticRosterReturnsBy(producerAlias, now));
                 continue;
             }
 
@@ -3973,12 +4001,37 @@ public sealed partial class ChiefBacklogLoopService(
     /// e foi essa perda de informação que fez a falta momentânea de revisor virar impedimento
     /// permanente do card.
     /// </summary>
-    private bool CriticRosterHasCandidate(string producerAlias) =>
-        accounts.List().Any(account =>
-            account.State != AgentAccountState.Disabled &&
-            account.AllowedRoles.Contains("critic", StringComparer.OrdinalIgnoreCase) &&
-            !string.Equals(account.Alias, producerAlias, StringComparison.OrdinalIgnoreCase) &&
-            ExternalAgentExecutorFactory.IsImplemented(account.ExecutorId));
+    /// <returns>
+    /// <see langword="null"/> quando ninguém no elenco serve este ator; o próprio
+    /// <paramref name="now"/> quando existe candidato sem restrição declarada; e a MENOR janela de
+    /// retorno declarada pelo provedor quando todos os candidatos estão em cota ou resfriamento.
+    /// </returns>
+    private DateTimeOffset? CriticRosterReturnsBy(string producerAlias, DateTimeOffset now)
+    {
+        DateTimeOffset? earliest = null;
+        foreach (var account in accounts.List())
+        {
+            if (account.State == AgentAccountState.Disabled ||
+                !account.AllowedRoles.Contains("critic", StringComparer.OrdinalIgnoreCase) ||
+                string.Equals(account.Alias, producerAlias, StringComparison.OrdinalIgnoreCase) ||
+                !ExternalAgentExecutorFactory.IsImplemented(account.ExecutorId))
+            {
+                continue;
+            }
+
+            var record = availability.Get(account.Alias);
+            var returnsBy = record?.CooldownUntil is { } until && until > now &&
+                record.State is AgentAccountState.QuotaLimited or AgentAccountState.CoolingDown
+                ? until
+                : now;
+            if (earliest is null || returnsBy < earliest)
+            {
+                earliest = returnsBy;
+            }
+        }
+
+        return earliest;
+    }
 
     private string[] SelectCriticAliases(string producerAlias, DateTimeOffset now)
     {
