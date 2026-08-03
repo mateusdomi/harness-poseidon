@@ -589,3 +589,103 @@ antes (o caso `frontend-specialist` do handoff anterior). Pense duas vezes.
 `tools/operation/publish-when-idle.sh <project_id>` — usei três vezes em quarenta minutos,
 sem perder uma tentativa. Ele pausa a esteira ANTES de conferir de novo, e essa ordem é a
 razão de funcionar. Não reinicie o Host à mão enquanto ele existir.
+
+---
+
+# Noite de 2026-08-03, ciclo 41 — o cadeado que estava DEPOIS da cota
+
+## Leia isto antes de comemorar a volta de uma conta
+
+O ciclo 40 encerrou com um diagnóstico tranquilizador: os seis assentos do Conselho estavam
+`awaiting_review` **adiando, não escalando**, à espera da cota de `worker-codex-critic`
+(01:21:25Z). Correto — e incompleto. Havia um segundo cadeado, invisível porque o primeiro
+o escondia: **mesmo depois do review, a fase 4 não fecharia.**
+
+`AgentCouncilPolicy.FromExecution` deriva a opinião de cada conselheiro de
+`work_attempts.summary`. Esse campo existe no contrato e **nenhum escritor o preenche**:
+`WorkAttemptCompleteCommand` não tem sequer o parâmetro, e a mutação de conclusão atualiza
+estado, duração, tokens e custo — nunca o resumo. No banco inteiro desta instalação:
+
+```sh
+sqlite3 ~/.harness-poseidon/harness.db \
+  "select count(*) from work_attempts where summary is not null and trim(summary)<>''"
+# 0
+```
+
+Zero. Em 363 tentativas só neste projeto, trinta delas aprovadas e mergeadas.
+
+Com o card fechado e sem resumo, `FromExecution` devolvia `null`, o `continue` era **mudo**,
+`opinions` ficava vazio e `Consolidate` respondia `council.incomplete` — para sempre. As
+fases 5 a 9 e o eixo do produto gerado ficariam inalcançáveis, e o sintoma seria
+indistinguível de "ainda não revisaram".
+
+**A lição operacional:** quando um bloqueio tem hora marcada para sair, use o tempo para
+perguntar *o que acontece no minuto seguinte*. O cadeado que você vê é o que está mais perto,
+não o que está mais fundo. Foi assim no ciclo 40 (três cadeados empilhados) e de novo aqui.
+
+## Onde a opinião mora de verdade
+
+No **artefato**: `docs/conselho/<persona>-ciclo-<n>.md`, escrito sob claim estreito,
+revisado e commitado. Conferido nos seis, com o marcador que a instrução exige:
+
+```sh
+git -C <repo-do-produto> show task/agent-run-<attempt-minusculo>:docs/conselho/<persona>-ciclo-1.md \
+  | grep -m1 '^VEREDITO:'
+```
+
+Cinco `VEREDITO: LIBERAR` e um `RESSALVA` (playbook-arquiteto). A mensagem final do executor
+não serve como fonte: ela só existe enquanto o processo está vivo, e o próprio comentário do
+código já declarava que `snapshot.Execution` é nulo na colheita — que é o caso comum.
+
+**A ordem das duas fontes importa e quase me pegou.** O conselho consolida *depois* que o
+card fecha, e fechar inclui o merge. Nesse ponto `git diff HEAD...branch` já é **vazio** — a
+base virou o próprio topo da branch. Ler só pela branch teria funcionado em todo teste manual
+antes do merge e falhado exatamente no instante em que precisava funcionar. Por isso a
+referência publicada vem primeiro, e a branch é o fallback. Há teste com git real cobrindo
+os dois lados (`CouncilOpinionArtifactReaderGitTests`).
+
+## Um achado que virou não-achado, e por que registro isso
+
+Registrei `OPS-063` como crítico lendo o código: a fase 5 só cria card para objetivo do tipo
+documento, e os cards de implementação dependem de `PromoteRequestForDevelopment`, que exige
+uma **lista fechada de frases** ("quero um sistema", "portal", "site"…) que a demanda desta
+prova não casa. Conferi no banco depois: **as três demandas já têm materialização registrada
+com `surfaces.backend=true`**, e aquele método retorna cedo quando já existe superfície. A
+lista de frases nunca é alcançada aqui. As três estão `pending` desde 02/08 apenas porque
+`PlanMaterializationService` as adia com `workflow.development_not_released` enquanto a fase
+ativa é menor que 5.
+
+Fechei sem correção, com a evidência. **Ler o código diz o que PODE acontecer; ler o banco
+diz o que VAI acontecer.** Um finding crítico errado custa a noite de quem vier depois.
+
+## O que fica armado para a fase 5 — `OPS-064`
+
+A camada `Deterministic` do review se declara "build, testes e varredura de segredo" e, na
+ausência de veredito, é montada como `Pass` com `ReasonClean`. Os únicos alimentadores reais
+são o gate documental e os diagnósticos Roslyn. O plano de hooks (`pre-commit scan-secrets`,
+`pre-submit` testes) é gerado e serializado num JSON ao lado da worktree — e **não existe um
+único leitor desse arquivo em todo o código**.
+
+Isso nunca doeu porque **todo card até aqui foi de documento**, e o gate documental dava o
+veredito. A fase 5 é a primeira que entrega código: um card de implementação seria aprovado
+com "camada determinística limpa" sem que nada tivesse sido compilado, testado ou varrido.
+
+**Não mexi no caminho de review de propósito** — é exatamente o código que roda às 01:21Z
+para os seis pareceres. Mexer nele antes da transição mais importante da operação seria
+trocar um risco conhecido por um desconhecido. A ordem está no `nextAction` do finding:
+varredura de segredo e "camada sem veredito bloqueia" primeiro; execução de teste quando o
+Briefing técnico da fase 5 declarar o stack.
+
+## O que conferir quando a cota voltar
+
+Por ID, nesta ordem — está tudo no `nextAction` do `STATE.json`:
+
+1. os seis assentos saem de `awaiting_review`;
+2. o log **para** de repetir `phase:phase-4:council:council.incomplete` e **não** aparece
+   `council_opinion_missing:<persona>` (se aparecer, o artefato não foi lido — o problema é o
+   caminho do arquivo, não o conselho);
+3. o `gate-1` da fase 4 (`01KZ24JCJV2AQDN9A30Q1SF7Q3`) sai de `pending` e a fase 5 ativa;
+4. as três materializações saem de `pending` e nascem cards de implementação.
+
+O passo 2 é o que prova o `OPS-062`. Ele foi publicado às 23:10:51Z (binário `aa309902`), com
+`publish-when-idle` — janela sem tentativa em voo, esteira pausada antes e retomada depois.
