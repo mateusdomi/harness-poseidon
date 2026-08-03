@@ -326,32 +326,25 @@ public sealed class WorkflowPhaseDriver(
             _failures.Add($"phase:{phase.Key}:obligation_without_producer");
         }
 
-        // DOCUMENTO NÃO CONCLUI FASE EXECUTIVA.
-        //
-        // Os cards de implementação nascem de um compromisso DURÁVEL por demanda, e esse
-        // compromisso fica deliberadamente adiado enquanto o Playbook não libera construção
-        // (`PlanMaterializationService`, `workflow.development_not_released`). Quem o cumpre é um
-        // reconciliador com ritmo próprio, independente deste ciclo — então existe uma janela real
-        // em que a fase já é executiva, os documentos dela estão todos aceitos e NENHUM card de
-        // implementação nasceu ainda. Sem esta guarda o portão aprovaria nessa janela, e a fase de
-        // Desenvolvimento fecharia com briefing técnico, code review e métricas escritos e nenhuma
-        // linha implementada — o desfecho exato que a esteira existe para impedir.
-        //
-        // O sinal é o compromisso, não a contagem de cards: contar cards confundiria "ainda não
-        // materializou" com "materializou e o trabalho é pequeno".
+        // Documento não conclui fase executiva — a regra e o porquê estão em `ExecutivePhaseGuard`.
+        // Aqui fica só a leitura do estado durável de cada demanda que o usuário pediu.
+        var materializationViews = new List<DemandMaterializationView>();
         if (phase.Order >= ActivePhaseResolver.DevelopmentPhaseOrder)
         {
-            foreach (var demand in demands.Where(item => !item.Internal))
+            foreach (var demand in demands)
             {
-                var commitment = await _materializations.GetAsync(
-                    tenantId, demand.Id, cancellationToken);
-                if (commitment is not null && !string.Equals(
-                        commitment.Status, PlanMaterializationStatus.Completed, StringComparison.Ordinal))
-                {
-                    _failures.Add(
-                        $"phase:{phase.Key}:implementation_not_materialized:{demand.Id}");
-                }
+                var commitment = demand.Internal
+                    ? null
+                    : await _materializations.GetAsync(tenantId, demand.Id, cancellationToken);
+                materializationViews.Add(
+                    new DemandMaterializationView(demand.Id, demand.Internal, commitment?.Status));
             }
+        }
+
+        foreach (var demandId in ExecutivePhaseGuard.PendingImplementation(
+                     phase.Order, materializationViews))
+        {
+            _failures.Add($"phase:{phase.Key}:{ExecutivePhaseGuard.FailurePrefix}:{demandId}");
         }
 
         // ---- PORTÃO: quem decide depende do MODO configurado pelo dono ----
