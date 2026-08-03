@@ -1696,6 +1696,20 @@ public sealed partial class AgentRunOrchestrator(
     /// ganham identidade de contêiner — o git e os CLIs exigem as duas, e a identidade real do
     /// host não existe lá dentro.
     /// </summary>
+    /// <summary>
+    /// Variáveis que desligam tráfego não essencial das CLIs dentro da sandbox. Interno para
+    /// que a garantia seja verificável sem subir Docker: perder uma delas devolve o laço de
+    /// retry que já custou dezesseis minutos de uma tentativa.
+    /// </summary>
+    internal static readonly IReadOnlyDictionary<string, string> NonEssentialTrafficOff =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1",
+            ["DISABLE_TELEMETRY"] = "1",
+            ["DISABLE_ERROR_REPORTING"] = "1",
+            ["DISABLE_AUTOUPDATER"] = "1",
+        };
+
     private Dictionary<string, string> BuildContainerEnvironment(
         AccountProfileLayout layout,
         ExecutorProfile profile)
@@ -1718,6 +1732,23 @@ public sealed partial class AgentRunOrchestrator(
 
         container["HOME"] = "/codex-state";
         container["USER"] = "poseidon-worker";
+
+        // Telemetria não é trabalho, e dentro da sandbox ela custa MUITO mais que fora.
+        //
+        // Observado ao vivo em 2026-08-03: a tentativa 01KZ2WYBQBABVPZTR8FVXGD33D ficou
+        // dezesseis minutos sem produzir um token. O log do proxy explicava — centenas de
+        // `proxy-deny statsig.anthropic.com:443` e NENHUMA conexão ao endpoint do modelo. A CLI
+        // tentava telemetria antes do trabalho, o egresso restrito negava (corretamente), e ela
+        // reentrava no retry em vez de seguir. O agente não estava pensando: estava tentando
+        // avisar que tinha começado.
+        //
+        // Desligar tráfego não essencial é melhor que abrir o egresso para o domínio de
+        // telemetria: mantém a fronteira fechada e remove a causa em vez do sintoma.
+        foreach (var (name, value) in NonEssentialTrafficOff)
+        {
+            container[name] = value;
+        }
+
         return container;
     }
 
