@@ -194,7 +194,14 @@ public sealed class CodexExternalAgentExecutor(
                     break;
 
                 case "turn.failed":
-                    FailureCode = "executor.turn_failed";
+                    // `turn.failed` é o ENVELOPE do fracasso, não a causa dele: ele chega
+                    // depois do erro real e, escrito por cima, apagava a causa específica já
+                    // observada. Foi assim que a conta codex ficou eleita por horas na prova
+                    // limpa de 2026-08-03: o backend recusava todos os modelos do plano, o
+                    // parser via `account_model_unsupported`, e o `turn.failed` seguinte
+                    // rebaixava tudo a "falha genérica do turno" — que não marca conta
+                    // indisponível. A eleição continuava mandando card para uma conta morta.
+                    FailureCode ??= "executor.turn_failed";
                     yield return new ExternalAgentEvent(
                         ExternalAgentEventKind.Failed, Code: FailureCode);
                     break;

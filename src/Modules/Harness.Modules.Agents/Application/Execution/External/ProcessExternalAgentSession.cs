@@ -316,23 +316,46 @@ internal sealed class ProcessExternalAgentSession : IExternalAgentSession
     /// <summary>Últimas linhas de stderr, redigidas — usadas apenas para diagnóstico.</summary>
     internal IReadOnlyList<string> CapturedStandardError => [.. _errorLines];
 
-    private string? BuildFailureDiagnostic()
+    private string? BuildFailureDiagnostic() => SelectDiagnostic([.. _errorLines]);
+
+    /// <summary>Escolha das linhas que explicam a falha. Interno para ser verificável sem processo.</summary>
+    internal static string? SelectDiagnostic(IReadOnlyCollection<string> errorLines)
     {
         const int maximumLength = 1200;
-        if (_errorLines.Count == 0)
+        if (errorLines.Count == 0)
         {
             return null;
         }
 
-        var distinct = _errorLines
+        var distinct = errorLines
             .Where(line => !string.IsNullOrWhiteSpace(line))
             .Distinct(StringComparer.Ordinal)
-            .TakeLast(10);
-        var diagnostic = string.Join(" | ", distinct);
+            .ToArray();
+
+        // As últimas linhas nem sempre são as que explicam. Um aviso tardio da CLI ("no last
+        // agent message") entrava na janela e EMPURRAVA para fora a linha que dizia por que o
+        // turno morreu — o humano lia um aviso onde deveria ler a causa. Erro tem precedência
+        // sobre aviso; entre erros, a ordem original é preservada.
+        var errors = distinct.Where(IsError).ToArray();
+        var selected = errors.Length > 0
+            ? errors.TakeLast(10).Concat(distinct.Where(line => !IsError(line)).TakeLast(2))
+            : distinct.TakeLast(10);
+
+        var diagnostic = string.Join(" | ", selected);
         return diagnostic.Length <= maximumLength
             ? diagnostic
             : diagnostic[..maximumLength];
     }
+
+    /// <summary>Linha que descreve falha, e não progresso. Deliberadamente ampla: o custo de
+    /// classificar um aviso como erro é ruído no diagnóstico; o de perder o erro é o humano
+    /// lendo a linha errada.</summary>
+    private static bool IsError(string line) =>
+        line.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+        line.Contains("failed", StringComparison.OrdinalIgnoreCase) ||
+        line.Contains("not supported", StringComparison.OrdinalIgnoreCase) ||
+        line.Contains("usage limit", StringComparison.OrdinalIgnoreCase) ||
+        line.Contains("denied", StringComparison.OrdinalIgnoreCase);
 
     private async Task PumpAsync()
     {

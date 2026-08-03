@@ -303,6 +303,37 @@ public sealed class ExternalAgentExecutorTests : IDisposable
         Assert.Equal("executor.authentication_required", parser.FailureCode);
     }
 
+    /// <summary>
+    /// A cauda de diagnóstico é o que um humano lê para saber por que o turno morreu. Um aviso
+    /// tardio da CLI ("no last agent message") entrava na janela de dez linhas e empurrava
+    /// para fora a linha que explicava — e o `failure_reason` gravado no banco passava a
+    /// mostrar um aviso no lugar da causa.
+    /// </summary>
+    [Fact]
+    public void TheDiagnosticKeepsTheCauseWhenALateWarningWouldPushItOut()
+    {
+        var lines = new List<string>
+        {
+            "ERROR: The 'gpt-5' model is not supported when using Codex with a ChatGPT account.",
+        };
+        for (var index = 0; index < 12; index++)
+        {
+            lines.Add($"Warning: no last agent message; wrote empty content to /tmp/last-{index}.txt");
+        }
+
+        var diagnostic = ProcessExternalAgentSession.SelectDiagnostic(lines);
+
+        Assert.Contains("not supported when using", diagnostic, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WithoutAnyErrorLineTheDiagnosticStillShowsWhatWasSeen()
+    {
+        var diagnostic = ProcessExternalAgentSession.SelectDiagnostic(["apenas um aviso"]);
+
+        Assert.Equal("apenas um aviso", diagnostic);
+    }
+
     [Fact]
     public void CodexAccountModelRefusalArrivesAsATypedErrorEventInJsonMode()
     {
@@ -330,6 +361,37 @@ public sealed class ExternalAgentExecutorTests : IDisposable
             "model is not supported when using Codex with a ChatGPT account.\"}; retrying 5/5");
 
         Assert.Equal("executor.account_model_unsupported", parser.FailureCode);
+    }
+
+    /// <summary>
+    /// `turn.failed` é o ENVELOPE do fracasso, não a causa: ele chega DEPOIS do erro real.
+    /// Escrito por cima, apagava a causa específica e a conta morta continuava elegível —
+    /// falha genérica de turno não marca conta indisponível. Foi o que manteve a conta codex
+    /// eleita por horas na prova limpa de 2026-08-03, com os cards de Arquitetura voltando a
+    /// `ready` indefinidamente.
+    /// </summary>
+    [Fact]
+    public void TheGenericTurnFailureNeverOverwritesTheCauseAlreadyObserved()
+    {
+        var parser = new CodexExternalAgentExecutor.CodexJsonlParser("/unused/last-message.txt");
+
+        parser.ObserveErrorLine(
+            "ERROR: The 'gpt-5' model is not supported when using Codex with a ChatGPT account.");
+        var failed = parser.ParseLine("""{"type":"turn.failed"}""").Single();
+
+        Assert.Equal("executor.account_model_unsupported", parser.FailureCode);
+        Assert.Equal("executor.account_model_unsupported", failed.Code);
+    }
+
+    /// <summary>Sem causa conhecida, o envelope genérico continua sendo a resposta honesta.</summary>
+    [Fact]
+    public void AnUnexplainedTurnFailureStillReportsTheGenericCode()
+    {
+        var parser = new CodexExternalAgentExecutor.CodexJsonlParser("/unused/last-message.txt");
+
+        Assert.Equal(
+            "executor.turn_failed",
+            parser.ParseLine("""{"type":"turn.failed"}""").Single().Code);
     }
 
     [Fact]
