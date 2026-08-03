@@ -556,6 +556,12 @@ public static class HostApplication
 
             // O condutor de fase é quem liga o trabalho entregue à esteira do projeto: sem ele o
             // motor de workflow nunca é chamado em produção e a esteira fica decorativa.
+            // A opinião do conselheiro é o parecer ENTREGUE, lido da branch da tentativa. Sem este
+            // leitor o conselho só teria `work_attempts.summary`, campo que nenhum escritor
+            // preenche — e a fase 4 nunca fecharia.
+            builder.Services.AddSingleton<Workflows.ICouncilOpinionArtifactReader>(
+                new Workflows.GitCouncilOpinionArtifactReader(
+                    Path.GetFullPath(agentRunSettings.ControlledRoot!)));
             builder.Services.AddScoped<Workflows.WorkflowPhaseDriver>();
             builder.Services.AddHostedService<ChiefBacklogLoopService>();
             builder.Services.AddSingleton(new AttemptArtifactArchive(

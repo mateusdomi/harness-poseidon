@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Harness.Host.Documents;
 using Harness.Modules.Coordination.Application;
 using Harness.Modules.Workflows.Application;
 using Harness.Persistence.Abstractions.Conversations;
@@ -59,7 +60,8 @@ public sealed class WorkflowPhaseDriver(
     IWorkflowDocumentTemplateStore documentTemplates,
     IConversationStore conversations,
     IPlanMaterializationStore materializations,
-    IClock clock)
+    IClock clock,
+    ICouncilOpinionArtifactReader? councilOpinions = null)
 {
     /// <summary>Tipo de objetivo cujo entregável é um documento produzível por agente.</summary>
     private const string DocumentKind = "document";
@@ -109,6 +111,12 @@ public sealed class WorkflowPhaseDriver(
     private readonly IPlanMaterializationStore _materializations =
         materializations ?? throw new ArgumentNullException(nameof(materializations));
     private readonly IClock _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+
+    /// <summary>
+    /// Opcional de propósito: sem leitor de artefato o conselho continua funcionando pelo resumo
+    /// da tentativa, e os testes que constroem o condutor à mão não precisam de repositório git.
+    /// </summary>
+    private readonly ICouncilOpinionArtifactReader? _councilOpinions = councilOpinions;
 
     /// <summary>
     /// Título ESTÁVEL do card que produz um objetivo de fase. É a chave de idempotência: o mesmo
@@ -745,10 +753,27 @@ public sealed class WorkflowPhaseDriver(
                 .OrderByDescending(attempt => attempt.Number)
                 .Select(attempt => attempt.Summary)
                 .FirstOrDefault();
+            // `work_attempts.summary` é um campo do contrato que NENHUM escritor preenche — a
+            // mensagem final do executor morre com a sessão e a colheita acontece depois. Sem esta
+            // segunda fonte, todo assento voltava sem parecer e o conselho respondia
+            // `council.incomplete` para sempre, com os pareceres já escritos e entregues. O
+            // artefato é a opinião: é o que a instrução exige, o que o revisor leu e o que
+            // sobrevive ao fim do processo.
+            if (string.IsNullOrWhiteSpace(attemptSummary) && _councilOpinions is not null &&
+                ApprovedDocumentCatalogPublisher.SelectDeliveredAttempt(attempts) is { } delivered)
+            {
+                attemptSummary = await _councilOpinions.ReadAsync(
+                    project, delivered.Id, seat.PersonaKey, existing.Cycle, cancellationToken);
+            }
+
             var opinion = AgentCouncilPolicy.FromExecution(
                 seat, attemptSummary, existing.Task.BlockedReason);
             if (opinion is null)
             {
+                // Card encerrado e nenhuma opinião legível: isto SEGURA a fase, então precisa
+                // aparecer. Antes o `continue` mudo transformava a ausência num empate silencioso
+                // que só se manifestava como `council.incomplete`, sem dizer de quem faltava.
+                _failures.Add($"phase:{phaseName}:council_opinion_missing:{seat.PersonaKey}");
                 continue;
             }
 
@@ -949,7 +974,9 @@ public sealed class WorkflowPhaseDriver(
             $"ciclo-{cycle}.md`.\n" +
             "Fora de escopo: código de produção, alteração dos documentos revisados e decisão final. " +
             "Você opina sobre esses documentos; não os edita.\n\n" +
-            "Na conclusão do card, use obrigatoriamente:\n" +
+            "Encerre o PARECER — a última seção do próprio arquivo, não apenas a mensagem final do " +
+            "card — obrigatoriamente com estas quatro linhas. É esse arquivo que o Control Plane lê " +
+            "para consolidar o conselho; veredito que existe só na conversa não é lido por ninguém:\n" +
             "VEREDITO: LIBERAR | RESSALVA | BLOQUEAR\n" +
             "RESUMO: <conclusão independente>\n" +
             "EVIDÊNCIAS: <arquivos, versões e trechos>\n" +

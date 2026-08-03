@@ -247,6 +247,10 @@ public sealed class WorkflowPhaseCardContextTests
             Assert.Equal(seat.PersonaKey, resolution.PersonaKey);
             Assert.Contains("VEREDITO: LIBERAR | RESSALVA | BLOQUEAR", instruction, StringComparison.Ordinal);
             Assert.Contains("versões mais recentes", instruction, StringComparison.Ordinal);
+            // O veredito precisa estar no ARQUIVO: é ele que o Control Plane lê para consolidar o
+            // conselho. Exigi-lo apenas "na conclusão do card" deixava o parecer legível para o
+            // humano e invisível para a esteira.
+            Assert.Contains("a última seção do próprio arquivo", instruction, StringComparison.Ordinal);
         }
 
         Assert.Equal(3, AgentCouncilPolicy.MaximumReviewCycles);
