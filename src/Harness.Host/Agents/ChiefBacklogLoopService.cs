@@ -2539,6 +2539,12 @@ public sealed partial class ChiefBacklogLoopService(
     /// <summary>Projetos cujo aviso de parada já foi dito nesta execução do processo.</summary>
     private readonly HashSet<string> _stallAnnounced = new(StringComparer.Ordinal);
 
+    /// <summary>Quando este processo subiu. Base da carência que evita alarme causado por deploy.</summary>
+    private readonly DateTimeOffset _startedAt = DateTimeOffset.UtcNow;
+
+    /// <summary>Silêncio esperado logo após a subida — o que estava em voo foi cancelado por nós.</summary>
+    private static readonly TimeSpan StartupGrace = TimeSpan.FromMinutes(10);
+
     /// <summary>
     /// A Bruna avisa quando a esteira PARA — e avisa de novo quando ela volta.
     ///
@@ -2674,9 +2680,17 @@ public sealed partial class ChiefBacklogLoopService(
             }
         }
 
-        var idle = lastDelivery is { } delivered
-            ? (int)Math.Round((now - delivered).TotalMinutes)
-            : int.MaxValue;
+        // Sem NENHUMA entrega registrada não existe linha de base, e sem linha de base não
+        // existe "parou" — existe "ainda não começou". Anunciar aqui produziu, na primeira vez
+        // que a regra rodou de verdade, a frase "sem avançar há cerca de 0 minutos" na conversa
+        // do dono: o int.MaxValue virava zero na hora de escrever. Número sem sentido na fala da
+        // diretora custa mais confiança que o silêncio que ele tentava corrigir.
+        if (lastDelivery is not { } delivered)
+        {
+            return null;
+        }
+
+        var idle = (int)Math.Round((now - delivered).TotalMinutes);
 
         // O limiar é APRENDIDO, não decretado.
         //
@@ -2698,9 +2712,18 @@ public sealed partial class ChiefBacklogLoopService(
         // verdade, foi contra um card em plena execução.
         var working = page.Items.Any(task =>
             string.Equals(task.InternalState, "running", StringComparison.Ordinal));
+        // Carência após a subida do processo: reiniciar o Host cancela o que estava em voo e
+        // zera a atividade por alguns minutos. Sem esta carência, todo deploy anuncia ao dono
+        // uma pausa que o próprio deploy causou — foi o que aconteceu às 17:37 de 2026-08-03.
+        var sinceStart = now - _startedAt;
+        if (sinceStart < StartupGrace)
+        {
+            return (false, idle, string.Empty);
+        }
+
         var stalled = !working && idle >= threshold;
         var explanation = DescribeWallForOwner(lastWall);
-        return (stalled, idle == int.MaxValue ? 0 : idle, explanation);
+        return (stalled, idle, explanation);
     }
 
     /// <summary>
