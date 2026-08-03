@@ -33,6 +33,13 @@ q() { sqlite3 -readonly -noheader -separator '|' "$DB" "$1" 2>/dev/null; }
 stamp() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 say()   { echo "[$(stamp)] $*" >> "$LOG"; }
 # ALERTA é a única linha que pede julgamento humano ou de agente. Tudo o mais é estado.
+#
+# O FORMATO É CONTRATO: `[<timestamp>] ALERTA <texto>`, com a palavra logo após o colchete.
+# Quem consome este log — um `grep`, um monitor, outro agente — precisa ancorar em
+# `^\[[^]]+\] ALERTA `, e não na palavra solta. Aprendido na primeira hora de uso: um agente
+# anotou no log a frase "o ALERTA de binário defasado já tem publicador" e o monitor que
+# vigiava a palavra solta acordou com a própria anotação. Um vigia que se acorda sozinho gasta
+# atenção sem entregar informação, e é assim que se ensina alguém a ignorá-lo.
 alert() { echo "[$(stamp)] ALERTA $*" >> "$LOG"; }
 
 say "vigia de pe (pid $$) — projeto $PROJECT, intervalo ${INTERVAL}s, teto de ociosidade ${IDLE_ALERT}min"
