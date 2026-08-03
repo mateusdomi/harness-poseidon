@@ -30,6 +30,7 @@
     <!-- Seam de teste: a prova determinística do dispatch do Chefe roda UM ciclo do loop e
          inspeciona o par (despachados, adiados). Só expõe o membro interno aos testes. -->
     <InternalsVisibleTo Include="Harness.IntegrationTests" />
+    <InternalsVisibleTo Include="Harness.UnitTests" />
   </ItemGroup>
 
   <ItemGroup>

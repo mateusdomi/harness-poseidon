@@ -1442,9 +1442,22 @@ public sealed partial class ChiefBacklogLoopService(
         bool willHarvest,
         CancellationToken token)
     {
-        var page = await board.PageTasksAsync(
-            tenantId,
-            new BoardTaskPageQuery(project.Id, null, null, "development", null, null, "active", null, 0, 50),
+        // Paginação até o FIM. Uma página única de 50 significava que, num projeto com mais de
+        // cinquenta cards ativos ao mesmo tempo, os excedentes nunca eram reconciliados — e essa
+        // falha é silenciosa por natureza: o card fica preso em `running` para sempre e nada no
+        // log diz que ele sequer chegou a ser olhado. O teto de páginas existe apenas para que
+        // um erro de paginação não vire laço infinito.
+        var page = await PagedScan.CollectAsync<BoardTaskRecord>(
+            async (offset, size) =>
+            {
+                var current = await board.PageTasksAsync(
+                    tenantId,
+                    new BoardTaskPageQuery(
+                        project.Id, null, null, "development", null, null, "active", null,
+                        offset, size),
+                    token);
+                return (current.Items, current.Total);
+            },
             token);
 
         // Diagnóstico da própria reconciliação. Três tentativas ficaram presas em `running` por
