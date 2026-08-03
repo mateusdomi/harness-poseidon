@@ -1,11 +1,11 @@
 {
   "operation": "poseidon-final-validation",
   "schemaVersion": 1,
-  "updatedAt": "2026-08-03T02:00:00Z",
+  "updatedAt": "2026-08-03T03:20:00Z",
   "updatedBy": "integrator-kimi",
   "branch": "develop",
   "baselineCommit": "a25bb1ff",
-  "headCommit": "f4514161",
+  "headCommit": "8b3f2d21",
   "pushedToOrigin": false,
   "cleanE2E": {
     "status": "running",
@@ -35,14 +35,14 @@
   "mandatoryGatesFailed": 0,
   "mandatoryTestsPending": 0,
   "testBaseline": {
-    "unit": 1516,
-    "integrationTargeted": 26,
+    "unit": 1586,
+    "integration": 306,
     "frontend": 783,
-    "allGreenAt": "2026-08-02T20:50:00Z"
+    "allGreenAt": "2026-08-03T03:20:00Z"
   },
-  "metricsInstrumented": false,
-  "metricsNote": "Custo, tokens, invocacoes e transient-failure-waste NAO foram instrumentados (SPEC 31/32). Nao inventar numeros: reportar como nao medido ate existir coleta real.",
-  "nextAction": "E2E limpo na fase 3 com 7 cards prontos e zero escalados, mas SEM CONTA APTA a executar: glm com cota semanal ate 06/08 (OPS-028), codex com plano recusando todos os modelos (OPS-029), claude-secondary sem credencial alcancavel no conteiner (OPS-030). Execucao isolada provada ponta a ponta ate o provedor. Quando uma conta voltar, o despacho retoma sozinho.",
+  "metricsInstrumented": true,
+  "metricsNote": "Medidas por `supervisor metrics`. Desperdicio transitorio 0,98% (meta do §34 batida); retrabalho 73% do custo.",
+  "nextAction": "OPS-032 (diretorio de sessao do executor) bloqueia a Fase 3 da prova limpa: os cards morrem sem produzir token. Depois, levar a prova da fase 3 a 9 e abrir o produto gerado (§49).",
   "humanDecisionRequired": true,
   "externalBlockers": [
     "OPS-030: contas claude sem credencial dentro do conteiner — decidir extracao do OAuth do Keychain, ANTHROPIC_API_KEY ou frota reduzida",
