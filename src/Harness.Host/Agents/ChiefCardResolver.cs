@@ -133,10 +133,23 @@ public static class ChiefCardResolver
     // "ui"/"ux" como SUBSTRING viravam falso positivo em português ("concluir", "incluir",
     // "possui" contêm "ui") e mandavam card de backend para o papel de frontend. Os termos
     // curtos exigem fronteira de palavra; os longos continuam por substring.
-    private static string InferRole(string text) =>
-        MentionsAny(text, "frontend", "front-end", " ui ", "ui/", "/ui", " ux ", "componente", " tela", "css", "react")
-            ? AgentRoles.FrontendSpecialist
-            : AgentRoles.BackendSpecialist;
+    private static string InferRole(string text)
+    {
+        // "componente" saiu da lista de frontend porque é vocabulário de ARQUITETURA antes de
+        // ser de interface: o próprio C4 tem um nível chamado Componente. Com ele lá dentro,
+        // os cards da Fase 3 da prova limpa (SAD, C4, ADRs, DER, threat model, plano de
+        // observabilidade) resolviam para `frontend-specialist` — e como só a conta de
+        // frontend serve esse papel, a fase inteira parou quando aquela conta caiu, com
+        // `role_not_allowed` em todas as outras. A persona já dizia "Arquiteto"; o papel dizia
+        // outra coisa. Um card de arquitetura que fale de tela ou React continua sendo
+        // frontend pelos termos que restaram.
+        if (MentionsAny(text, "frontend", "front-end", " ui ", "ui/", "/ui", " ux ", " tela", "css", "react"))
+        {
+            return AgentRoles.FrontendSpecialist;
+        }
+
+        return AgentRoles.BackendSpecialist;
+    }
 
     private static string InferPersona(string text, string role)
     {

@@ -21,6 +21,24 @@ public sealed class ChiefCardResolverTests
         Assert.Contains("frontend/**", r.ScopeClaims);
     }
 
+    /// <summary>
+    /// "componente" é vocabulário de arquitetura antes de ser de interface — o próprio C4 tem
+    /// um nível chamado Componente. Enquanto ele valeu como sinal de frontend, os cards da
+    /// Fase 3 (SAD, C4, ADRs, DER) resolviam para `frontend-specialist`; como só uma conta
+    /// serve esse papel, a fase inteira parou quando aquela conta caiu — `role_not_allowed`
+    /// em todas as outras, 7 cards presos em `ready`.
+    /// </summary>
+    [Fact]
+    public void ArchitectureComponentsDoNotTurnACardIntoFrontendWork()
+    {
+        var r = Resolve(
+            "3-Arquitetura — C4 (Contexto e Contêiner)",
+            "Descrever os componentes do sistema e suas fronteiras.");
+
+        Assert.Equal(AgentRoles.BackendSpecialist, r.Role);
+        Assert.Equal(ChiefCardResolver.Architect, r.PersonaKey);
+    }
+
     [Fact]
     public void ArchitectureWorkGoesToTheArchitect()
     {
