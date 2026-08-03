@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=2.0.0 checksum=sha256:7fe111b3c29cafb504f917cc13176c30d0dd7aa1f2bfa3b169cbbc20c76d4980 -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=2.0.0 checksum=sha256:42eaad17e90935f477837c7b8c3612bfea7e2ef7f3b122c66828e83af14daeb7 -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -6,7 +6,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 ## By authority
 
 - `Adapter`: 2
-- `Canonical`: 37
+- `Canonical`: 38
 - `Generated`: 1
 
 ## By domain
@@ -16,7 +16,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `architecture`: 1
 - `backend`: 4
 - `contract`: 7
-- `decision`: 1
+- `decision`: 2
 - `entrypoint`: 1
 - `governance`: 1
 - `index`: 1
@@ -28,7 +28,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 ## By phase
 
 - `*`: 34
-- `architecture`: 1
+- `architecture`: 2
 - `development`: 1
 - `homologation`: 1
 - `planning`: 1
@@ -37,12 +37,12 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By status
 
-- `Active`: 40
+- `Active`: 41
 
 ## By owner
 
 - `Operations`: 7
-- `Platform Engineering`: 9
+- `Platform Engineering`: 10
 - `Platform Governance`: 14
 - `Product Security`: 6
 - `Quality Engineering`: 4
@@ -51,7 +51,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 - `Always`: 4
 - `Bundle`: 31
-- `OnDemand`: 5
+- `OnDemand`: 6
 
 ## Documents by authority and domain
 
@@ -95,6 +95,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
 | [ADR-0001 — Arquitetura definitiva do Poseidon](decisions/ADR-0001-arquitetura-definitiva-v3.md) | architecture | Active | Platform Engineering | OnDemand | 356 |
+| [ADR-0002 — Onde a política de ferramentas é aplicada em executores CLI](decisions/ADR-0002-fronteira-de-ferramentas-em-executores-cli.md) | architecture | Active | Platform Engineering | OnDemand | 794 |
 
 #### entrypoint
 

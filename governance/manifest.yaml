@@ -1,5 +1,5 @@
 manifestVersion: 2.0.0
-lastGeneratedAt: 2026-08-02T23:55:06.0096870+00:00
+lastGeneratedAt: 2026-08-03T04:34:51.0398140+00:00
 tokenBudget: 24000
 knownOwners:
 - Platform Governance
@@ -12,6 +12,8 @@ markdownAllowlist:
   reason: Registro operacional da Operação Final; evidência datada de comportamento observado, não norma canônica.
 - path: coordination/final-operation/BOOTSTRAP-PROMPT.md
   reason: Prompt de bootstrap entregue pelo OperationSupervisor à Integradora; artefato operacional, não norma canônica.
+- path: coordination/final-operation/EVIDENCIA-RECUPERACAO.md
+  reason: Evidência datada do eixo de recuperação da Operação Final (§31), com ids de tentativa e card; registro operacional, não norma canônica.
 - path: coordination/final-operation/HANDOFF.md
   reason: Registro de transferência entre integradoras da Operação Final; evidência operacional, não norma canônica.
 - path: coordination/final-operation/OPERATION-SPEC.md
@@ -820,7 +822,7 @@ documents:
   - '**'
   load: always
   priority: 800
-  tokenCost: 1505
+  tokenCost: 1542
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -835,7 +837,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:6309726d140a11aa6ee95faedb508cb7bb5ba5a7f08e791e69e6364ad1885bdd
+  checksum: sha256:963466af6b1b0e1fe0ca7c5a83d7bd7ed26c29cbf532d61dcca24f3987cd509a
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -1961,6 +1963,51 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/decisions/ADR-0001-arquitetura-definitiva-v3.md
+- id: adr-0002-tool-boundary
+  path: docs/decisions/ADR-0002-fronteira-de-ferramentas-em-executores-cli.md
+  title: ADR-0002 — Onde a política de ferramentas é aplicada em executores CLI
+  category: decision
+  topic: tool-policy-boundary
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - architecture
+  taskTypes:
+  - adr
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: on-demand
+  priority: 700
+  tokenCost: 794
+  owner: Platform Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-08-03T00:00:00-03:00
+  reviewDueAt: 2027-02-03T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - adr-0001-architecture
+  enforcedBy: []
+  checksum: sha256:40d3566f5856fd1ee54cea5c184cb6d30b976da1f8f8e5a7425301ea9a785405
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/decisions/ADR-0002-fronteira-de-ferramentas-em-executores-cli.md
 - id: agent-bruna
   path: docs/agents/bruna.md
   title: Bruna
