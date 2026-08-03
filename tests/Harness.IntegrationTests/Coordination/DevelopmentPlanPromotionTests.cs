@@ -62,6 +62,42 @@ public sealed class DevelopmentPlanPromotionTests
             card => string.Equals(card.Specialty, "playbook-product-owner", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// O caso REAL desta operação: o compromisso já nasceu com superfície de código declarada pelo
+    /// turno da chefe, então não há o que ampliar — e o retorno antecipado deixava a persona de
+    /// DESCOBERTA colada nas fatias de implementação. Medido em 03/08: cinco cards de código
+    /// nasceram pedindo `playbook-product-owner` para "implementar a fatia de servidor".
+    /// </summary>
+    [Fact]
+    public void DeclaredSurfacesStillLoseTheDiscoveryPersonaAtDevelopment()
+    {
+        var alreadyCoded = DiscoveryRequest with
+        {
+            Surfaces = new PlanMaterializationSurfaces(
+                Frontend: true, Backend: true, ExternalCredential: false,
+                TechnicalUncertainty: false, Decision: false),
+        };
+
+        var released = PlanMaterializationService.PromoteRequestForDevelopment(
+            alreadyCoded, ProductDemand,
+            new ActiveWorkflowPhase("phase-5", "5-Desenvolvimento", 5),
+            chiefGenerated: true);
+
+        Assert.Null(released.Specialty);
+        // Superfície declarada é decisão de quem declarou: a promoção não a reescreve.
+        Assert.True(released.Surfaces?.Backend);
+        Assert.True(released.Surfaces?.Frontend);
+        Assert.Equal(alreadyCoded.AcceptanceCriteria, released.AcceptanceCriteria);
+
+        // Antes da fase 5 nada muda: a persona de descoberta ainda é a certa.
+        Assert.Same(
+            alreadyCoded,
+            PlanMaterializationService.PromoteRequestForDevelopment(
+                alreadyCoded, ProductDemand,
+                new ActiveWorkflowPhase("phase-4", "4-Planejamento", 4),
+                chiefGenerated: true));
+    }
+
     [Fact]
     public void ExplicitNoBuildInstructionIsNeverPromoted()
     {

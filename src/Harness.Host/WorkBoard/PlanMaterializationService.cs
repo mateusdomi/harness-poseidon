@@ -313,7 +313,18 @@ public sealed class PlanMaterializationService(
         var surfaces = request.Surfaces;
         if (surfaces?.Backend == true || surfaces?.Frontend == true)
         {
-            return request;
+            // A superfície já está declarada — não há o que ampliar. Mas a PERSONA de descoberta
+            // continua colada no compromisso, e ela acompanha cada fatia de código: medido em
+            // 03/08, os cinco cards de implementação desta prova nasceram com
+            // "Especialidade exigida: playbook-product-owner" para "implementar a fatia de
+            // servidor". O papel roteava a conta certa e a persona pedia outra profissão — a mesma
+            // contradição que já derrubou uma fase inteira quando o card dizia "Arquiteto" e o
+            // papel resolvia `frontend-specialist`.
+            //
+            // Quem decide a persona sem declaração é a inferência pelo papel e pelo texto do card,
+            // que é justamente o que uma fatia de implementação precisa. Este método existe para
+            // "remover a persona de descoberta" na Fase 5; o retorno antecipado pulava essa metade.
+            return request.Specialty is null ? request : request with { Specialty = null };
         }
 
         var text = $"{demand.Title} {demand.Description}".ToLowerInvariant();
