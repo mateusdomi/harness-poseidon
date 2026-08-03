@@ -40,15 +40,15 @@ Validado com sessão real. O supervisor entrega `BOOTSTRAP-PROMPT.md` pela entra
 
 | eixo | situação |
 |---|---|
-| defeitos | 18 corrigidos de 26 (**69%**), 8 abertos, 1 bloqueante |
+| defeitos | 24 corrigidos de 32 (**75%**), 8 abertos, **zero bloqueantes** |
 | prova limpa 1–9 | **fase 3 de 9** (projeto `01KZ24JCFRHN2RGP8NHGP75JMK`) |
 | produto gerado | **nunca iniciado nem testado** |
-| testes de recuperação | parciais — crashes reais recuperados, cenários do §51 não provocados sistematicamente |
+| testes de recuperação | parciais |
 | QA do Poseidon | parcial — só humanização, read-only |
-| métricas §31/§32 | **não instrumentadas** |
+| métricas §31/§32 | **medidas** — `METRICS.json` tem números reais |
 | gate | **FAIL** |
 
-**69% dos defeitos não é 69% da operação.** A parte de correção do núcleo avançou muito; a
+**75% dos defeitos não é 75% da operação.** A parte de correção do núcleo avançou muito; a
 parte de **prova** — que a ordem diz valer mais que tudo — mal começou. Estimativa honesta
 da operação inteira: **cerca de um terço**.
 
@@ -105,6 +105,38 @@ contexto, e se o output trouxe `cardActions`. Se o contexto chega e ela não emi
 problema é de prompt: dar exemplo concreto de saída na intenção `decidir_escalacao`.
 Depois repetir a prova na conversa `01KZ24JKCCWCH0G8C7PJN3AKH4`.
 
+## O que a medição revelou
+
+`METRICS.json` deixou de ser um arquivo de `null`. Dois números mudam a prioridade:
+
+- **desperdício por falha transitória: 0,98%.** O §34 registrava ~18% no piloto anterior e
+  pedia <5%. A meta foi batida e agora é verificável a qualquer momento
+  (`dotnet run --project src/Harness.OperationSupervisor -- metrics`).
+- **retrabalho: US$ 221 de US$ 303 — 73% do custo.** Esse é o gargalo real e estava
+  invisível. Com utilização de modelo em 14,6%, o quadro é que a operação passa a maior
+  parte do tempo não produzindo. É o insumo que faltava para a decisão de concorrência do
+  §18, que continua sem benchmark.
+
+Duas estatísticas foram corrigidas depois da primeira medição, em vez de publicadas: a
+média de duração dizia 84 minutos porque uma única tentativa órfã ficou 71 horas aberta —
+a mediana real é 5,8 minutos. Prefira sempre a mediana aqui.
+
+## Trabalhar em paralelo com outro agente
+
+Testado nesta operação com o Kimi no mesmo repositório. O que funciona:
+
+1. **Worktree separado** (`git worktree add`), nunca editar no working tree do outro.
+2. **Antes de escolher um item**, comparar os arquivos que ele tem em voo (`git status`)
+   com os que o item exige. Duas das minhas escolhas iniciais colidiam e foram trocadas.
+3. **Integrar com `git merge --ff-only`** só quando não houver sobreposição — o merge
+   preserva o trabalho não commitado do outro e falha em vez de sobrescrever.
+4. **Nunca editar `FINDINGS.jsonl` fora do momento do commit**: os dois lados escrevem
+   nele, e é o arquivo que alimenta o gate. Se ele estiver em voo do outro lado, adie.
+5. **Não reiniciar o Host nem escrever no chat da Bruna** — isso mata o teste alheio.
+
+Consequência prática: uma correção pode ficar **retida**. É melhor que corromper o commit
+do outro.
+
 ## Armadilhas que vão te custar horas se você não souber
 
 **O `stop` do launcher.** Corrigido (`61ba78e7`), mas saiba: o shutdown gracioso realmente
@@ -123,6 +155,12 @@ falha genérica. A política está certa em proteger a persona; fale como um lei
 **A imagem de sandbox.** `harness-sandbox-agent:latest` não existia nesta máquina. Sem ela
 os anexos não são lidos e os agentes rodam sem isolamento — **e nada avisa**
 (`OPS-021`). Construa com `./tools/backend/build-sandbox-image.sh`.
+
+**O diretório de sessão do executor.** Regressão observada em 2026-08-03: os cards da
+Fase 3 morriam com `executor.turn_failed: Failed to write last message file
+".harness/accounts/<conta>/sessions/last-message-<id>.txt": No such file or directory`. O
+perfil isolado não cria (ou não deixa gravável) o `sessions/` no caminho novo de execução
+em contêiner. O CLI degrada para "mensagem vazia" e o run morre sem produzir token.
 
 **A conta GLM.** Estava com a cota de 5 horas estourada (reset ~2026-08-03 06:00). O
 sistema agora classifica isso corretamente, mas confira `~/.harness/account-availability.json`
