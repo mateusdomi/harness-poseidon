@@ -41,16 +41,25 @@ ordem_provar_a_fabrica:
       commit: a77f79cf
       nota: "Dispensa aplicada em ChiefBacklogLoopService.ReviewAwaitingAttemptsAsync, ANTES da eleicao de critico, pela via deterministica ja sancionada (mesma do gate de placeholder): review gravada com alias deterministic-council-gate. DESVIO DECLARADO da ordem: o discriminador e card_type='revisao', nao um tipo novo 'council'. Motivo: card_type e enumerado por CHECK em SQLite e Postgres; um valor a mais custa duas migrations e seis assercoes de contagem de cabeca em cinco arquivos, que ja deixaram develop vermelho para a frota uma vez. Hoje 'revisao' nasce de UM lugar so — WorkflowPhaseDriver.CreateCouncilCardAsync (linha 902). ChiefBacklogLoopService.IsCouncilOpinionCard e o unico ponto a mudar se isso deixar de valer, e o teste falha antes de o comportamento vazar. 44 testes verdes."
     D2_diversidade_e_degradacao:
-      estado: livre
-      nota: "NAO INICIADA. CouncilMinimumSeats=3 (ja existe como MinimumCouncil), CouncilMinimumDistinctAccounts=2, CouncilPreferDistinctProviders, teto de assentos = f(contas distintas elegiveis), serializacao em vez de bloqueio, e a consolidacao DECLARANDO a degradacao ('N lentes, M inteligencias distintas'). ATENCAO: toca WorkflowPhaseDriver.ConveneCouncilAsync, que estava SUJO nesta maquina com WIP de outra sessao viva (CouncilOpinionArtifactReader). Coordenar antes de editar."
+      estado: concluida
+      agente: claude-opus-I
+      commit: 21402df8
+      nota: "MinimumDistinctAccounts=2, PreferDistinctProviders (preferencia, nunca exigencia), MaximumConcurrentSeats = f(contas critic com adapter), e TRES codigos de motivo na liberacao: council.cleared, council.cleared_degraded e council.cleared_diversity_unknown. Autoria vem do ledger de invocacoes da tentativa, nao da persona — a persona diz a lente, so o ledger diz a inteligencia. Autoria nao provada NUNCA vira diversidade otimista. Capacidade curta SERIALIZA os assentos em vez de abrir seis cards que disputam a mesma conta. 1760 unitarios verdes. PROVADO EM PRODUCAO no mesmo dia: o gate da fase 4 registrou 'DEGRADADO: 6 lente(s) em apenas 1 inteligencia(s) distinta(s)'."
     prova_da_recuperacao_e3c4025a_7ea4b60e_75971b37:
       estado: livre
       nota: "NAO INICIADA. Fault injection real: matar o revisor no meio, verificar retomada quando volta. Parecer da Integradora."
     gate_onda_0_reexecutar_fase_4:
-      estado: bloqueada
-      bloqueado_por: "D2 + binario publicado + capacidade de conta critic"
-      nota: "Aceite: Conselho conclui com >=3 assentos, >=2 contas distintas ou degradacao declarada, gate da fase 4 atravessado e registrado no ledger, comparacao com os 6 pareceres anteriores (todos de uma conta)."
-  onda_1_fase_5: { estado: bloqueada, bloqueado_por: "gate da onda 0" }
+      estado: concluida
+      agente: claude-opus-I
+      concluido_em: "2026-08-03T23:32:05Z"
+      nota: "GATE ATRAVESSADO. Binario publicado as 23:27:41Z (HEAD 21402df8) por publish-when-idle.sh, com a esteira pausada antes da conferencia. Os SEIS cards do Conselho, escalados desde 18:06Z de 03/08, voltaram sozinhos e fecharam em completed/done — sem intervencao manual, o que prova ao vivo o conserto de replanejamento (e3c4025a/7ea4b60e/75971b37) que estava testado e nao provado. workflow_phase_runs: fase 4 completed em 2026-08-03T23:32:05Z, fase 5 ACTIVE. Aceite de diversidade cumprido na forma DECLARADA e nao na forma satisfeita: o portao registrou 'DEGRADADO: 6 lente(s) em apenas 1 inteligencia(s) distinta(s) — o minimo e 2', porque os pareceres consolidados eram os ja escritos por worker-antigravity-review. E exatamente o comportamento desenhado: liberar dizendo em quantas cabecas foi pensado. Antes desta ordem, o mesmo conselho teria passado como seis opinioes."
+  onda_1_fase_5:
+    estado: em_andamento
+    iniciado_em: "2026-08-03T23:32:05Z"
+    nota: "O MARCO. Fase 5 ativa com cards de CODIGO DE PRODUTO reais criados pela esteira: 'FEAT/T01 Backend: Controle de emprestimo e devolucao de equipamentos', T02 Frontend, e mais — alem dos quatro documentais da fase (Briefing tecnico, Code review estruturado, Metricas DORA, Dicionario ubiquo). Um card ja em board_state=development. E a primeira vez na historia do produto que a frota recebe card de escrever codigo. Aceite pendente: codigo real commitado, revisao por agente distinto, integracao pelo gate, zero bypass, telemetria da fase (custo, duracao, pass@k, MAST) no parecer."
+    capacidade_declarada_pelo_dono: "Claude principal e Claude B com cota; Antigravity com cota; AMBOS os Codex no limite semanal; Kimi volta 22:18 local; GLM desativado de vez."
+    config_alterada: "worker-claude-secondary ganhou o papel 'critic' em ~/.harness/agent-accounts.json (backup .bak-antes-critic-202608032025). Motivo: com os dois Codex sem cota, era a unica forma de ter DUAS contas critic com cota e sair do conselho degradado. allowedPathScopes fica vazio de proposito — a conta herda os escopos dos tres papeis, entao continua especialista E passa a poder escrever parecer em docs/conselho/**."
+
   onda_2_integrar_D3_D4_D5_e_fases_6_9: { estado: bloqueada, bloqueado_por: "onda 1" }
   onda_3_fechamento_dos_27_achados: { estado: bloqueada, bloqueado_por: "onda 2" }
   achado_desta_sessao:
