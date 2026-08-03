@@ -842,8 +842,16 @@ public sealed partial class ChiefBacklogLoopService(
                     continue;
                 }
 
+                // Ordem por ESPERA também aqui. O portão de escopo roda depois do planejador, e
+                // cards de uma mesma fase reivindicam os mesmos caminhos — só um passa por vez.
+                // Quem decide qual é a ordem que chega ao planejador: sem isto, a fila do teto
+                // global era envelhecida mas o planejador reordenava por ordem de leitura, e os
+                // dois entregáveis mais antigos perdiam o escopo em toda rodada. O planejador
+                // reordena por prioridade (estável), então entrar ordenado por idade resulta em
+                // "urgência primeiro, e entre iguais, quem espera há mais tempo".
                 var planningCards = cards
                     .Where(entry => admitted.Contains(entry.Card.TaskId))
+                    .OrderBy(entry => entry.Task.CreatedAt)
                     .Select(entry => entry.Card)
                     .ToArray();
                 var routingNow = clock.UtcNow;
