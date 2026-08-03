@@ -2678,9 +2678,63 @@ public sealed partial class ChiefBacklogLoopService(
             ? (int)Math.Round((now - delivered).TotalMinutes)
             : int.MaxValue;
 
-        var stalled = idle >= settings.DeliveryStallMinutes;
+        // O limiar é APRENDIDO, não decretado.
+        //
+        // Um número fixo erra dos dois lados: curto demais e a Bruna avisa "parou" enquanto o
+        // trabalho corre normal — e aviso falso é pior que silêncio, porque ensina o dono a
+        // ignorar o canal; longo demais e a parede fica invisível pelo tempo que já custou uma
+        // hora e meia nesta operação. O que o histórico deste projeto diz é quanto uma entrega
+        // REALMENTE leva, e é contra isso que a espera deve ser medida.
+        var expected = await ReadTypicalDeliveryMinutesAsync(tenantId, projectId, board, token);
+        var threshold = Math.Clamp(expected * 3, settings.DeliveryStallMinutes, 45);
+        var stalled = idle >= threshold;
         var explanation = DescribeWallForOwner(lastWall);
         return (stalled, idle == int.MaxValue ? 0 : idle, explanation);
+    }
+
+    /// <summary>
+    /// Quanto uma entrega deste projeto costuma levar, medido do próprio histórico.
+    ///
+    /// Mediana, não média: uma única tentativa órfã que ficou horas aberta distorce a média e
+    /// esconderia exatamente a parede que se quer enxergar. Sem histórico suficiente devolve um
+    /// valor conservador — é melhor demorar a avisar do que inventar uma expectativa a partir de
+    /// duas amostras.
+    /// </summary>
+    private static async Task<int> ReadTypicalDeliveryMinutesAsync(
+        string tenantId,
+        string projectId,
+        IWorkBoardStore board,
+        CancellationToken token)
+    {
+        const int conservativeDefault = 10;
+        var page = await PagedScan.CollectAsync<BoardTaskRecord>(
+            async (offset, size) =>
+            {
+                var current = await board.PageTasksAsync(
+                    tenantId,
+                    new BoardTaskPageQuery(projectId, null, null, null, null, null, "all", null, offset, size),
+                    token);
+                return (current.Items, current.Total);
+            },
+            token);
+
+        var durations = new List<double>();
+        foreach (var task in page.Items)
+        {
+            var attempts = await board.ListAttemptsAsync(tenantId, task.Id, null, 20, token);
+            durations.AddRange(attempts
+                .Where(attempt => attempt.TokensOutput > 0 && attempt.DurationMs is > 0)
+                .Select(attempt => attempt.DurationMs!.Value / 60000d));
+        }
+
+        if (durations.Count < 5)
+        {
+            return conservativeDefault;
+        }
+
+        durations.Sort();
+        var median = durations[durations.Count / 2];
+        return Math.Max(1, (int)Math.Ceiling(median));
     }
 
     /// <summary>
