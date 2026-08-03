@@ -47,6 +47,44 @@ case "${swap_used}" in
   *) echo "host: SWAP EM USO — não admitir trabalho novo até o atual terminar" ;;
 esac
 
+# O processo em execução pode ser mais velho que a correção que já está no repositório.
+#
+# É o erro mais caro e mais silencioso da operação: em 2026-08-03 o conserto que devolvia a
+# única conta sã à eleição foi commitado às 13:29 e nunca publicado — o Host de 10:46 seguiu
+# rodando o código antigo e a fase 4 acumulou mais de trezentas linhas de `adiado:
+# account.quota_limited` para uma conta que o próprio painel mostrava disponível. Nada
+# apontava para a causa: o defeito estava corrigido em disco e vivo em memória.
+#
+# Comparar a hora de início do processo com a data do último commit que toca `src/` responde
+# isso em uma linha. É deliberadamente conservador: acusa só quando existe commit MAIS NOVO
+# que o processo, que é exatamente a situação em que o que você leu no código não é o que
+# está executando.
+if [[ -n "$host_pid" ]]; then
+  # Segundos decorridos, não data formatada: `ps -o lstart` sai no idioma do sistema
+  # ("seg 3 ago") e a conversão falhava calada nesta máquina em pt-BR — o guarda respondia
+  # "em dia" justamente quando não estava, que é o pior desfecho possível para um guarda.
+  # `etimes` (segundos crus) não existe no ps do macOS; `etime` existe e sai como
+  # [[dd-]hh:]mm:ss. Converter é trivial e não depende de idioma.
+  host_elapsed=$(ps -o etime= -p "$host_pid" 2>/dev/null | tr -d ' ' | awk -F'[-:]' '{
+    if (NF == 4) { print $1*86400 + $2*3600 + $3*60 + $4 }
+    else if (NF == 3) { print $1*3600 + $2*60 + $3 }
+    else if (NF == 2) { print $1*60 + $2 }
+  }')
+  host_started_epoch=0
+  [[ "$host_elapsed" =~ ^[0-9]+$ ]] && host_started_epoch=$(( now_epoch - host_elapsed ))
+  last_src_commit_epoch=$(git -C "$(dirname "$0")/../.." log -1 --format=%ct -- src 2>/dev/null || echo 0)
+  if [[ "$host_started_epoch" -eq 0 ]]; then
+    echo "host: NÃO FOI POSSÍVEL DATAR O PROCESSO — verifique à mão se o binário é o do HEAD."
+  elif [[ "$last_src_commit_epoch" -gt "$host_started_epoch" ]]; then
+    last_src_commit=$(git -C "$(dirname "$0")/../.." log -1 --format='%h %s' -- src 2>/dev/null)
+    echo "host: BINÁRIO DEFASADO — o processo subiu em $(date -r "$host_started_epoch" -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "host: e há commit em src/ posterior: ${last_src_commit}"
+    echo "host: o que você lê no código NÃO é o que está executando — publique antes de diagnosticar."
+  else
+    echo "host: binário em dia com o último commit em src/"
+  fi
+fi
+
 echo
 printf '%-10s %-34s %-16s %-12s %-8s %-9s %s\n' \
   ATTEMPT CARD ESTADO_BANCO IDADE PID CPU% CLASSIFICACAO
