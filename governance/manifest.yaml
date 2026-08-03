@@ -62,6 +62,50 @@ markdownAllowlist:
   reason: Parecer do crítico independente sobre os blocos 2A e 2B da Fase 2, com a resposta do executor ao achado aceito; é evidência de gate, não norma.
 - path: docs/architecture/audits/bruna/execucao/RELATORIO-FASE-0.md
   reason: Relatório de execução da Fase 0 com data fechada — registra o que foi entregue, por que cada decisão foi tomada e os riscos restantes. É prestação de contas, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/00-RESUMO-EXECUTIVO.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/01-FLUXO-END-TO-END-REAL.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/01-fluxo-do-core.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/02-BRUNA-ARQUITETURA-E-COMPORTAMENTO.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/02-arquitetura.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/03-SOURCE-OF-TRUTH-E-CONFIGURACAO.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/04-PLAYBOOK-E-GATES.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/05-PERSONAS-E-COLABORADORES.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/06-PROVIDERS-CONTAS-MODELOS-E-EFFORT.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/07-SCHEDULER-COTAS-E-FAILOVER.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/08-CONSELHO-DE-AGENTES.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/09-CONTEXTO-MEMORIA-RAG.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/10-EXECUTION-PLANE.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/11-RECOVERY-E-RESILIENCIA.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/12-ESTADO-ATUAL-DO-E2E.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/13-REGISTRO-DE-RISCOS.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/14-READINESS-E-PRAZO.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/15-GUIA-COMO-ALTERAR-O-COMPORTAMENTO.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/16-MAPA-DE-FONTES-DA-VERDADE.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/17-RECOMENDACOES-ARQUITETURAIS.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/18-VISAO-PARA-GESTAO.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/19-MAPA-DOS-PROJETOS-DA-SOLUTION.md
+  reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
 documents:
 - id: governance-core
   path: governance/core.md
