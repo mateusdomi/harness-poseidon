@@ -75,4 +75,47 @@ public sealed class LayeredReviewVerdictTests
     private static LayerResult Layer(VerificationLayer layer, VerificationLayer failing) =>
         new(layer, layer == failing ? LayerVerdict.Fail : LayerVerdict.Pass,
             layer == failing ? $"{layer}.failed" : "ok");
+
+    /// <summary>
+    /// Quando o gate DOCUMENTAL reprova, o bloqueio precisa constar na camada determinística.
+    ///
+    /// Antes a camada era uma constante `Pass` com motivo `clean`, então a mesma entrega ficava
+    /// registrada como "diagnóstico limpo" logo depois de ser reprovada por um gate
+    /// determinístico. O desfecho saía certo — o crítico sintético reprovava —, mas o REGISTRO
+    /// dizia o contrário do que aconteceu, e rastreabilidade que mente é pior que ausente,
+    /// porque ninguém desconfia dela.
+    /// </summary>
+    [Fact]
+    public void OBloqueioDeterministicoApareceNaCamadaQueOProduziu()
+    {
+        var outcome = LayeredVerificationPolicy.Evaluate(
+        [
+            new LayerResult(
+                VerificationLayer.Deterministic, LayerVerdict.Fail, "document.template_invalid"),
+            new LayerResult(VerificationLayer.Behavioral, LayerVerdict.Fail, "critic.fail"),
+            new LayerResult(VerificationLayer.Intent, LayerVerdict.Fail, "critic.fail"),
+        ]);
+
+        Assert.False(outcome.Approved);
+        Assert.Equal(VerificationLayer.Deterministic, outcome.BlockedAt);
+    }
+
+    /// <summary>
+    /// Camada superior não compensa inferior: determinística reprovada barra mesmo com o crítico
+    /// achando o trabalho bom. É o caso que a composição existe para cobrir.
+    /// </summary>
+    [Fact]
+    public void OCriticoSatisfeitoNaoSalvaUmaFalhaDeterministica()
+    {
+        var outcome = LayeredVerificationPolicy.Evaluate(
+        [
+            new LayerResult(
+                VerificationLayer.Deterministic, LayerVerdict.Fail, "code.diagnostics_dirty"),
+            new LayerResult(VerificationLayer.Behavioral, LayerVerdict.Pass, "critic.pass"),
+            new LayerResult(VerificationLayer.Intent, LayerVerdict.Pass, "critic.pass"),
+        ]);
+
+        Assert.False(outcome.Approved);
+        Assert.Equal(VerificationLayer.Deterministic, outcome.BlockedAt);
+    }
 }

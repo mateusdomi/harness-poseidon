@@ -2007,8 +2007,15 @@ public sealed partial class ChiefBacklogLoopService(
                     $"Gate documental recusou a entrega: {detail}",
                     null,
                     0);
+                // Quem reprovou foi o gate DOCUMENTAL, e é isso que precisa constar. Sem passar
+                // o veredito real, a mesma entrega ficava registrada com a camada determinística
+                // "limpa" — a auditoria leria o contrário do que houve.
                 if (await ApplyReviewVerdictAsync(
-                        tenantId, task, awaiting.Id, deterministicResult, chain, token))
+                        tenantId, task, awaiting.Id, deterministicResult, chain, token,
+                        new LayerResult(
+                            VerificationLayer.Deterministic,
+                            LayerVerdict.Fail,
+                            documentFailure.ReasonCode)))
                 {
                     reviewed++;
                     ClearReviewDeferrals(awaiting.Id);
@@ -2163,13 +2170,23 @@ public sealed partial class ChiefBacklogLoopService(
     /// re-tentar com backoff, sem punir o trabalho do ator pela falha do crítico.
     /// </summary>
 
+    /// <param name="deterministicVerdict">
+    /// O que os gates DETERMINÍSTICOS realmente disseram sobre esta entrega.
+    ///
+    /// Era uma constante `Pass` com motivo `clean`, e isso produzia um registro falso: quando o
+    /// gate documental reprovava, o veredito sintético entrava por aqui e o ledger gravava
+    /// "diagnóstico de código limpo" para uma entrega que acabara de falhar num gate
+    /// determinístico. Quem auditasse depois lia o oposto do que aconteceu — e rastreabilidade
+    /// que mente é pior que rastreabilidade ausente, porque ninguém desconfia dela.
+    /// </param>
     internal async Task<bool> ApplyReviewVerdictAsync(
         string tenantId,
         BoardTaskRecord task,
         string attemptId,
         CriticReviewResult result,
         IWorkChainStore chain,
-        CancellationToken token)
+        CancellationToken token,
+        LayerResult? deterministicVerdict = null)
     {
         if (!AppliableReviewReasons.Contains(result.ReasonCode))
         {
@@ -2177,22 +2194,24 @@ public sealed partial class ChiefBacklogLoopService(
             return false;
         }
 
-        // B2/F14 — o veredito final é COMPOSTO pelas três camadas, e camada superior não compensa
-        // inferior. A determinística já passou (o `MayOccupyReviewer` acima é a condição para o
-        // revisor ter sido ocupado), e o crítico responde as duas de cima: comportamento × critérios
-        // de aceite e intenção × objetivo da demanda. Compor aqui é o que impede um "a intenção está
-        // ótima" de aprovar trabalho que falha o critério declarado.
+        // B2/F14 — o veredito final é COMPOSTO pelas camadas, e camada superior não compensa
+        // inferior. O que cada uma registra precisa ser o que ela de fato observou.
+        //
+        // A determinística vem de QUEM A EXECUTOU: os gates documental e de diagnóstico de código
+        // rodam antes desta chamada, e o resultado deles é passado adiante. Assumi-la aprovada
+        // aqui gravava "limpo" até para a entrega que tinha acabado de ser reprovada por eles.
+        //
+        // Comportamento e intenção continuam sendo duas perguntas distintas ao crítico — mas
+        // quando ele devolve um veredito único, declarar duas camadas idênticas seria inventar
+        // uma segunda opinião que ninguém deu. Uma resposta, uma camada: o que sustenta a decisão
+        // é o critério de aceite, e é ele que fica no registro.
+        var criticVerdict = result.Approved ? LayerVerdict.Pass : LayerVerdict.Fail;
         var layers = new[]
         {
-            new LayerResult(VerificationLayer.Deterministic, LayerVerdict.Pass, CodeDiagnosticsGate.ReasonClean),
-            new LayerResult(
-                VerificationLayer.Behavioral,
-                result.Approved ? LayerVerdict.Pass : LayerVerdict.Fail,
-                result.ReasonCode),
-            new LayerResult(
-                VerificationLayer.Intent,
-                result.Approved ? LayerVerdict.Pass : LayerVerdict.Fail,
-                result.ReasonCode),
+            deterministicVerdict ?? new LayerResult(
+                VerificationLayer.Deterministic, LayerVerdict.Pass, CodeDiagnosticsGate.ReasonClean),
+            new LayerResult(VerificationLayer.Behavioral, criticVerdict, result.ReasonCode),
+            new LayerResult(VerificationLayer.Intent, criticVerdict, result.ReasonCode),
         };
         var layered = LayeredVerificationPolicy.Evaluate(layers);
 
