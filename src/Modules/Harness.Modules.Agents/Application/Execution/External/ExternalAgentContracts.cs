@@ -126,9 +126,15 @@ public sealed record ExternalAgentRunRequest
     /// está pensando". O único fim possível era o timeout de trinta minutos, que classifica
     /// como transitório e faz TUDO de novo na mesma conta morta.
     ///
+    /// O valor é um COMPROMISSO medido, não um número redondo: dez minutos era a regra de
+    /// bolso humana para ir investigar, mas uma ferramenta longa e legítima (uma suíte, um
+    /// build) fica muda por mais que isso, e matar um turno saudável custa uma tentativa. Aos
+    /// quinze minutos a espera ainda é metade do <see cref="Timeout"/> e nenhum trabalho real
+    /// observado nesta operação passou perto.
+    ///
     /// <see cref="TimeSpan.Zero"/> desliga a vigilância.
     /// </summary>
-    public TimeSpan NoProgressTimeout { get; init; } = TimeSpan.FromMinutes(10);
+    public TimeSpan NoProgressTimeout { get; init; } = TimeSpan.FromMinutes(15);
 }
 
 /// <summary>Resultado coletado de uma execução externa.</summary>

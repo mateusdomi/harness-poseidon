@@ -55,7 +55,7 @@ public sealed record AgentRunSettings
     /// execução é encerrada como travada em vez de esperar o <see cref="RunTimeout"/> inteiro.
     /// Zero desliga a vigilância.
     /// </summary>
-    public TimeSpan RunNoProgressTimeout { get; init; } = TimeSpan.FromMinutes(10);
+    public TimeSpan RunNoProgressTimeout { get; init; } = TimeSpan.FromMinutes(15);
 
     public int ContextTokenBudget { get; init; } = 8000;
 

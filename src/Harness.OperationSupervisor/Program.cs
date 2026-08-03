@@ -156,6 +156,14 @@ public static class Program
                 ? $"Supervisor: ativo — {File.ReadAllText(leasePath).ReplaceLineEndings(" ")}"
                 : "Supervisor: NÃO está rodando (sem LEASE.json). Suba com o verbo `run`.");
 
+            if (state.AxesBlockedByHuman.Count > 0)
+            {
+                Console.WriteLine();
+                Console.WriteLine(
+                    "Eixos de prova segurados pelo proprietário (não adianta relançar sessão): " +
+                    string.Join(", ", state.AxesBlockedByHuman.Order(StringComparer.Ordinal)));
+            }
+
             if (CompletionGate.NeedsHuman(state))
             {
                 Console.WriteLine();
@@ -206,6 +214,11 @@ public static class Program
                 // cria a credencial que falta. O gate segue FAIL — nada é dado por concluído.
                 Append(root, "operation.human_required", new { cycle, state.ExternalBlockers });
                 Console.WriteLine("Bloqueio humano: supervisor aguardando o proprietário.");
+
+                // Parar em silêncio é o mesmo que não parar: quem precisa agir não está
+                // olhando o terminal às 3 da manhã. O aviso sai UMA vez, aqui, porque este
+                // caminho encerra o laço.
+                NotifyOwner(root, state);
                 return 3;
             }
 
@@ -402,6 +415,57 @@ public static class Program
 
         File.WriteAllText(transcript, captured + Environment.NewLine);
         return (process.ExitCode, captured);
+    }
+
+    /// <summary>
+    /// Avisa o proprietário pelo canal que já existe. Best-effort de propósito: falha de
+    /// Telegram não pode virar falha da supervisão, e o motivo do não-envio fica no evento
+    /// em vez de sumir. O texto carrega a decisão pedida, não um "preciso de você" genérico —
+    /// quem acorda precisa saber o que fazer sem abrir o repositório.
+    /// </summary>
+    private static void NotifyOwner(string root, OperationState state)
+    {
+        var pending = state.ExternalBlockers.Count == 0
+            ? "(sem bloqueador declarado)"
+            : string.Join("\n• ", state.ExternalBlockers);
+        var text =
+            "Poseidon — a operação final parou e depende de você.\n\n" +
+            "Não há trabalho que eu consiga fazer sozinho: a prova ponta a ponta está parada " +
+            "por falta de conta que execute, e o produto gerado depende dela.\n\n" +
+            $"• {pending}\n\n" +
+            "Assim que uma conta voltar, eu retomo sozinho.";
+
+        var script = Path.Combine("tools", "operation", "notify.sh");
+        if (!File.Exists(script))
+        {
+            Append(root, "operation.human_notify", new { sent = false, reason = "notify.sh ausente" });
+            return;
+        }
+
+        try
+        {
+            var info = new ProcessStartInfo(script) { RedirectStandardError = true, UseShellExecute = false };
+            info.ArgumentList.Add(text);
+            using var process = Process.Start(info);
+            if (process is null)
+            {
+                Append(root, "operation.human_notify", new { sent = false, reason = "processo não iniciou" });
+                return;
+            }
+
+            var stderr = process.StandardError.ReadToEnd();
+            process.WaitForExit(30_000);
+            Append(root, "operation.human_notify", new
+            {
+                sent = process.HasExited && process.ExitCode == 0,
+                exitCode = process.HasExited ? process.ExitCode : -1,
+                reason = stderr.Trim(),
+            });
+        }
+        catch (Exception exception)
+        {
+            Append(root, "operation.human_notify", new { sent = false, reason = exception.Message });
+        }
     }
 
     private static void Append(string root, string type, object payload)

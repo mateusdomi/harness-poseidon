@@ -69,9 +69,19 @@ public static class CompletionGate
     /// vestido de cortesia.
     ///
     /// Agora só é hora de chamar o humano quando NADA que dispensa o humano restou: nenhum
-    /// finding do agente, e os três eixos de prova já verdes. Note que a decisão não confia
-    /// no campo <c>humanDecisionRequired</c> sozinho — ele é escrito pelo agente, e um flag
-    /// que o agente escreve é um flag que o agente pode usar para ir dormir.
+    /// finding do agente, nenhum gate ou teste obrigatório pendente, e cada eixo de prova ou
+    /// já verde ou DECLARADAMENTE bloqueado por um defeito do proprietário. Note que a
+    /// decisão não confia no campo <c>humanDecisionRequired</c> sozinho — ele é escrito pelo
+    /// agente, e um flag que o agente escreve é um flag que o agente pode usar para ir dormir.
+    ///
+    /// A cláusula do eixo bloqueado veio de 2026-08-03: exigir os três eixos VERDES para
+    /// chamar o dono cria o caso em que o supervisor nunca chama ninguém. Naquela noite as
+    /// três contas capazes de executar papel de ator morreram juntas — a prova limpa não
+    /// tinha como sair de <c>blocked</c>, o produto gerado não tinha como existir sem ela, e
+    /// o supervisor relançava a Integradora ciclo após ciclo contra zero trabalho, em
+    /// silêncio, enquanto o proprietário dormia sem saber que a operação dependia dele.
+    /// Corrigir só o texto do erro anterior teria trocado "chamar cedo demais" por "nunca
+    /// chamar", que é pior: o primeiro acorda alguém à toa, o segundo desperdiça a noite.
     /// </summary>
     public static bool NeedsHuman(OperationState state)
     {
@@ -87,15 +97,23 @@ public static class CompletionGate
             return false;
         }
 
-        // Os eixos de prova são trabalho da Integradora por definição: enquanto qualquer um
-        // deles estiver aberto, existe o que fazer sem o proprietário.
-        return AxesAreGreen(state);
+        // Gate vermelho e teste obrigatório pendente são trabalho da Integradora por
+        // definição: enquanto existirem, relançar produz resultado.
+        if (state.MandatoryGatesFailed > 0 || state.MandatoryTestsPending > 0)
+        {
+            return false;
+        }
+
+        // Os eixos de prova são trabalho da Integradora — a não ser que o próprio defeito do
+        // proprietário declare que é ELE quem os segura.
+        return AxisIsSettled(state, "cleanE2E", state.CleanE2E?.Status)
+            && AxisIsSettled(state, "generatedProduct", state.GeneratedProduct)
+            && AxisIsSettled(state, "recoveryTests", state.RecoveryTests);
     }
 
-    private static bool AxesAreGreen(OperationState state) =>
-        string.Equals(state.CleanE2E?.Status, "pass", StringComparison.OrdinalIgnoreCase)
-        && string.Equals(state.GeneratedProduct, "pass", StringComparison.OrdinalIgnoreCase)
-        && string.Equals(state.RecoveryTests, "pass", StringComparison.OrdinalIgnoreCase);
+    private static bool AxisIsSettled(OperationState state, string axis, string? status) =>
+        string.Equals(status, "pass", StringComparison.OrdinalIgnoreCase)
+        || state.AxesBlockedByHuman.Contains(axis);
 
     private static void Require(string? actual, string expected, string label, List<string> reasons)
     {

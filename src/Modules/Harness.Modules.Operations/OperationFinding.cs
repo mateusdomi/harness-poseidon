@@ -47,6 +47,26 @@ public sealed record OperationFinding
     /// </summary>
     public string Owner { get; init; } = "agent";
 
+    /// <summary>
+    /// Eixos de prova que este defeito IMPEDE de avançar: <c>cleanE2E</c>,
+    /// <c>generatedProduct</c>, <c>recoveryTests</c>.
+    ///
+    /// Existe porque "o eixo está aberto" e "o eixo está aberto POR MINHA CAUSA" são fatos
+    /// diferentes e o supervisor tratava os dois como o mesmo. Em 2026-08-03 as três contas
+    /// capazes de executar papel de ator morreram ao mesmo tempo (cota semanal, credencial
+    /// fora do contêiner, plano sem modelo): não havia UM item que a Integradora pudesse
+    /// fazer, e ainda assim o supervisor a relançava a cada ciclo — porque a prova limpa
+    /// continuava fora de <c>pass</c> — sem nunca avisar o proprietário. Relançar uma sessão
+    /// não provisiona conta.
+    ///
+    /// A declaração é do finding, e não inferida do texto, pela mesma razão que
+    /// <see cref="Owner"/> é declarado: o custo do erro é a operação inteira parada ou o
+    /// proprietário acordado à toa. Lista vazia (padrão) significa "não bloqueia eixo
+    /// nenhum" — o default seguro, porque um finding que se declarasse bloqueador por
+    /// omissão viraria a saída fácil para a operação dormir.
+    /// </summary>
+    public IReadOnlyList<string> BlocksAxes { get; init; } = [];
+
     [JsonIgnore]
     public bool IsOpen => string.Equals(Status, "open", StringComparison.OrdinalIgnoreCase);
 

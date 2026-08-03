@@ -63,6 +63,15 @@ public sealed record OperationState
     [JsonIgnore]
     public int AgentExecutableWork { get; init; }
 
+    /// <summary>
+    /// Eixos de prova que um defeito ABERTO do proprietário declara bloquear. Derivado dos
+    /// findings, nunca escrito no arquivo: é o que permite distinguir um eixo vermelho que a
+    /// Integradora ainda pode virar de um eixo vermelho que só o dono destrava.
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlySet<string> AxesBlockedByHuman { get; init; } =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
     private static readonly JsonSerializerOptions Options = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -88,6 +97,10 @@ public sealed record OperationState
             BlockingFindings = findings.Count(finding => finding.IsBlocking),
             ExecutableWork = findings.Count(finding => finding.IsExecutable),
             AgentExecutableWork = findings.Count(finding => finding.IsAgentExecutable),
+            AxesBlockedByHuman = findings
+                .Where(finding => finding.IsOpen && finding.NeedsHuman)
+                .SelectMany(finding => finding.BlocksAxes)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase),
         };
     }
 }

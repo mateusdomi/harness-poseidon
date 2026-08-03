@@ -192,6 +192,103 @@ public sealed class CompletionGateTests
     }
 
     /// <summary>
+    /// O caso que fazia o supervisor girar em falso a madrugada inteira: em 2026-08-03 as
+    /// três contas capazes de executar papel de ator morreram juntas. A prova limpa não
+    /// tinha como sair de `blocked`, o produto gerado não existe sem ela, e como a regra
+    /// anterior exigia os três eixos VERDES para chamar o dono, ele nunca era chamado — o
+    /// supervisor relançava a Integradora contra zero trabalho, em silêncio.
+    ///
+    /// Quando o próprio defeito do proprietário declara o eixo que segura, "eixo aberto"
+    /// deixa de ser prova de que existe trabalho do agente.
+    /// </summary>
+    [Fact]
+    public void AnAxisHeldByTheOwnerStopsCountingAsAgentWork()
+    {
+        var findings = OperationFinding.ParseLines(
+        [
+            """{"id":"OPS-028","status":"open","owner":"human","blocksAxes":["cleanE2E","generatedProduct"],"nextAction":"EXTERNO: cota semanal ate 06/08"}""",
+        ]);
+
+        var state = (Complete() with
+        {
+            CleanE2E = new E2EState { Status = "blocked", Phase = 3 },
+            GeneratedProduct = "pending",
+            ExternalBlockers = ["nenhuma conta de ator viva"],
+        }).WithFindings(findings);
+
+        Assert.Equal(0, state.AgentExecutableWork);
+        Assert.True(CompletionGate.NeedsHuman(state));
+
+        // E continua FAIL: chamar o dono não é concluir a operação.
+        Assert.False(CompletionGate.Evaluate(state).Passed);
+    }
+
+    /// <summary>
+    /// A cláusula do eixo bloqueado não pode virar a porta de saída fácil. Basta UM eixo
+    /// aberto que ninguém declarou bloquear para o trabalho continuar sendo da Integradora.
+    /// </summary>
+    [Fact]
+    public void AnUndeclaredOpenAxisStillBelongsToTheAgent()
+    {
+        var findings = OperationFinding.ParseLines(
+        [
+            """{"id":"OPS-028","status":"open","owner":"human","blocksAxes":["cleanE2E"],"nextAction":"EXTERNO: cota"}""",
+        ]);
+
+        var state = (Complete() with
+        {
+            CleanE2E = new E2EState { Status = "blocked", Phase = 3 },
+            RecoveryTests = "pending",
+            ExternalBlockers = ["cota"],
+        }).WithFindings(findings);
+
+        Assert.False(CompletionGate.NeedsHuman(state));
+    }
+
+    /// <summary>
+    /// Um finding JÁ FECHADO não segura eixo nenhum: o bloqueio some junto com a causa.
+    /// </summary>
+    [Fact]
+    public void AClosedOwnerFindingReleasesTheAxisItHeld()
+    {
+        var findings = OperationFinding.ParseLines(
+        [
+            """{"id":"OPS-028","status":"fixed","owner":"human","blocksAxes":["cleanE2E"],"nextAction":"EXTERNO: cota"}""",
+        ]);
+
+        var state = (Complete() with
+        {
+            CleanE2E = new E2EState { Status = "blocked", Phase = 3 },
+            ExternalBlockers = ["cota"],
+        }).WithFindings(findings);
+
+        Assert.Empty(state.AxesBlockedByHuman);
+        Assert.False(CompletionGate.NeedsHuman(state));
+    }
+
+    /// <summary>
+    /// Gate obrigatório vermelho é trabalho da Integradora, sempre. Nenhum bloqueio externo
+    /// autoriza deixar a suíte quebrada esperando o dono.
+    /// </summary>
+    [Fact]
+    public void ARedMandatoryGateKeepsTheAgentWorkingEvenWithEveryAxisHeld()
+    {
+        var findings = OperationFinding.ParseLines(
+        [
+            """{"id":"OPS-028","status":"open","owner":"human","blocksAxes":["cleanE2E","generatedProduct","recoveryTests"],"nextAction":"EXTERNO: cota"}""",
+        ]);
+
+        var state = (Complete() with
+        {
+            CleanE2E = new E2EState { Status = "blocked", Phase = 3 },
+            MandatoryGatesFailed = 1,
+            ExternalBlockers = ["cota"],
+        }).WithFindings(findings);
+
+        Assert.False(CompletionGate.NeedsHuman(state));
+    }
+
+    /// <summary>
     /// Sem dono declarado o defeito é do agente. O default importa: se um finding novo
     /// nascesse "do humano" por omissão, a operação pararia sozinha ao registrá-lo.
     /// </summary>

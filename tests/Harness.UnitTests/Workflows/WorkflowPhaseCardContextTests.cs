@@ -47,6 +47,50 @@ public sealed class WorkflowPhaseCardContextTests
             WorkflowPhaseDriver.IsDocumentRevisionRelevant(phase, objective, message));
     }
 
+    private static readonly string[] ArchitectureObjectives =
+    [
+        "SAD Ideal e Restrito", "ADRs", "C4 (Contexto e Contêiner)", "DER",
+        "Comparativo de trade-off", "Threat Model STRIDE", "Plano de Observabilidade",
+    ];
+
+    /// <summary>
+    /// O motor de retrabalho medido na prova limpa de 2026-08-02: cinco decisões do usuário,
+    /// cada uma sobre UM artefato, geraram uma corrente de atualizações de artefatos que a
+    /// mensagem nem citava — "Decisão sobre o Plano de Observabilidade" reescrevendo o
+    /// Comparativo de trade-off, o DER e o C4. As métricas da operação diziam que retrabalho
+    /// era 73% do custo sem apontar de onde vinha; vinha daqui.
+    /// </summary>
+    [Theory]
+    [InlineData(
+        "Decisao sobre o Plano de Observabilidade: reduzir o escopo. Sem painel, sem alerta.",
+        "Plano de Observabilidade")]
+    [InlineData(
+        "E sobre o SAD Ideal e Restrito que voce trouxe para eu decidir: vale reduzir.",
+        "SAD Ideal e Restrito")]
+    [InlineData(
+        "Sobre a atualizacao do C4 que você trouxe: reduza o que essa parte precisa entregar.",
+        "C4 (Contexto e Contêiner)")]
+    public void ADecisionAboutOneArtifactDoesNotRewriteTheWholePhase(string message, string expected)
+    {
+        Assert.Equal(
+            expected,
+            WorkflowPhaseDriver.SingleObjectiveNamedBy(message, ArchitectureObjectives));
+    }
+
+    /// <summary>
+    /// O estreitamento é tímido de propósito. Sem menção, ou com duas, volta a valer o
+    /// conservador — perder uma regra de negócio continua sendo pior que uma revisão a mais.
+    /// E a borda de palavra importa: "der" dentro de "perder" não nomeia o DER.
+    /// </summary>
+    [Theory]
+    [InlineData("Também quero registrar uma foto do equipamento.")]
+    [InlineData("Sobre o DER e o C4: mantenham os dois alinhados.")]
+    [InlineData("Não quero perder o histórico de devoluções.")]
+    public void AnAmbiguousOrSilentMessageKeepsTheConservativeBehaviour(string message)
+    {
+        Assert.Null(WorkflowPhaseDriver.SingleObjectiveNamedBy(message, ArchitectureObjectives));
+    }
+
     [Fact]
     public void ObjectiveCardCarriesProvenanceTemplateDependenciesAndEvidenceWithoutSecrets()
     {

@@ -1,8 +1,8 @@
 {
   "operation": "poseidon-final-validation",
   "schemaVersion": 1,
-  "updatedAt": "2026-08-03T05:20:00Z",
-  "updatedBy": "integrador-claude-noturno-2",
+  "updatedAt": "2026-08-03T06:20:00Z",
+  "updatedBy": "integrador-claude-ciclo-2",
   "branch": "develop",
   "baselineCommit": "a25bb1ff",
   "headCommit": "HEAD",
@@ -43,8 +43,8 @@
   },
   "metricsInstrumented": true,
   "metricsNote": "Medidas por `supervisor metrics`. Desperdicio transitorio 0,98% (meta do §34 batida); retrabalho 73% do custo.",
-  "nextAction": "A prova limpa nao anda ate existir UMA conta que execute papel de ator: glm sem cota ate 2026-08-06 10:11 UTC (confirmado ao vivo no 429), as duas claude sem credencial dentro do conteiner e a codex recusando todo modelo. Enquanto isso, trabalho do agente que NAO depende de conta: fechar OPS-041 (contrato da pausa), §49 preparado, QA do Poseidon e metricas. Assim que houver conta: POST /api/v1/projects/01KZ24JCFRHN2RGP8NHGP75JMK/chief/resume e acompanhar por ID ate os 7 cards de Arquitetura fecharem.",
-  "humanDecisionRequired": false,
+  "nextAction": "CICLO 2 (06:20): confirmado no proprio sistema que NENHUMA conta esta viva — nem de ator (glm QuotaLimited ate 2026-08-06 10:11, claude-secondary AuthenticationRequired, codex account_model_unsupported) nem a chief-claude-primary que da voz a Bruna, tambem AuthenticationRequired desde 03:17. Sem chief nao ha nem chat: a prova limpa, o produto gerado e o QA do Poseidon dependem todos disso. Nao ha trabalho de agente que avance a operacao — por isso OPS-042 foi corrigido (o supervisor girava em falso sem avisar) e o proprietario foi NOTIFICADO no Telegram as 06:14 UTC. Assim que UMA conta voltar: POST /api/v1/projects/01KZ24JCFRHN2RGP8NHGP75JMK/chief/resume e acompanhar por ID ate os 7 cards de Arquitetura em 'ready' fecharem (conferidos no banco: 01KZ26X4RJ0KE6YG9GP07EY332 SAD, 01KZ26X4RN9HPS3T0P3KRBAE5Q Threat Model, 01KZ26X4RN6V96W19ZXTKKGTJE Observabilidade, 01KZ2BVXCB73733643C8R3JNPQ C4, 01KZ2C71WYF9ZERVRK9FXR9C7Z ADRs, 01KZ2EKZ518KNSXE785R4PYYRX Comparativo, 01KZ2FSAM70CSERARYVZJVC5ED DER).",
+  "humanDecisionRequired": true,
   "externalBlockers": [
     "OPS-030: contas claude sem credencial dentro do conteiner — decidir extracao do OAuth do Keychain, ANTHROPIC_API_KEY ou frota reduzida",
     "OPS-029: conta codex/ChatGPT recusa todos os modelos do CLI 0.44.0 — verificar plano ou atualizar CLI/modelo",

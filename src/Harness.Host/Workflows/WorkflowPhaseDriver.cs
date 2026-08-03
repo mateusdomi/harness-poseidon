@@ -171,6 +171,10 @@ public sealed class WorkflowPhaseDriver(
         var advanced = 0;
         var runVersion = aggregate.Version;
 
+        // Uma decisão do usuário sobre UM artefato não é decisão sobre todos. Resolvido uma
+        // vez para a fase inteira porque a pergunta é sobre a mensagem, não sobre o objetivo.
+        var documentNames = documents.Select(objective => objective.Name).ToArray();
+
         foreach (var objective in documents)
         {
             var title = CardTitleFor(phase.Name, objective.Name);
@@ -252,8 +256,13 @@ public sealed class WorkflowPhaseDriver(
             var latestHuman = humanMessages.Count == 0 ? null : humanMessages[^1];
             var latestObjectiveCard = objectiveCards.FirstOrDefault();
             var revisionTitle = latestHuman is null ? null : revisionPrefix + latestHuman.Id;
+            var namedObjective = latestHuman is null
+                ? null
+                : SingleObjectiveNamedBy(latestHuman.Content, documentNames);
             var revisionRelevant = latestHuman is not null &&
-                IsDocumentRevisionRelevant(phase.Name, objective.Name, latestHuman.Content);
+                IsDocumentRevisionRelevant(phase.Name, objective.Name, latestHuman.Content) &&
+                (namedObjective is null ||
+                 string.Equals(namedObjective, objective.Name, StringComparison.Ordinal));
             if (revisionTitle is not null && !revisionRelevant &&
                 byTitle.TryGetValue(revisionTitle, out var obsoleteRevision) &&
                 obsoleteRevision.State is "backlog" or "ready")
@@ -262,11 +271,14 @@ public sealed class WorkflowPhaseDriver(
                 // agenda chegou enquanto a arquitetura era executada, preservar a fonte no
                 // contexto da fase futura é suficiente; deixar o card pronto queimaria cota sem
                 // mudar o artefato. O arquivamento é auditado e ocorre antes do despacho.
+                var dismissReason = namedObjective is null
+                    ? "Informação de agenda preservada para Planejamento; não altera este artefato."
+                    : $"A decisão trata de \"{namedObjective}\"; a fonte fica na proveniência e não altera este artefato.";
                 _ = await _board.DismissTaskAsync(
                     new BoardTaskDismissCommand(
                         tenantId,
                         obsoleteRevision.Id,
-                        "Informação de agenda preservada para Planejamento; não altera este artefato.",
+                        dismissReason,
                         "system",
                         _clock.UtcNow),
                     cancellationToken);
@@ -1295,6 +1307,98 @@ public sealed class WorkflowPhaseDriver(
             .ThenBy(candidate => candidate.Template.Code, StringComparer.Ordinal)
             .Select(candidate => candidate.Template)
             .FirstOrDefault();
+    }
+
+    /// <summary>
+    /// O artefato que a mensagem humana nomeia explicitamente, quando ela nomeia UM só.
+    ///
+    /// Sem isto, uma decisão do usuário sobre um artefato reescrevia TODOS os artefatos da
+    /// fase. Medido na prova limpa de 2026-08-02: cinco mensagens do tipo "decisão sobre o
+    /// Plano de Observabilidade: reduzir o escopo" produziram uma corrente de atualizações do
+    /// "Comparativo de trade-off", do DER e do C4 — documentos que a mensagem sequer citava.
+    /// O relatório de métricas da operação já apontava retrabalho como 73% do custo total sem
+    /// que ninguém soubesse de onde vinha; vinha daqui.
+    ///
+    /// A regra é deliberadamente tímida: só estreita quando a mensagem nomeia exatamente um
+    /// artefato da fase. Zero menções ou duas mantêm o comportamento conservador de revisar
+    /// todos, porque perder uma regra de negócio continua sendo pior que uma revisão a mais.
+    /// </summary>
+    public static string? SingleObjectiveNamedBy(
+        string humanMessage,
+        IReadOnlyList<string> objectiveNames)
+    {
+        ArgumentNullException.ThrowIfNull(objectiveNames);
+        var message = NormalizeTokens(humanMessage);
+
+        string? single = null;
+        foreach (var name in objectiveNames)
+        {
+            // O nome de menção é o que um humano digitaria: "C4", não "C4 (Contexto e
+            // Contêiner)". O que vem entre parênteses é detalhamento, nunca a forma citada.
+            var mention = name.Split('(')[0];
+            var key = NormalizeTokens(mention);
+            if (key.Trim().Length == 0 || !message.Contains(key, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (single is not null && !string.Equals(single, name, StringComparison.Ordinal))
+            {
+                return null; // Ambígua: volta a valer o conservador.
+            }
+
+            single = name;
+        }
+
+        return single;
+    }
+
+    /// <summary>
+    /// Normaliza para comparação por PALAVRA: sem acento, minúsculo, e qualquer coisa que não
+    /// seja letra ou dígito vira espaço. Pontuação colada ("o C4, reduzido") deixava de casar
+    /// com a busca por substring simples, e "der" casaria dentro de "perder" sem as bordas.
+    /// </summary>
+    private static string NormalizeTokens(string value)
+    {
+        var decomposed = (value ?? string.Empty).Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder(decomposed.Length + 2).Append(' ');
+        foreach (var character in decomposed)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark)
+            {
+                continue;
+            }
+
+            var lowered = char.ToLowerInvariant(character);
+            builder.Append(char.IsLetterOrDigit(lowered) ? lowered : ' ');
+        }
+
+        builder.Append(' ');
+        return CollapseSpaces(builder.ToString().Normalize(NormalizationForm.FormC));
+    }
+
+    private static string CollapseSpaces(string value)
+    {
+        var builder = new StringBuilder(value.Length);
+        var previousWasSpace = false;
+        foreach (var character in value)
+        {
+            if (character == ' ')
+            {
+                if (!previousWasSpace)
+                {
+                    builder.Append(' ');
+                }
+
+                previousWasSpace = true;
+                continue;
+            }
+
+            builder.Append(character);
+            previousWasSpace = false;
+        }
+
+        return builder.ToString();
     }
 
     private static string SingularToken(string token) =>
