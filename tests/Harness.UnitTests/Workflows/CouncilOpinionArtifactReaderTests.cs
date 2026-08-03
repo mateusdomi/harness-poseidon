@@ -1,3 +1,4 @@
+using Harness.Host.Projects;
 using Harness.Host.Workflows;
 
 namespace Harness.UnitTests.Workflows;
@@ -55,5 +56,7 @@ public sealed class CouncilOpinionArtifactReaderTests
 
     [Fact]
     public void ControlledRootIsMandatory() =>
-        Assert.Throws<ArgumentException>(() => new GitCouncilOpinionArtifactReader("  "));
+        Assert.Throws<ArgumentException>(() => new GitCouncilOpinionArtifactReader(
+            new ProjectRepositoryStorage(Path.Combine(Path.GetTempPath(), "poseidon-test-repos")),
+            "  "));
 }

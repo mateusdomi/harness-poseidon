@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Harness.Host.Projects;
 using Harness.Host.Workflows;
 using Harness.Persistence.Abstractions.Projects;
 
@@ -38,7 +39,10 @@ public sealed class CouncilOpinionArtifactReaderGitTests
             await RunGitAsync(repository, ["checkout", "main"], timeout.Token);
 
             var project = ProjectWithRepository(repository);
-            var reader = new GitCouncilOpinionArtifactReader(artifactRoot);
+            // A raiz gerenciada aponta para OUTRO lugar de propósito: assim o teste exercita o ramo
+            // "projeto trazido pelo dono", que usa a raiz configurada.
+            var reader = new GitCouncilOpinionArtifactReader(
+                new ProjectRepositoryStorage(Path.Combine(artifactRoot, "managed")), artifactRoot);
 
             // Antes do merge: o parecer só existe na branch da tentativa.
             var beforeMerge = await reader.ReadAsync(
@@ -55,6 +59,16 @@ public sealed class CouncilOpinionArtifactReaderGitTests
 
             // Assento que não entregou não vira opinião silenciosa.
             Assert.Null(await reader.ReadAsync(project, AttemptId, "playbook-qa", 1, timeout.Token));
+
+            // O caso que quebrou em produção: repositório CRIADO pelo Poseidon, que vive sob a raiz
+            // gerenciada e não sob a configurada. Passar a configurada faz o GitWorktreeManager
+            // recusar por contenção — e o conselho perde todas as opiniões em silêncio.
+            var managedReader = new GitCouncilOpinionArtifactReader(
+                new ProjectRepositoryStorage(artifactRoot),
+                Path.Combine(artifactRoot, "raiz-externa-que-nao-contem-o-repo"));
+            Assert.Equal(
+                body,
+                await managedReader.ReadAsync(project, AttemptId, "playbook-po", 1, timeout.Token));
         }
         finally
         {

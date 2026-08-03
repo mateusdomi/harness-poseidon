@@ -559,8 +559,9 @@ public static class HostApplication
             // A opinião do conselheiro é o parecer ENTREGUE, lido da branch da tentativa. Sem este
             // leitor o conselho só teria `work_attempts.summary`, campo que nenhum escritor
             // preenche — e a fase 4 nunca fecharia.
-            builder.Services.AddSingleton<Workflows.ICouncilOpinionArtifactReader>(
+            builder.Services.AddSingleton<Workflows.ICouncilOpinionArtifactReader>(services =>
                 new Workflows.GitCouncilOpinionArtifactReader(
+                    services.GetRequiredService<Projects.ProjectRepositoryStorage>(),
                     Path.GetFullPath(agentRunSettings.ControlledRoot!)));
             builder.Services.AddScoped<Workflows.WorkflowPhaseDriver>();
             builder.Services.AddHostedService<ChiefBacklogLoopService>();

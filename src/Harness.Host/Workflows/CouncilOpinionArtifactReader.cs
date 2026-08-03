@@ -1,3 +1,4 @@
+using Harness.Host.Projects;
 using Harness.Modules.Execution.Infrastructure.Git;
 using Harness.Persistence.Abstractions.Projects;
 
@@ -35,14 +36,27 @@ public interface ICouncilOpinionArtifactReader
 /// <summary>
 /// Leitura do parecer na branch da tentativa, com a mesma fronteira de raiz controlada usada
 /// pela publicação de documentos aprovados.
+///
+/// A raiz é RESOLVIDA por projeto, nunca a configurada direto: projeto criado pelo Poseidon vive
+/// sob a raiz gerenciada e projeto trazido pelo dono usa a raiz de execução externa. Passar a
+/// configurada aos dois fazia o `GitWorktreeManager` recusar o repositório gerenciado por
+/// contenção — medido em 03/08, com os seis pareceres já mergeados em `HEAD` e o conselho
+/// registrando `council_opinion_missing` para todos.
 /// </summary>
-public sealed class GitCouncilOpinionArtifactReader(string controlledRoot) : ICouncilOpinionArtifactReader
+public sealed class GitCouncilOpinionArtifactReader(
+    ProjectRepositoryStorage repositories,
+    string configuredControlledRoot) : ICouncilOpinionArtifactReader
 {
     private const string CouncilDirectory = "docs/conselho/";
 
-    private readonly string _controlledRoot = string.IsNullOrWhiteSpace(controlledRoot)
-        ? throw new ArgumentException("A raiz controlada é obrigatória.", nameof(controlledRoot))
-        : Path.GetFullPath(controlledRoot);
+    private readonly ProjectRepositoryStorage _repositories =
+        repositories ?? throw new ArgumentNullException(nameof(repositories));
+
+    private readonly string _configuredControlledRoot =
+        string.IsNullOrWhiteSpace(configuredControlledRoot)
+            ? throw new ArgumentException(
+                "A raiz controlada é obrigatória.", nameof(configuredControlledRoot))
+            : Path.GetFullPath(configuredControlledRoot);
 
     /// <summary>Caminho canônico do parecer — o mesmo que a instrução do conselho exige.</summary>
     public static string ParecerPath(string personaKey, int cycle) =>
@@ -64,10 +78,13 @@ public sealed class GitCouncilOpinionArtifactReader(string controlledRoot) : ICo
         }
 
         var branch = $"task/agent-run-{attemptId.ToLowerInvariant()}";
+        var repositoryRoot = Path.GetFullPath(project.RepositoryUrl);
         try
         {
             using var git = await GitWorktreeManager.OpenAsync(
-                Path.GetFullPath(project.RepositoryUrl), _controlledRoot, cancellationToken);
+                repositoryRoot,
+                _repositories.ResolveControlledRoot(repositoryRoot, _configuredControlledRoot),
+                cancellationToken);
 
             // O conselho consolida DEPOIS que o card fecha, e fechar inclui o merge — nesse ponto
             // `diff HEAD...branch` ja e vazio, porque a base virou o proprio topo da branch.
