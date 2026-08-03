@@ -31,6 +31,7 @@
          inspeciona o par (despachados, adiados). Só expõe o membro interno aos testes. -->
     <InternalsVisibleTo Include="Harness.IntegrationTests" />
     <InternalsVisibleTo Include="Harness.UnitTests" />
+    <InternalsVisibleTo Include="Harness.RecoveryTests" />
   </ItemGroup>
 
   <ItemGroup>
