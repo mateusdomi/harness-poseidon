@@ -2687,7 +2687,18 @@ public sealed partial class ChiefBacklogLoopService(
         // REALMENTE leva, e é contra isso que a espera deve ser medida.
         var expected = await ReadTypicalDeliveryMinutesAsync(tenantId, projectId, board, token);
         var threshold = Math.Clamp(expected * 3, settings.DeliveryStallMinutes, 45);
-        var stalled = idle >= threshold;
+
+        // VIVACIDADE VETA A PARADA.
+        //
+        // "Sem entrega há 27 minutos" e "parado" não são a mesma coisa quando alguém está
+        // trabalhando neste instante: uma tarefa pesada roda mais que a mediana sem que nada
+        // esteja errado. Sem este veto, o aviso dispara no meio de um trabalho saudável — e um
+        // vigia que grita à toa ensina o dono a ignorá-lo, que é o único jeito de ele falhar
+        // quando estiver certo. Medido em 2026-08-03: a primeira vez que a regra disparou de
+        // verdade, foi contra um card em plena execução.
+        var working = page.Items.Any(task =>
+            string.Equals(task.InternalState, "running", StringComparison.Ordinal));
+        var stalled = !working && idle >= threshold;
         var explanation = DescribeWallForOwner(lastWall);
         return (stalled, idle == int.MaxValue ? 0 : idle, explanation);
     }
