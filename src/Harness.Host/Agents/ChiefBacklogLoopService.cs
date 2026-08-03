@@ -1280,6 +1280,25 @@ public sealed partial class ChiefBacklogLoopService(
         ["critic.pass", "critic.fail", "critic.pass_contradicted_by_findings"],
         StringComparer.Ordinal);
 
+    /// <summary>
+    /// D1 — este card é um parecer do Conselho, e por isso não passa por revisão independente.
+    ///
+    /// O discriminador é o tipo `revisao`, e ele é exato hoje: em todo o produto existe UM ponto
+    /// que cria card com esse tipo — <c>WorkflowPhaseDriver.CreateCouncilCardAsync</c>. Preferi
+    /// isso a introduzir um tipo novo porque `card_type` é enumerado por CHECK em SQLite e em
+    /// Postgres: um valor a mais custa duas migrations e seis asserções de contagem de cabeça
+    /// espalhadas em cinco arquivos, que já deixaram o develop vermelho para toda a frota uma vez.
+    /// A semântica também sustenta a escolha — um card cujo entregável É uma revisão não se revisa.
+    ///
+    /// Se um dia `revisao` passar a nascer de outro lugar, esta função é o único ponto a mudar, e
+    /// o teste que a acompanha falha antes de o comportamento vazar.
+    /// </summary>
+    internal static bool IsCouncilOpinionCard(BoardTaskRecord task)
+    {
+        ArgumentNullException.ThrowIfNull(task);
+        return string.Equals(task.CardType, "revisao", StringComparison.Ordinal);
+    }
+
     private static readonly HashSet<string> CorrectableDocumentPublicationFailures = new(
         [
             "document.artifact_missing",
@@ -2124,6 +2143,53 @@ public sealed partial class ChiefBacklogLoopService(
             var now = clock.UtcNow;
             if (_reviewBackoff.TryGetValue(awaiting.Id, out var notBefore) && notBefore > now)
             {
+                continue;
+            }
+
+            // D1 — O PARECER DO CONSELHO NÃO É REVISTO, PORQUE ELE JÁ É A REVISÃO.
+            //
+            // Exigir revisão independente de um parecer é recursão: quem critica passa a precisar
+            // de quem critique, e o custo não é filosófico, é de elenco. O parecer só pode ser
+            // escrito por conta de papel `critic` (é quem tem o claim `docs/conselho/**`), então
+            // CADA assento consome uma conta critic como ATOR e a revisão dele exige OUTRA. Com N
+            // contas critic o conselho passa a exigir N≥2 e não paraleliza; medido em 03/08/2026,
+            // com N=2 e uma delas sem cota, os seis assentos entregaram o parecer e escalaram com
+            // `critic.none_available` — e a fase 4 não tinha como fechar, nem naquele dia nem nunca.
+            //
+            // O controle não se perde: quem protege o conselho é a CONSOLIDAÇÃO — um único veredito
+            // bloqueante segura a fase, o piso de lentes distintas continua valendo e todo dissenso
+            // fica no ledger. Um parecer ruim não passa por ser aprovado aqui; ele passa a valer
+            // como opinião, e é a mesa inteira que decide.
+            //
+            // O veredito é gravado como review DETERMINÍSTICA — mesma via do gate de placeholder
+            // logo abaixo —, com alias e motivo próprios. Não se inventa um segundo revisor: fica
+            // registrado no ledger que a aprovação foi de POLÍTICA, e é auditável como tal.
+            if (IsCouncilOpinionCard(task))
+            {
+                var councilResult = new CriticReviewResult(
+                    UlidValue.New(now).ToString(), awaiting.Id, "deterministic-council-gate",
+                    "deterministic", awaiting.AgentId, CriticVerdict.Pass,
+                    "critic.pass",
+                    [],
+                    "Parecer do Conselho: a revisão independente deste card é a própria " +
+                    "consolidação do conselho (um veredito bloqueante segura a fase). Revisar o " +
+                    "parecer exigiria uma segunda conta de crítico por assento e tornaria o " +
+                    "conselho impossível com o elenco disponível.",
+                    null,
+                    0);
+                if (await ApplyReviewVerdictAsync(
+                        tenantId, task, awaiting.Id, councilResult, chain, token))
+                {
+                    reviewed++;
+                    ClearReviewDeferrals(awaiting.Id);
+                    LogCouncilOpinionAccepted(logger, task.Id, awaiting.Id);
+                }
+                else
+                {
+                    _ = await DeferOrEscalateReviewAsync(
+                        tenantId, task, awaiting.Id, "council.gate_not_applied", chain, now, token);
+                }
+
                 continue;
             }
 
@@ -4119,6 +4185,13 @@ public sealed partial class ChiefBacklogLoopService(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: nenhum crítico disponível ≠ ator {ProducerAlias} para o card {TaskId}; review adiado.")]
     private static partial void LogNoCriticAvailable(ILogger logger, string taskId, string producerAlias);
+
+    // A dispensa precisa ser VISÍVEL. Um card que fecha sem revisão independente é exatamente o
+    // que o produto promete que não acontece; a exceção é legítima e delimitada, e por isso é dita
+    // em voz alta uma vez por parecer, em vez de virar silêncio no meio de um ciclo.
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Chief: card {TaskId} é parecer do Conselho — tentativa {AttemptId} aceita pela consolidação, sem revisão por par (D1).")]
+    private static partial void LogCouncilOpinionAccepted(ILogger logger, string taskId, string attemptId);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Chief: card {TaskId} ({Code}) promovido a `ready` pela triagem por ondas.")]
     private static partial void LogCardPromoted(ILogger logger, string taskId, string code);
