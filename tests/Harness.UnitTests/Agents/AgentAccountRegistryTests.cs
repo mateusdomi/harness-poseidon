@@ -44,6 +44,78 @@ public sealed class AgentAccountRegistryTests
         Assert.Equal(AgentAccountHealth.Healthy, account.Health);
     }
 
+    /// <summary>
+    /// O defeito medido em 2026-08-03: o ledger dizia "cota esgotada até as 14:30", o registro
+    /// recebia só o ESTADO, e a janela chegava vazia. O escalonador é fail-closed — cooldown
+    /// ausente com estado `QuotaLimited` significa "esgotada até segunda ordem" — então a conta
+    /// saía da eleição PARA SEMPRE, e só um reinício do Host a devolvia. Enquanto isso o painel,
+    /// que lê o ledger, mostrava a conta disponível.
+    /// </summary>
+    [Fact]
+    public void ObservedQuotaCarriesTheReturnWindowIntoTheRegistry()
+    {
+        var registry = new AgentAccountRegistry();
+        registry.Register(Account(state: AgentAccountState.Available));
+        var until = DateTimeOffset.UnixEpoch.AddHours(3);
+
+        _ = registry.ApplyObservedAvailability(
+            [new AccountAvailabilityRecord(
+                "worker-codex-frontend", AgentAccountState.QuotaLimited, until,
+                "run.quota_exhausted", 1, DateTimeOffset.UnixEpoch)]);
+
+        var account = registry.Get("worker-codex-frontend")!;
+        Assert.Equal(AgentAccountState.QuotaLimited, account.State);
+        Assert.Equal(until, account.CooldownUntil);
+    }
+
+    /// <summary>
+    /// E a volta precisa APAGAR a janela: um cooldown vencido que sobrevive à recuperação é a
+    /// mesma prisão, só que mais difícil de ver.
+    /// </summary>
+    [Fact]
+    public void RecoveringAnAccountClearsTheOldWindow()
+    {
+        var registry = new AgentAccountRegistry();
+        registry.Register(Account(state: AgentAccountState.Available));
+        _ = registry.ApplyObservedAvailability(
+            [new AccountAvailabilityRecord(
+                "worker-codex-frontend", AgentAccountState.QuotaLimited,
+                DateTimeOffset.UnixEpoch.AddHours(3), "run.quota_exhausted", 1,
+                DateTimeOffset.UnixEpoch)]);
+
+        _ = registry.ApplyObservedAvailability(
+            [Observed("worker-codex-frontend", AgentAccountState.Available)]);
+
+        var account = registry.Get("worker-codex-frontend")!;
+        Assert.Equal(AgentAccountState.Available, account.State);
+        Assert.Null(account.CooldownUntil);
+    }
+
+    /// <summary>
+    /// Aplicar o ledger deixou de ser evento único da subida do Host e passou a rodar a cada
+    /// minuto — então a concessão viva precisa de guarda. Sem ela, a conta reservada voltaria a
+    /// `Available` no meio da tentativa e a exclusão mútua da conta seria só aparência.
+    /// </summary>
+    [Fact]
+    public void ApplyingTheLedgerNeverStealsAnAccountThatIsLeased()
+    {
+        var registry = new AgentAccountRegistry();
+        registry.Register(Account(state: AgentAccountState.Available));
+        var lease = registry.Reserve(
+            "worker-codex-frontend", "01ARZ3NDEKTSV4RRFFQ69G5FAV", "chief",
+            DateTimeOffset.UnixEpoch, TimeSpan.FromMinutes(30));
+
+        var applied = registry.ApplyObservedAvailability(
+            [Observed("worker-codex-frontend", AgentAccountState.Available)]);
+
+        Assert.Equal(0, applied);
+        var account = registry.Get("worker-codex-frontend")!;
+        Assert.Equal(AgentAccountState.Reserved, account.State);
+        Assert.Equal(1, account.ActiveAttempts);
+        Assert.NotNull(registry.GetLease("worker-codex-frontend"));
+        Assert.Equal(lease.FencingToken, registry.GetLease("worker-codex-frontend")!.FencingToken);
+    }
+
     [Fact]
     public void ObservedAvailabilityNeverReenablesWhatTheOperatorDisabled()
     {

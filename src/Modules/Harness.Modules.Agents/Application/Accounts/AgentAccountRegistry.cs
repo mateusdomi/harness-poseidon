@@ -76,9 +76,28 @@ public sealed class AgentAccountRegistry
                     continue;
                 }
 
+                // Conta COM CONCESSÃO viva não é sobrescrita: `Reserved` é um fato local desta
+                // execução, e o ledger — que observa disponibilidade, não posse — não sabe dele.
+                // Sem esta guarda, aplicar o ledger periodicamente devolveria a conta reservada
+                // para `Available` no meio da tentativa e abriria porta para dupla concessão.
+                if (account.State == AgentAccountState.Reserved)
+                {
+                    continue;
+                }
+
                 _accounts[account.Alias] = account with
                 {
                     State = record.State,
+                    // A JANELA vem junto com o estado. Sem ela, `QuotaLimited` chegava aqui sem
+                    // hora de volta — e o escalonador, que é fail-closed, lê cooldown ausente
+                    // como "esgotada até segunda ordem". Foi assim que uma conta sã, já
+                    // recuperada no ledger, ficou horas fora da eleição: o ledger sabia, o
+                    // registro não, e o humano via `disponível` no painel enquanto o chefe
+                    // recusava a conta com `account.quota_limited` sem hora de retorno.
+                    CooldownUntil = record.State is AgentAccountState.QuotaLimited
+                        or AgentAccountState.CoolingDown
+                        ? record.CooldownUntil
+                        : null,
                     Health = record.State switch
                     {
                         AgentAccountState.Available => AgentAccountHealth.Healthy,

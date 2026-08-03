@@ -14,9 +14,16 @@ namespace Harness.Host.Agents;
 /// Só reabilita a DISPONIBILIDADE; o re-despacho do trabalho pendente é decisão do nível
 /// superior (Chief). O serviço é resiliente: uma falha de ciclo é registrada e não derruba o
 /// laço.
+///
+/// E reabilitar no ledger não basta: quem ELEGE a conta lê o REGISTRO, que era hidratado uma
+/// única vez, na subida do Host. Uma conta que se recuperasse depois disso continuava fora da
+/// eleição até o próximo reinício — enquanto o painel, que lê o ledger, a mostrava disponível.
+/// Foi o que tirou de circulação, por horas, a única conta sã de especialista em 2026-08-03.
+/// Por isso o ciclo aplica o ledger ao registro TODA vez, e não só quando houve recuperação.
 /// </summary>
 public sealed partial class AccountRecoveryBackgroundService(
     AccountAvailabilityLedger availability,
+    AgentAccountRegistry registry,
     IClock clock,
     ILogger<AccountRecoveryBackgroundService> logger) : BackgroundService
 {
@@ -41,6 +48,11 @@ public sealed partial class AccountRecoveryBackgroundService(
                 {
                     LogRecovered(logger, recovered.Count);
                 }
+
+                // Sempre, e não só quando houve recuperação: o ledger também muda por observação
+                // de terceiros (doctor, execução real), e o registro precisa refletir o que o
+                // sistema já sabe. É idempotente e não toca conta reservada.
+                _ = registry.ApplyObservedAvailability(availability.List());
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
