@@ -45,7 +45,7 @@ public static class IntegratorPresence
     /// mesmo: um arquivo órfão que bloqueasse o relance para sempre seria pior que não ter
     /// arquivo nenhum.
     /// </summary>
-    public static int? ActivePid(string root)
+    public static int? ActivePid(string root, Func<TimeSpan?>? timeSinceProgress = null)
     {
         var path = Path.Combine(root, FileName);
         if (!File.Exists(path))
@@ -58,6 +58,30 @@ public static class IntegratorPresence
             using var document = JsonDocument.Parse(File.ReadAllText(path));
             var pid = document.RootElement.GetProperty("pid").GetInt32();
             using var _ = Process.GetProcessById(pid);
+
+            // PID vivo NÃO prova trabalho — foi a lição mais cara desta operação: uma
+            // tentativa ficou dezesseis minutos com processo, CPU e contêiner de pé sem
+            // produzir nada. A mesma pergunta vale para a Integradora: uma sessão que parou de
+            // trabalhar mas cujo processo continua aberto seguraria a vaga para sempre, e a
+            // madrugada terminaria esperando alguém digitar algo.
+            //
+            // O sinal de trabalho é o repositório andando. Sem progresso por tempo demais, a
+            // vaga é considerada devolvida — que é exatamente o YIELD que a sessão deveria ter
+            // declarado ao parar.
+            var idleLimit = TimeSpan.FromMinutes(
+                int.TryParse(
+                    Environment.GetEnvironmentVariable("POSEIDON_INTEGRATOR_IDLE_MINUTES"),
+                    out var minutes) && minutes > 0 ? minutes : 45);
+
+            if (timeSinceProgress?.Invoke() is { } idle && idle > idleLimit)
+            {
+                Console.WriteLine(
+                    $"Integradora {pid} viva mas sem progresso há {idle.TotalMinutes:F0} min — " +
+                    "vaga tratada como devolvida.");
+                File.Delete(path);
+                return null;
+            }
+
             return pid;
         }
         catch (ArgumentException)

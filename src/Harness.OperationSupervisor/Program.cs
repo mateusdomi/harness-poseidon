@@ -211,7 +211,9 @@ public static class Program
 
             // Já existe Integradora viva (tipicamente a sessão que o dono abriu à mão):
             // observar, não duplicar. Espera curta e com sujeito — o PID — como manda o §15.
-            var incumbent = IntegratorPresence.ActivePid(root);
+            var incumbent = IntegratorPresence.ActivePid(
+                root,
+                () => RepositoryProgress.SinceLastCommit(Directory.GetCurrentDirectory(), DateTimeOffset.UtcNow));
             if (incumbent is int pid)
             {
                 Console.WriteLine($"[ciclo {cycle}] WORKING: Integradora {pid} já ativa — supervisor observando.");
