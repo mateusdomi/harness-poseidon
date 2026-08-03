@@ -189,6 +189,11 @@ public sealed partial class TelegramChannelBackgroundService(
                 "Esta conversa ainda não está vinculada ao Harness. Vincule a identidade " +
                 $"'{chatId}' na tela de canais do aplicativo.",
                 cancellationToken);
+            // O usuário recebe a instrução; o OPERADOR não recebia nada. Um dono que responde
+            // à notificação e não é ouvido não tem como saber se o produto está mudo, se a
+            // conta está errada ou se a mensagem se perdeu — e quem administra também não.
+            // O id do chat não é segredo: o próprio produto acabou de enviá-lo ao usuário.
+            LogUnlinkedChat(logger, chatId);
             telemetry.Complete("unlinked");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -299,6 +304,10 @@ public sealed partial class TelegramChannelBackgroundService(
         Level = LogLevel.Warning,
         Message = "Falha transitória no polling do Telegram: {ErrorType}.")]
     private static partial void LogPollFailure(ILogger logger, string errorType);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Telegram: mensagem recebida do chat {ChatId}, que NÃO está vinculado a nenhuma conversa; o remetente foi instruído a vincular.")]
+    private static partial void LogUnlinkedChat(ILogger logger, string chatId);
 }
 
 public sealed record TelegramUpdatesEnvelope(
