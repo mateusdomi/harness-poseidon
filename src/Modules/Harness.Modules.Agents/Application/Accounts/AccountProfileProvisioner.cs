@@ -210,8 +210,47 @@ public sealed class AccountProfileProvisioner
         // identidade do sistema, nunca credencial herdada — o isolamento por allowlist segue
         // intacto (uma variável fora da allowlist continua nunca sendo injetada).
         EnsureSystemIdentity(environment, profile, "USER", () => Environment.UserName);
+        NeutralizeProviderRedirect(environment, profile);
 
         return environment;
+    }
+
+    /// <summary>
+    /// Variáveis que REDIRECIONAM o provedor de um CLI. Elas não são só credenciais: uma delas
+    /// presente muda para onde o binário fala.
+    /// </summary>
+    private static readonly string[] ProviderRedirectVariables =
+    [
+        "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    ];
+
+    /// <summary>
+    /// Zera EXPLICITAMENTE as variáveis de redirecionamento para o executor que não as declara.
+    ///
+    /// Não copiar não bastava. O GLM é o mesmo binário do Claude Code apontado a outro endpoint
+    /// por ambiente, e o operador carrega esse ambiente no processo do Host (o `poseidon` lê
+    /// `~/.harness/glm.env`; o shell do dono também exporta). Bastava UMA dessas variáveis
+    /// sobreviver para a conta Claude — autenticada, com cota — passar a falar com o endpoint do
+    /// GLM: a própria CLI avisa que "another auth source takes precedence over your claude.ai
+    /// login", e o run morria com a cota do GLM (429 semanal) ou com "Could not resolve
+    /// authentication method". Medido em 03/08/2026, com as duas contas Claude.
+    ///
+    /// A diferença entre "não copiar" e "zerar" é a diferença entre confiar que nenhum caminho
+    /// de herança existe e garantir que, se existir, ele perde. Valor vazio é lido como ausente
+    /// pela CLI — verificado ao vivo.
+    /// </summary>
+    private static void NeutralizeProviderRedirect(
+        Dictionary<string, string> environment, ExecutorProfile profile)
+    {
+        foreach (var variable in ProviderRedirectVariables)
+        {
+            if (!profile.EnvironmentAllowlist.Contains(variable, StringComparer.Ordinal))
+            {
+                environment[variable] = string.Empty;
+            }
+        }
     }
 
     /// <summary>

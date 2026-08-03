@@ -107,6 +107,11 @@ public sealed partial class AgentRunOrchestrator(
         Message = "Agent run {AttemptId}: sandbox NÃO abriu ({ErrorType}); run recusado como sandbox.unavailable.")]
     private static partial void LogSandboxOpenFailure(ILogger logger, string attemptId, string errorType);
 
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Agent run {AttemptId}: ferramenta {ToolId} autorizada SEM contêiner, por declaração do operador ({Reason}).")]
+    private static partial void LogUncontainedExecution(
+        ILogger logger, string attemptId, string toolId, string reason);
+
     private readonly ConcurrentDictionary<string, LiveRun> _live = new(StringComparer.Ordinal);
     private int _acceptingRuns = 1;
 
@@ -1799,11 +1804,21 @@ public sealed partial class AgentRunOrchestrator(
                     command.Role,
                     ToolRiskTier.Critical,
                     allowlist,
-                    sandboxActive),
+                    sandboxActive,
+                    isolatedSettings.UncontainedExecutionAcknowledged),
                 ToolRiskTier.Critical));
             if (!decision.Allowed)
             {
                 return decision;
+            }
+
+            // Execução sem contenção nunca passa calada: quem auditar depois precisa achar
+            // isto no log, e não deduzir do que falta.
+            if (string.Equals(decision.Code, "allowed_uncontained", StringComparison.Ordinal))
+            {
+                LogUncontainedExecution(
+                    logger, command.AttemptId, tool.Id,
+                    isolatedSettings.UncontainedExecutionReason ?? "sem motivo declarado");
             }
         }
 

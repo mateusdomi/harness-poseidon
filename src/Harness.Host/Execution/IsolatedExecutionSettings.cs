@@ -58,6 +58,27 @@ public sealed record IsolatedExecutionSettings
     /// </summary>
     public IsolatedExecutionMode Mode { get; init; } = IsolatedExecutionMode.Docker;
 
+    /// <summary>
+    /// O operador declara que aceita executar SEM a fronteira do contêiner nesta instalação.
+    ///
+    /// Nasce falso: o produto não decide sozinho abrir mão de contenção. Existe porque o
+    /// contêiner, nesta máquina, não continha risco — cegava as contas. As credenciais do
+    /// Claude Code vivem no Keychain do macOS, que não existe dentro do contêiner: a mesma
+    /// conta, com o mesmo config home, responde no host e responde
+    /// `Invalid API key · Please run /login` lá dentro (medido em 03/08/2026). Com todas as
+    /// contas de ator nessa situação, o isolamento não protegia nada — parava tudo.
+    ///
+    /// O que continua valendo com ele ligado: worktree isolada por tentativa, claims de path
+    /// por card, allowlist de ferramentas da persona e revisão por agente distinto. O que se
+    /// perde: rootfs somente-leitura, egresso por proxy e limites de recurso do contêiner.
+    /// A attestation continua dizendo a verdade — que não houve contêiner —, e cada execução
+    /// nessas condições sai com o código `allowed_uncontained`.
+    /// </summary>
+    public bool UncontainedExecutionAcknowledged { get; init; }
+
+    /// <summary>Por que o operador aceitou. Texto livre, guardado para quem auditar depois.</summary>
+    public string? UncontainedExecutionReason { get; init; }
+
     public string? ControlledRoot { get; init; }
 
     public string AgentImageName { get; init; } = "harness-sandbox-agent:latest";

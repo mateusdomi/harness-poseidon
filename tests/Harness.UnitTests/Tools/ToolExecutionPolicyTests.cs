@@ -138,4 +138,63 @@ public sealed class ToolExecutionPolicyTests
             return ValueTask.CompletedTask;
         }
     }
+
+    /// <summary>
+    /// A exceção que o proprietário assinou em 03/08/2026, com causa medida: as contas do
+    /// Claude Code guardam credencial no Keychain do macOS, inexistente dentro do contêiner —
+    /// a MESMA conta responde no host e responde `Invalid API key` lá dentro. O isolamento não
+    /// continha risco: cegava as únicas contas com cota.
+    ///
+    /// A exceção é da INSTALAÇÃO e não do card, e é isso que a torna aceitável: aparece na
+    /// configuração, vale para todos e sai com código próprio no registro.
+    /// </summary>
+    [Fact]
+    public void TheOperatorCanDeclareThatThisInstallationRunsWithoutAContainer()
+    {
+        var decision = ToolExecutionPolicy.Evaluate(new ToolInvocationPolicyRequest(
+            new ToolPolicyDescriptor(ToolId, true, ToolRiskTier.Critical, "{}", "{}"),
+            new ToolPolicyContext(
+                "Implementation", ToolRiskTier.Critical, new HashSet<string> { ToolId },
+                SandboxActive: false, UncontainedExecutionAcknowledged: true),
+            ToolRiskTier.Critical));
+
+        Assert.True(decision.Allowed);
+
+        // Código próprio: um `allowed` indistinguível esconderia quantas execuções
+        // aconteceram sem contenção.
+        Assert.Equal("allowed_uncontained", decision.Code);
+    }
+
+    /// <summary>Sem a declaração, nada muda: o padrão continua exigindo a sandbox.</summary>
+    [Fact]
+    public void WithoutTheDeclarationTheSandboxIsStillMandatory()
+    {
+        var decision = ToolExecutionPolicy.Evaluate(new ToolInvocationPolicyRequest(
+            new ToolPolicyDescriptor(ToolId, true, ToolRiskTier.Critical, "{}", "{}"),
+            new ToolPolicyContext(
+                "Implementation", ToolRiskTier.Critical, new HashSet<string> { ToolId },
+                SandboxActive: false),
+            ToolRiskTier.Critical));
+
+        Assert.False(decision.Allowed);
+        Assert.Equal("sandbox_required", decision.Code);
+    }
+
+    /// <summary>
+    /// A declaração dispensa a CONTENÇÃO, não a política: ferramenta fora da allowlist da
+    /// persona continua negada, com contêiner ou sem ele.
+    /// </summary>
+    [Fact]
+    public void TheDeclarationDoesNotOpenTheDoorToToolsOutsideTheAllowlist()
+    {
+        var decision = ToolExecutionPolicy.Evaluate(new ToolInvocationPolicyRequest(
+            new ToolPolicyDescriptor("outra-ferramenta", true, ToolRiskTier.Critical, "{}", "{}"),
+            new ToolPolicyContext(
+                "Implementation", ToolRiskTier.Critical, new HashSet<string> { ToolId },
+                SandboxActive: false, UncontainedExecutionAcknowledged: true),
+            ToolRiskTier.Critical));
+
+        Assert.False(decision.Allowed);
+        Assert.Equal("tool_not_allowlisted", decision.Code);
+    }
 }

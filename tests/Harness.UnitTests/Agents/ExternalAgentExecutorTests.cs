@@ -726,4 +726,60 @@ public sealed class ExternalAgentExecutorTests : IDisposable
             }
         }
     }
+
+    /// <summary>
+    /// O GLM é o MESMO binário do Claude Code apontado a outro endpoint por ambiente, e o
+    /// operador carrega esse ambiente no processo do Host. Bastava uma dessas variáveis
+    /// sobreviver para a conta Claude — autenticada e com cota — passar a falar com o endpoint
+    /// do GLM: a própria CLI avisa que "another auth source takes precedence over your
+    /// claude.ai login", e o run morria com a cota semanal do GLM. Medido em 03/08/2026.
+    ///
+    /// Não copiar não bastava: é preciso ZERAR, para que nenhum caminho de herança vença.
+    /// </summary>
+    [Theory]
+    [InlineData("ANTHROPIC_BASE_URL")]
+    [InlineData("ANTHROPIC_AUTH_TOKEN")]
+    [InlineData("ANTHROPIC_API_KEY")]
+    [InlineData("ANTHROPIC_DEFAULT_OPUS_MODEL")]
+    public void AClaudeAccountIsNeverRedirectedToAnotherProvidersEndpoint(string variable)
+    {
+        var provisioner = new AccountProfileProvisioner(_root);
+        var handle = Provision(provisioner, "chief-claude-primary", ExecutorCatalog.ClaudeCode);
+
+        var environment = provisioner.BuildEnvironment(
+            handle.Layout,
+            ExecutorCatalog.Find(ExecutorCatalog.ClaudeCode)!,
+            new Dictionary<string, string?>
+            {
+                [variable] = "https://api.z.ai/api/anthropic",
+                ["HOME"] = "/Users/dono",
+                ["USER"] = "dono",
+            });
+
+        Assert.True(environment.ContainsKey(variable), $"{variable} precisa ser zerada, não omitida.");
+        Assert.Equal(string.Empty, environment[variable]);
+    }
+
+    /// <summary>
+    /// E o contrapeso: o GLM DECLARA essas variáveis no allowlist porque é assim que ele
+    /// funciona. Zerá-las nele quebraria a conta em vez de protegê-la.
+    /// </summary>
+    [Fact]
+    public void TheAccountThatDeclaresTheRedirectStillReceivesIt()
+    {
+        var provisioner = new AccountProfileProvisioner(_root);
+        var handle = Provision(provisioner, "worker-glm-general", ExecutorCatalog.Glm);
+
+        var environment = provisioner.BuildEnvironment(
+            handle.Layout,
+            ExecutorCatalog.Find(ExecutorCatalog.Glm)!,
+            new Dictionary<string, string?>
+            {
+                ["ANTHROPIC_BASE_URL"] = "https://api.z.ai/api/anthropic",
+                ["HOME"] = "/Users/dono",
+                ["USER"] = "dono",
+            });
+
+        Assert.Equal("https://api.z.ai/api/anthropic", environment["ANTHROPIC_BASE_URL"]);
+    }
 }

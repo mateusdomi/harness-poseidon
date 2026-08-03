@@ -279,6 +279,13 @@ public abstract class ProcessExternalAgentExecutor : IExternalAgentExecutor
             }
         }
 
+        // Diagnóstico de ambiente por CHAVE, nunca por valor. Uma falha de autenticação que só
+        // acontece quando o Host lança o processo — e não quando um humano roda o mesmo comando
+        // — é indistinguível de credencial ausente sem saber o que o filho recebeu.
+        Console.Error.WriteLine(
+            $"[executor-env] {ExecutorId}/{request.Alias}: " +
+            string.Join(",", startInfo.Environment.Keys.Order(StringComparer.Ordinal)));
+
         var process = Process.Start(startInfo)
             ?? throw new ExternalAgentException("executor.start_failed");
 
