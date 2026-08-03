@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Harness.Host;
 using Harness.Host.Agents;
+using Harness.Modules.Coordination.Application;
 using Harness.Modules.Coordination.Contracts;
 using Harness.Modules.Identity.Contracts;
 using Harness.Modules.Organizations.Contracts;
@@ -258,8 +259,17 @@ public sealed class ChiefFollowUpLoopTests
                 UlidValue.New(DateTimeOffset.UtcNow).ToString(), attemptId, "test-critic", "codex",
                 workerAlias, CriticVerdict.Pass, "critic.pass", [],
                 "Implementação coerente com os critérios.", null, 0);
+
+            // A camada determinística precisa ser DECLARADA: omiti-la deixou de valer como
+            // aprovação (`LayeredVerificationPolicy.NotDeclared`), porque camada superior não
+            // compensa inferior. Era isso que um card de CÓDIGO ganhava de graça — "camada
+            // determinística limpa" sem nada compilado, testado ou varrido.
             Assert.True(await service.ApplyReviewVerdictAsync(
-                tenantId, afterHarvest, attemptId, pass, chain, cts.Token));
+                tenantId, afterHarvest, attemptId, pass, chain, cts.Token,
+                new LayerResult(
+                    VerificationLayer.Deterministic,
+                    LayerVerdict.Pass,
+                    CodeDiagnosticsGate.ReasonClean)));
             Assert.Equal(
                 "approved",
                 (await board.GetTaskAsync(tenantId, wave1.Id, cts.Token))!.InternalState);

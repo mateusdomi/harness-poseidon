@@ -145,4 +145,23 @@ public sealed class LayeredVerificationPolicyTests
             [VerificationLayer.Deterministic, VerificationLayer.Behavioral, VerificationLayer.Intent],
             LayeredVerificationPolicy.Order);
     }
+    [Fact]
+    public void ALayerNobodyDeclaredBlocksInsteadOfPassing()
+    {
+        // O construtor nomeado existe para que o default silencioso não volte: quem monta as
+        // camadas sem ter executado um gate declara `NotDeclared`, e isso BLOQUEIA. Foi o defeito
+        // que aprovaria o primeiro card de código com "camada determinística limpa".
+        var outcome = LayeredVerificationPolicy.Evaluate(
+        [
+            LayeredVerificationPolicy.NotDeclared(VerificationLayer.Deterministic),
+            new LayerResult(VerificationLayer.Behavioral, LayerVerdict.Pass, "critic.pass"),
+            new LayerResult(VerificationLayer.Intent, LayerVerdict.Pass, "critic.pass"),
+        ]);
+
+        Assert.False(outcome.Approved);
+        Assert.Equal(VerificationLayer.Deterministic, outcome.BlockedAt);
+        Assert.Equal(LayeredVerificationPolicy.ReasonLayerNotRun, outcome.ReasonCode);
+        Assert.Equal("blocker", outcome.Severity);
+    }
+
 }

@@ -2177,8 +2177,19 @@ public sealed partial class ChiefBacklogLoopService(
                     "conselho impossível com o elenco disponível.",
                     null,
                     0);
+                // A camada determinística é DECLARADA, não omitida. Nenhum gate determinístico
+                // roda para um parecer — ele não tem branch de código a inspecionar —, e omitir
+                // a camada agora bloqueia (ausência deixou de valer como aprovação). Registrar
+                // aqui que quem a satisfez foi a POLÍTICA do conselho mantém o comportamento e
+                // deixa a decisão auditável: o ledger diz por que passou, em vez de fingir que
+                // alguém verificou.
                 if (await ApplyReviewVerdictAsync(
-                        tenantId, task, awaiting.Id, councilResult, chain, token))
+                        tenantId, task, awaiting.Id, councilResult, chain, token,
+                        new LayerResult(
+                            VerificationLayer.Deterministic,
+                            LayerVerdict.Pass,
+                            "council.policy_accepted",
+                            "parecer do Conselho: aprovação de política, sem gate determinístico aplicável")))
                 {
                     reviewed++;
                     ClearReviewDeferrals(awaiting.Id);
@@ -2397,6 +2408,45 @@ public sealed partial class ChiefBacklogLoopService(
                 continue;
             }
 
+            // VARREDURA DE SEGREDO — a metade da camada determinística que independe do stack.
+            // Roda sobre o diff INTEIRO, antes do truncamento de 160 kB: um segredo que caísse
+            // depois do corte passaria despercebido justamente na entrega mais longa. Vale para
+            // documento também: um passo-a-passo com a chave colada dentro vaza igual.
+            var secretVerdict = DeliverySecretScanGate.Inspect(diff);
+            var deterministicLayer = DeliverySecretScanGate.ApplyTo(diagnosticLayer, secretVerdict);
+            if (!secretVerdict.IsClean)
+            {
+                var secretResult = new CriticReviewResult(
+                    UlidValue.New(now).ToString(), awaiting.Id, "deterministic-secret-gate",
+                    "deterministic", producerAlias, CriticVerdict.Fail,
+                    "critic.fail",
+                    [.. secretVerdict.Findings.Select(finding => new CriticFinding(
+                        CriticFindingSeverity.P1,
+                        DeliverySecretScanGate.ReasonSecretFound,
+                        $"Credencial no formato {finding.PatternName} foi adicionada em " +
+                        $"{finding.File}. Remova o segredo do código e use referência a segredo; " +
+                        "considere a credencial comprometida e faça a rotação.",
+                        finding.File,
+                        finding.Excerpt))],
+                    "A entrega adiciona segredo em texto claro. O critério do portão de " +
+                    "Desenvolvimento exige entrega sem segredo em código.",
+                    null,
+                    0);
+                if (await ApplyReviewVerdictAsync(
+                        tenantId, task, awaiting.Id, secretResult, chain, token, deterministicLayer))
+                {
+                    reviewed++;
+                    ClearReviewDeferrals(awaiting.Id);
+                }
+                else
+                {
+                    _ = await DeferOrEscalateReviewAsync(
+                        tenantId, task, awaiting.Id, "secret.gate_not_applied", chain, now, token);
+                }
+
+                continue;
+            }
+
             if (string.IsNullOrWhiteSpace(diff))
             {
                 diff = "(diff vazio: a tentativa não introduziu mudanças sobre a base publicada)";
@@ -2424,7 +2474,12 @@ public sealed partial class ChiefBacklogLoopService(
                     null,
                     0);
                 if (await ApplyReviewVerdictAsync(
-                        tenantId, task, awaiting.Id, deterministicResult, chain, token))
+                        tenantId, task, awaiting.Id, deterministicResult, chain, token,
+                        new LayerResult(
+                            VerificationLayer.Deterministic,
+                            LayerVerdict.Fail,
+                            "delivery.placeholder",
+                            string.Join("; ", placeholders))))
                 {
                     reviewed++;
                     ClearReviewDeferrals(awaiting.Id);
@@ -2490,7 +2545,8 @@ public sealed partial class ChiefBacklogLoopService(
             }
 
             if (result is not null &&
-                await ApplyReviewVerdictAsync(tenantId, task, awaiting.Id, result, chain, token))
+                await ApplyReviewVerdictAsync(
+                    tenantId, task, awaiting.Id, result, chain, token, deterministicLayer))
             {
                 reviewed++;
                 ClearReviewDeferrals(awaiting.Id);
@@ -2521,6 +2577,10 @@ public sealed partial class ChiefBacklogLoopService(
     /// "diagnóstico de código limpo" para uma entrega que acabara de falhar num gate
     /// determinístico. Quem auditasse depois lia o oposto do que aconteceu — e rastreabilidade
     /// que mente é pior que rastreabilidade ausente, porque ninguém desconfia dela.
+    ///
+    /// Omitir passou a BLOQUEAR (`NotRun`), não a aprovar: todo chamador precisa declarar o que
+    /// os gates observaram. Quando nenhum gate se aplica — o parecer do Conselho é o caso —, a
+    /// declaração é explícita e nomeia a política que aprovou.
     /// </param>
     internal async Task<bool> ApplyReviewVerdictAsync(
         string tenantId,
@@ -2551,8 +2611,15 @@ public sealed partial class ChiefBacklogLoopService(
         var criticVerdict = result.Approved ? LayerVerdict.Pass : LayerVerdict.Fail;
         var layers = new[]
         {
-            deterministicVerdict ?? new LayerResult(
-                VerificationLayer.Deterministic, LayerVerdict.Pass, CodeDiagnosticsGate.ReasonClean),
+            // AUSÊNCIA NÃO É APROVAÇÃO. O default era `Pass`/`clean`: quem chamasse sem passar o
+            // veredito ganhava uma camada determinística limpa que ninguém executou — e a própria
+            // política diz, no enum, que camada não executada "NUNCA conta como aprovação". Enquanto
+            // todo card era de documento o gate documental cobria o buraco; um card de CÓDIGO seria
+            // aprovado com "camada determinística limpa" sem nada ter sido compilado, testado ou
+            // varrido. Agora quem não declara recebe `NotRun`, e `Evaluate` bloqueia.
+            deterministicVerdict ?? LayeredVerificationPolicy.NotDeclared(
+                VerificationLayer.Deterministic,
+                "nenhum gate determinístico declarou veredito para esta entrega"),
             new LayerResult(VerificationLayer.Behavioral, criticVerdict, result.ReasonCode),
             new LayerResult(VerificationLayer.Intent, criticVerdict, result.ReasonCode),
         };

@@ -70,6 +70,14 @@ public static class LayeredVerificationPolicy
     public const string ReasonIntentFailed = "verification.intent_failed";
     public const string ReasonLayerNotRun = "verification.layer_not_run";
 
+    /// <summary>
+    /// A camada que NINGUÉM declarou. Existe como construtor nomeado porque o default silencioso é
+    /// o defeito: quem monta as camadas sem ter executado um gate precisa dizer isso, e não herdar
+    /// um <see cref="LayerVerdict.Pass"/> conveniente. Ausência de verificação nunca é aprovação.
+    /// </summary>
+    public static LayerResult NotDeclared(VerificationLayer layer, string? detail = null) =>
+        new(layer, LayerVerdict.NotRun, ReasonLayerNotRun, detail);
+
     /// <summary>Ordem obrigatória de avaliação: da mais barata para a mais cara.</summary>
     public static readonly IReadOnlyList<VerificationLayer> Order =
     [
