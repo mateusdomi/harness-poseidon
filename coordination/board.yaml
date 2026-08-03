@@ -19,6 +19,44 @@ fases:
   F15: { estado: concluida, agente: codex-root, iniciado_em: "2026-07-29T21:40:00Z", concluido_em: "2026-07-29T23:41:24Z", atualizado_em: "2026-07-29T23:41:24Z", nota: "entrega original preservada e fiacao de producao integrada em 69f8d17e: derivacao com cache por revisao Git, limpeza de relacoes derivadas obsoletas no self-map, validacao do plano antes do despacho, expansao de globs, raio de impacto aplicado a risco/revisao e diagnostico Roslyn da branch antes do critico. A segunda entrega TypeScript continua explicitamente autorizada pela fronteira da F15 e nao foi introduzida como runtime externo; frontend permanece honestamente nao medido, nunca zero ou validado. Gate canonico serial final verde: frontend 98/764, build .NET 0 avisos/0 erros, arquitetura 20, concorrencia 8, contratos 42, integracao 233, recuperacao 12 e unitarios 1305." }
   F16: { estado: concluida, agente: claude-b, iniciado_em: "2026-07-29T20:49:24Z", concluido_em: "2026-07-29T20:57:31Z", atualizado_em: "2026-07-29T20:57:31Z", nota: "B1+B12+B10 integrados. Gate: 14 modos MAST em 3 categorias com alavanca de correcao por modo, pass@k correto em historico simulado (unidade de contagem e o CARD, nao a tentativa), e promocao a skill SEM caminho automatico — aprovador identificado ou excecao. 1094 unit + 20 arq + 41 contrato + 8 conc + 12 rec + 220 integracao, TODOS verdes" }
   F17: { estado: concluida, agente: claude-b, iniciado_em: "2026-07-29T21:01:58Z", concluido_em: "2026-07-29T21:16:00Z", atualizado_em: "2026-07-29T21:16:00Z", nota: "B7+B8 integrados; FECHA O BACKEND DA CAMPANHA junto com F12/F13/F14/F16. Gate: bloqueio do revisor interrompe antes da submissao e auto-revisao e recusada; hook gerado corresponde ao card (rigor por risco + fronteiras como guarda de edicao); persona perigosa recusada com motivo, Default-FAIL. 1142 unit + 20 arq + 41 contrato + 8 conc + 12 rec + 222 integracao, todos verdes" }
+ordem_provar_a_fabrica:
+  # Ordem unica "PROVAR A FABRICA" — base origin/audit/kimi-macro-20260803 @ 928e0a12.
+  # Marco: um agente escreve codigo real, outro revisa, o gate integra, o projeto atravessa 5->9.
+  # Estados: livre | em_andamento | concluida | bloqueada
+  papel_desta_sessao: "I (Integradora) — unica com push em develop. W1/W2 serializados por I nesta sessao."
+  onda_0:
+    D6_publicar_develop:
+      estado: concluida
+      agente: claude-opus-I
+      concluido_em: "2026-08-03T23:05:00Z"
+      nota: "origin/develop 1afe9175..928e0a12, fast-forward puro, sem force. 220 commits publicados. Confirmado 0/0 contra o remoto."
+    D7_chave_de_persona:
+      estado: concluida
+      agente: claude-opus-I
+      commit: 374b8507
+      nota: "playbook-po -> playbook-product-owner e playbook-sre-devops -> playbook-devops (a lente pergunta por subida e rollback, que e DevOps; sustentacao responde por outra coisa). A trava e o que importa: CouncilSeatCatalogContractTests valida TODA chave contra CanonicalAgentDefinitions, recusa persona repetida e lente repetida. 20 testes verdes. O defeito nao derrubava build — trocava a lente em silencio."
+    D1_conselho_nao_revisa_revisao:
+      estado: concluida
+      agente: claude-opus-I
+      commit: a77f79cf
+      nota: "Dispensa aplicada em ChiefBacklogLoopService.ReviewAwaitingAttemptsAsync, ANTES da eleicao de critico, pela via deterministica ja sancionada (mesma do gate de placeholder): review gravada com alias deterministic-council-gate. DESVIO DECLARADO da ordem: o discriminador e card_type='revisao', nao um tipo novo 'council'. Motivo: card_type e enumerado por CHECK em SQLite e Postgres; um valor a mais custa duas migrations e seis assercoes de contagem de cabeca em cinco arquivos, que ja deixaram develop vermelho para a frota uma vez. Hoje 'revisao' nasce de UM lugar so — WorkflowPhaseDriver.CreateCouncilCardAsync (linha 902). ChiefBacklogLoopService.IsCouncilOpinionCard e o unico ponto a mudar se isso deixar de valer, e o teste falha antes de o comportamento vazar. 44 testes verdes."
+    D2_diversidade_e_degradacao:
+      estado: livre
+      nota: "NAO INICIADA. CouncilMinimumSeats=3 (ja existe como MinimumCouncil), CouncilMinimumDistinctAccounts=2, CouncilPreferDistinctProviders, teto de assentos = f(contas distintas elegiveis), serializacao em vez de bloqueio, e a consolidacao DECLARANDO a degradacao ('N lentes, M inteligencias distintas'). ATENCAO: toca WorkflowPhaseDriver.ConveneCouncilAsync, que estava SUJO nesta maquina com WIP de outra sessao viva (CouncilOpinionArtifactReader). Coordenar antes de editar."
+    prova_da_recuperacao_e3c4025a_7ea4b60e_75971b37:
+      estado: livre
+      nota: "NAO INICIADA. Fault injection real: matar o revisor no meio, verificar retomada quando volta. Parecer da Integradora."
+    gate_onda_0_reexecutar_fase_4:
+      estado: bloqueada
+      bloqueado_por: "D2 + binario publicado + capacidade de conta critic"
+      nota: "Aceite: Conselho conclui com >=3 assentos, >=2 contas distintas ou degradacao declarada, gate da fase 4 atravessado e registrado no ledger, comparacao com os 6 pareceres anteriores (todos de uma conta)."
+  onda_1_fase_5: { estado: bloqueada, bloqueado_por: "gate da onda 0" }
+  onda_2_integrar_D3_D4_D5_e_fases_6_9: { estado: bloqueada, bloqueado_por: "onda 1" }
+  onda_3_fechamento_dos_27_achados: { estado: bloqueada, bloqueado_por: "onda 2" }
+  achado_desta_sessao:
+    - "TERCEIRO bloqueador do Conselho, achado por OUTRA sessao viva e ainda NAO COMMITADO nesta maquina: work_attempts.summary e um campo do contrato que NENHUM escritor preenche. A mensagem final do executor morre com a sessao e a colheita acontece depois, entao AgentCouncilPolicy.FromExecution recebia null em todo assento e o conselho respondia council.incomplete para sempre — com os pareceres ja escritos e entregues no disco. O WIP cria ICouncilOpinionArtifactReader (le o parecer do artefato em docs/conselho/**, que e a fonte real da opiniao) e faz o assento sem opiniao legivel virar failure nomeado em vez de continue mudo. PRESERVAR. Este defeito e independente de F-03 e de D1: sem ele, destravar o elenco nao bastaria."
+    - "ORDEM DE ATAQUE do Conselho, medida: eram QUATRO defeitos empilhados, cada um escondendo o proximo. (1) escopo de path do papel critic desconhecido — corrigido em 520dd71e; (2) chave de persona errada — D7, 374b8507; (3) parecer sendo revisto por par que nao existe — D1, a77f79cf; (4) summary nunca preenchido — WIP da outra sessao. So depois dos quatro a fase 4 tem como fechar."
+
 achados:
   - "F2 — DECISAO DO DONO EM 2026-07-29T20:29:25Z: apos a colisao de retomada, o dono deu autonomia explicita para decidir e continuar. codex-a reassume a fase somente depois de claude-b fechar seu trabalho em dois commits coerentes (c188c98 e c48f32b); nenhum arquivo ou commit sera descartado. A consolidacao parte desses dois commits e do 71d0fa8 ja revisado, com um unico gate pesado por vez devido ao incidente anterior de 35 GB/OOM."
   - "F2/codex-a — COLISAO DE RETOMADA: o batimento ficou obsoleto enquanto o trabalho seguia ativo e local. O commit 71d0fa8 esta pronto na worktree compartilhada ~/dev/poseidon-codex-a, ja rebaseado sobre a correcao e777f05 de claude-b, com a reconciliacao completa da voz/identidade fixa da Bruna, gates de detalhe tecnico e reason codes, 139+ testes focados, assercoes do chunk unico e polling do outbox; revisao independente APROVADA e verify.sh completo VERDE (frontend 729, unit 1098, arquitetura 20, contrato 41, concorrencia 8, recuperacao 12, integracao 213). Claude-b preserva a reivindicacao atual; antes de concluir F2, deve reconciliar 71d0fa8. Codex-a nao empurrou codigo apos perder o lock."
