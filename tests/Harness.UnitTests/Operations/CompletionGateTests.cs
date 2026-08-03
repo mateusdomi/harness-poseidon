@@ -124,6 +124,88 @@ public sealed class CompletionGateTests
         Assert.True(CompletionGate.NeedsHuman(state));
     }
 
+    /// <summary>
+    /// O defeito que teria custado a madrugada de 2026-08-03: havia três bloqueios externos
+    /// registrados (contas sem credencial) e o supervisor devolvia "chame o proprietário" no
+    /// primeiro ciclo — com quatro defeitos que a Integradora fazia sozinha e a prova limpa
+    /// parada na fase 3 de 9. Bloqueio externo não é permissão para ir dormir.
+    /// </summary>
+    [Fact]
+    public void AnExternalBlockerDoesNotWakeTheOwnerWhileTheAgentStillHasItsOwnWork()
+    {
+        var findings = OperationFinding.ParseLines(
+        [
+            """{"id":"OPS-030","status":"open","owner":"human","nextAction":"PROPRIETARIO: decidir credencial"}""",
+            """{"id":"OPS-032","status":"open","nextAction":"Criar o sessions/ no provisionamento"}""",
+        ]);
+
+        var state = (Complete() with
+        {
+            ExternalBlockers = ["contas sem credencial no conteiner"],
+            HumanDecisionRequired = true,
+        }).WithFindings(findings);
+
+        Assert.Equal(2, state.ExecutableWork);
+        Assert.Equal(1, state.AgentExecutableWork);
+        Assert.False(CompletionGate.NeedsHuman(state));
+    }
+
+    /// <summary>
+    /// Nem a prova em aberto: enquanto um eixo não passou, existe trabalho da Integradora
+    /// mesmo sem nenhum finding do agente na lista.
+    /// </summary>
+    [Fact]
+    public void AnUnfinishedProofIsAgentWorkEvenWithoutAnyAgentFinding()
+    {
+        var findings = OperationFinding.ParseLines(
+        [
+            """{"id":"OPS-028","status":"open","owner":"human","nextAction":"EXTERNO: esperar reset de cota"}""",
+        ]);
+
+        var state = (Complete() with
+        {
+            CleanE2E = new E2EState { Status = "running", Phase = 3 },
+            ExternalBlockers = ["cota semanal esgotada"],
+        }).WithFindings(findings);
+
+        Assert.Equal(0, state.AgentExecutableWork);
+        Assert.False(CompletionGate.NeedsHuman(state));
+    }
+
+    /// <summary>
+    /// O caso legítimo: só sobrou o que o dono destrava. Aí sim relançar sessão é queimar
+    /// cota sem produzir nada.
+    /// </summary>
+    [Fact]
+    public void WhenOnlyOwnerWorkRemainsTheSupervisorStopsRelaunching()
+    {
+        var findings = OperationFinding.ParseLines(
+        [
+            """{"id":"OPS-030","status":"open","owner":"human","nextAction":"PROPRIETARIO: decidir credencial"}""",
+        ]);
+
+        var state = (Complete() with { ExternalBlockers = ["credencial que so o dono gera"] })
+            .WithFindings(findings);
+
+        Assert.True(CompletionGate.NeedsHuman(state));
+        Assert.False(CompletionGate.Evaluate(state).Passed);
+    }
+
+    /// <summary>
+    /// Sem dono declarado o defeito é do agente. O default importa: se um finding novo
+    /// nascesse "do humano" por omissão, a operação pararia sozinha ao registrá-lo.
+    /// </summary>
+    [Fact]
+    public void AFindingWithoutADeclaredOwnerBelongsToTheAgent()
+    {
+        var findings = OperationFinding.ParseLines(
+        [
+            """{"id":"OPS-999","status":"open","nextAction":"corrigir"}""",
+        ]);
+
+        Assert.Equal(1, Complete().WithFindings(findings).AgentExecutableWork);
+    }
+
     [Fact]
     public void StateSurvivesARoundTripThroughJson()
     {

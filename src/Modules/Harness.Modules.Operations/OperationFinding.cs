@@ -36,8 +36,22 @@ public sealed record OperationFinding
     public string? Test { get; init; }
     public string? NextAction { get; init; }
 
+    /// <summary>
+    /// Quem consegue executar a <see cref="NextAction"/>: <c>agent</c> (padrão) ou
+    /// <c>human</c>.
+    ///
+    /// É um campo declarado e não uma heurística sobre o texto do `nextAction` porque a
+    /// diferença decide se o supervisor relança uma sessão ou chama o proprietário às
+    /// 3 da manhã. Adivinhar por substring ("PROPRIETARIO:", "EXTERNO:") já falhou em
+    /// outras camadas desta operação; aqui o custo do erro é a noite inteira parada.
+    /// </summary>
+    public string Owner { get; init; } = "agent";
+
     [JsonIgnore]
     public bool IsOpen => string.Equals(Status, "open", StringComparison.OrdinalIgnoreCase);
+
+    [JsonIgnore]
+    public bool NeedsHuman => string.Equals(Owner, "human", StringComparison.OrdinalIgnoreCase);
 
     [JsonIgnore]
     public bool IsBlocking => IsOpen && Blocking;
@@ -49,6 +63,14 @@ public sealed record OperationFinding
     /// </summary>
     [JsonIgnore]
     public bool IsExecutable => IsOpen && !string.IsNullOrWhiteSpace(NextAction);
+
+    /// <summary>
+    /// Trabalho que a Integradora consegue fazer sozinha. Um defeito que depende de uma
+    /// credencial que só o dono gera continua sendo trabalho executável (segura o gate),
+    /// mas não é motivo para relançar sessão: relançar não cria a credencial.
+    /// </summary>
+    [JsonIgnore]
+    public bool IsAgentExecutable => IsExecutable && !NeedsHuman;
 
     private static readonly JsonSerializerOptions Options = new()
     {

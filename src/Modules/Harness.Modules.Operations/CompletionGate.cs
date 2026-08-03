@@ -61,12 +61,41 @@ public static class CompletionGate
     /// operação e também não autoriza abandoná-la: todo trabalho que não depende dele
     /// continua. Serve só para o supervisor saber que precisa chamar o humano em vez de
     /// relançar em vão.
+    ///
+    /// A versão anterior perguntava só se EXISTIA bloqueio externo — e com isso desligava a
+    /// supervisão inteira enquanto ainda havia quatro defeitos que a Integradora fazia
+    /// sozinha e uma prova E2E parada na fase 3. Chamar o dono de madrugada para um trabalho
+    /// que não é dele é o mesmo erro de parar com trabalho executável em aberto, só que
+    /// vestido de cortesia.
+    ///
+    /// Agora só é hora de chamar o humano quando NADA que dispensa o humano restou: nenhum
+    /// finding do agente, e os três eixos de prova já verdes. Note que a decisão não confia
+    /// no campo <c>humanDecisionRequired</c> sozinho — ele é escrito pelo agente, e um flag
+    /// que o agente escreve é um flag que o agente pode usar para ir dormir.
     /// </summary>
     public static bool NeedsHuman(OperationState state)
     {
         ArgumentNullException.ThrowIfNull(state);
-        return state.HumanDecisionRequired || state.ExternalBlockers.Count > 0;
+
+        if (!state.HumanDecisionRequired && state.ExternalBlockers.Count == 0)
+        {
+            return false;
+        }
+
+        if (state.AgentExecutableWork > 0)
+        {
+            return false;
+        }
+
+        // Os eixos de prova são trabalho da Integradora por definição: enquanto qualquer um
+        // deles estiver aberto, existe o que fazer sem o proprietário.
+        return AxesAreGreen(state);
     }
+
+    private static bool AxesAreGreen(OperationState state) =>
+        string.Equals(state.CleanE2E?.Status, "pass", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(state.GeneratedProduct, "pass", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(state.RecoveryTests, "pass", StringComparison.OrdinalIgnoreCase);
 
     private static void Require(string? actual, string expected, string label, List<string> reasons)
     {

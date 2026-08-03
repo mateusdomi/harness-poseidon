@@ -50,6 +50,23 @@ public static class Program
         }
     }
 
+    private static void Print(string header, IEnumerable<OperationFinding> findings)
+    {
+        var items = findings.ToArray();
+        if (items.Length == 0)
+        {
+            return;
+        }
+
+        Console.WriteLine();
+        Console.WriteLine(header);
+        foreach (var finding in items)
+        {
+            Console.WriteLine($"  {finding.Id} [{finding.Severity}] {finding.Title}");
+            Console.WriteLine($"      → {finding.NextAction}");
+        }
+    }
+
     private static int Usage()
     {
         Console.Error.WriteLine("uso: supervisor <gate|status|run|metrics [projectId]>");
@@ -122,22 +139,27 @@ public static class Program
                 Console.WriteLine($"  - {reason}");
             }
 
-            var executable = findings.Where(finding => finding.IsExecutable).ToArray();
-            if (executable.Length > 0)
+            // Separado por dono de propósito: quem acorda precisa distinguir, em um olhar, o
+            // que a operação ainda faz sozinha do que está esperando por ELE.
+            Print("Trabalho da Integradora (segue sem o proprietário):", findings.Where(f => f.IsAgentExecutable));
+            Print("Esperando o proprietário:", findings.Where(f => f.IsExecutable && f.NeedsHuman));
+
+            if (!string.IsNullOrWhiteSpace(state.NextAction))
             {
                 Console.WriteLine();
-                Console.WriteLine("Trabalho executável conhecido:");
-                foreach (var finding in executable)
-                {
-                    Console.WriteLine($"  {finding.Id} [{finding.Severity}] {finding.Title}");
-                    Console.WriteLine($"      → {finding.NextAction}");
-                }
+                Console.WriteLine($"nextAction: {state.NextAction}");
             }
+
+            var leasePath = Path.Combine(root, "LEASE.json");
+            Console.WriteLine();
+            Console.WriteLine(File.Exists(leasePath)
+                ? $"Supervisor: ativo — {File.ReadAllText(leasePath).ReplaceLineEndings(" ")}"
+                : "Supervisor: NÃO está rodando (sem LEASE.json). Suba com o verbo `run`.");
 
             if (CompletionGate.NeedsHuman(state))
             {
                 Console.WriteLine();
-                Console.WriteLine("HumanDecisionRequired: a operação precisa do proprietário.");
+                Console.WriteLine("HumanDecisionRequired: só resta o que o proprietário destrava.");
             }
         }
 
@@ -153,10 +175,23 @@ public static class Program
         var maxCycles = ReadInt("POSEIDON_SUPERVISOR_MAX_CYCLES", 100);
         var cooldown = TimeSpan.FromSeconds(ReadInt("POSEIDON_SUPERVISOR_COOLDOWN_SECONDS", 20));
 
+        // Fencing: um supervisor por repositório. Dois laços concorrentes lançariam duas
+        // Integradoras no mesmo working tree — que é como se perde trabalho, não como se
+        // ganha paralelismo.
+        using var lease = SupervisorLease.TryAcquire(root);
+        if (lease is null)
+        {
+            Console.Error.WriteLine("Já existe um supervisor ativo neste repositório (LEASE.json). Nada a fazer.");
+            return 5;
+        }
+
+        var shortRuns = 0;
+
         for (var cycle = 1; cycle <= maxCycles; cycle++)
         {
             var (state, _) = Load(root);
             var verdict = CompletionGate.Evaluate(state);
+            lease.Heartbeat(cycle, verdict.Passed ? "PASS" : "FAIL");
 
             if (verdict.Passed)
             {
@@ -167,8 +202,8 @@ public static class Program
 
             if (CompletionGate.NeedsHuman(state))
             {
-                // Relançar não resolve o que só o proprietário pode destravar. Avisa e para
-                // de queimar ciclo — mas o gate segue FAIL, então nada é dado por concluído.
+                // Só chega aqui quando NADA que dispensa o proprietário restou: relançar não
+                // cria a credencial que falta. O gate segue FAIL — nada é dado por concluído.
                 Append(root, "operation.human_required", new { cycle, state.ExternalBlockers });
                 Console.WriteLine("Bloqueio humano: supervisor aguardando o proprietário.");
                 return 3;
@@ -177,14 +212,46 @@ public static class Program
             Append(root, "integrator.launch", new { cycle, reasons = verdict.Reasons });
             Console.WriteLine($"[ciclo {cycle}] CompletionGate = FAIL ({verdict.Reasons.Count} motivo(s)). Relançando a Integradora.");
 
-            var exitCode = await LaunchIntegratorAsync(root);
+            var started = DateTimeOffset.UtcNow;
+            var (exitCode, outputTail) = await LaunchIntegratorAsync(root);
+            var duration = DateTimeOffset.UtcNow - started;
+
+            shortRuns = duration < IntegratorRelaunchPolicy.ShortRunThreshold ? shortRuns + 1 : 0;
+
+            var outcome = new IntegratorOutcome(exitCode, duration, outputTail, shortRuns);
+            var decision = IntegratorRelaunchPolicy.Decide(outcome, cooldown);
 
             // A saída da Integradora é um YIELD, qualquer que tenha sido o código: ela pode
             // ter "terminado", estourado cota ou morrido. Quem decide é a volta do laço.
-            Append(root, "integrator.yield", new { cycle, exitCode });
-            Console.WriteLine($"[ciclo {cycle}] Integradora saiu (código {exitCode}) — tratado como YIELD.");
+            Append(root, "integrator.yield", new
+            {
+                cycle,
+                exitCode,
+                durationSeconds = Math.Round(duration.TotalSeconds),
+                decision = decision.Decision.ToString(),
+                decision.Reason,
+            });
 
-            await Task.Delay(cooldown);
+            Console.WriteLine(
+                $"[ciclo {cycle}] Integradora saiu (código {exitCode}, {duration.TotalMinutes:F1} min) — " +
+                $"YIELD. {decision.Decision}: {decision.Reason}");
+
+            if (decision.Decision == RelaunchDecision.Abort)
+            {
+                Append(root, "supervisor.aborted", new { cycle, decision.Reason });
+                Console.Error.WriteLine($"Supervisor abortado: {decision.Reason}");
+                return 6;
+            }
+
+            if (decision.Decision == RelaunchDecision.WaitExternal)
+            {
+                // WAITING_EXTERNAL observável: o log diz o que se espera e até quando.
+                var until = DateTimeOffset.UtcNow + decision.Delay;
+                Append(root, "supervisor.waiting_external", new { cycle, reason = "quota", until });
+                Console.WriteLine($"WAITING_EXTERNAL: CLAUDE_QUOTA — retomando por volta de {until:HH:mm} UTC.");
+            }
+
+            await DelayWithHeartbeatAsync(lease, cycle, decision.Delay);
         }
 
         Append(root, "operation.max_cycles", new { maxCycles });
@@ -193,10 +260,26 @@ public static class Program
     }
 
     /// <summary>
+    /// Espera batendo o heartbeat. Um supervisor mudo durante 45 minutos de cota é
+    /// indistinguível de um supervisor morto — e quem acorda de madrugada não tem como saber
+    /// a diferença sem isso.
+    /// </summary>
+    private static async Task DelayWithHeartbeatAsync(SupervisorLease lease, int cycle, TimeSpan delay)
+    {
+        var deadline = DateTimeOffset.UtcNow + delay;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            var slice = deadline - DateTimeOffset.UtcNow;
+            await Task.Delay(slice > TimeSpan.FromSeconds(30) ? TimeSpan.FromSeconds(30) : slice);
+            lease.Heartbeat(cycle, "cooldown");
+        }
+    }
+
+    /// <summary>
     /// Lança a Integradora. O comando é configurável porque o executor da sessão é externo
     /// ao produto — o supervisor não presume qual CLI está instalada.
     /// </summary>
-    private static async Task<int> LaunchIntegratorAsync(string root)
+    private static async Task<(int ExitCode, string OutputTail)> LaunchIntegratorAsync(string root)
     {
         var command = Environment.GetEnvironmentVariable("POSEIDON_INTEGRATOR_COMMAND");
         if (string.IsNullOrWhiteSpace(command))
@@ -204,7 +287,7 @@ public static class Program
             Console.Error.WriteLine(
                 "POSEIDON_INTEGRATOR_COMMAND não definido: sem ele o supervisor sabe que há " +
                 "trabalho e não sabe quem chamar.");
-            return -1;
+            return (-1, string.Empty);
         }
 
         var bootstrap = Path.Combine(root, "BOOTSTRAP-PROMPT.md");
@@ -214,13 +297,46 @@ public static class Program
         {
             FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "/bin/sh",
             RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
             UseShellExecute = false,
         };
         info.ArgumentList.Add(OperatingSystem.IsWindows() ? "/c" : "-c");
         info.ArgumentList.Add(command);
 
+        // A saída é espelhada para o log do supervisor E guardada em cauda limitada: a
+        // classificação de cota lê o motivo da morte, e sem isso o supervisor só sabe que a
+        // sessão saiu — não por quê. Cauda limitada porque uma sessão longa produz megabytes
+        // e já houve um log de 418 MB nesta operação.
+        var transcript = Path.Combine(root, "integrator-last-run.log");
+        var tail = new Queue<string>();
+
         using var process = Process.Start(info)
             ?? throw new InvalidOperationException("Não foi possível iniciar a Integradora.");
+
+        void Capture(string? line)
+        {
+            if (line is null)
+            {
+                return;
+            }
+
+            lock (tail)
+            {
+                tail.Enqueue(line);
+                while (tail.Count > 200)
+                {
+                    tail.Dequeue();
+                }
+            }
+
+            Console.WriteLine($"    | {line}");
+        }
+
+        process.OutputDataReceived += (_, e) => Capture(e.Data);
+        process.ErrorDataReceived += (_, e) => Capture(e.Data);
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
 
         if (prompt.Length > 0)
         {
@@ -229,7 +345,15 @@ public static class Program
 
         process.StandardInput.Close();
         await process.WaitForExitAsync();
-        return process.ExitCode;
+
+        string captured;
+        lock (tail)
+        {
+            captured = string.Join(Environment.NewLine, tail);
+        }
+
+        File.WriteAllText(transcript, captured + Environment.NewLine);
+        return (process.ExitCode, captured);
     }
 
     private static void Append(string root, string type, object payload)

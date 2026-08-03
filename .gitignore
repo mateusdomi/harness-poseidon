@@ -42,3 +42,5 @@ tools/backend/.tooling
 # Instrumentos de QA: dependências resolvidas por symlink e saídas voláteis
 artifacts/qa-poseidon/tools/node_modules
 artifacts/qa-poseidon/evidencias/*.tmp
+coordination/final-operation/integrator-last-run.log
+coordination/final-operation/LEASE.json

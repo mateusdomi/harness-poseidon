@@ -55,6 +55,14 @@ public sealed record OperationState
     [JsonIgnore]
     public int ExecutableWork { get; init; }
 
+    /// <summary>
+    /// Parte do <see cref="ExecutableWork"/> que não depende do proprietário. É este número
+    /// — e não o campo <see cref="HumanDecisionRequired"/>, que o próprio agente escreve —
+    /// que decide se vale relançar uma sessão.
+    /// </summary>
+    [JsonIgnore]
+    public int AgentExecutableWork { get; init; }
+
     private static readonly JsonSerializerOptions Options = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -79,6 +87,7 @@ public sealed record OperationState
         {
             BlockingFindings = findings.Count(finding => finding.IsBlocking),
             ExecutableWork = findings.Count(finding => finding.IsExecutable),
+            AgentExecutableWork = findings.Count(finding => finding.IsAgentExecutable),
         };
     }
 }
