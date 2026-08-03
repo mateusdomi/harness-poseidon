@@ -351,10 +351,7 @@ public static class AgentRunEndpoints
         // sub-paths (concorrência granular entre instâncias) mas nunca AMPLIAR: a política
         // (`AgentPathScopePolicy`, avaliada pelo orquestrador) recusa qualquer claim fora do
         // papel, então um cliente não amplia o próprio escopo mandando claims extras.
-        var pathScopeKind = string.Equals(
-            input.Role, AgentRoles.FrontendSpecialist, StringComparison.OrdinalIgnoreCase)
-            ? AgentPathScopeKind.FrontendSpecialist
-            : AgentPathScopeKind.Backend;
+        var pathScopeKind = AgentPathScopePolicy.KindForRole(input.Role);
         var scopeClaims = input.ScopeClaims is { Count: > 0 } requestedClaims
             ? requestedClaims
             : AgentRoles.PathScopesFor(input.Role);

@@ -107,6 +107,16 @@ public sealed partial class AgentRunOrchestrator(
         Message = "Agent run {AttemptId}: sandbox NÃO abriu ({ErrorType}); run recusado como sandbox.unavailable.")]
     private static partial void LogSandboxOpenFailure(ILogger logger, string attemptId, string errorType);
 
+    // O código sozinho não diz QUAL caminho foi recusado, e sem isso a recusa é indistinguível de
+    // uma configuração errada de conta. Foi essa lacuna que fez o Conselho parecer um problema de
+    // portão (`council.incomplete`) durante horas, quando era um claim — `docs/conselho/**` — que
+    // a política simplesmente não conhecia. O papel entra junto porque a mesma claim é legítima
+    // para um papel e proibida para outro.
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Agent run {AttemptId}: escopo recusado para o papel {ScopeKind} — caminhos fora do papel: {RejectedClaims}")]
+    private static partial void LogPathScopeDenied(
+        ILogger logger, string attemptId, string scopeKind, string rejectedClaims);
+
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "Agent run {AttemptId}: ferramenta {ToolId} autorizada SEM contêiner, por declaração do operador ({Reason}).")]
     private static partial void LogUncontainedExecution(
@@ -299,6 +309,13 @@ public sealed partial class AgentRunOrchestrator(
         var decision = AgentPathScopePolicy.Evaluate(command.PathScopeKind, command.ScopeClaims);
         if (!decision.Allowed)
         {
+            LogPathScopeDenied(
+                logger,
+                command.AttemptId,
+                command.PathScopeKind.ToString(),
+                decision.RejectedClaims.Count > 0
+                    ? string.Join(", ", decision.RejectedClaims)
+                    : "(nenhum claim declarado)");
             return Rejected(runId, command, decision.Code);
         }
 

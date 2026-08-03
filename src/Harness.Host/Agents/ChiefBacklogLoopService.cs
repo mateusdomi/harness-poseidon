@@ -4122,10 +4122,7 @@ public sealed partial class ChiefBacklogLoopService(
             }
         }
 
-        var pathScopeKind = string.Equals(
-            resolution.Role, AgentRoles.FrontendSpecialist, StringComparison.OrdinalIgnoreCase)
-            ? AgentPathScopeKind.FrontendSpecialist
-            : AgentPathScopeKind.Backend;
+        var pathScopeKind = AgentPathScopePolicy.KindForRole(resolution.Role);
 
         var snapshot = await orchestrator.StartAsync(
             new StartAgentRunCommand

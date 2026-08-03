@@ -109,10 +109,7 @@ public sealed partial class AgentRequestResolver(
             task?.Title ?? string.Empty,
             instructions.Count > 0 ? instructions[^1].Body : string.Empty,
             [], task?.Priority ?? "medium", surfaceMap: surfaceMap);
-        var kindOfScope = string.Equals(
-            resolution.Role, AgentRoles.FrontendSpecialist, StringComparison.OrdinalIgnoreCase)
-            ? AgentPathScopeKind.FrontendSpecialist
-            : AgentPathScopeKind.Backend;
+        var kindOfScope = AgentPathScopePolicy.KindForRole(resolution.Role);
 
         // A policy de path é a MESMA da aquisição: traversal, path absoluto, curinga no meio e
         // fonte canônica continuam recusados aqui, senão a expansão viraria a porta dos fundos.

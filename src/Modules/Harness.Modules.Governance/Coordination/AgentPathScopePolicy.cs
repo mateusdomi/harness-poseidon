@@ -17,6 +17,19 @@ public enum AgentPathScopeKind
     /// configuração e código existentes; o papel nunca foi propriedade de um provider.
     /// </summary>
     Kimi = FrontendSpecialist,
+
+    /// <summary>
+    /// Papel de conselheiro: escreve UMA coisa, o próprio parecer, em <c>docs/conselho/**</c>.
+    ///
+    /// Precisou existir porque as duas metades do sistema discordavam em silêncio. O papel já
+    /// declarava esse claim (<c>AgentAccountConfiguration.CriticDefaultScopes</c>) e esta política
+    /// só conhecia dois papéis, então o parecer caía em `Backend` e era recusado com
+    /// `agent_path_scope_denied` em milissegundos. O efeito era o pior possível: o Conselho é o
+    /// portão que antecede o Desenvolvimento, e ele não podia acontecer NUNCA — a fase 4 nunca
+    /// fechava, e a mensagem que aparecia era `council.incomplete`, que descreve o sintoma e não
+    /// a causa.
+    /// </summary>
+    Critic = 2,
 }
 
 public sealed record AgentPathScopeDecision(
@@ -28,6 +41,13 @@ public static class AgentPathScopePolicy
 {
     // Raízes do papel de frontend. Pertencem ao PAPEL, não a um provider.
     private static readonly string[] FrontendRoots = ["frontend", "docs/frontend"];
+
+    /// <summary>
+    /// Área dedicada e deliberadamente estreita do conselheiro. Não é o lugar de nenhum documento
+    /// revisado: é isso que preserva a independência do parecer — quem opina registra o que pensa
+    /// e continua sem poder tocar aquilo sobre o que opinou.
+    /// </summary>
+    private static readonly string[] CriticRoots = ["docs/conselho"];
 
     private static readonly string[] BackendRoots =
     [
@@ -75,6 +95,20 @@ public static class AgentPathScopePolicy
         "global.json",
     ];
 
+    /// <summary>
+    /// Traduz o PAPEL LÓGICO no escopo que ele carrega. Existe num lugar só de propósito: a
+    /// tradução estava copiada como ternário `frontend ? Frontend : Backend` em seis arquivos, e
+    /// foi por isso que o papel de crítico — criado depois, com área própria — caiu calado no
+    /// `Backend` em todos eles. Uma regra copiada seis vezes só é atualizada nas cópias de que
+    /// alguém lembra.
+    /// </summary>
+    public static AgentPathScopeKind KindForRole(string? role) =>
+        string.Equals(role, "frontend-specialist", StringComparison.OrdinalIgnoreCase)
+            ? AgentPathScopeKind.FrontendSpecialist
+            : string.Equals(role, "critic", StringComparison.OrdinalIgnoreCase)
+                ? AgentPathScopeKind.Critic
+                : AgentPathScopeKind.Backend;
+
     public static AgentPathScopeDecision Evaluate(
         AgentPathScopeKind kind,
         IReadOnlyList<string> claims)
@@ -105,6 +139,21 @@ public static class AgentPathScopePolicy
         if (kind == AgentPathScopeKind.FrontendSpecialist)
         {
             return FrontendRoots.Any(root => IsWithin(basePath, root));
+        }
+
+        // O conselheiro é MAIS restrito que o especialista, não uma variação dele: só a própria
+        // área de parecer, e nada mais. Um conselheiro que pudesse escrever em `src/` ou nos
+        // documentos que revisa deixaria de ser um segundo par de olhos.
+        if (kind == AgentPathScopeKind.Critic)
+        {
+            return CriticRoots.Any(root => IsWithin(basePath, root));
+        }
+
+        // A área do conselho também não pertence a quem executa: o parecer é escrito por quem
+        // opina, não por quem é revisado.
+        if (CriticRoots.Any(root => IsWithin(basePath, root) || IsWithin(root, basePath)))
+        {
+            return false;
         }
 
         if (FrontendRoots.Any(root => IsWithin(basePath, root) || IsWithin(root, basePath)))

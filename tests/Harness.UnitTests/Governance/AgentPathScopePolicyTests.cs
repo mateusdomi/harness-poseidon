@@ -66,4 +66,59 @@ public sealed class AgentPathScopePolicyTests
 
         Assert.False(result.Allowed);
     }
+
+    // O claim que o papel de crítico JÁ declarava e que esta política não conhecia. Enquanto ele
+    // caía em `Backend`, todo parecer do Conselho era recusado em milissegundos — e como o
+    // Conselho antecede o Desenvolvimento, a fase 4 nunca fechava. A mensagem visível era
+    // `council.incomplete`, que descreve o sintoma e esconde a causa.
+    [Theory]
+    [InlineData("docs/conselho/**")]
+    [InlineData("docs/conselho/playbook-tech-lead-ciclo-1.md")]
+    public void CriticAcceptsOnlyItsOwnCouncilArea(string claim)
+    {
+        var result = AgentPathScopePolicy.Evaluate(AgentPathScopeKind.Critic, [claim]);
+
+        Assert.True(result.Allowed);
+        Assert.Equal("agent_path_scope_allowed", result.Code);
+    }
+
+    // A independência do parecer é a razão de o papel existir: quem opina não toca no que revisa,
+    // e não ganha código de produção junto.
+    [Theory]
+    [InlineData("src/**")]
+    [InlineData("docs/architecture/**")]
+    [InlineData("frontend/**")]
+    [InlineData("docs/**")]
+    [InlineData("governance/core.md")]
+    public void CriticRejectsEverythingOutsideTheCouncilArea(string claim)
+    {
+        var result = AgentPathScopePolicy.Evaluate(AgentPathScopeKind.Critic, [claim]);
+
+        Assert.False(result.Allowed);
+    }
+
+    // A recíproca: a área do conselho não pertence a quem é revisado. Sem isso, um card comum
+    // poderia escrever o próprio parecer favorável.
+    [Theory]
+    [InlineData("docs/conselho/**")]
+    [InlineData("docs/conselho/playbook-qa-ciclo-1.md")]
+    public void BackendCannotWriteInTheCouncilArea(string claim)
+    {
+        var result = AgentPathScopePolicy.Evaluate(AgentPathScopeKind.Backend, [claim]);
+
+        Assert.False(result.Allowed);
+    }
+
+    // A tradução papel→escopo estava copiada como ternário em seis arquivos, e foi por isso que o
+    // papel de crítico caiu calado no `Backend` em todos eles.
+    [Theory]
+    [InlineData("critic", AgentPathScopeKind.Critic)]
+    [InlineData("frontend-specialist", AgentPathScopeKind.FrontendSpecialist)]
+    [InlineData("backend-specialist", AgentPathScopeKind.Backend)]
+    [InlineData("chief-orchestrator", AgentPathScopeKind.Backend)]
+    [InlineData(null, AgentPathScopeKind.Backend)]
+    public void KindForRoleTranslatesTheLogicalRole(string? role, AgentPathScopeKind expected)
+    {
+        Assert.Equal(expected, AgentPathScopePolicy.KindForRole(role));
+    }
 }
