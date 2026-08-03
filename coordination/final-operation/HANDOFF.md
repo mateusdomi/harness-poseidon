@@ -7,12 +7,13 @@ quem vai continuar. Não é resumo de cortesia: é o que eu gostaria de ter rece
 
 1. **`HANDOFF.md`** (este) — situação, armadilhas, o que fazer primeiro.
 2. **`STATE.json`** — estado factual. Reconcilie com a realidade antes de confiar.
-3. **`FINDINGS.jsonl`** — 26 defeitos, um por linha, com causa, evidência e próximo passo.
+3. **`FINDINGS.jsonl`** — os defeitos, um por linha, com causa, evidência e próximo passo.
 4. **`OPERATION-SPEC.md`** — a ordem consolidada e as regras operacionais.
 5. **`ORDEM-ORIGINAL.md`** — o texto do proprietário, para conferir minha consolidação.
 6. **`ANALISE-COMPORTAMENTAL.md`** — por que o supervisor existe (R1 e R2).
 
-`EVENTS.jsonl` é append-only do supervisor. `METRICS.json` está deliberadamente vazio.
+`EVENTS.jsonl` é append-only do supervisor. `METRICS.json` tem números medidos — regenere
+com o verbo `metrics` antes de citá-los.
 
 ## A regra que governa você
 
@@ -58,8 +59,9 @@ eu corrigia outra coisa. **Espere o total crescer.**
 
 ## O que a primeira rodada estabeleceu
 
-Vinte e três commits em `develop`, de `a25bb1ff` até `4c2eb770`. **Nada empurrado para
-`origin`.** 1550 unitários verdes, gates do frontend verdes.
+Mais de trinta commits em `develop` a partir de `a25bb1ff`, por duas instâncias em
+paralelo. **Nada empurrado para `origin`.** ~1580 unitários verdes, gates do frontend
+verdes.
 
 A maioria dos defeitos pertence a **uma única família**: *uma falha isolada derrubava o
 ciclo inteiro do projeto*. Encontrei três vezes seguidas (validador, conflito de
@@ -77,33 +79,20 @@ Apareceu três vezes — histórico de mensagens (já corrigido antes), notas de
 tentativas do quadro. **Se encontrar outro `ORDER BY ... LIMIT` sem `DESC` num caminho de
 decisão, desconfie.**
 
-## O defeito bloqueante — `OPS-024`
+## O caso que mais ensinou — `OPS-024`, já fechado
 
-O laço HITL está aberto: **a decisão do proprietário não vira transição de estado.**
+Vale ler porque o padrão vai se repetir. A Bruna escalou um card, o dono respondeu
+reduzindo o escopo, ela registrou a decisão com fidelidade — e afirmou *"essa parte volta
+a andar"* enquanto o card seguia `escalated`. **Relatou progresso que não houve.** Isso é
+pior que travar, porque quem está longe acredita nela.
 
-Provei ao vivo, personificando o dono. A Bruna escalou um card, respondi reduzindo o
-escopo, ela registrou a decisão com fidelidade — e afirmou *"essa parte volta a andar"*
-enquanto o card seguia `escalated`. **Ela relatou progresso que não houve.** Isso é pior
-que travar, porque quem está longe do computador acredita nela, e contradiz a honestidade
-que ela demonstra no resto da conversa (chegou a dizer, corretamente, *"não vou dizer que
-alguém já está codificando quando não está"*).
+Tinha QUATRO camadas, e cada uma parecia ser a última: faltava a ação no contrato de saída;
+faltava o `cardId` no contexto do turno; a reserialização descartava a ação já emitida; e o
+replanejamento devolvia o card sem fechar o circuito, que re-escalava no ciclo seguinte.
 
-Três camadas. Fechei duas:
-
-1. **Contrato e handler** (`abd34c6a`) — `cardActions` com conjunto fechado (`replan`),
-   `cardId` validado como ULID, checagem de que o card pertence ao projeto do turno, chave
-   de idempotência versionada, 5 testes.
-2. **Contexto** (`4c2eb770`) — o `ChiefContextComposer` não incluía **card nenhum**. Ela
-   literalmente não conhecia o `cardId`. Agora recebe os escalados com id, título e motivo.
-3. **ABERTA** — ela recebe o contexto e **ainda assim não emite a ação**. Turno
-   `01KZ2BC16PX5TNDCXPCVA1DRJ3` concluiu sem erro, resposta correta em linguagem de
-   negócio, zero linhas `decisão do dono` no log, card `01KZ26X4RN6V96W19ZXTKKGTJE` ainda
-   `escalated`.
-
-**Próximo passo:** instrumentar os dois lados — quantos cards escalados entraram no
-contexto, e se o output trouxe `cardActions`. Se o contexto chega e ela não emite, o
-problema é de prompt: dar exemplo concreto de saída na intenção `decidir_escalacao`.
-Depois repetir a prova na conversa `01KZ24JKCCWCH0G8C7PJN3AKH4`.
+A lição: quando um efeito não acontece, **verifique cada elo da cadeia até o estado
+persistido** — não pare no primeiro elo consertado. E desconfie de qualquer afirmação de
+progresso que você não tenha conferido no banco.
 
 ## O que a medição revelou
 
