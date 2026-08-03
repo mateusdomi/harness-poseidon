@@ -1,7 +1,7 @@
 {
   "operation": "poseidon-final-validation",
   "schemaVersion": 1,
-  "updatedAt": "2026-08-03T10:45:00Z",
+  "updatedAt": "2026-08-03T11:30:00Z",
   "updatedBy": "integrador-claude-ciclo-2",
   "branch": "develop",
   "baselineCommit": "a25bb1ff",
@@ -17,7 +17,7 @@
     "startedAt": "2026-08-02T21:02:39Z",
     "phase1CompletedAt": "2026-08-02T21:15:18Z",
     "phase1DurationMinutes": 12.6,
-    "note": "Criado pelo produto (API que o navegador usa), nao por SQL. Preflight passou sem bloqueadores; Bruna respondeu em 24s e fez uma unica pergunta necessaria. | 2026-08-03 04:00: fase 3 destravada — OPS-033 (caminho da mensagem final fora da sandbox do Codex) e OPS-034 (turn.failed apagando a causa) corrigidos; conta codex saiu da eleicao. | 04:10: OPS-036 (papel do card) corrigido — glm virou account.eligible e o primeiro card de Arquitetura voltou a executar. | 04:42: OPS-037 (laco de telemetria negada pelo proxy) corrigido — log do proxy limpo e tentativa nova em execucao. | 05:20: PARADO POR FALTA DE CONTA, nao por defeito. As tres tentativas de 04:38 morreram no mesmo 429: a cota do glm e SEMANAL e so volta em 2026-08-06 10:11. Projeto PAUSADO de proposito (POST /chief/pause) para nao queimar card contra conta morta; retomar com POST /api/v1/projects/01KZ24JCFRHN2RGP8NHGP75JMK/chief/resume assim que houver conta. OPS-038/039/040 corrigidos para que isso apareca como 'conta sem cota ate 06/08' em vez de virar laco de tentativa a cada tres horas. | 03/08 08:00: destravada de verdade — conteiner removido por decisao do dono, vazamento do ambiente GLM corrigido, primeiras producoes reais de token (12492 e 10450). | 10:45: 16 cards concluidos, cards sendo aprovados com token real (9672, 10450, 12492).",
+    "note": "Criado pelo produto (API que o navegador usa), nao por SQL. Preflight passou sem bloqueadores; Bruna respondeu em 24s e fez uma unica pergunta necessaria. | 2026-08-03 04:00: fase 3 destravada — OPS-033 (caminho da mensagem final fora da sandbox do Codex) e OPS-034 (turn.failed apagando a causa) corrigidos; conta codex saiu da eleicao. | 04:10: OPS-036 (papel do card) corrigido — glm virou account.eligible e o primeiro card de Arquitetura voltou a executar. | 04:42: OPS-037 (laco de telemetria negada pelo proxy) corrigido — log do proxy limpo e tentativa nova em execucao. | 05:20: PARADO POR FALTA DE CONTA, nao por defeito. As tres tentativas de 04:38 morreram no mesmo 429: a cota do glm e SEMANAL e so volta em 2026-08-06 10:11. Projeto PAUSADO de proposito (POST /chief/pause) para nao queimar card contra conta morta; retomar com POST /api/v1/projects/01KZ24JCFRHN2RGP8NHGP75JMK/chief/resume assim que houver conta. OPS-038/039/040 corrigidos para que isso apareca como 'conta sem cota ate 06/08' em vez de virar laco de tentativa a cada tres horas. | 03/08 08:00: destravada de verdade — conteiner removido por decisao do dono, vazamento do ambiente GLM corrigido, primeiras producoes reais de token (12492 e 10450). | 10:45: 16 cards concluidos, cards sendo aprovados com token real (9672, 10450, 12492). | 11:30: 19 cards concluidos. Contêiner removido por decisao do dono; vazamento do ambiente GLM, inanicao por idade e cancelamento de despacho corrigidos.",
     "phase2CompletedAt": "2026-08-02T21:43:18Z",
     "phase2DurationMinutes": 28.0
   },
@@ -35,15 +35,15 @@
   "mandatoryGatesFailed": 0,
   "mandatoryTestsPending": 0,
   "testBaseline": {
-    "unit": 1643,
+    "unit": 1646,
     "integration": 307,
     "recovery": 28,
     "frontend": 783,
-    "allGreenAt": "2026-08-03T10:45:00Z"
+    "allGreenAt": "2026-08-03T11:25:00Z"
   },
   "metricsInstrumented": true,
   "metricsNote": "Medidas por `supervisor metrics`. Desperdicio transitorio 0,98% (meta do §34 batida); retrabalho 73% do custo.",
-  "nextAction": "Fase 3 da prova limpa executando nas contas Claude em modo host (16 concluidos, 5 na fila). Acompanhar por ID ate a fase fechar, seguir 4-9 e abrir/testar o produto gerado (§49). Telegram: produto escuta e o vinculo do chat 5774120296 esta criado e provado contra reinicio; falta o dono responder uma mensagem para fechar o ciclo de entrada ate a Bruna.",
+  "nextAction": "Fase 3: 19 concluidos, 3 na fila, o SAD (mais antigo, parado 13h) finalmente rodando. Acompanhar ate a fase fechar, seguir 4-9 e abrir/testar o produto gerado (§49). ATENCAO ao gargalo estrutural: cards da mesma fase reivindicam os mesmos caminhos e serializam por ESCOPO — um por vez, por design. Se a fase parecer parada, confira 'escopo ocupado por run vivo' antes de suspeitar de conta.",
   "humanDecisionRequired": false,
   "externalBlockers": [],
   "recoveryEvidence": "coordination/final-operation/EVIDENCIA-RECUPERACAO.md — reinicio do Host e morte de worker provados AO VIVO com IDs; falha de provedor ao vivo e fixada em teste; 26 provas de recuperacao verdes."

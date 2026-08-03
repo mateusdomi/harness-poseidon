@@ -453,3 +453,60 @@ Os 7 cards de Arquitetura em `ready` estão listados por ID no `nextAction` do
 ```sh
 curl -X POST http://127.0.0.1:5173/api/v1/projects/01KZ24JCFRHN2RGP8NHGP75JMK/chief/resume
 ```
+
+
+---
+
+# Sessão de 2026-08-03 (manhã) — o dono voltou, o contêiner saiu
+
+## A decisão do proprietário
+
+O contêiner deixou de ser exigido nesta instalação
+(`Harness__IsolatedExecution__Mode=Disabled` + `UncontainedExecutionAcknowledged` no
+`~/.harness/poseidon.env`). Motivo medido, não preferência: as credenciais do Claude Code
+vivem no Keychain do macOS, que **não existe dentro do contêiner**. A mesma conta, com o
+mesmo config home, responde no host e responde `Invalid API key · Please run /login` lá
+dentro. Com todas as contas de ator nessa situação, o isolamento não continha risco —
+cegava a frota. Reverter é apagar três linhas daquele arquivo.
+
+**A configuração desta instalação NÃO está no `appsettings.json` do repositório.** Está em
+`~/.harness/poseidon.env`. Perdi tempo editando o lugar errado.
+
+## O defeito que mentia sobre cota
+
+O GLM é o **mesmo binário** do Claude Code apontado a outro endpoint por ambiente, e o
+`poseidon` carrega esse ambiente no processo do Host. Bastava uma variável `ANTHROPIC_*`
+sobreviver para uma conta Claude — autenticada, com cota — falar com o endpoint do GLM e
+morrer na cota **dele**. Foi isso que produziu "nenhuma conta de ator disponível" e acordou
+o dono à toa. Agora quem não declara essas variáveis as recebe **zeradas**: não copiar não
+bastava.
+
+## A família desta sessão: **ordem que condena**
+
+Dois entregáveis de Arquitetura ficaram **treze horas** em `ready`. Três camadas somadas:
+
+1. o desempate entre cards de mesma prioridade era a ordem de leitura da rodada — quem
+   perde uma rodada volta para o fim e nunca sai;
+2. o `EnqueuedAt` existia para resolver isso e não participava do desempate;
+3. envelhecer a fila do teto global não bastou, porque **o planejador reordenava depois**.
+
+E o gargalo por trás de tudo: cards da mesma fase reivindicam os **mesmos caminhos**, então
+serializam por escopo — um por vez, por design. Se uma fase parecer parada, procure
+`escopo ocupado por run vivo` antes de suspeitar de conta.
+
+## Instrumentos que passaram a existir
+
+- `[executor-env]` no log: as CHAVES do ambiente entregue à CLI (nunca os valores). Foi essa
+  linha que revelou o `CLAUDE_CONFIG_DIR` faltando.
+- `card ... retido pelo teto global`: o corte por capacidade deixou de ser só um contador.
+- `card ... NÃO recebeu desfecho`: invariante em Warning — nenhum card sai de um ciclo sem
+  despacho, adiamento ou retenção registrados.
+- `chief.account_slots_full`: slot cheio deixou de se anunciar como falta de conta com a
+  hora de reset de outra conta.
+
+## Um erro meu, para não repetir
+
+Registrei que um card "sumia em silêncio". Não sumia: a mensagem existia com outro texto
+(`escopo ocupado por run vivo`) e eu não a procurei. Antes de declarar silêncio, agregue as
+linhas do card por TIPO — `grep <id> | sed 's/.*Chief: //' | sort | uniq -c` — em vez de
+olhar as últimas.
