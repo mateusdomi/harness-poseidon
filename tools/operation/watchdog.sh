@@ -83,6 +83,16 @@ if [[ -n "$host_pid" ]]; then
   else
     echo "host: binário em dia com o último commit em src/"
   fi
+  # A publicação compila a ÁRVORE DE TRABALHO, não o HEAD. Com duas sessões no mesmo
+  # repositório — o caso normal desta operação — publicar durante a edição alheia embarca
+  # código pela metade num binário que não corresponde a commit nenhum, e nenhuma data
+  # denuncia isso. Medido em 03/08: uma publicação passou a 14 minutos de edições em voo.
+  dirty_src=$(git -C "$(dirname "$0")/../.." status --porcelain -- src 2>/dev/null | head -5)
+  if [[ -n "$dirty_src" ]]; then
+    echo "host: ÁRVORE SUJA EM src/ — publicar AGORA embarca alteração não commitada:"
+    echo "$dirty_src" | sed 's/^/host:   /'
+    echo "host: outra sessão pode estar editando; commite ou espere antes de publicar."
+  fi
 fi
 
 echo
