@@ -29,6 +29,16 @@ public sealed record ChiefFact(
 /// O repositório do projeto existe e é acessível. Sem ele toda tentativa falha na largada, uma
 /// depois da outra, e a causa só aparece no log de execução — nunca para quem pediu o projeto.
 /// </param>
+/// <param name="ExecutionRuntimeReady">
+/// O runtime de contêiner está de pé E a imagem do agente existe. É PRÉ-REQUISITO de qualquer
+/// execução: sem ele o contêiner não sobe, a atestação de sandbox não se verifica e todo card
+/// morre na largada.
+///
+/// Entra aqui porque a prontidão respondia `Ready`, com zero bloqueadores, para uma instalação
+/// em que nenhum card conseguia rodar — exatamente a promessa que o produto faz a quem sai do
+/// computador. O doctor já distinguia "Docker de pé" de "posso executar"; o preflight, que é o
+/// que a Bruna consulta antes de o dono ir embora, não olhava para isso.
+/// </param>
 public sealed record ReadinessInputs(
     bool ProfileReady,
     bool OrganizationReady,
@@ -39,7 +49,8 @@ public sealed record ReadinessInputs(
     bool WorkflowBound,
     ChiefFact Chief,
     bool DispatchEnabled = true,
-    bool RepositoryReachable = true);
+    bool RepositoryReachable = true,
+    bool ExecutionRuntimeReady = true);
 
 /// <summary>
 /// Avaliador puro e determinístico do read model de prontidão (ADR-017). Não persiste
@@ -205,11 +216,11 @@ public static class ReadinessEvaluator
             (inputs.Chief.AgentPresent && inputs.Chief.Simulated);
 
         // Prontidão de EXECUÇÃO é sobre o trabalho realmente acontecer, não só sobre as peças
-        // estarem no lugar. Dois estados operacionais fazem um projeto inteiramente configurado
-        // ficar parado sem ninguém perceber, e por isso entram aqui: a esteira desligada e o
-        // repositório inacessível.
+        // estarem no lugar. Três estados operacionais fazem um projeto inteiramente configurado
+        // ficar parado sem ninguém perceber, e por isso entram aqui: a esteira desligada, o
+        // repositório inacessível e o runtime de execução ausente.
         if (accountReal && modelReal && inputs.WorkflowBound && chiefReal &&
-            inputs.DispatchEnabled && inputs.RepositoryReachable)
+            inputs.DispatchEnabled && inputs.RepositoryReachable && inputs.ExecutionRuntimeReady)
         {
             return Step(ReadinessStep.ExecutionReady, "execution", ConfigurationState.Ready,
                 nextAction: new ReadinessNextAction("conversation.start", "/projects", inputs.ProjectId));
@@ -217,6 +228,11 @@ public static class ReadinessEvaluator
 
         var blockers = new List<ReadinessBlocker>();
         if (!inputs.DispatchEnabled) blockers.Add(new ReadinessBlocker("dispatch.disabled", []));
+        if (!inputs.ExecutionRuntimeReady)
+        {
+            blockers.Add(new ReadinessBlocker("execution_runtime.unavailable", []));
+        }
+
         if (!inputs.RepositoryReachable)
         {
             blockers.Add(new ReadinessBlocker(

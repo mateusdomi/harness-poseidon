@@ -67,6 +67,21 @@ public sealed class ReadinessEvaluatorTests
     }
 
     [Fact]
+    public void UmProjetoSemRuntimeDeExecucaoNaoEstaPronto()
+    {
+        // Observado ao vivo: a prontidão respondeu `Ready`, com ZERO bloqueadores, numa
+        // instalação onde a imagem do agente não existia — o contêiner não subia, a atestação
+        // de sandbox não se verificava e nenhum card rodava. É a pior resposta possível para
+        // quem confia nela e sai do computador, porque é exatamente a promessa do produto.
+        var snapshot = ReadinessEvaluator.Evaluate(FullyReal() with { ExecutionRuntimeReady = false });
+
+        var execution = StepOf(snapshot, ReadinessStep.ExecutionReady);
+        Assert.NotEqual(ConfigurationState.Ready, execution.State);
+        Assert.Contains(
+            execution.Blockers, blocker => blocker.Code == "execution_runtime.unavailable");
+    }
+
+    [Fact]
     public void ComTudoRealEOperacionalEmPeAExecucaoEstaPronta()
     {
         var execution = StepOf(

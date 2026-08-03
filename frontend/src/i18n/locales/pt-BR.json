@@ -564,7 +564,8 @@
       "agent.unavailable": "Ninguém da equipe está disponível.",
       "agent.degraded": "Alguém da equipe está indisposto.",
       "dispatch.disabled": "A esteira está desligada: o trabalho é organizado, mas ninguém começa a executar.",
-      "repository.unreachable": "Não encontrei a pasta de trabalho deste projeto no seu computador."
+      "repository.unreachable": "Não encontrei a pasta de trabalho deste projeto no seu computador.",
+      "execution_runtime.unavailable": "Não consigo executar trabalho nenhum agora: o ambiente isolado onde a equipe trabalha não está disponível neste computador."
     }
   },
   "onboarding": {

@@ -18,7 +18,10 @@ public sealed class ProjectReadinessService(
     IProviderCatalogStore providers,
     IAgentCatalogStore agents,
     IWorkflowCatalogStore workflows,
-    Agents.AgentRunSettings settings)
+    Agents.AgentRunSettings settings,
+    // Opcional para não quebrar quem constrói o serviço em teste: ausente, assume-se o padrão,
+    // e a sonda continua sendo a fonte da verdade sobre runtime e imagem.
+    Execution.IsolatedExecutionSettings? executionSettings = null)
 {
     // ULIDs do auto-seed de conveniência da RC3 (ADR-018). Enquanto o seed existir (até a
     // Fatia B removê-lo), esses recursos são marcados como Simulated para que a prontidão
@@ -77,6 +80,15 @@ public sealed class ProjectReadinessService(
         // nenhum da experiência.
         var repositoryReachable = RepositoryIsReachable(project.RepositoryUrl);
 
+        // PRÉ-REQUISITO de execução: runtime de contêiner de pé E imagem do agente presente.
+        // Sem os dois o contêiner não sobe, a atestação de sandbox não se verifica e todo card
+        // morre na largada — mas a prontidão respondia `Ready` com zero bloqueadores, que é a
+        // pior resposta possível para quem confia nela e sai do computador.
+        var isolated = executionSettings ?? new Execution.IsolatedExecutionSettings();
+        var executionRuntimeReady =
+            Execution.ContainerRuntimeProbe.IsAvailable() &&
+            Execution.ContainerRuntimeProbe.HasImage(isolated.AgentImageName);
+
         var inputs = new ReadinessInputs(
             profileReady,
             organizationReady,
@@ -87,7 +99,8 @@ public sealed class ProjectReadinessService(
             workflowBound,
             chiefFact,
             settings.AutoDispatchEnabled,
-            repositoryReachable);
+            repositoryReachable,
+            executionRuntimeReady);
         return ReadinessEvaluator.Evaluate(inputs);
     }
 

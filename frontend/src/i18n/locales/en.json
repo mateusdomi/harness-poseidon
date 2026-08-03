@@ -564,7 +564,8 @@
       "agent.unavailable": "Nobody on the team is available.",
       "agent.degraded": "Someone on the team is unwell.",
       "dispatch.disabled": "The pipeline is switched off: work gets organised, but nobody starts executing it.",
-      "repository.unreachable": "I could not find this project's working folder on your computer."
+      "repository.unreachable": "I could not find this project's working folder on your computer.",
+      "execution_runtime.unavailable": "I cannot run any work right now: the isolated environment the team works in is not available on this computer."
     }
   },
   "onboarding": {
