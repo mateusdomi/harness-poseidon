@@ -39,6 +39,7 @@ public static class Program
                 "gate" => Gate(root, quiet: true),
                 "status" => Gate(root, quiet: false),
                 "run" => await RunAsync(root),
+                "metrics" => Metrics(root, args),
                 _ => Usage(),
             };
         }
@@ -51,8 +52,34 @@ public static class Program
 
     private static int Usage()
     {
-        Console.Error.WriteLine("uso: supervisor <gate|status|run>");
+        Console.Error.WriteLine("uso: supervisor <gate|status|run|metrics [projectId]>");
         return 2;
+    }
+
+    /// <summary>
+    /// Mede a operação e reescreve `METRICS.json`. Existe porque os §31/§32 pedem custo, tempo e
+    /// desperdício, e o arquivo nasceu inteiro em `null` com um aviso de que não havia coleta —
+    /// número inventado seria pior que campo vazio, então a coleta precisava vir antes.
+    /// </summary>
+    private static int Metrics(string root, string[] args)
+    {
+        var projectId = args.Length > 1 ? args[1] : null;
+        var databasePath = Environment.GetEnvironmentVariable("POSEIDON_DB")
+            ?? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".harness-poseidon", "harness.db");
+
+        if (!File.Exists(databasePath))
+        {
+            Console.Error.WriteLine($"banco não encontrado em {databasePath}.");
+            return 2;
+        }
+
+        var report = MetricsCollector.Collect(databasePath, projectId);
+        var rendered = MetricsCollector.Render(report, projectId, DateTimeOffset.UtcNow);
+        File.WriteAllText(Path.Combine(root, "METRICS.json"), rendered + Environment.NewLine);
+        Console.WriteLine(rendered);
+        return 0;
     }
 
     private static (OperationState State, IReadOnlyList<OperationFinding> Findings) Load(string root)
