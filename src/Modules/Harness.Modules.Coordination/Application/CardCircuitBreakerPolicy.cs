@@ -19,9 +19,29 @@ public sealed record CardCircuitSnapshot(
     CardCircuitState State,
     int ConsecutiveFailures,
     DateTimeOffset? OpenedAt = null,
-    string? LastFailureReasonCode = null)
+    string? LastFailureReasonCode = null,
+    /// <summary>
+    /// Tentativas consecutivas que não produziram NADA (zero token de saída), sem julgar de
+    /// quem é a culpa.
+    ///
+    /// É uma pergunta diferente de "esta falha é do card?", e foi a confusão entre as duas
+    /// que criou um buraco: a regra invertida do circuito diz — corretamente — que tentativa
+    /// sem token nunca chegou a julgar o enunciado e por isso não pune o card. A consequência
+    /// não intencional é que o sintoma MAIS GRAVE possível, "não produziu absolutamente
+    /// nada", virou o único caso que nunca faz nada parar. Em 03/08/2026 isso permitiu
+    /// quatorze tentativas idênticas em uma hora e quarenta contra a mesma parede.
+    ///
+    /// Derivado do histórico, como o resto: não é campo persistido que alguém possa zerar.
+    /// </summary>
+    int ConsecutiveNoProgress = 0)
 {
     public bool IsDispatchable => State == CardCircuitState.Closed;
+
+    /// <summary>
+    /// A sequência parou de progredir? Não diz que o card é ruim — diz que insistir com este
+    /// card, agora, é repetir o mesmo fracasso. O remédio é olhar a parede, não replanejar.
+    /// </summary>
+    public bool IsStalled(int ceiling) => ConsecutiveNoProgress >= Math.Max(1, ceiling);
 
     public static CardCircuitSnapshot Closed(string cardId)
     {

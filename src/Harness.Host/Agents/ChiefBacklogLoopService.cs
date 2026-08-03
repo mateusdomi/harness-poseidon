@@ -166,6 +166,11 @@ public sealed partial class ChiefBacklogLoopService(
         int evidenceCount);
 
     [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Chief: card {TaskId} PAROU de progredir — {Attempts} tentativas seguidas sem produzir um token. Parede: {Reason}. Não é falha do card; olhe a infraestrutura antes de replanejar.")]
+    private static partial void LogCardNoProgress(
+        ILogger logger, string taskId, int attempts, string reason);
+
+    [LoggerMessage(Level = LogLevel.Warning,
         Message = "Chief: card {TaskId} (papel {Role}) foi planejado e NÃO recebeu desfecho — nem despacho, nem adiamento. Isto é um defeito do planejador, não espera normal.")]
     private static partial void LogCardVanishedFromCycle(ILogger logger, string taskId, string role);
 
@@ -540,6 +545,22 @@ public sealed partial class ChiefBacklogLoopService(
                             attempt.TokensOutput,
                             attempt.DurationMs))],
                         token);
+                    // PARADA POR NÃO-PROGRESSO — pergunta diferente da culpa.
+                    //
+                    // A regra invertida do circuito diz, corretamente, que tentativa sem token
+                    // nunca julgou o enunciado e não pune o card. O efeito colateral era que o
+                    // sintoma mais grave — "não produziu absolutamente nada" — virava o único
+                    // caso que nunca fazia nada parar: quatorze tentativas idênticas em uma hora
+                    // e quarenta contra a mesma parede, em 03/08/2026. Aqui a esteira PARA de
+                    // insistir sem acusar o card, e nomeia a parede para quem for olhar.
+                    if (circuit.IsStalled(settings.CardNoProgressCeiling))
+                    {
+                        LogCardNoProgress(
+                            logger, task.Id, circuit.ConsecutiveNoProgress,
+                            circuit.LastFailureReasonCode ?? "sem motivo registrado");
+                        continue;
+                    }
+
                     if (!circuit.IsDispatchable)
                     {
                         LogCardCircuitOpen(logger, task.Id, circuit.ConsecutiveFailures);

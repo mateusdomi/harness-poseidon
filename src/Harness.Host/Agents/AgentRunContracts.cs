@@ -92,6 +92,17 @@ public sealed record AgentRunSettings
     /// </summary>
     public int CardCircuitFailureThreshold { get; init; } =
         CardCircuitBreakerPolicy.ConsecutiveFailureThreshold;
+
+    /// <summary>
+    /// Tentativas consecutivas SEM PRODUZIR NADA que a esteira tolera num card antes de parar
+    /// de insistir. Pergunta diferente do circuito: não acusa o card, só reconhece que
+    /// repetir o mesmo fracasso não é progresso.
+    ///
+    /// Cinco por padrão — acima do limiar de culpa (3), porque parede de infraestrutura
+    /// costuma ser transitória e merece mais paciência que enunciado errado; e bem abaixo das
+    /// quatorze que a operação gastou contra a mesma parede em 03/08/2026.
+    /// </summary>
+    public int CardNoProgressCeiling { get; init; } = 5;
 }
 
 /// <summary>Situação de um run de agente. Conjunto fechado.</summary>

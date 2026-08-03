@@ -370,4 +370,76 @@ public sealed class CardCircuitBreakerSynchronizationTests
             Directory.Delete(root, recursive: true);
         }
     }
+
+    /// <summary>
+    /// O buraco que a regra invertida abriu: tentativa sem token nunca pune o card — correto —
+    /// mas com isso o sintoma MAIS grave, "não produziu absolutamente nada", virou o único caso
+    /// que nunca fazia nada parar. Em 03/08/2026 foram quatorze tentativas idênticas em uma hora
+    /// e quarenta contra a mesma parede. A contagem de não-progresso é uma pergunta DIFERENTE da
+    /// culpa: o circuito continua fechado (o card não errou), e ainda assim a esteira para.
+    /// </summary>
+    [Fact]
+    public async Task AWallThatProducesNothingStopsTheLineWithoutBlamingTheCard()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var (root, dispatcher) = await CreateDatabaseAsync(timeout.Token);
+        try
+        {
+            var service = new CardCircuitBreakerService(new SqliteCardCircuitBreakerStore(dispatcher));
+
+            var circuit = await service.SynchronizeAsync(
+                Tenant, Project, "card-contra-a-parede",
+                [
+                    Outcome("rejected", Now, "executor.quota_exhausted", outputTokens: 0),
+                    Outcome("rejected", Now.AddMinutes(5), "executor.quota_exhausted", outputTokens: 0),
+                    Outcome("rejected", Now.AddMinutes(10), "executor.quota_exhausted", outputTokens: 0),
+                    Outcome("rejected", Now.AddMinutes(15), "executor.quota_exhausted", outputTokens: 0),
+                    Outcome("rejected", Now.AddMinutes(20), "executor.quota_exhausted", outputTokens: 0),
+                ],
+                timeout.Token);
+
+            // O card não errou: o circuito continua fechado e ninguém vai replanejar à toa.
+            Assert.Equal(CardCircuitState.Closed, circuit.State);
+            Assert.Equal(0, circuit.ConsecutiveFailures);
+
+            // Mas a sequência parou de progredir, e a esteira tem de reconhecer isso.
+            Assert.Equal(5, circuit.ConsecutiveNoProgress);
+            Assert.True(circuit.IsStalled(5));
+        }
+        finally
+        {
+            await dispatcher.DisposeAsync();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>Uma entrega no meio zera a contagem: progresso é progresso.</summary>
+    [Fact]
+    public async Task AnyRealDeliveryResetsTheNoProgressCount()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var (root, dispatcher) = await CreateDatabaseAsync(timeout.Token);
+        try
+        {
+            var service = new CardCircuitBreakerService(new SqliteCardCircuitBreakerStore(dispatcher));
+
+            var circuit = await service.SynchronizeAsync(
+                Tenant, Project, "card-que-voltou-a-produzir",
+                [
+                    Outcome("rejected", Now, "executor.quota_exhausted", outputTokens: 0),
+                    Outcome("rejected", Now.AddMinutes(5), "executor.quota_exhausted", outputTokens: 0),
+                    Outcome("rejected", Now.AddMinutes(10), "review.rejected", outputTokens: 4200),
+                    Outcome("rejected", Now.AddMinutes(15), "executor.quota_exhausted", outputTokens: 0),
+                ],
+                timeout.Token);
+
+            Assert.Equal(1, circuit.ConsecutiveNoProgress);
+            Assert.False(circuit.IsStalled(5));
+        }
+        finally
+        {
+            await dispatcher.DisposeAsync();
+            Directory.Delete(root, recursive: true);
+        }
+    }
 }
