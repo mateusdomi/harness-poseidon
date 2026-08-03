@@ -82,10 +82,11 @@ public static class AgentRunOutcomeClassifier
     /// respondeu `The 'gpt-5-codex' model is not supported when using Codex with a ChatGPT
     /// account` para todos os modelos conhecidos do CLI instalado. Não é falha do card nem
     /// transitória: até um humano trocar plano, chave ou CLI, reeleger a conta é ruído, e
-    /// classificar como permanente escalaria o CARD por culpa da conta.
+    /// classificar como permanente escalaria o CARD por culpa da conta. Casa tanto o código
+    /// estruturado do adapter quanto a frase no diagnóstico.
     /// </summary>
-    private static readonly string[] DiagnosticAccountModelSignals =
-        ["not supported when using"];
+    private static readonly string[] AccountModelSignals =
+        ["account_model_unsupported", "not supported when using"];
 
     private static readonly string[] TransientSignals =
         ["timeout", "no_output", "tool_permission_denied", "prompt_write_failed", "start_failed",
@@ -137,7 +138,8 @@ public static class AgentRunOutcomeClassifier
             return new AgentRunOutcome(AgentRunOutcomeKind.AuthenticationRequired, "run.authentication_required", null);
         }
 
-        if (Matches(failureDiagnostic ?? string.Empty, DiagnosticAccountModelSignals))
+        if (Matches(code, AccountModelSignals) ||
+            Matches(failureDiagnostic ?? string.Empty, AccountModelSignals))
         {
             return new AgentRunOutcome(
                 AgentRunOutcomeKind.AuthenticationRequired, "run.account_model_unsupported", null);

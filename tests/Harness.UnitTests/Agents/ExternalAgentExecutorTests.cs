@@ -256,6 +256,88 @@ public sealed class ExternalAgentExecutorTests : IDisposable
     }
 
     [Fact]
+    public void AuthFailureWearingAContradictorySuccessEnvelopeIsStillAuth()
+    {
+        // Capturado ao vivo no contêiner (claude 2.0.30): a falta de credencial chega como
+        // subtype=success + is_error=true + "Invalid API key · Please run /login". A regra da
+        // contradição GLM prioriza o subtipo — a frase de auth precisa vir ANTES dela, ou a
+        // conta vira sucesso fantasma/falha transitória para sempre.
+        var parser = new ClaudeCodeExternalAgentExecutor.ClaudeStreamJsonParser();
+
+        var failed = Assert.Single(parser.ParseLine(
+            """{"type":"result","subtype":"success","is_error":true,"result":"Invalid API key · Please run /login"}""")
+            .ToArray());
+
+        Assert.Equal(ExternalAgentEventKind.Failed, failed.Kind);
+        Assert.Equal("executor.authentication_required", parser.FailureCode);
+    }
+
+    [Fact]
+    public void ClaudeAuthFailurePrintedOutsideTheEnvelopeBecomesTheStructuredAuthCode()
+    {
+        // A CLI também imprime a falta de credencial FORA do stream-json (linha solta) e sai
+        // com código 1 — sem a tradução o classificador via só exit_code_1 e a conta voltava
+        // como transitória a cada dois minutos.
+        var parser = new ClaudeCodeExternalAgentExecutor.ClaudeStreamJsonParser();
+
+        Assert.Empty(parser.ParseLine("Not logged in · Please run /login").ToArray());
+
+        Assert.Equal("executor.authentication_required", parser.FailureCode);
+    }
+
+    [Fact]
+    public void CodexAccountModelRefusalArrivesAsATypedErrorEventInJsonMode()
+    {
+        // Observado ao vivo: em modo --json o 400 do plano ChatGPT não sai em texto solto —
+        // chega como evento {"type":"error","message":"…"} no JSONL. É a última das três
+        // vias (stdout, stderr, evento tipado) por que a falha da conta precisa ser reconhecida.
+        var parser = new CodexExternalAgentExecutor.CodexJsonlParser("/unused/last-message.txt");
+
+        Assert.Empty(parser.ParseLine(
+            """{"type":"error","message":"unexpected status 400 Bad Request: {\"detail\":\"The 'gpt-5' model is not supported when using Codex with a ChatGPT account.\"}"}""")
+            .ToArray());
+
+        Assert.Equal("executor.account_model_unsupported", parser.FailureCode);
+    }
+
+    [Fact]
+    public void CodexAccountModelRefusalIsCaughtOnStandardErrorToo()
+    {
+        // Em modo --json os erros fatais saem no stderr, e a cauda de diagnóstico de 10 linhas
+        // perde o 400 para o aviso de "last message" — a sentinela vive no parser agora.
+        var parser = new CodexExternalAgentExecutor.CodexJsonlParser("/unused/last-message.txt");
+
+        parser.ObserveErrorLine(
+            "stream error: unexpected status 400 Bad Request: {\"detail\":\"The 'gpt-5-codex' " +
+            "model is not supported when using Codex with a ChatGPT account.\"}; retrying 5/5");
+
+        Assert.Equal("executor.account_model_unsupported", parser.FailureCode);
+    }
+
+    [Fact]
+    public void CodexAccountModelRefusalBecomesTheAccountModelCode()
+    {
+        var parser = new CodexExternalAgentExecutor.CodexJsonlParser("/unused/last-message.txt");
+
+        Assert.Empty(parser.ParseLine(
+            "ERROR: unexpected status 400 Bad Request: {\"detail\":\"The 'gpt-5-codex' model " +
+            "is not supported when using Codex with a ChatGPT account.\"}").ToArray());
+
+        Assert.Equal("executor.account_model_unsupported", parser.FailureCode);
+    }
+
+    [Fact]
+    public void CodexQuotaRefusalBecomesTheQuotaCode()
+    {
+        var parser = new CodexExternalAgentExecutor.CodexJsonlParser("/unused/last-message.txt");
+
+        Assert.Empty(parser.ParseLine(
+            "stream error: usage limit reached; retrying 5/5").ToArray());
+
+        Assert.Equal("executor.quota_exhausted", parser.FailureCode);
+    }
+
+    [Fact]
     public void GlmContradictorySuccessEnvelopeDoesNotDiscardCompletedWork()
     {
         var parser = new ClaudeCodeExternalAgentExecutor.ClaudeStreamJsonParser();

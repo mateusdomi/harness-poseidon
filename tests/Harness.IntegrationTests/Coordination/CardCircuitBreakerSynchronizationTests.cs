@@ -229,9 +229,67 @@ public sealed class CardCircuitBreakerSynchronizationTests
         }
     }
 
+    [Fact]
+    public async Task TentativaSemNenhumTokenNaoJulgouOEnunciadoENaoConta()
+    {
+        // A regra invertida (revisão do primeiro turno do Kimi): quatro rodadas listando
+        // substrings de infraestrutura não fecharam a classe. `run.account_model_unsupported`
+        // escapou do filtro e abriu o circuito dos cards de Arquitetura do E2E limpo — mortos
+        // por uma conta que não servia modelo nenhum. Uma tentativa com ZERO token de saída
+        // nunca julgou o enunciado, seja qual for o motivo novo que apareça amanhã.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var (root, dispatcher) = await CreateDatabaseAsync(timeout.Token);
+        try
+        {
+            var store = new SqliteCardCircuitBreakerStore(dispatcher);
+            var service = new CardCircuitBreakerService(store);
+
+            var semToken = await service.SynchronizeAsync(
+                Tenant, Project, "card-sem-token",
+                [
+                    Outcome("rejected", Now, "executor.exit_code_1", outputTokens: 0),
+                    Outcome("rejected", Now.AddMinutes(2), "run.account_model_unsupported", outputTokens: 0),
+                    Outcome("cancelled", Now.AddMinutes(4), "executor.turn_failed", outputTokens: 0),
+                ],
+                timeout.Token);
+            Assert.Equal(CardCircuitState.Closed, semToken.State);
+            Assert.Equal(0, semToken.ConsecutiveFailures);
+
+            // Reprovação de REVIEW (rejected sem motivo de run) é julgamento do trabalho:
+            // conta mesmo sem token — quem avaliou foi o crítico, não o executor.
+            var reprovado = await service.SynchronizeAsync(
+                Tenant, Project, "card-reprovado",
+                [
+                    Outcome("rejected", Now, null, outputTokens: 0),
+                    Outcome("rejected", Now.AddMinutes(2), null, outputTokens: 0),
+                    Outcome("rejected", Now.AddMinutes(4), null, outputTokens: 0),
+                ],
+                timeout.Token);
+            Assert.Equal(CardCircuitState.Open, reprovado.State);
+            Assert.Equal(3, reprovado.ConsecutiveFailures);
+
+            // E a falha de execução COM produção segue contando: o enunciado foi exercitado.
+            var comToken = await service.SynchronizeAsync(
+                Tenant, Project, "card-com-token",
+                [
+                    Outcome("rejected", Now, "executor.exit_code_1", outputTokens: 320),
+                    Outcome("rejected", Now.AddMinutes(2), "executor.exit_code_1", outputTokens: 198),
+                    Outcome("rejected", Now.AddMinutes(4), "executor.exit_code_1", outputTokens: 451),
+                ],
+                timeout.Token);
+            Assert.Equal(CardCircuitState.Open, comToken.State);
+            Assert.Equal(3, comToken.ConsecutiveFailures);
+        }
+        finally
+        {
+            await dispatcher.DisposeAsync();
+            Cleanup(root);
+        }
+    }
+
     private static CardAttemptOutcome Outcome(
-        string state, DateTimeOffset occurredAt, string? failureReason = null) =>
-        new(state, failureReason, occurredAt);
+        string state, DateTimeOffset occurredAt, string? failureReason = null, long outputTokens = 100) =>
+        new(state, failureReason, occurredAt, outputTokens);
 
     private static async Task<(string Root, SqliteWriteDispatcher Dispatcher)> CreateDatabaseAsync(
         CancellationToken token)

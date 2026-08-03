@@ -93,6 +93,20 @@ public sealed class ClaudeCodeExternalAgentExecutor(
 
         public string? FailureCode { get; private set; }
 
+        /// <summary>
+        /// A falta de credencial também sai no stderr (modo não-stream e algumas versões da
+        /// CLI). Mesmo motivo do ramo de stdout: sem o código estruturado, a conta caía como
+        /// transitória e voltava à eleição a cada dois minutos.
+        /// </summary>
+        public void ObserveErrorLine(string line)
+        {
+            if (line.Contains("Not logged in", StringComparison.OrdinalIgnoreCase) ||
+                line.Contains("Please run /login", StringComparison.OrdinalIgnoreCase))
+            {
+                FailureCode = "executor.authentication_required";
+            }
+        }
+
         public void Complete()
         {
         }
@@ -107,6 +121,16 @@ public sealed class ClaudeCodeExternalAgentExecutor(
             }
             catch (JsonException)
             {
+                // Linha não estruturada: a CLI imprime a falta de credencial assim, FORA do
+                // envelope stream-json ("Not logged in · Please run /login"), e sai com código
+                // 1. Sem esta tradução o classificador recebia só exit_code_1 e derrubava a
+                // conta como transitória — reeleição a cada dois minutos, para sempre.
+                if (line.Contains("Not logged in", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("Please run /login", StringComparison.OrdinalIgnoreCase))
+                {
+                    FailureCode = "executor.authentication_required";
+                }
+
                 // Linha não estruturada (banner, aviso do terminal): ignorada de propósito.
                 yield break;
             }
@@ -223,6 +247,20 @@ public sealed class ClaudeCodeExternalAgentExecutor(
                 FinalMessage = result.GetString();
             }
 
+            // A falta de credencial veste QUALQUER envelope — inclusive o sucesso contraditório
+            // (subtype=success com is_error=true). Observado no contêiner: "Invalid API key ·
+            // Please run /login" num envelope de sucesso, que a regra da contradição GLM
+            // aceitaria como trabalho concluído. A frase exata da CLI vence o envelope — sem
+            // isto a conta caía como transitória e voltava à eleição a cada dois minutos.
+            if (FinalMessage?.Contains("Not logged in", StringComparison.OrdinalIgnoreCase) == true ||
+                FinalMessage?.Contains("Please run /login", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                FailureCode = "executor.authentication_required";
+                yield return new ExternalAgentEvent(
+                    ExternalAgentEventKind.Failed, Code: FailureCode);
+                yield break;
+            }
+
             Usage = ReadUsage(root);
             if (Usage is not null)
             {
@@ -236,14 +274,7 @@ public sealed class ClaudeCodeExternalAgentExecutor(
             // também é fail-closed: subtipo `error_*` falha mesmo se o booleano vier incorreto.
             if (errorSubtype || (isError && !successSubtype))
             {
-                // Falta de credencial chega no TEXTO do resultado (stdout em stream-json), não
-                // no erro padrão — por isso ela nunca alcançava o classificador e a conta caía
-                // como transitória, queimando circuito de card saudável (claude-secondary
-                // dentro do contêiner, cuja credencial vive no Keychain do host).
-                FailureCode = FinalMessage?.Contains("Not logged in", StringComparison.OrdinalIgnoreCase) == true ||
-                    FinalMessage?.Contains("Please run /login", StringComparison.OrdinalIgnoreCase) == true
-                    ? "executor.authentication_required"
-                    : $"executor.result_{subtype ?? "error"}";
+                FailureCode = $"executor.result_{subtype ?? "error"}";
                 yield return new ExternalAgentEvent(
                     ExternalAgentEventKind.Failed, Code: FailureCode);
                 yield break;

@@ -520,7 +520,8 @@ public sealed partial class ChiefBacklogLoopService(
                         [.. attemptHistory.Select(attempt => new CardAttemptOutcome(
                             attempt.State,
                             attempt.FailureReason,
-                            attempt.FinishedAt ?? attempt.StartedAt))],
+                            attempt.FinishedAt ?? attempt.StartedAt,
+                            attempt.TokensOutput))],
                         token);
                     if (!circuit.IsDispatchable)
                     {

@@ -69,7 +69,7 @@ public sealed class CodexExternalAgentExecutor(
     }
 
     /// <summary>Parser do JSONL do `codex exec --json`, com campos observados na CLI real.</summary>
-    private sealed class CodexJsonlParser(string lastMessagePath) : IExternalAgentOutputParser
+    internal sealed class CodexJsonlParser(string lastMessagePath) : IExternalAgentOutputParser
     {
         public string? SessionId { get; private set; }
 
@@ -78,6 +78,26 @@ public sealed class CodexExternalAgentExecutor(
         public ExternalAgentUsage? Usage { get; private set; }
 
         public string? FailureCode { get; private set; }
+
+        /// <summary>
+        /// O codex imprime os erros fatais da conta no STDERR em modo --json: a recusa de todos
+        /// os modelos do plano e o estouro de cota. A cauda de diagnóstico tem janela curta e o
+        /// aviso de "last message" a desloca — a classificação não pode depender dela.
+        /// </summary>
+        public void ObserveErrorLine(string line) => ObserveFailureText(line);
+
+        private void ObserveFailureText(string text)
+        {
+            if (text.Contains("not supported when using", StringComparison.OrdinalIgnoreCase))
+            {
+                FailureCode = "executor.account_model_unsupported";
+            }
+            else if (text.Contains("usage limit", StringComparison.OrdinalIgnoreCase) ||
+                     text.Contains("rate_limit", StringComparison.OrdinalIgnoreCase))
+            {
+                FailureCode = "executor.quota_exhausted";
+            }
+        }
 
         public void Complete()
         {
@@ -112,6 +132,21 @@ public sealed class CodexExternalAgentExecutor(
             }
             catch (JsonException)
             {
+                // Linhas fora do JSONL carregam os erros fatais da conta: o backend do ChatGPT
+                // recusando TODOS os modelos do plano ("not supported when using … account") e
+                // o estouro de cota ("usage limit" / "rate_limit"). Sem a tradução, ambos
+                // chegavam como turn_failed/genérico e a conta seguia na eleição — churn de
+                // tentativas condenadas a cada janela de backoff.
+                if (line.Contains("not supported when using", StringComparison.OrdinalIgnoreCase))
+                {
+                    FailureCode = "executor.account_model_unsupported";
+                }
+                else if (line.Contains("usage limit", StringComparison.OrdinalIgnoreCase) ||
+                         line.Contains("rate_limit", StringComparison.OrdinalIgnoreCase))
+                {
+                    FailureCode = "executor.quota_exhausted";
+                }
+
                 yield break;
             }
 
@@ -145,6 +180,9 @@ public sealed class CodexExternalAgentExecutor(
 
                 case "turn.completed":
                     Usage = ReadUsage(root);
+                    // Sucesso final limpa uma falha de conta vista no stderr durante a
+                    // tentativa — o desfecho canônico é o envelope, como no parser do Claude.
+                    FailureCode = null;
                     if (Usage is not null)
                     {
                         yield return new ExternalAgentEvent(
@@ -159,6 +197,19 @@ public sealed class CodexExternalAgentExecutor(
                     FailureCode = "executor.turn_failed";
                     yield return new ExternalAgentEvent(
                         ExternalAgentEventKind.Failed, Code: FailureCode);
+                    break;
+
+                case "error":
+                    // Em modo --json as falhas fatais da conta chegam como evento tipado —
+                    // observado ao vivo: cinco "stream error … retrying" e um "error" final
+                    // carregando o 400 do plano ChatGPT. Sem traduzi-los, a conta caía como
+                    // permanente/transitória e seguia na eleição.
+                    if (root.TryGetProperty("message", out var message) &&
+                        message.ValueKind == JsonValueKind.String)
+                    {
+                        ObserveFailureText(message.GetString()!);
+                    }
+
                     break;
 
                 default:

@@ -110,21 +110,44 @@ internal sealed class CardCircuitBreakerService(ICardCircuitBreakerStore store)
     /// <summary>
     /// Rodada perdida do ponto de vista do CARD.
     ///
-    /// `cancelled` sozinho não conta: é o mesmo estado operacional de um reinício do Host ou de um
-    /// cancelamento do operador, e punir o card por uma ação de infraestrutura abriria o circuito
-    /// de cards saudáveis — o circuito só reabre por replanejamento, então um falso positivo aqui
-    /// PARA o trabalho de verdade.
+    /// A pergunta que importa: <b>esta tentativa chegou a JULGAR o enunciado do card?</b>
+    /// Quatro rodadas de whack-a-mole com substrings de infraestrutura (host_shutdown,
+    /// cancelled, quota, e então account_model_unsupported e turn_failed) ensinaram que listar
+    /// motivos um a um não fecha a classe — sempre aparece um quinto. A regra é invertida:
     ///
-    /// Um MOTIVO gravado é o que separa as duas coisas: ele só existe quando o run realmente
-    /// falhou. Sem essa distinção, nove falhas consecutivas de execução no mesmo card chegavam ao
-    /// circuito como cancelamentos anônimos e ele não contava nenhuma.
+    /// - reprovação de REVIEW (<c>rejected</c> sem motivo de run): a revisão leu o trabalho e o
+    ///   reprovou — julgamento aconteceu, conta sempre;
+    /// - demais falhas (<c>failed</c>, <c>rejected</c>/<c>cancelled</c> com motivo de run): só
+    ///   contam quando o modelo PRODUZIU saída (<c>OutputTokens &gt; 0</c>). Uma tentativa com
+    ///   zero token morreu antes de julgar coisa alguma — conta sem cota, credencial
+    ///   inalcançável, plano sem o modelo, contêiner que não abriu. Nada disso diz respeito ao
+    ///   enunciado, e punir o card por culpa alheia mata trabalho saudável: só o
+    ///   replanejamento reabre um circuito aberto por engano.
+    ///
+    /// Compensação conhecida: um executor que não expõe uso (o codex hoje) grava zero tokens
+    /// mesmo quando trabalhou — suas falhas de RUN não abrem circuito, mas suas reprovações de
+    /// review continuam contando pelo ramo acima, e o orçamento de rodadas segue de pé.
     /// </summary>
-    private static bool IsFailure(CardAttemptOutcome attempt) =>
-        string.Equals(attempt.State, "failed", StringComparison.Ordinal) ||
-        string.Equals(attempt.State, "rejected", StringComparison.Ordinal) ||
-        (string.Equals(attempt.State, "cancelled", StringComparison.Ordinal) &&
-         !string.IsNullOrWhiteSpace(attempt.FailureReason) &&
-         !IsInfrastructureReason(attempt.FailureReason));
+    private static bool IsFailure(CardAttemptOutcome attempt)
+    {
+        if (string.Equals(attempt.State, "rejected", StringComparison.Ordinal) &&
+            attempt.FailureReason is null)
+        {
+            return true;
+        }
+
+        var isRunFailure =
+            string.Equals(attempt.State, "failed", StringComparison.Ordinal) ||
+            string.Equals(attempt.State, "rejected", StringComparison.Ordinal) ||
+            (string.Equals(attempt.State, "cancelled", StringComparison.Ordinal) &&
+             !string.IsNullOrWhiteSpace(attempt.FailureReason));
+        if (!isRunFailure || IsInfrastructureReason(attempt.FailureReason ?? string.Empty))
+        {
+            return false;
+        }
+
+        return attempt.OutputTokens > 0;
+    }
 
     /// <summary>
     /// Motivos que descrevem a INFRAESTRUTURA, não o card.
@@ -151,12 +174,14 @@ internal sealed class CardCircuitBreakerService(ICardCircuitBreakerStore store)
     private static bool IsInfrastructureReason(string reason) =>
         reason.Contains("host_shutdown", StringComparison.OrdinalIgnoreCase) ||
         reason.Contains("host_restart", StringComparison.OrdinalIgnoreCase) ||
-        // Falha da CONTA, não do card: cota esgotada e login exigido dizem que o provedor não
-        // atendeu — o enunciado do card nunca chegou a ser julgado. Observado no E2E de
-        // empréstimos: a mesma conta com cota estourada foi reeleita três vezes, cada run morreu
-        // sem produzir um token, e o card saudável escalou por culpa alheia.
+        // Falha da CONTA, não do card: cota esgotada, login exigido ou plano que não serve o
+        // modelo dizem que o provedor não atendeu — o enunciado do card nunca chegou a ser
+        // julgado. Observado no E2E de empréstimos: a mesma conta com cota estourada foi
+        // reeleita três vezes, cada run morreu sem produzir um token, e o card saudável
+        // escalou por culpa alheia.
         reason.Contains("quota", StringComparison.OrdinalIgnoreCase) ||
         reason.Contains("authentication_required", StringComparison.OrdinalIgnoreCase) ||
+        reason.Contains("account_model_unsupported", StringComparison.OrdinalIgnoreCase) ||
         // CANCELAMENTO é "nós paramos", não "o card é ruim". Uma parada do Host no meio de um
         // run chega aqui como `TaskCanceledException`/`OperationCanceledException` — o nome do
         // tipo sanitizado, sem nenhuma pista de que a causa foi infraestrutura. Observado na
@@ -177,4 +202,9 @@ internal sealed class CardCircuitBreakerService(ICardCircuitBreakerStore store)
 public readonly record struct CardAttemptOutcome(
     string State,
     string? FailureReason,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset OccurredAt,
+    /// <summary>
+    /// Tokens de saída medidos da tentativa. Zero significa que o modelo nunca respondeu —
+    /// o enunciado não chegou a ser julgado — e é o pivô da regra invertida do circuito.
+    /// </summary>
+    long OutputTokens = 0);
