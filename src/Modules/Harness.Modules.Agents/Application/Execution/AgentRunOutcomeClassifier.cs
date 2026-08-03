@@ -179,8 +179,15 @@ public static class AgentRunOutcomeClassifier
 
         return kind switch
         {
+            // Cota NUNCA é problema humano: o provedor diz quando volta, e o sistema espera
+            // exatamente até lá. Decisão do proprietário em 2026-08-03 — "se está sem cota não
+            // há o que eu possa fazer; quem monitora e chama de volta é você". Devolver o
+            // cooldown genérico aqui seria jogar fora o reset que o adaptador já leu, que é
+            // justamente o que transforma espera em desperdício.
             ExternalFailureKind.QuotaExhausted => new(
-                AgentRunOutcomeKind.QuotaExhausted, "run.quota_exhausted", DefaultQuotaCooldown),
+                AgentRunOutcomeKind.QuotaExhausted,
+                "run.quota_exhausted",
+                ResolveQuotaCooldown(failureDiagnostic, failureCode, now ?? DateTimeOffset.UtcNow)),
             ExternalFailureKind.AuthenticationRequired => new(
                 AgentRunOutcomeKind.AuthenticationRequired, "run.authentication_required", null),
             ExternalFailureKind.AccountModelUnsupported => new(

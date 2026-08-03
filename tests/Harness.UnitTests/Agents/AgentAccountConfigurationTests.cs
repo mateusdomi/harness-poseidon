@@ -20,7 +20,7 @@ public sealed class AgentAccountConfigurationTests : IDisposable
     }
 
     [Fact]
-    public void TheSevenCanonicalAliasesExistWithoutAnyLocalConfiguration()
+    public void TheCanonicalAliasesExistWithoutAnyLocalConfiguration()
     {
         var registry = AgentAccountConfigurationLoader.Load(
             Path.Combine(_directory, "absent.json"));

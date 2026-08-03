@@ -1,7 +1,7 @@
 {
   "operation": "poseidon-final-validation",
   "schemaVersion": 1,
-  "updatedAt": "2026-08-03T16:35:00Z",
+  "updatedAt": "2026-08-03T16:30:00Z",
   "updatedBy": "integrador-claude-ciclo-26",
   "branch": "develop",
   "baselineCommit": "a25bb1ff",
@@ -44,7 +44,7 @@
   },
   "metricsInstrumented": true,
   "metricsNote": "Medidas por `supervisor metrics`. Desperdicio transitorio 0,98% (meta do §34 batida); retrabalho 73% do custo.",
-  "nextAction": "CICLO 26 (16:35Z). FEITO: (1) fase 3 FECHADA as 16:16:08Z, fase 4 ativa; (2) OPS-052-A — o elo que faltava na taxonomia tipada de falha; (3) OPS-054 — a conta sa voltou para a eleicao (ledger aplicado ao registro a cada minuto, janela de cota viajando junto, conta reservada intocavel). 1682 unitarios verdes. PENDENTE, NA ORDEM: (a) PUBLICAR o binario — o restart esta agendado para a primeira janela sem tentativa em voo; confirmar AO VIVO que worker-claude-secondary volta a receber card (o sinal e a fase 4 despachar mais de um card ao mesmo tempo); (b) acompanhar a fase 4 por ID ate o Conselho (minimo 3 pareceres, um BLOQUEAR segura); (c) fases 5-9; (d) abrir e testar o produto gerado (§49), que so existe a partir da fase 5 e nunca foi feito. BLOQUEIOS DO PROPRIETARIO: OPS-028 (cota semanal do GLM ate 06/08) e OPS-029 (plano da conta codex). Nenhum dos dois segura a esteira enquanto worker-claude-secondary e chief-claude-primary responderem.",
+  "nextAction": "Fase 4 (Planejamento) ativa: DoR/DoD, Cronograma e Mapa de riscos. Acompanhar por ID ate o Conselho (minimo 3 pareceres, um BLOQUEAR segura), depois fases 5-9 e abrir/testar o produto gerado (§49). DOUTRINA CORRIGIDA PELO DONO EM 03/08: cota NUNCA e bloqueio do proprietario — o sistema le o reset declarado pelo provedor, espera e reelege sozinho. Ele so e chamado para AUTENTICACAO. GLM saiu da frota (assinatura cancelada); as duas contas codex estao sem cota semanal e voltam sozinhas.",
   "humanDecisionRequired": false,
   "externalBlockers": [],
   "recoveryEvidence": "coordination/final-operation/EVIDENCIA-RECUPERACAO.md — reinicio do Host e morte de worker provados AO VIVO com IDs; falha de provedor ao vivo e fixada em teste; 26 provas de recuperacao verdes."

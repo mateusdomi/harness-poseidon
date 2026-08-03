@@ -65,3 +65,5 @@
 {"at":"2026-08-03T15:44:21.9561190\u002B00:00","type":"integrator.launch","payload":{"cycle":25,"reasons":["prova limpa 1-9: running (esperado pass)","produto gerado iniciado e testado: pending (esperado pass)","2 item(ns) de trabalho execut\u00E1vel conhecido"]}}
 {"at":"2026-08-03T15:44:24.7224800\u002B00:00","type":"integrator.yield","payload":{"cycle":25,"exitCode":1,"durationSeconds":3,"decision":"Relaunch","Reason":"sess\u00E3o durou 3s (9 curta(s) seguida(s)) \u2014 recuando"}}
 {"at":"2026-08-03T16:14:24.7296020\u002B00:00","type":"integrator.launch","payload":{"cycle":26,"reasons":["prova limpa 1-9: running (esperado pass)","produto gerado iniciado e testado: pending (esperado pass)","2 item(ns) de trabalho execut\u00E1vel conhecido"]}}
+{"at":"2026-08-03T16:35:17.4831980\u002B00:00","type":"integrator.yield","payload":{"cycle":26,"exitCode":0,"durationSeconds":1253,"decision":"WaitExternal","Reason":"cota/capacidade do provedor: aguardando reset em vez de insistir"}}
+{"at":"2026-08-03T16:35:17.4835500\u002B00:00","type":"supervisor.waiting_external","payload":{"cycle":26,"reason":"quota","until":"2026-08-03T17:20:17.483549+00:00"}}

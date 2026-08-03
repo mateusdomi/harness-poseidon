@@ -13,12 +13,16 @@ namespace Harness.UnitTests.Agents;
 public sealed class AgentAccountRosterRedactionTests
 {
     [Fact]
-    public void TheRosterSurfacesTheSevenExecutionIdentities()
+    public void TheRosterSurfacesEveryCanonicalExecutionIdentity()
     {
         var response = AgentRunEndpoints.RedactRoster(
             AgentAccountConfigurationLoader.CanonicalDefinitions);
 
-        Assert.Equal(7, response.Accounts.Count);
+        // A contagem acompanha o catálogo em vez de fixar um número: o GLM saiu em
+        // 2026-08-03 (assinatura cancelada pelo dono) e um literal transformaria uma decisão
+        // legítima de frota em teste vermelho.
+        Assert.Equal(
+            AgentAccountRegistry.SuggestedAliases.Count, response.Accounts.Count);
         Assert.Contains(response.Accounts, account => account.Alias == "chief-claude-primary");
         Assert.Contains(response.Accounts, account => account.Alias == "worker-antigravity-review");
         Assert.All(response.Accounts, account => Assert.False(string.IsNullOrWhiteSpace(account.ProviderKind)));

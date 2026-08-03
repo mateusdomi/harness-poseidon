@@ -39,7 +39,6 @@ public sealed class AgentAccountRegistry
         "worker-codex-frontend",
         "worker-codex-critic",
         "worker-kimi-ui",
-        "worker-glm-general",
         "worker-antigravity-review",
     ];
 

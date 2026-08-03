@@ -131,7 +131,11 @@ public static class AgentAccountConfigurationLoader
         Canonical("worker-codex-frontend", "openai", ExecutorCatalog.Codex, AgentRoles.FrontendSpecialist),
         Canonical("worker-codex-critic", "openai", ExecutorCatalog.Codex, AgentRoles.Critic, priority: 80),
         Canonical("worker-kimi-ui", "moonshot", ExecutorCatalog.KimiCode, AgentRoles.FrontendSpecialist, priority: 70),
-        Canonical("worker-glm-general", "zhipu", ExecutorCatalog.Glm, AgentRoles.BackendSpecialist, priority: 60),
+        // GLM saiu do catálogo canônico em 2026-08-03: o proprietário cancelou a assinatura.
+        // O adaptador continua no código — o executor é o mesmo binário do Claude Code apontado
+        // a outro endpoint, e removê-lo perderia a única implementação de provedor compatível
+        // que já foi exercitada em produção. O que muda é que ele não nasce mais na frota: uma
+        // instalação nova não tenta eleger uma conta que ninguém paga.
         // Antigravity é executor de PRIMEIRA CLASSE com vocação de critic, e por isso tem a
         // maior prioridade entre os critics. Não é experimental.
         Canonical("worker-antigravity-review", "antigravity", ExecutorCatalog.Antigravity, AgentRoles.Critic, priority: 90),
