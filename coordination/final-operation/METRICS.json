@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "instrumented": true,
-  "measuredAt": "2026-08-03T03:20:14.8922160\u002B00:00",
+  "measuredAt": "2026-08-03T04:50:04.4683420\u002B00:00",
   "scope": "todos os projetos",
   "note": "Numeros MEDIDOS de model_invocations, work_attempts e workflow_phase_runs. Campo nulo significa ausencia de base de calculo, nunca zero medido.",
-  "invocationCount": 944,
+  "invocationCount": 963,
   "totalInputTokens": 7646925,
   "totalOutputTokens": 4652071,
   "totalCostUsd": 302.9584,
@@ -15,7 +15,7 @@
   "firstPassAcceptanceRate": 0.3317,
   "medianRunDurationSeconds": 347.7,
   "meanRunDurationSeconds": 5056.9,
-  "modelUtilization": 0.1464,
+  "modelUtilization": 0.1482,
   "phaseWallTimeMinutes": [
     115.9,
     43.2,
