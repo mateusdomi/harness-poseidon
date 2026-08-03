@@ -130,6 +130,12 @@ public sealed partial class ChiefBacklogLoopService(
     [LoggerMessage(Level = LogLevel.Debug, Message = "Chief: projeto {ProjectId} está em modo MANUAL — o laço não despacha; o disparo é humano.")]
     private static partial void LogProjectManualMode(ILogger logger, string projectId);
 
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Chief: card {TaskId} sem progresso há {Runs} run(s) seguidos — nenhum token produzido. " +
+                  "Freio de {DelaySeconds}s antes do próximo despacho; qualquer saída real zera a contagem.")]
+    private static partial void LogNoProgressBrake(ILogger logger, string taskId, int runs, int delaySeconds);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: repositório gerenciado do projeto {ProjectId} não pôde ser preparado para execução ({ErrorType}); nenhum card será consumido neste ciclo.")]
     private static partial void LogManagedRepositoryUnavailable(
         ILogger logger, string projectId, string errorType, Exception exception);
@@ -1321,6 +1327,20 @@ public sealed partial class ChiefBacklogLoopService(
     private readonly Dictionary<string, DateTimeOffset> _dispatchBackoff = new(StringComparer.Ordinal);
 
     /// <summary>
+    /// Runs consecutivos do CARD que não produziram um único token de saída.
+    ///
+    /// É a resposta à segunda pergunta, e ela não é a do circuito: o circuito pergunta "esta
+    /// falha é culpa do card?" e responde bem — zero token quer dizer que ninguém julgou o
+    /// enunciado, então não conta. Só que "ninguém julgou" repetido para sempre é o pior
+    /// desfecho possível, e era exatamente o que ficava invisível: em 03/08/2026 foram catorze
+    /// tentativas em uma hora e quarenta, todas de zero token, sem circuito aberto e sem freio.
+    ///
+    /// Em memória de propósito: é um FREIO, não um veredito. Reinício do Host zera a contagem, e
+    /// isso é aceitável — depois de um reinício vale mesmo a pena tentar de novo.
+    /// </summary>
+    private readonly Dictionary<string, int> _noProgressRuns = new(StringComparer.Ordinal);
+
+    /// <summary>
     /// Marcador estável do aviso de escalação. É o que permite reconhecer, na própria conversa,
     /// que aquele card JÁ foi levado ao dono — idempotência que sobrevive a restart.
     /// </summary>
@@ -1665,8 +1685,27 @@ public sealed partial class ChiefBacklogLoopService(
         if (expired.Status is WorkChainMutationStatus.Applied
             or WorkChainMutationStatus.IdempotentReplay)
         {
-            _dispatchBackoff[task.Id] = now.Add(
-                RetryDelayAfterRun(snapshot) ?? FailedRunRetryBackoff);
+            // Progresso zera o freio; a ausência dele acumula. A contagem é do CARD, não da
+            // conta: a mesma parede pode aparecer em contas diferentes, e foi o que aconteceu.
+            if (ProducedOutput(snapshot))
+            {
+                _noProgressRuns.Remove(task.Id);
+            }
+            else
+            {
+                _noProgressRuns[task.Id] = _noProgressRuns.GetValueOrDefault(task.Id) + 1;
+            }
+
+            var noProgress = _noProgressRuns.GetValueOrDefault(task.Id);
+            var delay = noProgress > 1
+                ? NoProgressBackoff(noProgress)
+                : RetryDelayAfterRun(snapshot) ?? FailedRunRetryBackoff;
+            if (noProgress > 1)
+            {
+                LogNoProgressBrake(logger, task.Id, noProgress, (int)delay.TotalSeconds);
+            }
+
+            _dispatchBackoff[task.Id] = now.Add(delay);
         }
 
         LogRunRequeued(logger, task.Id, running.Id, snapshot.Status.ToString());
@@ -1866,6 +1905,46 @@ public sealed partial class ChiefBacklogLoopService(
             ? FailedRunRetryBackoff
             : null;
     }
+
+    /// <summary>Teto do freio: a partir daqui a fila respira em vez de bater de dois em dois minutos.</summary>
+    public static readonly TimeSpan MaximumNoProgressBackoff = TimeSpan.FromMinutes(32);
+
+    /// <summary>
+    /// Freio para SEQUÊNCIA SEM PROGRESSO — a pergunta que o circuito do card não faz.
+    ///
+    /// O circuito responde "esta falha é culpa do card?" e responde certo: uma tentativa de zero
+    /// token não julgou o enunciado, então não pode abrir circuito nem queimar rodada. A
+    /// consequência não intencional é que o pior sintoma possível — a tentativa que não produz
+    /// NADA — era justamente o único que não tinha nenhum freio. Medido em 03/08/2026: catorze
+    /// tentativas idênticas em uma hora e quarenta, dois cards alternando, zero token em todas,
+    /// nenhum circuito aberto, nenhum sinal de parada.
+    ///
+    /// A resposta certa não é culpar o card: é ESPAÇAR. O intervalo dobra a cada run consecutivo
+    /// sem saída e satura; qualquer run que produza um token zera a contagem. Assim uma parede
+    /// nova — a próxima, a que ninguém previu — custa minutos em vez de uma noite, e continua
+    /// recuperável sozinha no instante em que ela sair da frente.
+    /// </summary>
+    public static TimeSpan NoProgressBackoff(int consecutiveNoProgressRuns)
+    {
+        if (consecutiveNoProgressRuns <= 1)
+        {
+            return FailedRunRetryBackoff;
+        }
+
+        // O expoente é limitado antes da multiplicação: um contador alto não pode estourar o
+        // TimeSpan no caminho até o teto.
+        var steps = Math.Min(consecutiveNoProgressRuns - 1, 8);
+        var grown = FailedRunRetryBackoff * Math.Pow(2, steps);
+        return grown > MaximumNoProgressBackoff ? MaximumNoProgressBackoff : grown;
+    }
+
+    /// <summary>
+    /// Um run produziu saída? É o sinal de PROGRESSO — não de sucesso. Um run que falhou depois
+    /// de escrever mil tokens andou; um que morreu sem um token não andou, e é a repetição
+    /// DESSE que precisa de freio.
+    /// </summary>
+    private static bool ProducedOutput(AgentRunSnapshot snapshot) =>
+        snapshot.Execution?.Usage is { } usage && usage.OutputTokens > 0;
 
     /// <summary>
     /// Elo de CODE REVIEW: para cada card `awaiting_review`, o chefe convoca um crítico de conta
