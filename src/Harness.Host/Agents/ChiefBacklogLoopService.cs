@@ -553,11 +553,14 @@ public sealed partial class ChiefBacklogLoopService(
                     // caso que nunca fazia nada parar: quatorze tentativas idênticas em uma hora
                     // e quarenta contra a mesma parede, em 03/08/2026. Aqui a esteira PARA de
                     // insistir sem acusar o card, e nomeia a parede para quem for olhar.
-                    if (circuit.IsStalled(settings.CardNoProgressCeiling))
+                    if (circuit.IsStalled(settings.CardNoProgressCeiling, clock.UtcNow))
                     {
                         LogCardNoProgress(
                             logger, task.Id, circuit.ConsecutiveNoProgress,
-                            circuit.LastFailureReasonCode ?? "sem motivo registrado");
+                            circuit.LastFailureReasonCode is { Length: > 0 } wall &&
+                            !string.Equals(wall, "failed", StringComparison.Ordinal)
+                                ? wall
+                                : "sem motivo registrado pelo executor");
                         continue;
                     }
 

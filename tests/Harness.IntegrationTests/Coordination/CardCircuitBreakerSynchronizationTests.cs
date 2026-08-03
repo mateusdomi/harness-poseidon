@@ -404,7 +404,7 @@ public sealed class CardCircuitBreakerSynchronizationTests
 
             // Mas a sequência parou de progredir, e a esteira tem de reconhecer isso.
             Assert.Equal(5, circuit.ConsecutiveNoProgress);
-            Assert.True(circuit.IsStalled(5));
+            Assert.True(circuit.IsStalled(5, Now.AddMinutes(21)));
         }
         finally
         {
@@ -434,7 +434,45 @@ public sealed class CardCircuitBreakerSynchronizationTests
                 timeout.Token);
 
             Assert.Equal(1, circuit.ConsecutiveNoProgress);
-            Assert.False(circuit.IsStalled(5));
+            Assert.False(circuit.IsStalled(5, Now.AddMinutes(16)));
+        }
+        finally
+        {
+            await dispatcher.DisposeAsync();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// A parada por não-progresso não pode virar ABANDONO. O contador só zera com uma entrega,
+    /// e não pode haver entrega se o card nunca mais for despachado — foi exatamente o impasse
+    /// que travou o card que fechava a Fase 3, meia hora depois da regra entrar. Passada a
+    /// janela de silêncio, uma sondagem é liberada: se a parede caiu, o card volta sozinho.
+    /// </summary>
+    [Fact]
+    public async Task AfterTheQuietPeriodTheCardIsProbedAgainInsteadOfAbandoned()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var (root, dispatcher) = await CreateDatabaseAsync(timeout.Token);
+        try
+        {
+            var service = new CardCircuitBreakerService(new SqliteCardCircuitBreakerStore(dispatcher));
+            var circuit = await service.SynchronizeAsync(
+                Tenant, Project, "card-parede-transitoria",
+                [
+                    Outcome("rejected", Now, "executor.quota_exhausted", outputTokens: 0),
+                    Outcome("rejected", Now.AddMinutes(1), "executor.quota_exhausted", outputTokens: 0),
+                    Outcome("rejected", Now.AddMinutes(2), "executor.quota_exhausted", outputTokens: 0),
+                    Outcome("rejected", Now.AddMinutes(3), "executor.quota_exhausted", outputTokens: 0),
+                    Outcome("rejected", Now.AddMinutes(4), "executor.quota_exhausted", outputTokens: 0),
+                ],
+                timeout.Token);
+
+            // Logo depois: para de insistir.
+            Assert.True(circuit.IsStalled(5, Now.AddMinutes(5)));
+
+            // Passada a janela: volta a ser sondado, em vez de ficar preso para sempre.
+            Assert.False(circuit.IsStalled(5, Now.AddMinutes(25)));
         }
         finally
         {

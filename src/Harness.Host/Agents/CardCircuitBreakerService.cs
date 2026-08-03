@@ -47,9 +47,11 @@ internal sealed class CardCircuitBreakerService(
         // Contagem de NÃO-PROGRESSO, derivada junto e independente da atribuição de culpa:
         // qualquer tentativa que terminou sem produzir token soma; qualquer produção zera.
         var noProgress = 0;
+        DateTimeOffset? lastAttemptAt = null;
         foreach (var attempt in attempts.Where(item => horizon is null || item.OccurredAt > horizon))
         {
             noProgress = attempt.OutputTokens > 0 ? 0 : noProgress + 1;
+            lastAttemptAt = attempt.OccurredAt;
             if (IsFailure(attempt))
             {
                 snapshot = CardCircuitBreakerPolicy.RecordFailure(
@@ -66,7 +68,11 @@ internal sealed class CardCircuitBreakerService(
             }
         }
 
-        snapshot = snapshot with { ConsecutiveNoProgress = noProgress };
+        snapshot = snapshot with
+        {
+            ConsecutiveNoProgress = noProgress,
+            LastAttemptAt = lastAttemptAt,
+        };
 
         var persisted = stored?.ConsecutiveFailures ?? 0;
         if (persisted == snapshot.ConsecutiveFailures &&

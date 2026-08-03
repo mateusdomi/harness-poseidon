@@ -33,15 +33,30 @@ public sealed record CardCircuitSnapshot(
     ///
     /// Derivado do histórico, como o resto: não é campo persistido que alguém possa zerar.
     /// </summary>
-    int ConsecutiveNoProgress = 0)
+    int ConsecutiveNoProgress = 0,
+    /// <summary>Quando foi a última tentativa observada. Derivado, como o resto.</summary>
+    DateTimeOffset? LastAttemptAt = null)
 {
     public bool IsDispatchable => State == CardCircuitState.Closed;
 
+    /// <summary>Quanto tempo a esteira para de insistir antes de sondar a parede de novo.</summary>
+    public static readonly TimeSpan NoProgressQuietPeriod = TimeSpan.FromMinutes(15);
+
     /// <summary>
-    /// A sequência parou de progredir? Não diz que o card é ruim — diz que insistir com este
-    /// card, agora, é repetir o mesmo fracasso. O remédio é olhar a parede, não replanejar.
+    /// A sequência parou de progredir AGORA? Não diz que o card é ruim — diz que insistir com
+    /// ele neste momento é repetir o mesmo fracasso. O remédio é olhar a parede, não replanejar.
+    ///
+    /// A janela de silêncio é o que separa "parar de queimar" de "abandonar". Sem ela isto vira
+    /// impasse: o contador só zera com uma entrega, e não pode haver entrega se o card nunca
+    /// mais for despachado — foi exatamente o que aconteceu com o card que fechava a Fase 3,
+    /// meia hora depois de eu introduzir a regra. Passada a janela, UMA sondagem é liberada; se
+    /// a parede caiu, o card volta sozinho, e se continua de pé, ele para de novo por mais uma
+    /// janela em vez de girar.
     /// </summary>
-    public bool IsStalled(int ceiling) => ConsecutiveNoProgress >= Math.Max(1, ceiling);
+    public bool IsStalled(int ceiling, DateTimeOffset now) =>
+        ConsecutiveNoProgress >= Math.Max(1, ceiling) &&
+        LastAttemptAt is { } last &&
+        now - last < NoProgressQuietPeriod;
 
     public static CardCircuitSnapshot Closed(string cardId)
     {
