@@ -654,9 +654,25 @@ public sealed class WorkflowPhaseDriver(
             .OrderBy(demand => demand.CreatedAt)
             .FirstOrDefault();
 
-        var opinions = new List<CouncilOpinion>(AgentCouncilPolicy.Seats.Count);
+        // §28: a mesa é montada, não recitada. O núcleo (produto, arquitetura, tech lead) senta
+        // sempre; os demais só quando o projeto os justifica.
+        //
+        // O contexto abaixo é DECLARADO, não inferido: hoje a demanda não registra superfície
+        // (sem colunas para externa/autenticação/persistência) e o projeto não declara
+        // tecnologias, então adivinhar quem precisa opinar seria pior que convocar demais —
+        // omitir um revisor por palpite é o erro caro. Persistência, critério testável e risco
+        // ficam ligados porque todo projeto do playbook produz dado, critério de aceite e
+        // superfície de risco; operação fica de fora até existir sinal real de deploy, como a
+        // própria ordem pede. Quando a demanda passar a declarar superfície, é só trocar esta
+        // construção pela leitura — a política já aceita.
+        var councilSeats = AgentCouncilPolicy.SelectSeats(new CouncilContext(
+            SecurityRisk: true,
+            Persistence: true,
+            TestableCriteria: true));
+
+        var opinions = new List<CouncilOpinion>(councilSeats.Count);
         var created = 0;
-        foreach (var seat in AgentCouncilPolicy.Seats)
+        foreach (var seat in councilSeats)
         {
             var prefix = CouncilCardTitle(phaseName, seat.PersonaKey);
             var existing = board.Items

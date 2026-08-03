@@ -35,23 +35,96 @@ public static class AgentCouncilPolicy
     /// A diversidade é o ponto: três agentes com a mesma lente produzem a mesma cegueira três
     /// vezes e dão a ela aparência de consenso.
     /// </summary>
-    public static IReadOnlyList<CouncilSeat> Seats { get; } =
+    /// <summary>
+    /// NÚCLEO OBRIGATÓRIO: as lentes que todo planejamento precisa, qualquer que seja o projeto.
+    ///
+    /// Produto responde se é a coisa certa, arquitetura se a decisão se sustenta, tech lead se
+    /// dá para executar. Nenhuma delas depende do domínio — um planejamento sem essas três
+    /// respostas não foi criticado, foi carimbado.
+    /// </summary>
+    public static IReadOnlyList<CouncilSeat> CoreSeats { get; } =
     [
+        new("playbook-po",
+            "Isto resolve o problema que a pessoa trouxe? O escopo entrega valor verificável ou " +
+            "só entrega atividade?"),
         new("playbook-arquiteto",
             "As decisões de arquitetura se sustentam? Cada trade-off declarou o que custa, e a " +
             "visão restrita cabe nas restrições reais do projeto?"),
         new("playbook-tech-lead",
             "Este planejamento é executável? Os cards têm critério verificável, tamanho seguro e " +
             "dependências que permitem paralelismo de verdade?"),
-        new("playbook-qa",
-            "Dá para PROVAR que ficou pronto? Todo critério de aceite é verificável por terceiro, " +
-            "e a estratégia de teste existe antes do código?"),
-        new("playbook-security",
-            "O que um atacante faria com isto? O threat model cobre os ativos que o planejamento " +
-            "introduziu, e o risco residual está nomeado com quem o aceita?"),
-        new("playbook-dba-dados",
-            "O modelo sustenta as consultas e o crescimento reais, ou só o diagrama?"),
     ];
+
+    /// <summary>
+    /// Assentos de RISCO E DOMÍNIO: entram quando o projeto os justifica, não por ritual.
+    ///
+    /// Convocar cinco especialistas para todo planejamento tem dois custos, e o segundo é pior
+    /// que o primeiro: gasta cota, e ensina a fábrica a tratar o conselho como formalidade. Um
+    /// parecer de segurança sobre um projeto sem superfície externa é ruído — e ruído repetido
+    /// é como uma sala inteira aprende a assinar sem ler.
+    /// </summary>
+    public static IReadOnlyList<ConditionalSeat> ConditionalSeats { get; } =
+    [
+        new(new CouncilSeat("playbook-security",
+                "O que um atacante faria com isto? O threat model cobre os ativos que o " +
+                "planejamento introduziu, e o risco residual está nomeado com quem o aceita?"),
+            context => context.ExternalSurface || context.Authentication ||
+                context.SensitiveData || context.SecurityRisk),
+        new(new CouncilSeat("playbook-dba-dados",
+                "O modelo sustenta as consultas e o crescimento reais, ou só o diagrama?"),
+            context => context.Persistence || context.Migration ||
+                context.HighVolume || context.Analytics),
+        new(new CouncilSeat("playbook-sre-devops",
+                "Isto sobe, fica de pé e avisa quando cai? Existe caminho de volta quando a " +
+                "entrega der errado em produção?"),
+            context => context.Deployment || context.Infrastructure ||
+                context.Observability || context.Availability),
+        new(new CouncilSeat("playbook-qa",
+                "Dá para PROVAR que ficou pronto? Todo critério de aceite é verificável por " +
+                "terceiro, e a estratégia de teste existe antes do código?"),
+            context => context.TestableCriteria || context.QualityStrategy),
+    ];
+
+    /// <summary>
+    /// Todos os assentos que a política conhece. Serve à leitura e à compatibilidade de quem
+    /// enumerava o conselho inteiro; a CONVOCAÇÃO usa <see cref="SelectSeats"/>.
+    /// </summary>
+    public static IReadOnlyList<CouncilSeat> Seats { get; } =
+        [.. CoreSeats, .. ConditionalSeats.Select(seat => seat.Seat)];
+
+    /// <summary>
+    /// Quem senta nesta mesa.
+    ///
+    /// Núcleo obrigatório, mais os assentos que o contexto justifica, mais quem a Bruna convocar
+    /// com justificativa. O piso de <see cref="MinimumCouncil"/> continua valendo: um projeto que
+    /// não justifica nenhum assento condicional ainda assim tem três lentes distintas, porque uma
+    /// divergência isolada precisa aparecer como divergência e não como maioria.
+    ///
+    /// A ordem é estável — núcleo, condicionais na ordem declarada, extras da Bruna — para que o
+    /// mesmo contexto produza sempre a mesma mesa, e o conselho seja reproduzível.
+    /// </summary>
+    public static IReadOnlyList<CouncilSeat> SelectSeats(
+        CouncilContext context,
+        IReadOnlyList<CouncilSeat>? brunaOverride = null)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var selected = new List<CouncilSeat>(CoreSeats);
+        selected.AddRange(ConditionalSeats
+            .Where(candidate => candidate.Applies(context))
+            .Select(candidate => candidate.Seat));
+
+        // A Bruna pode convocar competência que a tabela não previu — é dela a decisão de quem
+        // precisa opinar. O que ela não pode é REMOVER o núcleo: override amplia, nunca reduz.
+        if (brunaOverride is { Count: > 0 })
+        {
+            selected.AddRange(brunaOverride.Where(extra =>
+                !selected.Any(seat => string.Equals(
+                    seat.PersonaKey, extra.PersonaKey, StringComparison.Ordinal))));
+        }
+
+        return selected;
+    }
 
     /// <summary>
     /// O conselho deve ser convocado nesta transição?
@@ -154,6 +227,32 @@ public static class AgentCouncilPolicy
 
 /// <param name="Lens">A pergunta que este assento faz — e que nenhum outro faz igual.</param>
 public sealed record CouncilSeat(string PersonaKey, string Lens);
+
+/// <summary>Um assento que só senta quando o projeto o justifica.</summary>
+public sealed record ConditionalSeat(CouncilSeat Seat, Func<CouncilContext, bool> Applies);
+
+/// <summary>
+/// O que este projeto tem, para decidir quem precisa opinar.
+///
+/// Todas as marcas nascem `false`: um projeto só convoca o especialista de segurança se
+/// alguém AFIRMOU que há superfície externa, autenticação, dado sensível ou risco. O padrão
+/// silencioso é a mesa mínima — e a mesa mínima ainda tem três lentes distintas.
+/// </summary>
+public sealed record CouncilContext(
+    bool ExternalSurface = false,
+    bool Authentication = false,
+    bool SensitiveData = false,
+    bool SecurityRisk = false,
+    bool Persistence = false,
+    bool Migration = false,
+    bool HighVolume = false,
+    bool Analytics = false,
+    bool Deployment = false,
+    bool Infrastructure = false,
+    bool Observability = false,
+    bool Availability = false,
+    bool TestableCriteria = false,
+    bool QualityStrategy = false);
 
 /// <param name="HasConcern">
 /// Ressalva que não bloqueia. Fica no ledger mesmo assim: a ressalva de hoje costuma ser o
