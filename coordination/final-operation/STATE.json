@@ -1,7 +1,7 @@
 {
   "operation": "poseidon-final-validation",
   "schemaVersion": 1,
-  "updatedAt": "2026-08-03T04:30:00Z",
+  "updatedAt": "2026-08-03T04:42:00Z",
   "updatedBy": "integrador-claude-noturno",
   "branch": "develop",
   "baselineCommit": "a25bb1ff",
@@ -17,7 +17,7 @@
     "startedAt": "2026-08-02T21:02:39Z",
     "phase1CompletedAt": "2026-08-02T21:15:18Z",
     "phase1DurationMinutes": 12.6,
-    "note": "Criado pelo produto (API que o navegador usa), nao por SQL. Preflight passou sem bloqueadores; Bruna respondeu em 24s e fez uma unica pergunta necessaria. | 2026-08-03 04:00: fase 3 destravada — OPS-033 (caminho da mensagem final fora da sandbox do Codex) e OPS-034 (turn.failed apagando a causa) corrigidos; conta codex saiu da eleicao. | 04:10: OPS-036 (papel do card) corrigido — glm virou account.eligible e o primeiro card de Arquitetura voltou a executar.",
+    "note": "Criado pelo produto (API que o navegador usa), nao por SQL. Preflight passou sem bloqueadores; Bruna respondeu em 24s e fez uma unica pergunta necessaria. | 2026-08-03 04:00: fase 3 destravada — OPS-033 (caminho da mensagem final fora da sandbox do Codex) e OPS-034 (turn.failed apagando a causa) corrigidos; conta codex saiu da eleicao. | 04:10: OPS-036 (papel do card) corrigido — glm virou account.eligible e o primeiro card de Arquitetura voltou a executar. | 04:42: OPS-037 (laco de telemetria negada pelo proxy) corrigido — log do proxy limpo e tentativa nova em execucao.",
     "phase2CompletedAt": "2026-08-02T21:43:18Z",
     "phase2DurationMinutes": 28.0
   },
@@ -35,14 +35,15 @@
   "mandatoryGatesFailed": 0,
   "mandatoryTestsPending": 0,
   "testBaseline": {
-    "unit": 1586,
+    "unit": 1615,
     "integration": 306,
+    "recovery": 26,
     "frontend": 783,
-    "allGreenAt": "2026-08-03T03:20:00Z"
+    "allGreenAt": "2026-08-03T04:40:00Z"
   },
   "metricsInstrumented": true,
   "metricsNote": "Medidas por `supervisor metrics`. Desperdicio transitorio 0,98% (meta do §34 batida); retrabalho 73% do custo.",
-  "nextAction": "Fase 3 destravada e executando na conta glm (unica elegivel: claude=OPS-030, codex=OPS-029). Acompanhar os 7 cards de Arquitetura por ID ate a fase fechar; depois 4-9 e abrir o produto gerado (§49).",
+  "nextAction": "Fase 3 da prova limpa executando na conta glm (tentativa 01KZ2YN6FN5SYKPSYXGJ7481YR). Acompanhar por ID ate os 7 cards de Arquitetura fecharem, seguir as fases 4-9 e entao abrir e testar o produto gerado (§49). Se uma tentativa passar de ~10 min sem token, LER O LOG DO PROXY dela antes de qualquer hipotese (ver OPS-037 no HANDOFF).",
   "humanDecisionRequired": false,
   "externalBlockers": [
     "OPS-030: contas claude sem credencial dentro do conteiner — decidir extracao do OAuth do Keychain, ANTHROPIC_API_KEY ou frota reduzida",
