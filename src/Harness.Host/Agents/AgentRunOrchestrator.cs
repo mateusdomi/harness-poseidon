@@ -994,7 +994,8 @@ public sealed partial class AgentRunOrchestrator(
 
             var execution = await session.CollectAsync(cancellationToken);
             var outcome = AgentRunOutcomeClassifier.Classify(
-                execution.Status, execution.FailureCode, execution.FailureDiagnostic, clock.UtcNow);
+                execution.Status, execution.FailureKind, execution.FailureCode,
+                execution.FailureDiagnostic, clock.UtcNow);
             RecordAvailability(command.CriticAlias, outcome, clock.UtcNow);
             await TryRecordCriticInvocationAsync(
                 command, critic, execution, outcome, clock.UtcNow, cancellationToken);
@@ -1385,7 +1386,8 @@ public sealed partial class AgentRunOrchestrator(
             // Desfecho DURÁVEL por conta: cota adia com data/hora de volta, login escala, falha
             // transitória (GLM instável) agenda retry com backoff, sucesso zera o histórico.
             var runOutcome = AgentRunOutcomeClassifier.Classify(
-                execution.Status, execution.FailureCode, execution.FailureDiagnostic, clock.UtcNow);
+                execution.Status, execution.FailureKind, execution.FailureCode,
+                execution.FailureDiagnostic, clock.UtcNow);
 
             // O DIAGNÓSTICO precisa aparecer no log quando um run morre. Ele já era capturado e
             // já alimentava a classificação, mas nunca era registrado — e sem ele "por que esta

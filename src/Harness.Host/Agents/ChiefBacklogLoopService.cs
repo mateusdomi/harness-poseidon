@@ -1882,11 +1882,23 @@ public sealed partial class ChiefBacklogLoopService(
     /// O diagnóstico importa porque a CLI nem sempre traduz o erro do provedor em código: cota
     /// esgotada no GLM/Z.AI chegava como `executor.exit_code_1` e era lida como instabilidade.
     /// </summary>
+    /// <remarks>
+    /// Quando existe <c>FinalError</c>, ele descreve algo que aconteceu FORA do executor
+    /// (encerramento do Host, por exemplo) e continua vencendo — o adaptador não tem como saber
+    /// disso. Sem esse erro externo, quem decide passa a ler o TIPO declarado pelo adaptador em
+    /// vez de procurar sinal dentro do texto do nosso próprio código.
+    /// </remarks>
     private static AgentRunOutcome ClassifyRun(AgentRunSnapshot snapshot) =>
-        AgentRunOutcomeClassifier.Classify(
-            snapshot.Execution!.Status,
-            snapshot.FinalError ?? snapshot.Execution.FailureCode,
-            snapshot.Execution.FailureDiagnostic);
+        string.IsNullOrWhiteSpace(snapshot.FinalError)
+            ? AgentRunOutcomeClassifier.Classify(
+                snapshot.Execution!.Status,
+                snapshot.Execution.FailureKind,
+                snapshot.Execution.FailureCode,
+                snapshot.Execution.FailureDiagnostic)
+            : AgentRunOutcomeClassifier.Classify(
+                snapshot.Execution!.Status,
+                snapshot.FinalError,
+                snapshot.Execution.FailureDiagnostic);
 
     /// <summary>
     /// Motivo gravado na tentativa. Quando a falha é da CONTA — cota esgotada, login exigido — o

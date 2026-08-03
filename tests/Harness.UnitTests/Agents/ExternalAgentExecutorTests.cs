@@ -834,4 +834,138 @@ public sealed class ExternalAgentExecutorTests : IDisposable
 
         Assert.Null(parser.FailureCode);
     }
+
+    /// <summary>
+    /// O defeito que a taxonomia tipada existe para matar: o classificador fazia
+    /// <c>code.Contains(sinal)</c> sobre o NOSSO PRÓPRIO código interno, então
+    /// <c>executor.exit_code_1</c> casava com o sinal <c>"exit_code"</c> e virava
+    /// "transitório". Foi assim que uma conta com a sessão esgotada seguiu elegível por uma
+    /// hora e meia em 2026-08-03, batendo na mesma parede a cada rodada.
+    ///
+    /// Com o tipo declarado pelo adaptador, o texto do código deixa de decidir qualquer coisa.
+    /// </summary>
+    [Fact]
+    public void TheDeclaredKindDecidesEvenWhenTheCodeTextWouldSaySomethingElse()
+    {
+        var outcome = AgentRunOutcomeClassifier.Classify(
+            ExternalAgentRunStatus.Failed,
+            ExternalFailureKind.QuotaExhausted,
+            // O texto continua sendo o que a CLI deu, e continua enganando a heurística legada.
+            failureCode: "executor.exit_code_1");
+
+        Assert.Equal(AgentRunOutcomeKind.QuotaExhausted, outcome.Kind);
+        Assert.NotNull(outcome.SuggestedCooldown);
+
+        // Prova de que o texto sozinho ainda erraria — é exatamente o defeito medido.
+        var legacy = AgentRunOutcomeClassifier.Classify(
+            ExternalAgentRunStatus.Failed, "executor.exit_code_1");
+        Assert.Equal(AgentRunOutcomeKind.Transient, legacy.Kind);
+    }
+
+    /// <summary>
+    /// Adaptador que ainda não classifica não pode quebrar: <c>Unknown</c> cai na heurística
+    /// legada, que é o que mantém o executor não migrado funcionando durante a transição.
+    /// </summary>
+    [Fact]
+    public void AnAdapterThatDoesNotClassifyStillFallsBackToTheLegacyReading()
+    {
+        var outcome = AgentRunOutcomeClassifier.Classify(
+            ExternalAgentRunStatus.Failed,
+            ExternalFailureKind.Unknown,
+            "executor.quota_exhausted");
+
+        Assert.Equal(AgentRunOutcomeKind.QuotaExhausted, outcome.Kind);
+    }
+
+    /// <summary>
+    /// E o caminho ponta a ponta: a frase da CLI vira TIPO no adaptador, e o tipo é o que
+    /// atravessa. O núcleo nunca mais precisa conhecer a frase.
+    /// </summary>
+    [Fact]
+    public void TheSessionLimitPhraseBecomesATypeAtTheAdapterBoundary()
+    {
+        var parser = new ClaudeCodeExternalAgentExecutor.ClaudeStreamJsonParser();
+
+        _ = parser.ParseLine(
+            """{"type":"result","subtype":"error","is_error":true,"result":"You've hit your session limit · resets 11:30am"}""")
+            .ToArray();
+
+        Assert.Equal(ExternalFailureKind.QuotaExhausted, parser.FailureKind);
+        Assert.Equal(
+            AgentRunOutcomeKind.QuotaExhausted,
+            AgentRunOutcomeClassifier.Classify(
+                ExternalAgentRunStatus.Failed, parser.FailureKind, parser.FailureCode).Kind);
+    }
+
+    /// <summary>
+    /// O ELO que faltava, e que teria feito a taxonomia inteira não valer nada: o tipo
+    /// reconhecido pelo parser precisa chegar ao RESULTADO do run. Enquanto a sessão não o
+    /// copiava, o campo existia no contrato, chegava sempre <c>Unknown</c> a quem decide, e a
+    /// decisão continuava saindo da leitura de texto — exatamente o defeito que a taxonomia
+    /// existe para matar. É a lição do OPS-024: conferir cada elo até o estado final, não parar
+    /// no primeiro consertado.
+    /// </summary>
+    [Fact]
+    public async Task TheKindRecognizedByTheParserReachesTheRunResult()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        // A CLI anuncia o limite de sessão e sai com código 1 — o mesmo par que produziu o laço
+        // de uma hora e quarenta em 2026-08-03.
+        using var process = StartShell(
+            """echo '{"type":"result","subtype":"error","is_error":true,"result":"You'"'"'ve hit your session limit · resets 11:30am"}'; exit 1""");
+        await using var session = new ProcessExternalAgentSession(
+            "run-kind-crosses-the-boundary",
+            process,
+            new ClaudeCodeExternalAgentExecutor.ClaudeStreamJsonParser(),
+            ExecutorCatalog.ClaudeCode,
+            "worker-claude-secondary",
+            [],
+            TimeSpan.FromMinutes(1));
+        session.BeginPump();
+
+        var result = await session.CollectAsync().WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal(ExternalAgentRunStatus.Failed, result.Status);
+        Assert.Equal(ExternalFailureKind.QuotaExhausted, result.FailureKind);
+        Assert.Equal(
+            AgentRunOutcomeKind.QuotaExhausted,
+            AgentRunOutcomeClassifier.Classify(
+                result.Status, result.FailureKind, result.FailureCode, result.FailureDiagnostic).Kind);
+    }
+
+    /// <summary>
+    /// O envelope de quem PAROU vence o parser: cancelamento é coisa nossa, e o adaptador não
+    /// tem como saber. Sem isto, uma parada do Host durante uma falha de conta chegaria como
+    /// falha da conta — a família de misattribuição de culpa que já custou cards saudáveis.
+    /// </summary>
+    [Fact]
+    public async Task CancellingTheSessionKeepsTheCancelledKindEvenIfTheParserSawAFailure()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var process = StartShell(
+            """echo '{"type":"result","subtype":"error","is_error":true,"result":"You'"'"'ve hit your session limit"}'; sleep 30""");
+        await using var session = new ProcessExternalAgentSession(
+            "run-cancel-wins",
+            process,
+            new ClaudeCodeExternalAgentExecutor.ClaudeStreamJsonParser(),
+            ExecutorCatalog.ClaudeCode,
+            "worker-claude-secondary",
+            [],
+            TimeSpan.FromMinutes(1));
+        session.BeginPump();
+
+        await session.CancelAsync();
+        var result = await session.CollectAsync().WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal(ExternalAgentRunStatus.Cancelled, result.Status);
+        Assert.Equal(ExternalFailureKind.Cancelled, result.FailureKind);
+    }
 }

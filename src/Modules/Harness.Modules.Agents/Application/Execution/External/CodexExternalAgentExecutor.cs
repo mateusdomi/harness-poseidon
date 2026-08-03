@@ -79,6 +79,15 @@ public sealed class CodexExternalAgentExecutor(
 
         public string? FailureCode { get; private set; }
 
+        /// <summary>O que o adaptador ENTENDEU. O núcleo decide por isto, não pelo texto.</summary>
+        public ExternalFailureKind FailureKind { get; private set; } = ExternalFailureKind.Unknown;
+
+        private void Fail(string code, ExternalFailureKind kind)
+        {
+            FailureCode = code;
+            FailureKind = kind;
+        }
+
         /// <summary>
         /// O codex imprime os erros fatais da conta no STDERR em modo --json: a recusa de todos
         /// os modelos do plano e o estouro de cota. A cauda de diagnóstico tem janela curta e o
@@ -90,12 +99,12 @@ public sealed class CodexExternalAgentExecutor(
         {
             if (text.Contains("not supported when using", StringComparison.OrdinalIgnoreCase))
             {
-                FailureCode = "executor.account_model_unsupported";
+                Fail("executor.account_model_unsupported", ExternalFailureKind.AccountModelUnsupported);
             }
             else if (text.Contains("usage limit", StringComparison.OrdinalIgnoreCase) ||
                      text.Contains("rate_limit", StringComparison.OrdinalIgnoreCase))
             {
-                FailureCode = "executor.quota_exhausted";
+                Fail("executor.quota_exhausted", ExternalFailureKind.QuotaExhausted);
             }
         }
 
@@ -139,12 +148,12 @@ public sealed class CodexExternalAgentExecutor(
                 // tentativas condenadas a cada janela de backoff.
                 if (line.Contains("not supported when using", StringComparison.OrdinalIgnoreCase))
                 {
-                    FailureCode = "executor.account_model_unsupported";
+                    Fail("executor.account_model_unsupported", ExternalFailureKind.AccountModelUnsupported);
                 }
                 else if (line.Contains("usage limit", StringComparison.OrdinalIgnoreCase) ||
                          line.Contains("rate_limit", StringComparison.OrdinalIgnoreCase))
                 {
-                    FailureCode = "executor.quota_exhausted";
+                    Fail("executor.quota_exhausted", ExternalFailureKind.QuotaExhausted);
                 }
 
                 yield break;
@@ -183,6 +192,7 @@ public sealed class CodexExternalAgentExecutor(
                     // Sucesso final limpa uma falha de conta vista no stderr durante a
                     // tentativa — o desfecho canônico é o envelope, como no parser do Claude.
                     FailureCode = null;
+                    FailureKind = ExternalFailureKind.Unknown;
                     if (Usage is not null)
                     {
                         yield return new ExternalAgentEvent(
@@ -201,7 +211,10 @@ public sealed class CodexExternalAgentExecutor(
                     // parser via `account_model_unsupported`, e o `turn.failed` seguinte
                     // rebaixava tudo a "falha genérica do turno" — que não marca conta
                     // indisponível. A eleição continuava mandando card para uma conta morta.
-                    FailureCode ??= "executor.turn_failed";
+                    if (FailureCode is null)
+                    {
+                        Fail("executor.turn_failed", ExternalFailureKind.Permanent);
+                    }
                     yield return new ExternalAgentEvent(
                         ExternalAgentEventKind.Failed, Code: FailureCode);
                     break;

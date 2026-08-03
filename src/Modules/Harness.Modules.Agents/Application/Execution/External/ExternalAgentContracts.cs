@@ -157,6 +157,14 @@ public sealed record ExternalAgentRunResult(
     /// preenchido no sucesso e não substitui <see cref="FailureCode"/> nas decisões automáticas.
     /// </summary>
     public string? FailureDiagnostic { get; init; }
+
+    /// <summary>
+    /// O que deu errado, DECLARADO pelo adaptador. É este campo — e não o texto de
+    /// <see cref="FailureCode"/> — que as decisões automáticas devem consultar.
+    /// <see cref="ExternalFailureKind.Unknown"/> significa que o adaptador não soube dizer, e
+    /// só nesse caso a heurística de texto legada ainda vale.
+    /// </summary>
+    public ExternalFailureKind FailureKind { get; init; } = ExternalFailureKind.Unknown;
 }
 
 /// <summary>Falha do adapter externa ao modelo; carrega somente CÓDIGO, nunca segredo.</summary>

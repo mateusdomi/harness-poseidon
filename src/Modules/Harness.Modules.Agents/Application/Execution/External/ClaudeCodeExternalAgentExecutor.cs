@@ -199,6 +199,16 @@ public sealed class ClaudeCodeExternalAgentExecutor(
 
         public string? FailureCode { get; private set; }
 
+        /// <summary>O que o adaptador ENTENDEU. O núcleo decide por isto, não pelo texto.</summary>
+        public ExternalFailureKind FailureKind { get; private set; } = ExternalFailureKind.Unknown;
+
+        /// <summary>Declara código e tipo juntos: separá-los é como os dois divergem.</summary>
+        private void Fail(string code, ExternalFailureKind kind)
+        {
+            FailureCode = code;
+            FailureKind = kind;
+        }
+
         /// <summary>
         /// A falta de credencial também sai no stderr (modo não-stream e algumas versões da
         /// CLI). Mesmo motivo do ramo de stdout: sem o código estruturado, a conta caía como
@@ -209,7 +219,7 @@ public sealed class ClaudeCodeExternalAgentExecutor(
             if (line.Contains("Not logged in", StringComparison.OrdinalIgnoreCase) ||
                 line.Contains("Please run /login", StringComparison.OrdinalIgnoreCase))
             {
-                FailureCode = "executor.authentication_required";
+                Fail("executor.authentication_required", ExternalFailureKind.AuthenticationRequired);
             }
         }
 
@@ -244,7 +254,7 @@ public sealed class ClaudeCodeExternalAgentExecutor(
                 if (line.Contains("Not logged in", StringComparison.OrdinalIgnoreCase) ||
                     line.Contains("Please run /login", StringComparison.OrdinalIgnoreCase))
                 {
-                    FailureCode = "executor.authentication_required";
+                    Fail("executor.authentication_required", ExternalFailureKind.AuthenticationRequired);
                 }
 
                 // Linha não estruturada (banner, aviso do terminal): ignorada de propósito.
@@ -371,7 +381,7 @@ public sealed class ClaudeCodeExternalAgentExecutor(
             if (FinalMessage?.Contains("Not logged in", StringComparison.OrdinalIgnoreCase) == true ||
                 FinalMessage?.Contains("Please run /login", StringComparison.OrdinalIgnoreCase) == true)
             {
-                FailureCode = "executor.authentication_required";
+                Fail("executor.authentication_required", ExternalFailureKind.AuthenticationRequired);
                 yield return new ExternalAgentEvent(
                     ExternalAgentEventKind.Failed, Code: FailureCode);
                 yield break;
@@ -387,7 +397,7 @@ public sealed class ClaudeCodeExternalAgentExecutor(
             // de tentativas sem um único token, com o quadro do dono parado e sem explicação.
             if (MentionsSessionLimit(FinalMessage))
             {
-                FailureCode = "executor.quota_exhausted";
+                Fail("executor.quota_exhausted", ExternalFailureKind.QuotaExhausted);
                 yield return new ExternalAgentEvent(
                     ExternalAgentEventKind.Failed, Code: FailureCode);
                 yield break;
@@ -406,7 +416,7 @@ public sealed class ClaudeCodeExternalAgentExecutor(
             // também é fail-closed: subtipo `error_*` falha mesmo se o booleano vier incorreto.
             if (errorSubtype || (isError && !successSubtype))
             {
-                FailureCode = $"executor.result_{subtype ?? "error"}";
+                Fail($"executor.result_{subtype ?? "error"}", ExternalFailureKind.Permanent);
                 yield return new ExternalAgentEvent(
                     ExternalAgentEventKind.Failed, Code: FailureCode);
                 yield break;
@@ -416,6 +426,7 @@ public sealed class ClaudeCodeExternalAgentExecutor(
             // `success` final coerente precisa limpar a falha anterior, ou CollectAsync ainda
             // classificaria a sessão inteira como Failed.
             FailureCode = null;
+            FailureKind = ExternalFailureKind.Unknown;
             yield return new ExternalAgentEvent(
                 ExternalAgentEventKind.Completed,
                 ExternalAgentRedaction.Redact(FinalMessage),

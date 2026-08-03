@@ -18,6 +18,13 @@ internal interface IExternalAgentOutputParser
 
     string? FailureCode { get; }
 
+    /// <summary>
+    /// O que deu errado, na linguagem do NÚCLEO. O adaptador conhece o fornecedor e traduz;
+    /// quem decide não deveria conhecer fornecedor nenhum. Padrão <c>Unknown</c>: um adaptador
+    /// que ainda não classifica continua funcionando pela heurística legada.
+    /// </summary>
+    ExternalFailureKind FailureKind => ExternalFailureKind.Unknown;
+
     IEnumerable<ExternalAgentEvent> ParseLine(string line);
 
     /// <summary>
@@ -197,6 +204,19 @@ internal sealed class ProcessExternalAgentSession : IExternalAgentSession
                     $"executor.exit_code_{exitCode?.ToString(CultureInfo.InvariantCulture) ?? "unknown"}",
             };
 
+            // O TIPO declarado pelo adaptador é o que atravessa. Sem esta linha o campo existia
+            // no contrato e chegava sempre `Unknown` a quem decide — a taxonomia inteira seria
+            // decoração, e a decisão continuaria sendo tomada por substring do nosso próprio
+            // código interno. O envelope (cancelamento, timeout) vence o parser porque descreve
+            // o que NÓS fizemos; nos demais casos vale o que o adaptador entendeu.
+            var failureKind = status switch
+            {
+                ExternalAgentRunStatus.Completed => ExternalFailureKind.Unknown,
+                ExternalAgentRunStatus.Cancelled => ExternalFailureKind.Cancelled,
+                ExternalAgentRunStatus.TimedOut => ExternalFailureKind.Timeout,
+                _ => _parser.FailureKind,
+            };
+
             // Timeout e travamento também precisam de causa. Enquanto só a falha "normal"
             // carregava diagnóstico, um turno morto por silêncio chegava ao humano como
             // `executor.timeout` puro — e a linha que dizia "cota semanal esgotada" ficava
@@ -218,6 +238,7 @@ internal sealed class ProcessExternalAgentSession : IExternalAgentSession
                 (long)Stopwatch.GetElapsedTime(_startedTimestamp).TotalMilliseconds)
             {
                 FailureDiagnostic = diagnostic,
+                FailureKind = failureKind,
             };
             return _result;
         }

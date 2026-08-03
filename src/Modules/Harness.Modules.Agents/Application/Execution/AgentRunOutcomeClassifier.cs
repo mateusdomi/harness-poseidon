@@ -150,6 +150,55 @@ public static class AgentRunOutcomeClassifier
     /// Agora, para converter um reset declarado em cooldown. Injetável para o teste não
     /// depender do relógio.
     /// </param>
+    /// <summary>
+    /// Classifica pelo TIPO declarado pelo adaptador. É este o caminho correto: quem conhece o
+    /// fornecedor traduz a peculiaridade dele; quem decide não conhece fornecedor nenhum.
+    ///
+    /// A heurística de texto só entra quando o adaptador diz <see cref="ExternalFailureKind.Unknown"/>
+    /// — ou seja, quando ele PRÓPRIO não soube classificar. Enquanto houver executor não
+    /// migrado esse caminho continua valendo; quando não houver mais, ele morre sem cerimônia.
+    /// </summary>
+    public static AgentRunOutcome Classify(
+        ExternalAgentRunStatus status,
+        ExternalFailureKind kind,
+        string? failureCode,
+        string? failureDiagnostic = null,
+        DateTimeOffset? now = null)
+    {
+        switch (status)
+        {
+            case ExternalAgentRunStatus.Completed:
+                return new AgentRunOutcome(AgentRunOutcomeKind.Completed, "run.completed", null);
+            case ExternalAgentRunStatus.Cancelled:
+                return new AgentRunOutcome(AgentRunOutcomeKind.Cancelled, "run.cancelled", null);
+            case ExternalAgentRunStatus.TimedOut:
+                return new AgentRunOutcome(AgentRunOutcomeKind.Transient, "run.timeout", null);
+            default:
+                break;
+        }
+
+        return kind switch
+        {
+            ExternalFailureKind.QuotaExhausted => new(
+                AgentRunOutcomeKind.QuotaExhausted, "run.quota_exhausted", DefaultQuotaCooldown),
+            ExternalFailureKind.AuthenticationRequired => new(
+                AgentRunOutcomeKind.AuthenticationRequired, "run.authentication_required", null),
+            ExternalFailureKind.AccountModelUnsupported => new(
+                AgentRunOutcomeKind.AuthenticationRequired, "run.account_model_unsupported", null),
+            ExternalFailureKind.Transient => new(
+                AgentRunOutcomeKind.Transient, "run.transient_failure", null),
+            ExternalFailureKind.Cancelled => new(
+                AgentRunOutcomeKind.Cancelled, "run.cancelled", null),
+            ExternalFailureKind.Timeout => new(
+                AgentRunOutcomeKind.Transient, "run.timeout", null),
+            ExternalFailureKind.Permanent => new(
+                AgentRunOutcomeKind.Permanent, "run.permanent_failure", null),
+
+            // O adaptador não soube dizer. SÓ aqui a leitura de texto ainda decide.
+            _ => Classify(status, failureCode, failureDiagnostic, now),
+        };
+    }
+
     public static AgentRunOutcome Classify(
         ExternalAgentRunStatus status,
         string? failureCode,
