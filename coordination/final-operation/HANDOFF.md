@@ -278,7 +278,79 @@ Lição operacional: quando um card não anda, leia a linha `adiado:` inteira. E
 as contas com o motivo de cada uma — e `role_not_allowed` em todas menos uma é um diagnóstico
 de roteamento, não de disponibilidade.
 
-## O que continua sendo do proprietário
+## Madrugada de 2026-08-03, segunda rodada — a operação parou de esbarrar em si mesma
+
+### O diagnóstico que muda a sua noite: não há conta de ator viva
+
+Se você chegou aqui esperando tocar a prova limpa, leia isto antes de tentar: **nenhuma
+conta executa papel de ator agora.** Confirmado ao vivo, não deduzido de arquivo:
+
+- `worker-glm-general` — toda chamada volta `429 [1310] Weekly/Monthly Limit Exhausted`.
+  A cota é **semanal** e volta em **2026-08-06 10:11**. Reproduzido à mão dentro do
+  contêiner às 04:56.
+- `chief-claude-primary` e `worker-claude-secondary` — sem credencial dentro do contêiner
+  (`OPS-030`, decisão de POLÍTICA do dono).
+- `worker-codex-frontend` — recusa todo modelo do CLI instalado (`OPS-029`).
+
+Ou seja: a prova limpa está parada por **falta de insumo**, não por defeito. O projeto
+`01KZ24JCFRHN2RGP8NHGP75JMK` está **pausado de propósito** para não queimar card contra
+conta morta. Para retomar quando houver conta:
+
+```sh
+curl -X POST http://127.0.0.1:5173/api/v1/projects/01KZ24JCFRHN2RGP8NHGP75JMK/chief/resume
+```
+
+**Não fique tentando.** Cada tentativa contra conta sem cota gasta dez minutos e não
+produz um token.
+
+### A família desta rodada: o sistema não sabia o que ele mesmo já sabia
+
+Três defeitos, o mesmo formato — a informação existia e ninguém a lia:
+
+1. **O provedor DIZ quando a cota volta** e o classificador jogava fora, aplicando sempre
+   três horas. Cota semanal tratada como janela de três horas vira laço: a conta reaparece
+   elegível, é eleita, o card morre de novo. (`OPS-038`)
+2. **A CLI emudece depois do 429** — processo vivo, zero conexões, zero saída, para sempre.
+   Só o timeout de trinta minutos a encerrava, e timeout classifica como transitório: tudo
+   de novo, na mesma conta morta. Agora existe vigia de SILÊNCIO com código próprio,
+   `executor.no_progress`. (`OPS-039`)
+3. **O motivo estava escrito, dentro do contêiner.** No modo `-p` o Claude Code 2.0.30 não
+   manda UMA linha para stderr: o 429 vai só para `<config home>/debug/<sessão>.txt`.
+   Testei `--debug` e `--debug api`: stderr vazio nos dois. Agora, quando o stderr não
+   explica, o executor lê a cauda do log da própria CLI — por `docker exec` quando há
+   sandbox. (`OPS-040`)
+
+**Se você encontrar mais um lugar onde o sistema decide sem consultar o que já observou,
+desconfie.** É a mesma forma do `oldest-N` e do `envelope apaga a causa`.
+
+### Como eu diagnostiquei — vale repetir
+
+Quatro comandos, nesta ordem, e o caso estava fechado em vinte minutos:
+
+```sh
+./tools/operation/watchdog.sh                       # 3 STALLED, sem pid, sem chamada
+docker exec <sandbox> sh -c 'cat /proc/7/wchan; cat /proc/7/net/tcp'   # epoll, zero conexão
+docker exec <sandbox> tail -c 900 /codex-state/debug/<sessão>.txt      # o 429 completo
+docker logs harness-proxy-wsp-<sufixo> | grep -v statsig | sort | uniq -c
+```
+
+O terceiro é o que faltava no handoff anterior: **quando o proxy está limpo e a CLI está
+muda, o log DELA é o único lugar onde o motivo existe.**
+
+### Coisas que eu errei nesta rodada
+
+- **Cancelei a tentativa sem antes tirar a conta morta da eleição.** O despacho seguinte
+  saiu em segundos, para a mesma conta, e travou igual. Só então pausei o projeto. Ordem
+  certa: primeiro tirar a causa de circulação, depois cancelar.
+- **Chutei o ID de uma tentativa** a partir do prefixo que o watchdog mostra. `agent cancel`
+  aceitou e não fez nada visível. Leia o ID inteiro do banco.
+
+### O que ficou pronto e o que não
+
+`OPS-018` fechou: `notify.sh` entregou mensagem real — o Telegram funciona fim a fim, o
+destino é descoberto sozinho. **Sobraram três defeitos, todos do proprietário**, e todos
+sobre conta. `OPS-041` (a pausa não alcança o que está em voo) nasceu e morreu nesta
+rodada: o contrato existia, só não era declarado.
 
 `OPS-018` (Telegram), `OPS-028` (cota GLM), `OPS-029` (plano ChatGPT), `OPS-030` (credencial
 Claude no Keychain). Nenhum deles é executável daqui — e a decisão do `OPS-030` é de
