@@ -216,10 +216,21 @@ public static class Program
                 Console.WriteLine("Bloqueio humano: supervisor aguardando o proprietário.");
 
                 // Parar em silêncio é o mesmo que não parar: quem precisa agir não está
-                // olhando o terminal às 3 da manhã. O aviso sai UMA vez, aqui, porque este
-                // caminho encerra o laço.
+                // olhando o terminal às 3 da manhã. O aviso sai UMA vez, aqui.
                 NotifyOwner(root, state);
-                return 3;
+
+                // E sair também não serve: o bloqueio é temporário por definição (cota que
+                // reseta, credencial que o dono provisiona) e um supervisor morto transforma
+                // "assim que houver conta eu retomo" em promessa falsa — o dono destravaria a
+                // conta e nada aconteceria. A espera é observável (§R2): sujeito concreto —
+                // os bloqueadores declarados —, heartbeat, e reavaliação periódica.
+                if (!await WaitForOwnerAsync(root, lease, cycle))
+                {
+                    return 3;
+                }
+
+                cycle--; // esperar não consome ciclo: ciclo é tentativa de relance.
+                continue;
             }
 
             // Já existe Integradora viva (tipicamente a sessão que o dono abriu à mão):
@@ -415,6 +426,43 @@ public static class Program
 
         File.WriteAllText(transcript, captured + Environment.NewLine);
         return (process.ExitCode, captured);
+    }
+
+    /// <summary>
+    /// Espera o proprietário destravar, reavaliando o estado de tempos em tempos. Devolve
+    /// <c>true</c> quando o bloqueio saiu e a supervisão pode continuar, <c>false</c> quando
+    /// o horizonte de espera acabou — aí sim encerrar é honesto, porque um supervisor que
+    /// espera indefinidamente sem ninguém do outro lado é indistinguível de um travado.
+    /// </summary>
+    private static async Task<bool> WaitForOwnerAsync(string root, SupervisorLease lease, int cycle)
+    {
+        var recheck = TimeSpan.FromSeconds(ReadInt("POSEIDON_SUPERVISOR_HUMAN_RECHECK_SECONDS", 900));
+        var horizon = TimeSpan.FromHours(ReadInt("POSEIDON_SUPERVISOR_HUMAN_WAIT_HOURS", 24));
+        var deadline = DateTimeOffset.UtcNow + horizon;
+
+        Console.WriteLine(
+            $"WAITING_HUMAN: reavaliando a cada {recheck.TotalMinutes:F0} min até " +
+            $"{deadline:yyyy-MM-dd HH:mm} UTC.");
+
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            lease.Heartbeat(cycle, "aguardando o proprietário");
+            await DelayWithHeartbeatAsync(lease, cycle, recheck);
+
+            var (state, _) = Load(root);
+            if (!CompletionGate.NeedsHuman(state))
+            {
+                Append(root, "operation.human_unblocked", new { cycle });
+                Console.WriteLine("Bloqueio humano resolvido — voltando a supervisionar.");
+                return true;
+            }
+        }
+
+        Append(root, "operation.human_wait_expired", new { cycle, hours = horizon.TotalHours });
+        Console.Error.WriteLine(
+            $"Esperei {horizon.TotalHours:F0} h pelo proprietário sem mudança. Encerrando: " +
+            "retome com tools/operation/supervisor-start.sh quando a conta existir.");
+        return false;
     }
 
     /// <summary>

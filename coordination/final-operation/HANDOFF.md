@@ -356,3 +356,100 @@ rodada: o contrato existia, só não era declarado.
 Claude no Keychain). Nenhum deles é executável daqui — e a decisão do `OPS-030` é de
 POLÍTICA, não técnica: extrair OAuth do Keychain para disco viola a regra de nunca persistir
 segredo. Não a tome sozinho.
+
+---
+
+# Manhã de 2026-08-03, ciclo 2 do supervisor — o laço que girava em falso
+
+## Leia isto antes de tentar qualquer coisa com conta
+
+Continua valendo o diagnóstico da rodada anterior, e eu confirmei ao vivo no próprio
+sistema (`~/.harness/account-availability.json`, não deduzido de texto):
+
+| conta | estado | papel |
+|---|---|---|
+| `worker-glm-general` | `QuotaLimited` até **2026-08-06 10:11** | backend-specialist |
+| `worker-claude-secondary` | `AuthenticationRequired` | backend-specialist |
+| `worker-codex-frontend` | `account_model_unsupported` | frontend-specialist |
+| `chief-claude-primary` | `AuthenticationRequired` desde 03:17 | **chief-orchestrator** |
+
+A linha que a rodada anterior não tinha registrado é a última: **a conta que dá voz à
+Bruna também caiu.** Ela é a única com o papel `chief-orchestrator`. Sem ela não há nem
+chat — o que significa que a prova limpa, o produto gerado e o QA do Poseidon estão os
+três parados pelo mesmo motivo. Não é "a prova está lenta": o produto não responde.
+
+`worker-codex-critic` e `worker-antigravity-review` aparecem `Available`, mas ambos só
+têm o papel `critic`. Nenhum deles executa card de documento — o pacote de objetivo é
+emitido com `Capacidade de execução autorizada: backend-specialist` fixo
+(`WorkflowPhaseDriver.ComposeObjectiveInstruction`). **Não perca tempo tentando eleger
+um crítico como ator.**
+
+## O defeito desta rodada — `OPS-042`, e por que ele custaria três dias
+
+O supervisor exigia os **três eixos de prova VERDES** para admitir bloqueio humano. Mas a
+prova limpa só sai de `blocked` com uma conta viva. Logo o eixo nunca ficava verde,
+`NeedsHuman` devolvia `false` para sempre, e o supervisor **relançava a Integradora ciclo
+após ciclo contra zero trabalho, em silêncio**, enquanto o dono dormia sem saber que a
+operação dependia dele.
+
+A correção da madrugada tinha trocado "chamar cedo demais" por "**nunca chamar**". O
+primeiro acorda alguém à toa; o segundo desperdiça a noite inteira. Repare no formato:
+consertar um erro de julgamento com uma regra mais dura produziu o erro simétrico. Se
+você for endurecer uma condição de parada, **pergunte qual caso ela torna impossível.**
+
+Agora o finding **declara** os eixos que bloqueia (`blocksAxes`, default lista VAZIA para
+não virar a saída fácil), e `NeedsHuman` exige cada eixo `pass` **ou** declaradamente
+segurado pelo dono — mais zero trabalho do agente e nenhum gate/teste obrigatório
+pendente. O gate segue FAIL: chamar o dono não conclui nada.
+
+Duas consequências que eu tratei junto, porque parar sem elas seria fingir que resolvi:
+
+- **o supervisor notifica** (`notify.sh`, evento `operation.human_notify`) em vez de parar
+  num terminal que ninguém está olhando;
+- **ele espera em vez de sair.** Sair transformaria "assim que houver conta eu retomo" em
+  promessa falsa: o dono destravaria a conta e nada aconteceria. A espera reavalia a cada
+  15 min (`POSEIDON_SUPERVISOR_HUMAN_RECHECK_SECONDS`), com heartbeat, por até 24 h
+  (`POSEIDON_SUPERVISOR_HUMAN_WAIT_HOURS`).
+
+**O proprietário foi notificado no Telegram às 06:14 UTC** com as três decisões.
+
+## O motor dos 73% de retrabalho tinha nome — `OPS-043`
+
+As métricas diziam havia dias que retrabalho era 73% do custo e ninguém sabia de onde
+vinha. Vinha daqui: **uma decisão do usuário sobre UM artefato criava card de atualização
+para TODOS os artefatos da fase.**
+
+No banco da prova limpa, a corrente inteira está visível: a mensagem *"Decisão sobre o
+Plano de Observabilidade: reduzir o escopo"* gerou atualização do **Comparativo de
+trade-off**; a seguinte, sobre o **SAD**, gerou outra do Comparativo; a sobre o **C4**
+gerou uma do **DER**. Cinco gerações do mesmo Comparativo em uma hora, nenhuma delas
+citada em mensagem nenhuma.
+
+`IsDocumentRevisionRelevant` só filtrava assunto de agenda/prazo — todo o resto era
+"relevante para todos". E a mensagem **nomeava o artefato**. É exatamente a forma do
+`oldest-N` e do `envelope apaga a causa`: **a informação existia e o código não a lia.**
+Essa é a terceira ocorrência da mesma família nesta operação; ela vai aparecer de novo.
+
+O estreitamento é tímido de propósito: só vale quando a mensagem nomeia **exatamente um**
+artefato da fase. Zero ou dois mantêm o conservador, porque perder uma regra de negócio
+continua sendo pior que uma revisão a mais.
+
+## O que eu quase errei
+
+Ia matar o supervisor para publicar o binário novo **enquanto ele lia a minha saída
+padrão**. Ele é o processo que me lançou: derrubá-lo fecha o cano e mata esta sessão no
+meio da escrita. Persisti handoff, estado e commit **antes** da troca. Se você precisar
+trocar o supervisor de baixo de si, essa é a ordem — grave primeiro, troque depois.
+
+## Estado ao encerrar
+
+`verify.sh` verde de ponta a ponta (exit 0): 1635 unitários, 306 de integração, 26 de
+recuperação, 42 de contrato, 22 de arquitetura, 8 de concorrência, 783 de frontend e os
+132 do Playwright. Nada empurrado para `origin`.
+
+Os 7 cards de Arquitetura em `ready` estão listados por ID no `nextAction` do
+`STATE.json`. Quando existir UMA conta:
+
+```sh
+curl -X POST http://127.0.0.1:5173/api/v1/projects/01KZ24JCFRHN2RGP8NHGP75JMK/chief/resume
+```
