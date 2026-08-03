@@ -247,12 +247,30 @@ public sealed class ExternalAgentExecutorTests : IDisposable
             request, sandbox, "last-message-test.txt");
 
         Assert.Equal("/workspace", effective.WorkingDirectory);
-        Assert.Equal("/codex-state/last-message-test.txt", lastMessage);
+        Assert.Equal("/tmp/last-message-test.txt", lastMessage);
         // Sem sandbox, nada muda — os caminhos do host seguem valendo.
         Assert.Same(request, ProcessExternalAgentExecutor.ResolveSandboxedRequest(request, null));
-        Assert.Equal(
-            Path.Combine(handle.Layout.SessionStorePath, "last-message-test.txt"),
-            ProcessExternalAgentExecutor.ResolveLastMessagePath(request, null, "last-message-test.txt"));
+    }
+
+    /// <summary>
+    /// A CLI do Codex roda com sandbox própria (`--sandbox workspace-write`), cujas raízes
+    /// graváveis são o diretório de trabalho, `/tmp` e `$TMPDIR`. Apontar a mensagem final
+    /// para o `sessions/` do perfil — que fica fora dessas raízes — fazia a CLI avisar
+    /// `Failed to write last message file … (os error 2)`, gravar vazio e o turno morrer sem
+    /// token. O diretório existia: o que faltava era permissão da própria sandbox.
+    /// </summary>
+    [Fact]
+    public void TheLastMessageFileLandsWhereTheExecutorSandboxCanActuallyWrite()
+    {
+        var provisioner = new AccountProfileProvisioner(_root);
+        var handle = Provision(provisioner, "worker-codex-frontend", ExecutorCatalog.Codex);
+        var request = Request(handle);
+
+        var onHost = ProcessExternalAgentExecutor.ResolveLastMessagePath(
+            request, null, "last-message-test.txt");
+
+        Assert.Equal(Path.Combine(Path.GetTempPath(), "last-message-test.txt"), onHost);
+        Assert.DoesNotContain(handle.Layout.SessionStorePath, onHost, StringComparison.Ordinal);
     }
 
     [Fact]

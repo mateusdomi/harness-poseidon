@@ -216,11 +216,28 @@ public abstract class ProcessExternalAgentExecutor : IExternalAgentExecutor
     /// O arquivo de mensagem final mora no volume de estado do contêiner quando há sandbox. O
     /// parser do host não o encontra e cai no fallback do stream, que já carrega a mensagem.
     /// </summary>
+    /// <summary>
+    /// Onde a CLI grava a mensagem final.
+    ///
+    /// Precisa ser um caminho que a CLI possa ESCREVER — e o Codex roda com sandbox próprio
+    /// (`--sandbox workspace-write`), cujas raízes graváveis são o diretório de trabalho,
+    /// `/tmp` e `$TMPDIR`. O destino anterior era o `sessions/` do perfil isolado, que fica
+    /// fora dessas raízes: a CLI avisava `Failed to write last message file … (os error 2)`,
+    /// gravava conteúdo vazio e o turno morria sem produzir token (2026-08-03, cards SAD,
+    /// Observabilidade e C4 da prova limpa).
+    ///
+    /// O diagnóstico registrado na época — "o perfil isolado não cria o diretório" — não se
+    /// sustentou: o `sessions/` existia em disco desde antes das falhas, com data anterior a
+    /// elas. O que faltava era permissão da sandbox do próprio executor, não o diretório.
+    ///
+    /// Temporário é o lugar certo também por natureza: o arquivo é lido e apagado no mesmo
+    /// run, e o `sessions/` guarda sessão, não sobra de turno.
+    /// </summary>
     internal static string ResolveLastMessagePath(
         ExternalAgentRunRequest request, SandboxedCommand? sandbox, string fileName) =>
         sandbox is null
-            ? Path.Combine(request.Profile.SessionStorePath, fileName)
-            : $"{sandbox.ContainerStateDirectory}/{fileName}";
+            ? Path.Combine(Path.GetTempPath(), fileName)
+            : $"/tmp/{fileName}";
 
     private void Validate(ExternalAgentRunRequest request)
     {
