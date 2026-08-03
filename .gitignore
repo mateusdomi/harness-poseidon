@@ -44,3 +44,6 @@ artifacts/qa-poseidon/tools/node_modules
 artifacts/qa-poseidon/evidencias/*.tmp
 coordination/final-operation/integrator-last-run.log
 coordination/final-operation/LEASE.json
+coordination/final-operation/supervisor.log
+coordination/final-operation/INTEGRATOR.json
+.tooling/
