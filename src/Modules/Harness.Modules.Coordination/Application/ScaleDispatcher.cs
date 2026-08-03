@@ -22,7 +22,12 @@ public sealed record ScaleDispatchResult(
 public sealed class CardPrioritizedBuffer
 {
     private readonly object _sync = new();
-    private readonly PriorityQueue<QueuedCardItem, (int Priority, long Sequence)> _queue = new();
+    // A ORDEM inclui a espera. Sem ela, um card que perde a rodada volta para o fim da fila na
+    // rodada seguinte e nunca sai: em 03/08/2026 dois entregáveis de Arquitetura ficaram treze
+    // horas em `ready` enquanto cards criados depois passavam à frente, porque todos tinham a
+    // mesma prioridade e o desempate era a ordem de enfileiramento DAQUELA rodada. O
+    // `EnqueuedAt` já era recebido e simplesmente não participava do desempate.
+    private readonly PriorityQueue<QueuedCardItem, (int Priority, long WaitingSince, long Sequence)> _queue = new();
     private long _sequenceCounter;
 
     public int Count
@@ -49,7 +54,7 @@ public sealed class CardPrioritizedBuffer
         var sequence = Interlocked.Increment(ref _sequenceCounter);
         lock (_sync)
         {
-            _queue.Enqueue(item, ((int)priority, sequence));
+            _queue.Enqueue(item, ((int)priority, enqueuedAt.UtcTicks, sequence));
         }
     }
 

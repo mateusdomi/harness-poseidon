@@ -159,6 +159,11 @@ public sealed partial class ChiefBacklogLoopService(
         string explanation,
         int evidenceCount);
 
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Chief: card {TaskId} retido pelo teto global de execução ({LiveRuns} em voo, teto {Ceiling}); volta na próxima rodada.")]
+    private static partial void LogCardHeldByGlobalCeiling(
+        ILogger logger, string taskId, int liveRuns, int ceiling);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Chief: impacto do card {TaskId}: risco {DeclaredRisk}->{EffectiveRisk}, revisão {ReviewDepth}, medido={Measured}.")]
     private static partial void LogBlastRadiusAssessed(
         ILogger logger,
@@ -800,7 +805,9 @@ public sealed partial class ChiefBacklogLoopService(
                         candidate.Card.Priority >= 70
                             ? CardPriority.High
                             : candidate.Card.Priority >= 40 ? CardPriority.Normal : CardPriority.Low,
-                        clock.UtcNow);
+                        // A hora do CARD, não do relógio: passar `now` para todos zerava o
+                        // desempate por espera e deixava a fila decidir por ordem de leitura.
+                        candidate.Task.CreatedAt);
                 }
 
                 var scale = ScaleGate.Dispatch(
@@ -814,6 +821,18 @@ public sealed partial class ChiefBacklogLoopService(
                     scale.DispatchedWorkerCards.Concat(scale.DispatchedCriticCards),
                     StringComparer.Ordinal);
                 deferred += scale.DeferredCount;
+
+                // Card cortado pelo TETO GLOBAL virava só um contador. Quem investiga via o card
+                // ser avaliado e depois desaparecer — nem despachado, nem adiado, nem uma linha
+                // dizendo por quê. Foi assim que dois entregáveis de Arquitetura ficaram treze
+                // horas invisíveis em 03/08/2026. O corte é legítimo; o silêncio não era.
+                var liveRuns = orchestrator.LiveRunCount;
+                var ceiling = Math.Max(1, settings.AutoDispatchMaxConcurrent);
+                foreach (var cut in cards.Where(entry => !admitted.Contains(entry.Card.TaskId)))
+                {
+                    LogCardHeldByGlobalCeiling(logger, cut.Card.TaskId, liveRuns, ceiling);
+                }
+
                 if (admitted.Count == 0)
                 {
                     continue;
