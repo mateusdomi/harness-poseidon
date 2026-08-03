@@ -30,6 +30,72 @@ public static class AgentCouncilPolicy
     public const int MinimumCouncil = 3;
 
     /// <summary>
+    /// Mínimo de INTELIGÊNCIAS distintas — contas diferentes — para o conselho valer como conselho.
+    ///
+    /// Assento é lente; conta é quem pensa. Seis personas na mesma conta são seis prompts para o
+    /// mesmo modelo: a diversidade fica só na instrução, e a cegueira que ela deveria quebrar é
+    /// exatamente a que se repete seis vezes com aparência de consenso. Foi o que aconteceu em
+    /// 03/08/2026 — os seis pareceres da fase 4 saíram todos de `worker-antigravity-review`.
+    ///
+    /// Dois é o piso, não o ideal: é o menor número em que existe alguém que possa discordar por
+    /// outro motivo, e não por outra pergunta.
+    /// </summary>
+    public const int MinimumDistinctAccounts = 2;
+
+    /// <summary>
+    /// Provedores distintos são PREFERIDOS, nunca exigidos. Duas contas do mesmo fornecedor já
+    /// quebram a cegueira de sessão e de cota; exigir fornecedores diferentes transformaria uma
+    /// preferência de qualidade em bloqueio de disponibilidade, e o conselho voltaria a ser
+    /// impossível nas horas em que só um fornecedor responde.
+    /// </summary>
+    public const bool PreferDistinctProviders = true;
+
+    /// <summary>
+    /// Quantos assentos podem estar ABERTOS ao mesmo tempo, dada a capacidade real da frota.
+    ///
+    /// A regra que esta função existe para impor: capacidade curta faz o conselho SERIALIZAR, não
+    /// bloquear. Abrir seis assentos com uma conta elegível não produz seis opiniões — produz seis
+    /// cards disputando a mesma conta, cinco deles adiados a cada ciclo, e a fase parada com
+    /// aparência de trabalho em andamento. Um assento de cada vez leva mais tempo de relógio e
+    /// chega ao mesmo lugar, com a diferença de que se sabe onde ele está.
+    ///
+    /// O piso de 1 é deliberado: sem conta nenhuma elegível o conselho não é convocado, e quem
+    /// decide isso é o escalonador — não este teto, que jamais deve devolver zero e travar a fase
+    /// por aritmética.
+    /// </summary>
+    public static int MaximumConcurrentSeats(CouncilCapacity capacity)
+    {
+        ArgumentNullException.ThrowIfNull(capacity);
+        return Math.Max(1, capacity.DistinctAccounts);
+    }
+
+    /// <summary>
+    /// O que a mesa REALMENTE foi — não o que se pretendia que fosse.
+    ///
+    /// Opinião sem conta identificada conta como lente e não conta como inteligência: o número de
+    /// contas distintas é sempre o que se pode PROVAR, nunca o que se pode supor. Um conselho que
+    /// arredondasse para cima aqui estaria mentindo justamente no campo que existe para não deixar
+    /// mentir.
+    /// </summary>
+    public static CouncilDiversity MeasureDiversity(IReadOnlyList<CouncilOpinion> opinions)
+    {
+        ArgumentNullException.ThrowIfNull(opinions);
+        var heard = opinions.Where(opinion => !opinion.IsOperational).ToArray();
+        var accounts = heard
+            .Select(opinion => opinion.AccountAlias)
+            .Where(alias => !string.IsNullOrWhiteSpace(alias))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+        var providers = heard
+            .Select(opinion => opinion.ProviderKind)
+            .Where(kind => !string.IsNullOrWhiteSpace(kind))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+
+        return new CouncilDiversity(heard.Length, accounts, providers);
+    }
+
+    /// <summary>
     /// As lentes do conselho, cada uma com a pergunta que só ela faz.
     ///
     /// A diversidade é o ponto: três agentes com a mesma lente produzem a mesma cegueira três
@@ -162,13 +228,15 @@ public static class AgentCouncilPolicy
     public static CouncilVerdict Consolidate(IReadOnlyList<CouncilOpinion> opinions)
     {
         ArgumentNullException.ThrowIfNull(opinions);
+        var diversity = MeasureDiversity(opinions);
         if (opinions.Count < MinimumCouncil)
         {
             return new CouncilVerdict(
                 false,
                 "council.incomplete",
                 $"O conselho reuniu {opinions.Count} parecer(es); o mínimo é {MinimumCouncil}.",
-                []);
+                [],
+                diversity);
         }
 
         var blocking = opinions.Where(opinion => opinion.IsBlocking).ToArray();
@@ -181,13 +249,22 @@ public static class AgentCouncilPolicy
             ? new CouncilVerdict(
                 false,
                 "council.blocking_finding",
-                $"{blocking.Length} conselheiro(s) apontaram achado impeditivo antes do desenvolvimento.",
-                dissent)
+                $"{blocking.Length} conselheiro(s) apontaram achado impeditivo antes do desenvolvimento. " +
+                diversity.Declaration,
+                dissent,
+                diversity)
             : new CouncilVerdict(
                 true,
-                "council.cleared",
-                "O conselho não encontrou impedimento para iniciar o desenvolvimento.",
-                dissent);
+                // A degradação NÃO reprova — ela é declarada. Bloquear o conselho por falta de
+                // conta devolveria o impasse de 03/08 com outro nome; deixá-la passar calada
+                // entregaria seis prompts do mesmo modelo como seis opiniões. O caminho honesto é
+                // liberar dizendo em quantas inteligências aquilo foi pensado, e deixar o registro
+                // decidir o quanto vale.
+                diversity.ClearedReasonCode,
+                "O conselho não encontrou impedimento para iniciar o desenvolvimento. " +
+                diversity.Declaration,
+                dissent,
+                diversity);
     }
 
     /// <summary>
@@ -198,7 +275,9 @@ public static class AgentCouncilPolicy
     public static CouncilOpinion? FromExecution(
         CouncilSeat seat,
         string? attemptSummary,
-        string? blockedReason = null)
+        string? blockedReason = null,
+        string? accountAlias = null,
+        string? providerKind = null)
     {
         ArgumentNullException.ThrowIfNull(seat);
         // Bloqueio SEM parecer é ausência de opinião, não opinião contrária. O que se sabe é que
@@ -210,7 +289,9 @@ public static class AgentCouncilPolicy
                 IsBlocking: true,
                 HasConcern: false,
                 $"Este conselheiro não pôde ser ouvido: {blockedReason.Trim()}",
-                IsOperational: true);
+                IsOperational: true,
+                accountAlias,
+                providerKind);
         }
 
         if (string.IsNullOrWhiteSpace(attemptSummary))
@@ -235,7 +316,10 @@ public static class AgentCouncilPolicy
 
         return new CouncilOpinion(
             seat.PersonaKey, blocking, concern,
-            summary.Length <= 2_000 ? summary : $"{summary[..2_000]}…");
+            summary.Length <= 2_000 ? summary : $"{summary[..2_000]}…",
+            IsOperational: false,
+            accountAlias,
+            providerKind);
     }
 }
 
@@ -279,19 +363,91 @@ public sealed record CouncilContext(
 /// falha de infraestrutura era publicada como parecer do arquiteto, e o Control Plane abria
 /// trabalho para "corrigir" uma opinião que ninguém deu.
 /// </param>
+/// <param name="AccountAlias">
+/// QUEM pensou este parecer — o alias da conta que executou, não a persona. É o campo que separa
+/// "seis lentes" de "seis prompts para o mesmo modelo", e por isso ele é medido do ledger de
+/// invocações da tentativa, nunca inferido do nome do assento. <see langword="null"/> significa
+/// "não foi possível provar de qual conta veio", e conta como lente sem contar como inteligência.
+/// </param>
+/// <param name="ProviderKind">
+/// O fornecedor por trás da conta. Serve à PREFERÊNCIA por provedores distintos, nunca a um
+/// bloqueio: duas contas do mesmo fornecedor já quebram a cegueira de sessão e de cota.
+/// </param>
 public sealed record CouncilOpinion(
     string Seat,
     bool IsBlocking,
     bool HasConcern,
     string Summary,
-    bool IsOperational = false);
+    bool IsOperational = false,
+    string? AccountAlias = null,
+    string? ProviderKind = null);
+
+/// <summary>
+/// Capacidade real da frota no instante da convocação — quantas contas e quantos fornecedores
+/// distintos podem, AGORA, ocupar um assento. Vem do escalonador, que é a única autoridade sobre
+/// elegibilidade; o conselho não reimplementa essa decisão, ele a consome.
+/// </summary>
+public sealed record CouncilCapacity(int DistinctAccounts, int DistinctProviders);
+
+/// <summary>
+/// O que a mesa foi de verdade. Existe para que a frase "o conselho aprovou" nunca mais possa
+/// esconder em quantas cabeças aquilo foi pensado.
+/// </summary>
+public sealed record CouncilDiversity(int Seats, int DistinctAccounts, int DistinctProviders)
+{
+    public bool MeetsMinimumDiversity =>
+        DistinctAccounts >= AgentCouncilPolicy.MinimumDistinctAccounts;
+
+    /// <summary>
+    /// A diversidade não foi MEDIDA — o que é diferente de ter sido medida e ser insuficiente.
+    /// Acontece quando nenhuma opinião pôde ser atribuída a uma conta (ledger indisponível, ou
+    /// caminho que ainda não instrumenta autoria). Confundir os dois casos custaria os dois lados:
+    /// tratar desconhecido como suficiente esconde monólogo; tratá-lo como degradado acusa uma
+    /// frota curta que talvez não seja curta.
+    /// </summary>
+    public bool DiversityUnknown => DistinctAccounts == 0 && Seats > 0;
+
+    /// <summary>
+    /// O código de motivo de um conselho que LIBEROU. São três, e a diferença entre eles é a
+    /// diferença entre saber, saber que é pouco, e não saber.
+    /// </summary>
+    public string ClearedReasonCode =>
+        DiversityUnknown
+            ? "council.cleared_diversity_unknown"
+            : MeetsMinimumDiversity
+                ? "council.cleared"
+                : "council.cleared_degraded";
+
+    /// <summary>
+    /// A frase que vai para o ledger e para o portão. Ela é escrita para ser lida por quem não
+    /// conhece o código: "N lentes, M inteligências distintas" diz, sem jargão, se aquele parecer
+    /// foi um debate ou um monólogo com seis vozes.
+    /// </summary>
+    public string Declaration =>
+        DistinctAccounts == 0
+            ? $"{Seats} lente(s); não foi possível provar em quantas contas distintas foram " +
+              "pensadas — a diversidade deste conselho é DESCONHECIDA."
+            : MeetsMinimumDiversity
+                ? $"{Seats} lente(s) em {DistinctAccounts} inteligência(s) distinta(s)" +
+                  $"{(DistinctProviders > 1 ? $" de {DistinctProviders} fornecedores" : string.Empty)}."
+                : $"DEGRADADO: {Seats} lente(s) em apenas {DistinctAccounts} inteligência(s) " +
+                  $"distinta(s) — o mínimo é {AgentCouncilPolicy.MinimumDistinctAccounts}. As " +
+                  "lentes diferem na pergunta, não em quem responde; leia este parecer como " +
+                  "opinião única examinada por vários ângulos.";
+}
 
 /// <param name="Dissent">
 /// Toda discordância, bloqueante ou não. Um conselho cuja divergência some do registro vira
 /// carimbo — e carimbo não protege ninguém.
 /// </param>
+/// <param name="Diversity">
+/// Em quantas inteligências distintas este veredito foi pensado. Nasce opcional porque o campo é
+/// novo e há chamadores anteriores a ele; onde vier <see langword="null"/>, a resposta honesta é
+/// "não medido" — jamais "diversidade suficiente".
+/// </param>
 public sealed record CouncilVerdict(
     bool MayProceed,
     string ReasonCode,
     string Rationale,
-    IReadOnlyList<string> Dissent);
+    IReadOnlyList<string> Dissent,
+    CouncilDiversity? Diversity = null);

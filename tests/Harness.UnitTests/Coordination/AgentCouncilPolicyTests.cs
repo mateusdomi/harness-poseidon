@@ -75,7 +75,10 @@ public sealed class AgentCouncilPolicyTests
         ]);
 
         Assert.True(verdict.MayProceed);
-        Assert.Equal("council.cleared", verdict.ReasonCode);
+        // D2: pareceres sem autoria atribuível liberam a fase e declaram que a diversidade não
+        // pôde ser medida. "Desconhecida" nunca é lido como "suficiente" — é a única leitura que
+        // não deixa seis prompts do mesmo modelo passarem por seis opiniões.
+        Assert.Equal("council.cleared_diversity_unknown", verdict.ReasonCode);
         Assert.Single(verdict.Dissent);
     }
 

@@ -4,7 +4,11 @@ using Harness.Host.Documents;
 using Harness.Modules.Coordination.Application;
 using Harness.Modules.Workflows.Application;
 using Harness.Persistence.Abstractions.Conversations;
+using Harness.Modules.Agents.Application.Accounts;
+using Harness.Modules.Agents.Contracts;
+using Harness.Modules.Agents.Application.Execution.External;
 using Harness.Persistence.Abstractions.Projects;
+using Harness.Persistence.Abstractions.Providers;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.Persistence.Abstractions.Workflows;
 using Harness.SharedKernel.Identifiers;
@@ -61,7 +65,9 @@ public sealed class WorkflowPhaseDriver(
     IConversationStore conversations,
     IPlanMaterializationStore materializations,
     IClock clock,
-    ICouncilOpinionArtifactReader? councilOpinions = null)
+    ICouncilOpinionArtifactReader? councilOpinions = null,
+    IModelInvocationStore? invocations = null,
+    AgentAccountRegistry? accounts = null)
 {
     /// <summary>Tipo de objetivo cujo entregável é um documento produzível por agente.</summary>
     private const string DocumentKind = "document";
@@ -117,6 +123,19 @@ public sealed class WorkflowPhaseDriver(
     /// da tentativa, e os testes que constroem o condutor à mão não precisam de repositório git.
     /// </summary>
     private readonly ICouncilOpinionArtifactReader? _councilOpinions = councilOpinions;
+
+    /// <summary>
+    /// De QUAL CONTA saiu cada parecer. Opcional pela mesma razão do leitor de artefato: sem ele o
+    /// conselho continua funcionando, e a diversidade é reportada honestamente como desconhecida —
+    /// nunca como suficiente.
+    /// </summary>
+    private readonly IModelInvocationStore? _invocations = invocations;
+
+    /// <summary>
+    /// Quantas contas distintas podem ocupar um assento AGORA. É o que transforma capacidade curta
+    /// em serialização em vez de seis cards disputando a mesma conta.
+    /// </summary>
+    private readonly AgentAccountRegistry? _accounts = accounts;
 
     /// <summary>
     /// Título ESTÁVEL do card que produz um objetivo de fase. É a chave de idempotência: o mesmo
@@ -714,6 +733,15 @@ public sealed class WorkflowPhaseDriver(
             Persistence: true,
             TestableCriteria: true));
 
+        // D2 — CAPACIDADE CURTA SERIALIZA, NÃO BLOQUEIA.
+        //
+        // Abrir seis assentos com uma conta elegível não produz seis opiniões: produz seis cards
+        // disputando a mesma conta, cinco adiados a cada ciclo, e a fase parada com aparência de
+        // trabalho em andamento. O teto abre tantos assentos quantas contas distintas existem para
+        // ocupá-los; os demais entram nos ciclos seguintes, à medida que os primeiros fecham.
+        var capacity = MeasureCouncilCapacity();
+        var seatCeiling = AgentCouncilPolicy.MaximumConcurrentSeats(capacity);
+
         var opinions = new List<CouncilOpinion>(councilSeats.Count);
         var created = 0;
         foreach (var seat in councilSeats)
@@ -729,6 +757,16 @@ public sealed class WorkflowPhaseDriver(
 
             if (existing.Task is null)
             {
+                // O teto conta o que foi aberto NESTE ciclo. Um assento que não coube agora não é
+                // perdido nem recusado: ele simplesmente ainda não foi convocado, e o próximo ciclo
+                // o encontra na mesma posição da lista, que é estável por construção.
+                if (created >= seatCeiling)
+                {
+                    _failures.Add(
+                        $"phase:{phaseName}:council_seat_deferred_for_capacity:{seat.PersonaKey}");
+                    continue;
+                }
+
                 var title = CouncilCardTitle(phaseName, seat.PersonaKey, 1);
                 await CreateCouncilCardAsync(
                     tenantId, project, phaseName, seat, title, 1, primaryDemand?.Id, actorProfileId,
@@ -766,8 +804,14 @@ public sealed class WorkflowPhaseDriver(
                     project, delivered.Id, seat.PersonaKey, existing.Cycle, cancellationToken);
             }
 
+            // QUEM pensou este parecer. O alias vem do ledger de invocações da própria tentativa —
+            // é o mesmo fato que impede o provedor de revisar o próprio trabalho, e é o único que
+            // se pode PROVAR: a persona diz qual lente, não qual inteligência.
+            var (accountAlias, providerKind) = await ResolveCouncilAuthorAsync(
+                tenantId, existing.Task.Id, attempts, cancellationToken);
+
             var opinion = AgentCouncilPolicy.FromExecution(
-                seat, attemptSummary, existing.Task.BlockedReason);
+                seat, attemptSummary, existing.Task.BlockedReason, accountAlias, providerKind);
             if (opinion is null)
             {
                 // Card encerrado e nenhuma opinião legível: isto SEGURA a fase, então precisa
@@ -840,6 +884,80 @@ public sealed class WorkflowPhaseDriver(
         }
 
         return AgentCouncilPolicy.Consolidate(opinions);
+    }
+
+    /// <summary>
+    /// Quantas contas distintas — e de quantos fornecedores — podem ocupar um assento AGORA.
+    ///
+    /// A elegibilidade é do escalonador; aqui se conta apenas o elenco POSSÍVEL: conta habilitada,
+    /// com o papel de crítico e adapter real. Disponibilidade instantânea (cota, cooldown,
+    /// concorrência) muda a cada minuto e não deve decidir quantos assentos EXISTEM — decide
+    /// quando cada um roda, e isso é trabalho do despacho.
+    ///
+    /// Sem registro de contas devolve capacidade 1: um assento de cada vez é o comportamento
+    /// conservador certo, porque erra para o lado de andar devagar, não para o lado de abrir seis
+    /// cards que ninguém pode executar.
+    /// </summary>
+    private CouncilCapacity MeasureCouncilCapacity()
+    {
+        if (_accounts is null)
+        {
+            return new CouncilCapacity(1, 1);
+        }
+
+        var eligible = _accounts.List()
+            .Where(account =>
+                account.State != AgentAccountState.Disabled &&
+                account.AllowedRoles.Contains(AgentRoles.Critic, StringComparer.OrdinalIgnoreCase) &&
+                ExternalAgentExecutorFactory.IsImplemented(account.ExecutorId))
+            .ToArray();
+
+        return new CouncilCapacity(
+            eligible.Length,
+            eligible.Select(account => account.ProviderKind)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count());
+    }
+
+    /// <summary>
+    /// De qual conta saiu o parecer deste assento. A fonte é o ledger de invocações da tentativa
+    /// entregue — não a persona, que diz a lente e não a inteligência, e não o agente do card, que
+    /// é instância de projeto e não conta.
+    ///
+    /// Devolve <see langword="null"/> quando não se pode provar. Isso conta como lente sem contar
+    /// como inteligência, e a consolidação declara a diversidade como DESCONHECIDA — que é a
+    /// resposta honesta, e a única que não deixa um monólogo passar por debate.
+    /// </summary>
+    private async Task<(string? Alias, string? Provider)> ResolveCouncilAuthorAsync(
+        string tenantId,
+        string taskId,
+        IReadOnlyList<BoardAttemptRecord> attempts,
+        CancellationToken cancellationToken)
+    {
+        if (_invocations is null || attempts.Count == 0)
+        {
+            return (null, null);
+        }
+
+        try
+        {
+            var ledger = await _invocations.GetTaskInvocationsAsync(tenantId, taskId, cancellationToken);
+            var attemptIds = attempts.Select(attempt => attempt.Id).ToHashSet(StringComparer.Ordinal);
+            var invocation = ledger
+                .Where(entry => attemptIds.Contains(entry.AttemptId))
+                .OrderByDescending(entry => entry.InvokedAt)
+                .FirstOrDefault();
+
+            return invocation is null
+                ? (null, null)
+                : (invocation.AccountAlias, invocation.Provider);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Telemetria não segura o conselho. Falhar aqui devolve "desconhecido", que a
+            // consolidação já sabe declarar — nunca uma diversidade otimista.
+            return (null, null);
+        }
     }
 
     private static string CouncilCardTitle(string phaseName, string personaKey) =>
