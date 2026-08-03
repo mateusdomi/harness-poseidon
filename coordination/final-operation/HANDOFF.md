@@ -510,3 +510,82 @@ Registrei que um card "sumia em silêncio". Não sumia: a mensagem existia com o
 (`escopo ocupado por run vivo`) e eu não a procurei. Antes de declarar silêncio, agregue as
 linhas do card por TIPO — `grep <id> | sed 's/.*Chief: //' | sort | uniq -c` — em vez de
 olhar as últimas.
+
+---
+
+# Noite de 2026-08-03, ciclo 40 — três cadeados no mesmo card, um por vez
+
+## O que você precisa saber antes de tocar em qualquer coisa
+
+A esteira ficou **quatro horas parada e não era falta de conta**. Os seis assentos do Conselho
+da fase 4 tinham entregue às 17:50Z e estavam `escalated`/`blocked`. Zero tentativa em
+execução, zero aviso, e o supervisor relançando a Integradora a cada trinta minutos contra
+uma sessão que morria em dois segundos com `You've hit your session limit`. Doze ciclos assim.
+
+**Processo vivo não prova trabalho, e supervisor vivo não prova supervisão.** Se você
+encontrar `integrator.yield` com `durationSeconds: 2` repetido no `EVENTS.jsonl`, não é a
+Integradora desistindo: é a conta dela sem sessão. Olhe a hora do reset antes de procurar
+defeito.
+
+## A forma desta rodada: cadeados empilhados
+
+Três defeitos independentes trancavam o MESMO card, e cada um só ficou visível depois que o
+anterior saiu. Corrigir o primeiro não fez nada andar — **fez o sintoma mudar**, e foi a
+troca de sintoma que provou que a correção tinha valido.
+
+1. **`OPS-059a` — falta de revisor contava como falha.** O teto de quatro adiamentos com
+   backoff de cinco minutos dá vinte minutos. A única outra conta com papel `critic` estava
+   em resfriamento; os seis escalaram em oito minutos, com o texto da própria escalação
+   dizendo *"o que falhou foi o revisor, não a entrega"*. A eleição já sabia distinguir
+   "ninguém está livre agora" de "ninguém serve para isto" e devolvia a mesma lista vazia
+   nos dois casos.
+2. **`OPS-059b` — escalado, o card não tinha volta.** O replanejamento é o único caminho, e a
+   precondição enumerava `rejected`/`cancelled`/`abandoned`. A tentativa parou em
+   `awaiting_review`: entregou, ninguém reprovou porque ninguém revisou. `InvalidState`, para
+   sempre. **Terceira vez** que a LISTA de estados fica mais estreita que a REGRA escrita ao
+   lado dela — a regra dizia "o que não é replanejável é tentativa viva ou já aprovada", e
+   agora o predicado nega exatamente esses dois.
+3. **`OPS-060` — a chave de idempotência prometia estabilidade que a carga não tinha.** Tirado
+   o `InvalidState`, o sintoma virou `conflito de idempotência`. A chave era
+   card+versão+hash, mas o comando carrega também o id da nova versão de instrução: um ULID
+   sorteado a cada rodada. Mesma chave, carga diferente. Como o inbox guarda **também as
+   mutações recusadas**, a primeira recusa trancava todas as seguintes — inclusive as que já
+   tinham a causa corrigida. A versão do card na chave era a defesa anterior e não alcança
+   este caso: a versão só muda quando a mutação é APLICADA, e nenhuma era.
+
+**Se você corrigir algo e o sintoma mudar em vez de sumir, não recue — avance.** Foi assim
+que os três saíram em noventa minutos.
+
+## O erro que eu cometi e corrigi na mesma hora
+
+Troquei o teto de vinte minutos por uma **carência fixa de duas horas** — e o único crítico
+elegível voltava em três. Os seis escalariam às 00:24, uma hora antes de a resposta poder
+existir. É o erro simétrico de novo, e a saída era a de sempre nesta operação: **o provedor
+DIZ quando volta**, e o dado já estava em `~/.harness/account-availability.json`. A espera
+agora é `max(carência mínima, janela declarada)`, com teto de doze horas para que "ele disse
+que volta" não vire espera sem fim (`OPS-061`).
+
+Antes de endurecer OU afrouxar uma condição de parada, pergunte qual caso ela torna
+impossível — e depois procure se o sistema já não sabe a resposta.
+
+## Como está agora e o que acontece sozinho
+
+Os seis pareceres re-executaram, entregaram e estão em `awaiting_review` **adiando, não
+escalando**, porque o ator é `worker-antigravity-review` e o único outro crítico
+(`worker-codex-critic`) está sem cota até **2026-08-04T01:21:25Z**. Isso **não é bloqueio do
+proprietário e não é defeito**: é insumo com hora marcada, e a fase retoma sozinha.
+
+Um review REAL aconteceu às 22:35Z (antigravity reprovou uma tentativa e o card entregou de
+novo): o elo inteiro de revisão está provado de ponta a ponta, não só o caminho de falha.
+
+**Só duas contas têm papel `critic`** e os cards do Conselho são executados por elas — então
+uma serve de ator e sobra exatamente uma para revisar. Qualquer indisponibilidade de uma das
+duas para a fase inteira. Se isso voltar a doer, o lugar é o elenco de papéis em
+`~/.harness/agent-accounts.json`, não o código; e mexer em papel já derrubou uma fase inteira
+antes (o caso `frontend-specialist` do handoff anterior). Pense duas vezes.
+
+## Ferramenta que provou seu valor nesta rodada
+
+`tools/operation/publish-when-idle.sh <project_id>` — usei três vezes em quarenta minutos,
+sem perder uma tentativa. Ele pausa a esteira ANTES de conferir de novo, e essa ordem é a
+razão de funcionar. Não reinicie o Host à mão enquanto ele existir.
