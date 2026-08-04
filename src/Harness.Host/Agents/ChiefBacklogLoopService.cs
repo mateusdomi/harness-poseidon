@@ -3246,13 +3246,18 @@ public sealed partial class ChiefBacklogLoopService(
             return "Ainda estou apurando o motivo.";
         }
 
-        if (reason.Contains("quota", StringComparison.OrdinalIgnoreCase))
+        // F-06: evitar Contains("quota")/Contains("authentication") — substring casa com texto
+        // do próprio código ou de mensagens de erro do provedor. Os reason codes canônicos são
+        // prefixados por conta/executor; comparar por igualdade remove a ambiguidade.
+        if (string.Equals(reason, "account.quota_limited", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(reason, "executor.quota_exhausted", StringComparison.OrdinalIgnoreCase))
         {
             return "O serviço que faz esse trabalho atingiu o limite da janela dele e volta " +
                    "sozinho quando a janela renovar.";
         }
 
-        if (reason.Contains("authentication", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(reason, "account.authentication_required", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(reason, "executor.authentication_required", StringComparison.OrdinalIgnoreCase))
         {
             return "O acesso de um dos profissionais precisa ser renovado — isso depende de " +
                    "você, e eu te procuro para resolvermos.";

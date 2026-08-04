@@ -36,6 +36,15 @@ public sealed class RepositorySurfaceMap
     public static RepositorySurfaceMap Empty { get; } = new([]);
 
     /// <summary>
+    /// Costura de teste: monta o mapa a partir de superfícies declaradas, sem depender da árvore
+    /// de um repositório real. Existe porque a regra que importa — o recorte nunca tira do card o
+    /// lugar onde ele foi mandado escrever — precisa ser exercitada com superfícies controladas,
+    /// e derivá-las de diretórios de mentira testaria a varredura em vez da regra.
+    /// </summary>
+    internal static RepositorySurfaceMap ForSurfaces(IEnumerable<RepositorySurface> surfaces) =>
+        new([.. surfaces]);
+
+    /// <summary>
     /// Lê a estrutura real da raiz do repositório. Nunca lança: um caminho inacessível devolve o
     /// mapa vazio, porque falhar aqui derrubaria o despacho por um detalhe de ambiente.
     /// </summary>

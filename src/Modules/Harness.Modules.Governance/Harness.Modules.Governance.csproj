@@ -15,4 +15,8 @@
     <ProjectReference Include="..\..\Harness.SharedKernel\Harness.SharedKernel.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Harness.UnitTests" />
+  </ItemGroup>
+
 </Project>

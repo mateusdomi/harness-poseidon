@@ -67,11 +67,64 @@ public static class CardPathScopePlanner
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Order(StringComparer.Ordinal)
             .ToArray();
-        return claims.Length == 0
-            ? new CardPathScopePlan(roleClaims, false, "scope.surface_outside_role", [])
-            : new CardPathScopePlan(
-                claims, true, "scope.narrowed", [.. matches.Select(surface => surface.Name)]);
+        if (claims.Length == 0)
+        {
+            return new CardPathScopePlan(roleClaims, false, "scope.surface_outside_role", []);
+        }
+
+        // O ESTREITAMENTO NÃO PODE TIRAR DO CARD O LUGAR ONDE ELE FOI MANDADO ESCREVER.
+        //
+        // Ele é otimização — reduz o alcance para que dois cards do mesmo papel rodem em paralelo
+        // sem disputar arquivo. Quando a otimização corta justamente a superfície do entregável, o
+        // card fica impedido de cumprir a própria instrução, e o sintoma é o pior possível: o
+        // agente roda, gasta token e entrega diff VAZIO, porque escrever era impossível. Não há
+        // erro, não há recusa visível, e o revisor reprova por "não fez o trabalho".
+        //
+        // Medido em 04/08: um card cuja instrução dizia "UM arquivo ADR em docs/decisions/"
+        // recebeu como único claim `tools/backend/**`. Sete tentativas, sete diffs vazios, sete
+        // reprovações corretas — sobre um trabalho que o sistema tinha tornado impossível.
+        //
+        // A regra: se a instrução NOMEIA um diretório de saída e o recorte não o cobre, desiste do
+        // recorte e devolve o escopo inteiro do papel. Perder paralelismo é barato; perder a
+        // capacidade de entregar não é. E a segurança não afrouxa — o papel continua sendo o teto.
+        var declaredOutputs = DeclaredOutputPaths(instruction)
+            .Where(path => roleClaims.Any(role => IsWithin(path, role)))
+            .ToArray();
+        var uncovered = declaredOutputs
+            .Where(path => !claims.Any(claim => IsWithin(path, claim)))
+            .ToArray();
+        if (uncovered.Length > 0)
+        {
+            return new CardPathScopePlan(roleClaims, false, "scope.declared_output_uncovered", []);
+        }
+
+        return new CardPathScopePlan(
+            claims, true, "scope.narrowed", [.. matches.Select(surface => surface.Name)]);
     }
+
+    /// <summary>
+    /// Diretórios que a instrução NOMEIA como destino do entregável.
+    ///
+    /// Deliberadamente conservador: reconhece só caminhos escritos de forma inequívoca — com barra
+    /// e sem espaço —, porque um falso positivo aqui só custa paralelismo, enquanto um falso
+    /// negativo devolve o card mudo que esta regra existe para impedir.
+    /// </summary>
+    private static IEnumerable<string> DeclaredOutputPaths(string instruction)
+    {
+        if (string.IsNullOrWhiteSpace(instruction))
+        {
+            yield break;
+        }
+
+        foreach (System.Text.RegularExpressions.Match match in OutputPathPattern.Matches(instruction))
+        {
+            yield return match.Value.TrimEnd('/');
+        }
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex OutputPathPattern =
+        new(@"(?<![\w/.-])(?:src|tests|docs|infra|tools|frontend|governance)/[\w./-]*",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
 
     /// <summary>
     /// O path candidato está contido no claim do papel? Compara pelas RAÍZES, tolerando o sufixo
