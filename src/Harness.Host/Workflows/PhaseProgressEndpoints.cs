@@ -3,6 +3,7 @@ using Harness.Modules.Workflows.Application;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Workflows;
 using Harness.SharedKernel.Identifiers;
+using Harness.SharedKernel.Time;
 
 namespace Harness.Host.Workflows;
 
@@ -20,7 +21,77 @@ public static class PhaseProgressEndpoints
             .WithTags("workflows")
             .Produces<PhaseProgressContract>()
             .ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+
+        // CANCELAR UMA OBRIGAÇÃO É DECISÃO DE ESCOPO, e por isso é do dono — não do agente.
+        //
+        // O domínio já sabia cancelar e já exigia motivo; faltava a porta. Sem ela, uma release
+        // que decide em pleno voo que uma fatia sai do plano fica travada para sempre: o portão
+        // exige todas as obrigatórias aceitas, e a que saiu do escopo nunca vai ser aceita nem
+        // pode ser marcada como entregue. Foi o que prendeu a fase 5 da prova limpa depois de a
+        // fronteira do piloto virar backend-only.
+        //
+        // A trava contra abuso é a do domínio e continua inteira: cancelar sem motivo é recusado,
+        // e a obrigação cancelada sai da conta INTEIRA — numerador e denominador —, de modo que
+        // cancelar o que falhou não fabrica 100%. A evidência entra junto para que o registro diga
+        // POR QUE saiu, e não apenas que saiu.
+        endpoints.MapPost("/api/v1/phase-obligations/{obligationId}/cancel", CancelAsync)
+            .WithTags("workflows")
+            .Produces<PhaseObligationCancelResult>()
+            .ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         return endpoints;
+    }
+
+    /// <param name="Reason">
+    /// Por que a obrigação saiu do plano. Obrigatório: o domínio recusa cancelamento sem motivo,
+    /// e é esse texto que separa "decidimos não fazer" de "não conseguimos fazer".
+    /// </param>
+    /// <param name="Evidence">
+    /// Onde a decisão está registrada — ADR, commit, card substituto. Opcional no contrato e
+    /// esperado na prática: uma decisão de escopo sem endereço vira boato no ledger.
+    /// </param>
+    public sealed record PhaseObligationCancelRequest(
+        string Reason, IReadOnlyList<string>? Evidence = null);
+
+    public sealed record PhaseObligationCancelResult(string ObligationId, string State);
+
+    private static async Task<IResult> CancelAsync(
+        string obligationId,
+        PhaseObligationCancelRequest body,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IPhaseObligationStore obligations,
+        IClock clock,
+        CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(body);
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null)
+        {
+            return Results.Problem(statusCode: 401, title: "unauthenticated");
+        }
+
+        if (string.IsNullOrWhiteSpace(body.Reason))
+        {
+            return Results.Problem(
+                statusCode: 400,
+                title: "reason_required",
+                detail: "Cancelar uma obrigação exige motivo: sem ele, remover o que falhou " +
+                    "seria o caminho curto para fabricar 100%.");
+        }
+
+        var applied = await obligations.UpdateStateAsync(
+            new PhaseObligationStateCommand(
+                profile.TenantId,
+                obligationId,
+                "cancelled",
+                body.Evidence ?? [],
+                body.Reason.Trim(),
+                clock.UtcNow),
+            token);
+
+        return applied
+            ? Results.Ok(new PhaseObligationCancelResult(obligationId, "cancelled"))
+            : Results.Problem(statusCode: 404, title: "obligation_not_found");
     }
 
     private static async Task<IResult> GetAsync(
