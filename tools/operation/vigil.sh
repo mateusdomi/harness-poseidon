@@ -55,8 +55,14 @@ say "vigia de pe (pid $$) — projeto $PROJECT, intervalo ${INTERVAL}s, teto de 
 
 # Memória entre voltas: só alerta na TRANSIÇÃO, senão o log vira uma parede de repetição e
 # quem lê aprende a ignorá-lo — que é o modo mais caro de um vigia falhar.
+#
+# UM ESTADO POR TIPO DE ALERTA, e não um só para todos. Enquanto era uma variável única, dois
+# alertas simultâneos — card impedido e binário defasado — disputavam a mesma memória e se
+# realertavam em revezamento a cada volta: cada um "apagava" o registro do outro e voltava a
+# parecer novidade. Medido em 04/08 entre 03:19 e 03:25, três repetições do mesmo par. Um vigia
+# que repete alarme é um vigia que ninguém lê, e este é o terceiro defeito desta família aqui.
 last_done=-1
-last_alert_key=""
+declare -A fired
 idle_since=$(date -u +%s)
 down_strikes=0
 
@@ -75,9 +81,9 @@ while true; do
     down_strikes=$(( down_strikes + 1 ))
     if pgrep -f "publish-when-idle" >/dev/null 2>&1; then
       say "host fora do ar (http=$http) durante publicacao — esperado, nada a fazer"
-    elif [[ "$down_strikes" -ge 2 && "$last_alert_key" != "host_down" ]]; then
+    elif [[ "$down_strikes" -ge 2 && -z "${fired[host_down]:-}" ]]; then
       alert "HOST FORA DO AR (http=$http) em duas leituras seguidas e sem publicacao em curso. A esteira inteira está parada."
-      last_alert_key="host_down"
+      fired[host_down]=1
     fi
     sleep "$INTERVAL"; continue
   fi
@@ -95,25 +101,28 @@ while true; do
   if [[ "$done_now" != "$last_done" ]]; then
     idle_since=$now
     last_done="$done_now"
-    last_alert_key=""
+    # Progresso real limpa a memória de TODOS os alertas: o quadro mudou, e o que estava dito
+    # sobre o quadro anterior pode ter deixado de valer.
+    fired=()
   fi
   idle_min=$(( (now - idle_since) / 60 ))
 
   say "fase=${phase:-?} concluidos=$done_now em_voo=$running impedidos=$blocked ocioso=${idle_min}min"
 
   # 3. Card impedido é trabalho parado que ninguém vai destravar sozinho.
-  if [[ "$blocked" -gt 0 && "$last_alert_key" != "blocked" ]]; then
+  if [[ "$blocked" -gt 0 && "${fired[blocked]:-}" != "$blocked" ]]; then
     alert "$blocked card(s) IMPEDIDO(S) — precisa de decisão:"
     q "select '  - '||substr(title,1,70)||' :: '||coalesce(blocked_reason,'(sem motivo registrado)') from work_tasks where project_id='$PROJECT' and (state='escalated' or board_state='blocked');" >> "$LOG"
-    last_alert_key="blocked"
+    # A memória guarda QUANTOS: um quinto card impedido é notícia nova, o mesmo quarto não é.
+    fired[blocked]="$blocked"
   fi
 
   # 4. Esteira parada: nada em voo E nada concluindo. Uma das duas sozinha é normal —
   #    juntas, por tempo demais, significam que ninguém está trabalhando e ninguém avisou.
-  if [[ "$running" -eq 0 && "$idle_min" -ge "$IDLE_ALERT" && "$last_alert_key" != "idle" ]]; then
+  if [[ "$running" -eq 0 && "$idle_min" -ge "$IDLE_ALERT" && -z "${fired[idle]:-}" ]]; then
     alert "ESTEIRA PARADA há ${idle_min}min: nenhuma tentativa em voo e nenhum card novo concluído."
     q "select '  ultimo desfecho: '||outcome||' em '||invoked_at||' ('||account_alias||')' from model_invocations where project_id='$PROJECT' order by invoked_at desc limit 1;" >> "$LOG"
-    last_alert_key="idle"
+    fired[idle]=1
   fi
 
   # 5. Binário defasado — o defeito que este arquivo existe para não repetir.
@@ -135,16 +144,16 @@ while true; do
         publisher_pid=$(pgrep -f "publish-when-idle" | head -1)
         head_src=$(cd "$ROOT" && git log -1 --format=%h -- src/)
         if [[ -z "$publisher_pid" ]]; then
-          if [[ "$last_alert_key" != "stale_binary" ]]; then
+          if [[ "${fired[stale_binary]:-}" != "$head_src" ]]; then
             alert "BINARIO DEFASADO E SEM PUBLICADOR — o processo subiu há $etime, há commit em src/ mais novo ($head_src) e ninguém está publicando. Armar tools/operation/publish-when-idle.sh."
-            last_alert_key="stale_binary"
+            fired[stale_binary]="$head_src"
           fi
         else
           publisher_min=$(( $(uptime_seconds "$publisher_pid") / 60 ))
           if [[ "$publisher_min" -ge "${VIGIL_PUBLISHER_STUCK_MINUTES:-45}" ]]; then
-            if [[ "$last_alert_key" != "publisher_stuck" ]]; then
+            if [[ -z "${fired[publisher_stuck]:-}" ]]; then
               alert "PUBLICADOR TRAVADO — armado há ${publisher_min}min (pid $publisher_pid) e o binário segue defasado ($head_src). Ele espera janela sem tentativa em voo; se a esteira nunca fica ociosa, ninguém publica nunca."
-              last_alert_key="publisher_stuck"
+              fired[publisher_stuck]=1
             fi
           else
             say "binario defasado ($head_src) — publicador de pe ha ${publisher_min}min (pid $publisher_pid); nada a fazer"
