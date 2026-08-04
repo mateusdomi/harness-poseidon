@@ -255,7 +255,7 @@ public sealed class SignalRResynchronizationPocTests
         CancellationToken cancellationToken)
     {
         var store = services.GetRequiredService<IOutboxStore>();
-        while ((await store.ReadSnapshotAsync(cancellationToken)).Dispatched < dispatched)
+        while ((await store.ReadSnapshotAsync(cancellationToken: cancellationToken)).Dispatched < dispatched)
         {
             await Task.Delay(TimeSpan.FromMilliseconds(20), cancellationToken);
         }

@@ -875,16 +875,34 @@ public static class HostApplication
             { "mode", "server" }
         })).WithTags("system");
 
-        app.MapGet("/metrics", () =>
+        app.MapGet("/metrics", async (IOutboxStore outbox, CancellationToken cancellationToken) =>
         {
+            var snapshot = await outbox.ReadSnapshotAsync(cancellationToken: cancellationToken);
             var uptime = (DateTimeOffset.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime).TotalSeconds;
-            var prometheusText = $"""
+            var oldestPendingSeconds = snapshot.OldestPendingAge?.TotalSeconds ?? -1;
+            var prometheusText = $$"""
                 # HELP poseidon_uptime_seconds System uptime in seconds
                 # TYPE poseidon_uptime_seconds gauge
-                poseidon_uptime_seconds {uptime:F2}
+                poseidon_uptime_seconds {{uptime:F2}}
                 # HELP poseidon_health_status System health status (1 = healthy)
                 # TYPE poseidon_health_status gauge
                 poseidon_health_status 1
+                # HELP poseidon_outbox_messages_total Total outbox messages by state
+                # TYPE poseidon_outbox_messages_total gauge
+                poseidon_outbox_messages_total{state="pending"} {{snapshot.Pending}}
+                poseidon_outbox_messages_total{state="claimed"} {{snapshot.Claimed}}
+                poseidon_outbox_messages_total{state="dispatched"} {{snapshot.Dispatched}}
+                poseidon_outbox_messages_total{state="dead_lettered"} {{snapshot.DeadLettered}}
+                poseidon_outbox_messages_total{state="failure_history"} {{snapshot.FailureHistory}}
+                # HELP poseidon_outbox_oldest_pending_seconds Age of the oldest pending outbox message
+                # TYPE poseidon_outbox_oldest_pending_seconds gauge
+                poseidon_outbox_oldest_pending_seconds {{oldestPendingSeconds:F3}}
+                # HELP poseidon_outbox_dispatched_last_minute Messages dispatched in the last minute
+                # TYPE poseidon_outbox_dispatched_last_minute gauge
+                poseidon_outbox_dispatched_last_minute {{snapshot.DispatchedLastMinute}}
+                # HELP poseidon_outbox_dispatched_last_hour Messages dispatched in the last hour
+                # TYPE poseidon_outbox_dispatched_last_hour gauge
+                poseidon_outbox_dispatched_last_hour {{snapshot.DispatchedLastHour}}
                 """;
             return Results.Text(prometheusText, "text/plain; version=0.0.4");
         }).WithTags("system");

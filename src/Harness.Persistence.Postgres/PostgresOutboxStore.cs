@@ -214,8 +214,12 @@ public sealed class PostgresOutboxStore(NpgsqlDataSource dataSource) : IOutboxSt
     }
 
     public async Task<OutboxStoreSnapshot> ReadSnapshotAsync(
+        DateTimeOffset? now = null,
         CancellationToken cancellationToken = default)
     {
+        var snapshotNow = now ?? DateTimeOffset.UtcNow;
+        var sinceMinute = snapshotNow.AddMinutes(-1);
+        var sinceHour = snapshotNow.AddHours(-1);
         await using var query = _dataSource.CreateCommand(
             """
             SELECT
@@ -225,21 +229,35 @@ public sealed class PostgresOutboxStore(NpgsqlDataSource dataSource) : IOutboxSt
                                        AND lock_owner IS NOT NULL),
                 COUNT(*) FILTER (WHERE dispatched_at IS NOT NULL),
                 COUNT(*) FILTER (WHERE dead_lettered_at IS NOT NULL),
-                (SELECT COUNT(*) FROM harness.outbox_dispatch_failures)
+                (SELECT COUNT(*) FROM harness.outbox_dispatch_failures),
+                MIN(occurred_at) FILTER (WHERE dispatched_at IS NULL AND dead_lettered_at IS NULL
+                                               AND lock_owner IS NULL),
+                COUNT(*) FILTER (WHERE dispatched_at IS NOT NULL AND dispatched_at >= $1),
+                COUNT(*) FILTER (WHERE dispatched_at IS NOT NULL AND dispatched_at >= $2)
             FROM harness.outbox_messages;
             """);
+        query.Parameters.Add(Timestamp(sinceMinute));
+        query.Parameters.Add(Timestamp(sinceHour));
         await using var reader = await query.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken))
         {
             throw new InvalidOperationException("Outbox snapshot query returned no row.");
         }
 
+        var oldestPendingAt = reader.IsDBNull(5)
+            ? (DateTimeOffset?)null
+            : reader.GetFieldValue<DateTimeOffset>(5);
         return new OutboxStoreSnapshot(
             reader.GetInt64(0),
             reader.GetInt64(1),
             reader.GetInt64(2),
             reader.GetInt64(3),
-            reader.GetInt64(4));
+            reader.GetInt64(4))
+        {
+            OldestPendingAge = oldestPendingAt is not null ? snapshotNow - oldestPendingAt.Value : null,
+            DispatchedLastMinute = reader.GetInt64(6),
+            DispatchedLastHour = reader.GetInt64(7),
+        };
     }
 
     private static async Task<OutboxMutationRow?> ReadMutationRowAsync(

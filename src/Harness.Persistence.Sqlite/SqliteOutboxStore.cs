@@ -73,10 +73,12 @@ public sealed class SqliteOutboxStore(SqliteWriteDispatcher dispatcher) : IOutbo
     }
 
     public Task<OutboxStoreSnapshot> ReadSnapshotAsync(
+        DateTimeOffset? now = null,
         CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync(
             async (connection, token) =>
             {
+                var snapshotNow = now ?? DateTimeOffset.UtcNow;
                 await using var query = connection.CreateCommand();
                 query.CommandText =
                     """
@@ -87,21 +89,38 @@ public sealed class SqliteOutboxStore(SqliteWriteDispatcher dispatcher) : IOutbo
                                       AND lock_owner IS NOT NULL THEN 1 ELSE 0 END),
                         SUM(CASE WHEN dispatched_at IS NOT NULL THEN 1 ELSE 0 END),
                         SUM(CASE WHEN dead_lettered_at IS NOT NULL THEN 1 ELSE 0 END),
-                        (SELECT COUNT(*) FROM outbox_dispatch_failures)
+                        (SELECT COUNT(*) FROM outbox_dispatch_failures),
+                        MIN(CASE WHEN dispatched_at IS NULL AND dead_lettered_at IS NULL
+                                      AND lock_owner IS NULL
+                                 THEN occurred_at END),
+                        SUM(CASE WHEN dispatched_at IS NOT NULL
+                                      AND dispatched_at >= $sinceMinute THEN 1 ELSE 0 END),
+                        SUM(CASE WHEN dispatched_at IS NOT NULL
+                                      AND dispatched_at >= $sinceHour THEN 1 ELSE 0 END)
                     FROM outbox_messages;
                     """;
+                Add(query, "$sinceMinute", Store(snapshotNow.AddMinutes(-1)));
+                Add(query, "$sinceHour", Store(snapshotNow.AddHours(-1)));
                 await using var reader = await query.ExecuteReaderAsync(token);
                 if (!await reader.ReadAsync(token))
                 {
                     throw new InvalidOperationException("Outbox snapshot query returned no row.");
                 }
 
+                var oldestPendingAt = reader.IsDBNull(5)
+                    ? (DateTimeOffset?)null
+                    : Parse(reader.GetString(5));
                 return new OutboxStoreSnapshot(
                     ReadCount(reader, 0),
                     ReadCount(reader, 1),
                     ReadCount(reader, 2),
                     ReadCount(reader, 3),
-                    ReadCount(reader, 4));
+                    ReadCount(reader, 4))
+                {
+                    OldestPendingAge = oldestPendingAt is not null ? snapshotNow - oldestPendingAt.Value : null,
+                    DispatchedLastMinute = ReadCount(reader, 6),
+                    DispatchedLastHour = ReadCount(reader, 7),
+                };
             },
             cancellationToken);
 

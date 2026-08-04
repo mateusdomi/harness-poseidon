@@ -24,6 +24,7 @@ public interface IOutboxStore
         CancellationToken cancellationToken = default);
 
     Task<OutboxStoreSnapshot> ReadSnapshotAsync(
+        DateTimeOffset? now = null,
         CancellationToken cancellationToken = default);
 }
 
@@ -73,7 +74,17 @@ public sealed record OutboxStoreSnapshot(
     long Claimed,
     long Dispatched,
     long DeadLettered,
-    long FailureHistory);
+    long FailureHistory)
+{
+    /// <summary>Idade da mensagem pendente mais antiga; nulo quando não há fila.</summary>
+    public TimeSpan? OldestPendingAge { get; init; }
+
+    /// <summary>Mensagens entregues no último minuto.</summary>
+    public long DispatchedLastMinute { get; init; }
+
+    /// <summary>Mensagens entregues na última hora.</summary>
+    public long DispatchedLastHour { get; init; }
+}
 
 public sealed record OutboxRetryPolicy(
     int MaximumAttempts,

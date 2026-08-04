@@ -64,8 +64,13 @@ public sealed class OutboxDispatcherBackgroundServiceTests
 
         Assert.Equal(2, await firstWorker.DispatchAvailableAsync(timeout.Token));
         Assert.Equal(
-            new OutboxStoreSnapshot(1, 0, 1, 0, 1),
-            await fixture.Store.ReadSnapshotAsync(timeout.Token));
+            new OutboxStoreSnapshot(1, 0, 1, 0, 1)
+            {
+                OldestPendingAge = clock.UtcNow - new DateTimeOffset(2026, 7, 18, 13, 40, 0, TimeSpan.Zero),
+                DispatchedLastMinute = 1,
+                DispatchedLastHour = 1,
+            },
+            await fixture.Store.ReadSnapshotAsync(clock.UtcNow, timeout.Token));
         Assert.Single(failingSink.DispatchedMessageIds);
 
         clock.Advance(TimeSpan.FromSeconds(1));
@@ -73,8 +78,12 @@ public sealed class OutboxDispatcherBackgroundServiceTests
         var resumedWorker = CreateWorker(fixture.Store, resumedSink, clock, "worker-after-restart");
         Assert.Equal(1, await resumedWorker.DispatchAvailableAsync(timeout.Token));
         Assert.Equal(
-            new OutboxStoreSnapshot(0, 0, 2, 0, 1),
-            await fixture.Store.ReadSnapshotAsync(timeout.Token));
+            new OutboxStoreSnapshot(0, 0, 2, 0, 1)
+            {
+                DispatchedLastMinute = 2,
+                DispatchedLastHour = 2,
+            },
+            await fixture.Store.ReadSnapshotAsync(clock.UtcNow, timeout.Token));
         Assert.Single(resumedSink.DispatchedMessageIds);
         Assert.DoesNotContain(
             resumedSink.DispatchedMessageIds[0],
@@ -96,15 +105,19 @@ public sealed class OutboxDispatcherBackgroundServiceTests
         await interrupted.StopAsync(timeout.Token);
         Assert.Equal(
             new OutboxStoreSnapshot(0, 1, 0, 0, 0),
-            await fixture.Store.ReadSnapshotAsync(timeout.Token));
+            await fixture.Store.ReadSnapshotAsync(clock.UtcNow, timeout.Token));
 
         clock.Advance(TimeSpan.FromMinutes(2));
         var recoverySink = new RecordingSink();
         var recovery = CreateWorker(fixture.Store, recoverySink, clock, "recovery-worker");
         Assert.Equal(1, await recovery.DispatchAvailableAsync(timeout.Token));
         Assert.Equal(
-            new OutboxStoreSnapshot(0, 0, 1, 0, 0),
-            await fixture.Store.ReadSnapshotAsync(timeout.Token));
+            new OutboxStoreSnapshot(0, 0, 1, 0, 0)
+            {
+                DispatchedLastMinute = 1,
+                DispatchedLastHour = 1,
+            },
+            await fixture.Store.ReadSnapshotAsync(clock.UtcNow, timeout.Token));
         Assert.Single(recoverySink.DispatchedMessageIds);
     }
 

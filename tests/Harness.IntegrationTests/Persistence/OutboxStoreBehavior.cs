@@ -9,11 +9,13 @@ internal static class OutboxStoreBehavior
         IOutboxStore store,
         CancellationToken cancellationToken)
     {
-        Assert.Equal(
-            new OutboxStoreSnapshot(2, 0, 0, 0, 0),
-            await store.ReadSnapshotAsync(cancellationToken));
-
         var now = new DateTimeOffset(2026, 7, 18, 18, 0, 0, TimeSpan.Zero);
+        Assert.Equal(
+            new OutboxStoreSnapshot(2, 0, 0, 0, 0)
+            {
+                OldestPendingAge = now - new DateTimeOffset(2026, 7, 18, 13, 40, 0, TimeSpan.Zero),
+            },
+            await store.ReadSnapshotAsync(now, cancellationToken));
         var acquisitions = await Task.WhenAll(
             Enumerable.Range(0, 10).Select(index =>
                 store.TryAcquireNextAsync(
@@ -37,7 +39,7 @@ internal static class OutboxStoreBehavior
         });
         Assert.Equal(
             new OutboxStoreSnapshot(0, 2, 0, 0, 0),
-            await store.ReadSnapshotAsync(cancellationToken));
+            await store.ReadSnapshotAsync(now, cancellationToken));
 
         var recoveryTime = now.AddMinutes(2);
         Assert.Equal(2, await store.ReleaseExpiredClaimsAsync(recoveryTime, cancellationToken));
@@ -135,9 +137,14 @@ internal static class OutboxStoreBehavior
         Assert.Equal(2, deadLetter.Attempts);
         Assert.Null(deadLetter.AvailableAt);
 
+        var finalSnapshotNow = firstFailure.AvailableAt!.Value.AddMilliseconds(500);
         Assert.Equal(
-            new OutboxStoreSnapshot(0, 0, 1, 1, 2),
-            await store.ReadSnapshotAsync(cancellationToken));
+            new OutboxStoreSnapshot(0, 0, 1, 1, 2)
+            {
+                DispatchedLastMinute = 1,
+                DispatchedLastHour = 1,
+            },
+            await store.ReadSnapshotAsync(finalSnapshotNow, cancellationToken));
         Assert.Null(await store.TryAcquireNextAsync(
             "terminal-scan",
             TimeSpan.FromMinutes(1),
