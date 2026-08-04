@@ -53,6 +53,55 @@ public sealed class CorrectionBaseBranchTests
             "-TODO: preencher\n+Commit: 0123456789abcdef"));
     }
 
+    /// <summary>
+    /// A primeira entrega de CÓDIGO da operação (tentativa 01KZ51F6KBDCTF9SKT5520HVA0) foi barrada
+    /// por estas duas linhas: `metodo:` contém `TODO:` como substring. O produto escreve em
+    /// português, então o falso-positivo não é raro — é o caso comum.
+    /// </summary>
+    [Fact]
+    public void PortugueseIdentifiersAreNotMistakenForPlaceholders()
+    {
+        Assert.Empty(ChiefBacklogLoopService.ForbiddenDeliveryPlaceholders(
+            """
+            +        chamadas.push({ url, metodo: opcoes?.method });
+            +    deepEqual(chamadas, [{ url: 'https://x/devolucao', metodo: 'POST' }]);
+            +const substituicaoDeMetodo = { metodo: 'GET' };
+            """));
+    }
+
+    [Fact]
+    public void RealPlaceholdersStillFailEvenNextToPunctuation()
+    {
+        var findings = ChiefBacklogLoopService.ForbiddenDeliveryPlaceholders(
+            """
+            +// TODO: implementar a devolução
+            +const sha = '<commit-sha>';
+            +export const chave = 'REPLACE_ME';
+            +const replacement = 'REPLACE_MENT';
+            """);
+
+        Assert.Equal(
+            [
+                "// TODO: implementar a devolução",
+                "const sha = '<commit-sha>';",
+                "export const chave = 'REPLACE_ME';",
+            ],
+            findings);
+    }
+
+    /// <summary>
+    /// O gate de placeholder emitia `critic.delivery_placeholder`, que não é um motivo aplicável:
+    /// `ApplyReviewVerdictAsync` devolvia `false` por definição, o card adiava quatro vezes e
+    /// escalava como "revisão indisponível" — nunca como a reprovação que o gate tinha apurado.
+    /// </summary>
+    [Fact]
+    public void DeterministicRejectionsAreAppliableVerdictsAndNotInfrastructureFailures()
+    {
+        Assert.True(ChiefBacklogLoopService.IsAppliableReviewReason(
+            ChiefBacklogLoopService.DeterministicRejectionReasonCode));
+        Assert.False(ChiefBacklogLoopService.IsAppliableReviewReason("critic.delivery_placeholder"));
+    }
+
     [Fact]
     public void DispatchDeferralsDoNotConsumeTheCardRoundBudget()
     {

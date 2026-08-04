@@ -1281,6 +1281,16 @@ public sealed partial class ChiefBacklogLoopService(
         StringComparer.Ordinal);
 
     /// <summary>
+    /// O código com que um gate DETERMINÍSTICO reprova a entrega. Existe como constante porque a
+    /// regra que o governa é invisível no ponto de uso: um código fora de
+    /// <see cref="AppliableReviewReasons"/> não vira reprovação — vira adiamento eterno.
+    /// </summary>
+    internal const string DeterministicRejectionReasonCode = "critic.fail";
+
+    internal static bool IsAppliableReviewReason(string reasonCode) =>
+        AppliableReviewReasons.Contains(reasonCode);
+
+    /// <summary>
     /// D1 — este card é um parecer do Conselho, e por isso não passa por revisão independente.
     ///
     /// O discriminador é o tipo `revisao`, e ele é exato hoje: em todo o produto existe UM ponto
@@ -2463,7 +2473,13 @@ public sealed partial class ChiefBacklogLoopService(
                 var deterministicResult = new CriticReviewResult(
                     UlidValue.New(now).ToString(), awaiting.Id, "deterministic-delivery-gate",
                     "deterministic", producerAlias, CriticVerdict.Fail,
-                    "critic.delivery_placeholder",
+                    // REPROVAÇÃO REAL, não falha de infraestrutura. O código precisa estar em
+                    // `AppliableReviewReasons`, senão `ApplyReviewVerdictAsync` devolve `false`
+                    // por definição: o veredito nunca é aplicado, o card adia quatro vezes e
+                    // escala como "revisão indisponível" — culpando o revisor por algo que o
+                    // gate determinístico apurou sozinho e sabia dizer. Os gates irmãos
+                    // (documental e de segredo) já usam `critic.fail`; este era o único fora.
+                    DeterministicRejectionReasonCode,
                     [.. placeholders.Select(value => new CriticFinding(
                         CriticFindingSeverity.P1,
                         "delivery.placeholder",
@@ -4515,18 +4531,56 @@ public sealed partial class ChiefBacklogLoopService(
     /// Localiza marcadores inequívocos de trabalho inacabado somente nas linhas adicionadas do
     /// diff. Texto removido e cabeçalhos do patch não geram falso positivo.
     /// </summary>
+    /// <summary>
+    /// Marcadores que uma entrega não pode carregar para o review comportamental.
+    ///
+    /// O casamento é por PALAVRA, não por substring, e a diferença não é cosmética: `TODO:` como
+    /// substring casa dentro de `metodo:` — e este produto escreve identificador em português.
+    /// A primeira entrega de CÓDIGO da operação foi barrada por duas linhas de teste que diziam
+    /// `{ url, metodo: opcoes?.method }`, e o card ficou irreversivelmente adiando. Um gate
+    /// determinístico que reprova o idioma do produto não protege ninguém: ele só transfere para
+    /// o ator o custo de adivinhar o que o revisor achou.
+    /// </summary>
     public static IReadOnlyList<string> ForbiddenDeliveryPlaceholders(string diff)
     {
         ArgumentNullException.ThrowIfNull(diff);
         string[] markers = ["PENDING_PUB_SHA", "REPLACE_ME", "CHANGEME", "<commit-sha>", "TODO:"];
         return diff.Split('\n')
             .Where(line => line.StartsWith('+') && !line.StartsWith("+++", StringComparison.Ordinal))
-            .Where(line => markers.Any(marker => line.Contains(marker, StringComparison.OrdinalIgnoreCase)))
+            .Where(line => markers.Any(marker => ContainsMarkerAsWord(line, marker)))
             .Select(line => line.Length <= 1000 ? line[1..] : line[1..1000])
             .Distinct(StringComparer.Ordinal)
             .Take(50)
             .ToArray();
     }
+
+    /// <summary>
+    /// O marcador aparece na linha como palavra própria? A borda só é exigida do lado em que o
+    /// próprio marcador termina em caractere de palavra — `TODO:` fecha em `:`, então só a borda
+    /// da esquerda importa; `REPLACE_ME` exige as duas, para não casar dentro de `REPLACE_MENT`.
+    /// </summary>
+    private static bool ContainsMarkerAsWord(string line, string marker)
+    {
+        var needsLeftBoundary = IsWordCharacter(marker[0]);
+        var needsRightBoundary = IsWordCharacter(marker[^1]);
+        var index = line.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        while (index >= 0)
+        {
+            var leftOk = !needsLeftBoundary || index == 0 || !IsWordCharacter(line[index - 1]);
+            var end = index + marker.Length;
+            var rightOk = !needsRightBoundary || end >= line.Length || !IsWordCharacter(line[end]);
+            if (leftOk && rightOk)
+            {
+                return true;
+            }
+
+            index = line.IndexOf(marker, index + 1, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
+    }
+
+    private static bool IsWordCharacter(char value) => char.IsLetterOrDigit(value) || value == '_';
 
     /// <summary>
     /// Só projeto ATIVO entra no ciclo autônomo. `paused` é decisão explícita do dono (endpoint
