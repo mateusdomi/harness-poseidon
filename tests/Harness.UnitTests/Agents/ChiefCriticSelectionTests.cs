@@ -90,6 +90,7 @@ public sealed class ChiefCriticSelectionTests : IDisposable
             providerRouting: null!,
             codeGraph: null!,
             new AgentAccountScheduler(),
+            providerCatalog: null!,
             NullLogger<ChiefBacklogLoopService>.Instance);
     }
 

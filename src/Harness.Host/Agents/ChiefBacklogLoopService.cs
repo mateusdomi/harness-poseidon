@@ -52,6 +52,7 @@ public sealed partial class ChiefBacklogLoopService(
     ProviderRoutingCoordinator providerRouting,
     CodeGraphDerivationService codeGraph,
     AgentAccountScheduler scheduler,
+    IProviderCatalogStore providerCatalog,
     ILogger<ChiefBacklogLoopService> logger) : BackgroundService
 {
     /// <summary>Despachante em escala (Fase 10) — puro e determinístico, um por processo.</summary>
@@ -990,16 +991,29 @@ public sealed partial class ChiefBacklogLoopService(
                         continue;
                     }
 
+                    var route = await catalog.GetAgentAsync(
+                        profile.TenantId, project.ChiefAgentId, token);
+                    var account = accounts.Get(decision.AccountAlias);
+                    var executorProfile = ExecutorCatalog.Find(account?.ExecutorId ?? string.Empty);
+                    var preferredModel = route?.ModelId is { Length: > 0 } modelId
+                        ? (await providerCatalog.GetModelAsync(profile.TenantId, modelId, token))?.Name
+                        : null;
+                    var effort = route?.Effort is { Length: > 0 } e &&
+                        executorProfile?.Capabilities is { SupportsEffort: true } caps &&
+                        caps.EffortValues.Contains(e, StringComparer.OrdinalIgnoreCase)
+                        ? e
+                        : null;
+
                     var routing = await providerRouting.RouteAndAuditAsync(
                         profile.TenantId,
                         project.Id,
                         decision,
-                        preferredModel: null,
+                        preferredModel,
                         routingNow,
                         token);
                     if (await LaunchAsync(
                             profile.TenantId, profile.Id, project, entry.Resolution, decision.AccountAlias,
-                            routing.SelectedModel, entry.Task, entry.InstructionVersionId, personas,
+                            routing.SelectedModel, effort, entry.Task, entry.InstructionVersionId, personas,
                             catalog, projectControlledRoot,
                             string.Equals(
                                 decision.ReasonCode, "chief.reinforcement_dispatched", StringComparison.Ordinal),
@@ -4702,6 +4716,7 @@ public sealed partial class ChiefBacklogLoopService(
         ChiefCardResolution resolution,
         string accountAlias,
         string? model,
+        string? effort,
         BoardTaskRecord task,
         string instructionVersionId,
         IReadOnlyList<AgentDefinitionRecord> personas,
@@ -4841,6 +4856,7 @@ public sealed partial class ChiefBacklogLoopService(
                 PathScopeKind = pathScopeKind,
                 Access = ExternalAgentAccess.Workspace,
                 Model = model,
+                Effort = effort,
                 RiskTier = resolution.Card.RiskTier,
                 AcceptanceCriteria = resolution.Card.AcceptanceCriteria,
                 // null é deliberadamente fail-closed no orquestrador: uma persona resolvida que
