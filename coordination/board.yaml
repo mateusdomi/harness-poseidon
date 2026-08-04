@@ -72,6 +72,13 @@ ordem_provar_a_fabrica:
     config_alterada: "worker-claude-secondary ganhou o papel 'critic' em ~/.harness/agent-accounts.json (backup .bak-antes-critic-202608032025). Motivo: com os dois Codex sem cota, era a unica forma de ter DUAS contas critic com cota e sair do conselho degradado. allowedPathScopes fica vazio de proposito — a conta herda os escopos dos tres papeis, entao continua especialista E passa a poder escrever parecer em docs/conselho/**."
 
   onda_2_integrar_D3_D4_D5_e_fases_6_9: { estado: bloqueada, bloqueado_por: "onda 1" }
+  destravamento_20260804_1022:
+    o_que_funcionou: "Os quatro cards bloqueados voltaram a fila. O log mostra a regra nova agindo com o fato certo: 'tentativa nao introduziu mudanca nenhuma na branch; nao exerceu abordagem e nao gasta o replanejamento'. Bloqueados caiu de 4 para 2 e a esteira voltou a ciclar entre development e review."
+    conserto_decisivo: "ccd87db8 (OPS-078) — a regra do OPS-070 media CommitRefs, que e sempre verdadeiro porque a colheita commita ate com worktree vazia. O sinal certo ja existia pronto em GitWorktreeManager.BranchIntroducedChangesAsync, com 'HEAD...branch' e null para 'nao sei'. Eu tinha escrito a regra sobre a premissa errada; a leitura do git corrigiu."
+    o_que_NAO_resolveu: "Os cards destravados rodaram de novo e entregaram ZERO arquivo outra vez (tentativas 01KZ64PP2W7JNMATYG6T5QQXJS e 01KZ64WMGN2HW169BQPS36KYSB). Nao e o replanejamento: e OPS-072/OPS-076. O ator recusa corretamente porque o plano declara a decisao tecnica de arquitetura como pre-requisito, e o card `adr` que passou a nascer com o conserto so nasce em plano NOVO — este ja estava materializado. O destravamento devolveu os cards para a MESMA parede."
+    proximo_passo_real: "Criar a decisao de arquitetura para ESTE plano. Duas vias: (a) o Chefe replanejar a demanda, regenerando as fatias com a politica atual — e o caminho limpo, porque o plano inteiro passa a conhecer o pre-requisito; (b) criar o card adr direto pela API de cards e declarar a dependencia. A (a) e melhor e mais cara. Sem uma das duas, cada destravamento devolve os cards a mesma recusa, e a recusa esta CERTA."
+    licao: "Destravar nao e resolver. O card voltou a fila e reencontrou a parede que o derrubou — o conserto do caminho de volta e independente do conserto da causa, e eu tratei os dois como se fossem um."
+
   incidente_fase5_20260804:
     resumo: "A fase 5 parou 2h40 com tres cards bloqueados. DUAS causas independentes, e so uma era defeito."
     causa_1_cota:
