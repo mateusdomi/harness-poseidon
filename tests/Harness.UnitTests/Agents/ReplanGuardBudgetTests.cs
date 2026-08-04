@@ -11,8 +11,7 @@ namespace Harness.UnitTests.Agents;
 /// card podia executar (OPS-072). Quando os dois consertos entraram no ar, o replanejamento único
 /// de cada card já estava gasto e eles não tinham mais volta automática.
 ///
-/// Duas correções, ambas estreitas de propósito — nenhuma toca o orçamento de rodadas nem o
-/// limiar do circuito, que são o freio que de fato funcionou naquela noite:
+/// Duas correções, ambas estreitas de propósito — nenhuma toca o limiar do circuito:
 ///
 /// 1. "Tentou" passa a significar que algo foi ENTREGUE. Uma tentativa que rodou, gastou token e
 ///    não introduziu mudança nenhuma não exerceu abordagem alguma — não há o que evitar repetir.
@@ -24,15 +23,13 @@ namespace Harness.UnitTests.Agents;
 ///    cards: onze tentativas, três referências cada, inclusive as de diff vazio. A prova de
 ///    entrega é o diff da branch da tentativa, e a dúvida (`null`) conta como entrega.
 ///
-/// 2. O teto de rodadas operacionais passa a contar REPLANEJAMENTOS. Contava versões de
-///    instrução como proxy — cada replanejamento grava uma —, mas a correção após reprovação
-///    também grava, e o proxy quebrou: dez versões corretivas e um replanejamento apareciam como
-///    orçamento esgotado.
+/// 2. O teto de rodadas operacionais lê a rodada DECLARADA no corpo da instrução. Contava
+///    ocorrências do marcador, e o marcador é HERDADO: a instrução corretiva copia o corpo
+///    anterior, então um único replanejamento reaparecia em toda versão seguinte (OPS-080).
 /// </summary>
 public sealed class ReplanGuardBudgetTests
 {
-    private const string Replan = "## Replanejamento após escalonamento";
-    private static readonly string[] Original = ["original"];
+    private const string Marker = ReplanAttemptPolicy.ReplanMarker;
 
     // A regra vem da PRODUÇÃO. A versão anterior deste arquivo reimplementava o predicado aqui —
     // e foi por isso que ela ficou verde enquanto o código real nunca disparava: o teste media a
@@ -53,8 +50,8 @@ public sealed class ReplanGuardBudgetTests
     }
 
     /// <summary>
-    /// E o simétrico, que é o que impede isto de virar desculpa: entregou commit, exerceu a
-    /// abordagem, gastou o replanejamento. Um card que de fato tentou e falhou não volta de graça.
+    /// E o simétrico, que é o que impede isto de virar desculpa: entregou, exerceu a abordagem,
+    /// gastou o replanejamento. Um card que de fato tentou e falhou não volta de graça.
     /// </summary>
     [Fact]
     public void TentativaQueENTREGOUContaEGastaOReplanejamento()
@@ -84,9 +81,8 @@ public sealed class ReplanGuardBudgetTests
     }
 
     /// <summary>
-    /// Commit sem token é entrega igualmente: o que importa é ter deixado trabalho, não ter
-    /// consumido modelo. Exigir os dois seria confundir esforço com resultado — mas exigir NENHUM
-    /// seria deixar passar a tentativa vazia que este conserto existe para reconhecer.
+    /// Entrega sem consumo de modelo não conta: o que se mede aqui é a abordagem ter sido
+    /// exercida, e sem token nenhum não houve raciocínio a evitar repetir.
     /// </summary>
     [Fact]
     public void SoContaQuandoHOUVEEntregaEConsumo()
@@ -95,85 +91,54 @@ public sealed class ReplanGuardBudgetTests
         Assert.Equal(0, RealAttempts((null, 0, false)));
     }
 
-    // ---- O teto conta replanejamentos, não instruções --------------------------------
-
-    private static readonly DateTimeOffset T0 = DateTimeOffset.UnixEpoch;
-
-    // De novo: a contagem vem da produção. Cada corpo entra com o instante em que foi gravado, e
-    // um replanejamento só gasta rodada se alguma tentativa começou DEPOIS dele.
-    private static int OperationalReplans(params string[] bodies) =>
-        OperationalReplans([T0.AddHours(1)], [.. bodies.Select(b => (b, T0))]);
-
-    private static int OperationalReplans(
-        DateTimeOffset[] attemptStarts, params (string Body, DateTimeOffset CreatedAt)[] instructions) =>
-        instructions.Count(i =>
-            i.Body.Contains(Replan, StringComparison.Ordinal) &&
-            ReplanAttemptPolicy.ProducedDispatch(i.CreatedAt, attemptStarts));
+    // ---- O teto lê a RODADA declarada, e não ocorrências do marcador -----------------
 
     /// <summary>
-    /// O estado exato dos quatro cards presos: dez versões de instrução e UM replanejamento.
-    /// O proxy antigo (contar instruções) via orçamento esgotado onde havia uma rodada usada.
+    /// O estado real do card 01KZ4ZM2WYRFEHVNG05C4J3218: cinco blocos IDÊNTICOS, palavra por
+    /// palavra, porque a instrução corretiva copia o corpo anterior. Contar ocorrências media
+    /// herança; corpo legado sem número declarado vale UMA rodada.
     /// </summary>
     [Fact]
-    public void DezVersoesCorretivasEUmReplanejamentoContamComoUmaRodada()
+    public void CorpoLegadoComMarcadorRepetidoValeUmaRodada()
     {
-        var bodies = Original
-            .Concat(Enumerable.Repeat("## Correções exigidas pelo review independente", 8))
-            .Append($"corpo\n\n{Replan}\nA abordagem anterior...")
-            .ToArray();
+        var body = string.Join("\n\n", Enumerable.Repeat($"{Marker}\nA abordagem anterior...", 5));
 
-        Assert.Equal(10, bodies.Length);
-        Assert.Equal(1, OperationalReplans(bodies));
+        Assert.Equal(1, ReplanAttemptPolicy.ReadReplanRound(body));
+    }
+
+    /// <summary>Sem replanejamento nenhum não há rodada — o card nunca voltou.</summary>
+    [Fact]
+    public void CorpoSemMarcadorNaoTemRodada()
+    {
+        Assert.Equal(0, ReplanAttemptPolicy.ReadReplanRound("corpo comum\n## Correções exigidas"));
     }
 
     /// <summary>
-    /// E o teto continua existindo: quatro replanejamentos de verdade esgotam o orçamento. O
-    /// conserto corrige a contagem, não remove o freio.
+    /// E o simétrico, sem o qual a leitura acima viraria a saída fácil: rodada DECLARADA é lida
+    /// como está, e o teto continua existindo.
     /// </summary>
     [Fact]
-    public void QuatroReplanejamentosDeVerdadeAindaEsgotamOTeto()
+    public void RodadaDeclaradaEhLidaComoEsta()
     {
-        var bodies = Enumerable.Repeat($"corpo\n\n{Replan}\ntexto", 4).ToArray();
-
-        Assert.True(OperationalReplans(bodies) >= 4);
+        Assert.Equal(4, ReplanAttemptPolicy.ReadReplanRound($"x\n\n{Marker} (rodada 4)\ntexto"));
     }
 
     /// <summary>
-    /// Uma correção que CITE o replanejamento no texto do achado não pode inflar a contagem por
-    /// engano — mas aqui a citação é literal e conta, e isso é aceitável: o marcador é uma linha
-    /// própria escrita pelo sistema, não algo que um crítico digite por acaso. O teste existe para
-    /// que essa suposição fique registrada e falhe alto se o marcador virar texto comum.
+    /// O bloco antigo sai e o resto do enunciado fica intacto — inclusive as correções que vieram
+    /// DEPOIS dele, que são o trabalho de revisão e não podem ser engolidas pela limpeza.
     /// </summary>
     [Fact]
-    public void OMarcadorEEscritoPeloSistemaENaoPorAcaso()
+    public void RemocaoDoBlocoPreservaOResto()
     {
-        Assert.Equal(0, OperationalReplans("o revisor mencionou replanejamento em prosa"));
-        Assert.Equal(1, OperationalReplans($"x\n\n{Replan}\ny"));
-    }
+        var body =
+            $"cabeçalho do card\n\n{Marker} (rodada 2)\nlinha 1 do replan\nlinha 2\n\n" +
+            "## Correções exigidas pelo review independente\nachado P0";
 
-    /// <summary>
-    /// O laço medido em 04/08: a devolução aplicava, o orçamento de rodadas reescalava o card no
-    /// mesmo ciclo, e a volta seguinte gravava outra instrução. Três em dez minutos, nenhuma
-    /// despachada. Se essas voltas contassem, o teto se esgotaria por um defeito do sistema — a
-    /// terceira vez que o mesmo card seria punido por uma parede que não é dele.
-    /// </summary>
-    [Fact]
-    public void ReplanejamentoQueNaoProduziuDespachoNaoGastaRodada()
-    {
-        var churn = Enumerable.Repeat(($"corpo\n\n{Replan}\ntexto", T0.AddHours(2)), 3).ToArray();
+        var stripped = ReplanAttemptPolicy.StripReplanBlocks(body);
 
-        Assert.Equal(0, OperationalReplans([T0.AddHours(1)], churn));
-    }
-
-    /// <summary>
-    /// E o simétrico, sem o qual a regra acima viraria a saída fácil: o replanejamento que
-    /// DESPACHOU continua gastando a rodada.
-    /// </summary>
-    [Fact]
-    public void ReplanejamentoQueDespachouContinuaGastandoRodada()
-    {
-        Assert.Equal(
-            1,
-            OperationalReplans([T0.AddHours(3)], ($"corpo\n\n{Replan}\ntexto", T0.AddHours(2))));
+        Assert.DoesNotContain("linha 1 do replan", stripped, StringComparison.Ordinal);
+        Assert.DoesNotContain(Marker, stripped, StringComparison.Ordinal);
+        Assert.Contains("cabeçalho do card", stripped, StringComparison.Ordinal);
+        Assert.Contains("achado P0", stripped, StringComparison.Ordinal);
     }
 }

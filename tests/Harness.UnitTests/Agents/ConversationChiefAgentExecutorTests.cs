@@ -51,6 +51,20 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
     }
 
     [Fact]
+    public async Task AQuotaLimitedChiefAccountIsRejectedByTheScheduler()
+    {
+        // F-01: o executor deve consultar o AgentAccountScheduler, que rejeita uma conta
+        // chief marcada como QuotaLimited com cooldown no futuro — mesmo sem snapshot de
+        // cota observado. O resultado é a mesma falha honesta de uma conta ausente.
+        var registry = new AgentAccountRegistry();
+        registry.Register(ChiefAccount(AgentAccountState.QuotaLimited, Now.AddHours(1)));
+        var executor = Build(registry, new FakeExternalExecutor(ValidChiefJson));
+
+        await Assert.ThrowsAsync<AgentExecutorUnavailableException>(
+            () => executor.ExecuteAsync(Request(), CancellationToken.None));
+    }
+
+    [Fact]
     public async Task ItMapsTheRequestToAReadOnlyExternalRunOnTheRepositoryRoot()
     {
         var fake = new FakeExternalExecutor(ValidChiefJson);
@@ -418,6 +432,7 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         AgentAccountRegistry registry, FakeExternalExecutor fake) =>
         new(
             registry,
+            new AgentAccountScheduler(),
             new AccountProfileProvisioner(_profilesRoot),
             _ => fake,
             new StubClock(Now),
@@ -449,12 +464,13 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         return registry;
     }
 
-    private static AgentAccountContract ChiefAccount(AgentAccountState state) =>
+    private static AgentAccountContract ChiefAccount(
+        AgentAccountState state, DateTimeOffset? cooldownUntil = null) =>
         new(
             "chief-claude-primary", "anthropic", ExecutorCatalog.ClaudeCode,
             "keychain://poseidon/chief-claude-primary", "confighome://chief-claude-primary",
             [AgentRoles.ChiefOrchestrator], [],
-            state, AgentAccountHealth.Unknown, 1, 0, null, null, null, null, null, 100);
+            state, AgentAccountHealth.Unknown, 1, 0, null, null, cooldownUntil, null, null, 100);
 
     public void Dispose()
     {

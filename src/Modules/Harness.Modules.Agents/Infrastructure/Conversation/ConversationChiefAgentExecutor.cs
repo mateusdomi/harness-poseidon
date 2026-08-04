@@ -41,6 +41,7 @@ public sealed record ConversationChiefExecutorOptions(string RepositoryRoot);
 public sealed class ConversationChiefAgentExecutor : IAgentExecutor
 {
     private readonly AgentAccountRegistry _accounts;
+    private readonly AgentAccountScheduler _scheduler;
     private readonly AccountProfileProvisioner _profiles;
     private readonly Func<string, IExternalAgentExecutor> _externalExecutorFactory;
     private readonly IClock _clock;
@@ -49,12 +50,14 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
 
     public ConversationChiefAgentExecutor(
         AgentAccountRegistry accounts,
+        AgentAccountScheduler scheduler,
         AccountProfileProvisioner profiles,
         Func<string, IExternalAgentExecutor> externalExecutorFactory,
         IClock clock,
         ConversationChiefExecutorOptions options)
     {
         _accounts = accounts ?? throw new ArgumentNullException(nameof(accounts));
+        _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
         _profiles = profiles ?? throw new ArgumentNullException(nameof(profiles));
         _externalExecutorFactory = externalExecutorFactory
             ?? throw new ArgumentNullException(nameof(externalExecutorFactory));
@@ -199,20 +202,34 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
     }
 
     /// <summary>
-    /// Resolve a conta do Chefe pelo PAPEL <c>chief-orchestrator</c>. Uma conta desabilitada
-    /// é ignorada (equivale a ausência): o executor então se comporta como indisponível.
-    /// Havendo mais de uma candidata, escolhe a de maior prioridade e, no empate, o alias
-    /// canônico — decisão determinística, nunca aleatória.
+    /// Resolve a conta do Chefe pelo PAPEL <c>chief-orchestrator</c> via scheduler.
+    /// Uma conta desabilitada, sem capacidade de chat ou com cota esgotada é descartada
+    /// (equivale a ausência): o executor então se comporta como indisponível.
+    /// Havendo mais de uma candidata, o scheduler escolhe a de maior prioridade e, no
+    /// empate, o alias canônico — decisão determinística, nunca aleatória.
     /// </summary>
-    private AgentAccountContract? ResolveChiefAccount() =>
-        _accounts.List()
-            .Where(account =>
-                account.State != AgentAccountState.Disabled &&
-                account.AllowedRoles.Contains(
-                    AgentRoles.ChiefOrchestrator, StringComparer.OrdinalIgnoreCase))
-            .OrderByDescending(account => account.Priority)
-            .ThenBy(account => account.Alias, StringComparer.Ordinal)
-            .FirstOrDefault();
+    private AgentAccountContract? ResolveChiefAccount()
+    {
+        var decision = _scheduler.Select(
+            _accounts,
+            new AccountSchedulingRequest
+            {
+                Role = AgentRoles.ChiefOrchestrator,
+                RequiredCapability = "chat",
+                Now = _clock.UtcNow,
+                Quotas = new Dictionary<string, AccountQuotaSnapshot>(
+                    StringComparer.OrdinalIgnoreCase),
+                PreferMostCapable = true,
+            });
+
+        if (decision.SelectedAlias is null)
+        {
+            return null;
+        }
+
+        return _accounts.List().FirstOrDefault(account =>
+            string.Equals(account.Alias, decision.SelectedAlias, StringComparison.OrdinalIgnoreCase));
+    }
 
     /// <summary>
     /// Monta o prompt do turno. A ordem é deliberada: primeiro QUEM o modelo é (persona +

@@ -553,6 +553,7 @@ public static class HostApplication
             // tentativa órfã viva para sempre e travava todo card do mesmo escopo.
             builder.Services.AddHostedService<AttemptRecoveryBackgroundService>();
             builder.Services.AddSingleton(new ChiefBacklogPolicy());
+            builder.Services.AddSingleton<AgentAccountScheduler>();
 
             // O condutor de fase é quem liga o trabalho entregue à esteira do projeto: sem ele o
             // motor de workflow nunca é chamado em produção e a esteira fica decorativa.
@@ -582,6 +583,7 @@ public static class HostApplication
                 new InstrumentedAgentExecutor(
                     new ConversationChiefAgentExecutor(
                         services.GetRequiredService<AgentAccountRegistry>(),
+                        services.GetRequiredService<AgentAccountScheduler>(),
                         services.GetRequiredService<AccountProfileProvisioner>(),
                         executorId => services
                             .GetRequiredService<ExternalAgentExecutorFactory>()

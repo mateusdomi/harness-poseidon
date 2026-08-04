@@ -51,10 +51,13 @@ public sealed partial class ChiefBacklogLoopService(
     CapacityManager capacity,
     ProviderRoutingCoordinator providerRouting,
     CodeGraphDerivationService codeGraph,
+    AgentAccountScheduler scheduler,
     ILogger<ChiefBacklogLoopService> logger) : BackgroundService
 {
     /// <summary>Despachante em escala (Fase 10) — puro e determinístico, um por processo.</summary>
     private static readonly ScaleDispatcher ScaleGate = new();
+
+    private readonly AgentAccountScheduler _scheduler = scheduler;
 
     /// <summary>
     /// Quantos slots cada projeto ocupou neste processo, por tenant. A fila sempre começa pelos
@@ -3910,7 +3913,7 @@ public sealed partial class ChiefBacklogLoopService(
     private static partial void LogCardUndispatchable(ILogger logger, string taskId, string role);
 
     /// <summary>Marca que identifica, no histórico durável, uma instrução de replanejamento.</summary>
-    private const string ReplanMarker = "## Replanejamento após escalonamento";
+    private const string ReplanMarker = ReplanAttemptPolicy.ReplanMarker;
 
     /// <summary>
     /// Tenta UMA estratégia revisada para um card escalado. Devolve <c>true</c> quando replanejou
@@ -3952,8 +3955,12 @@ public sealed partial class ChiefBacklogLoopService(
         }
 
         var attempts = await board.ListAttemptsAsync(tenantId, task.Id, null, 100, token);
-        var alreadyReplanned = instructions.Any(instruction =>
-            instruction.Body.Contains(ReplanMarker, StringComparison.Ordinal));
+
+        // A RODADA é lida do corpo da última instrução, e não contada nas versões. O marcador é
+        // HERDADO — a instrução corretiva copia o corpo anterior e acrescenta os achados —, então
+        // contar ocorrências media herança em vez de trabalho. Ver ReplanAttemptPolicy.
+        var replanRound = ReplanAttemptPolicy.ReadReplanRound(instructions[^1].Body);
+        var alreadyReplanned = replanRound > 0;
 
         // Replanejar uma vez basta para um card que TENTOU e falhou: reescrever a instrução de novo
         // sobre a mesma abordagem só repete o fracasso. Mas um card que NUNCA rodou não tem
@@ -4022,19 +4029,8 @@ public sealed partial class ChiefBacklogLoopService(
         // reprovacao tambem grava, e o proxy quebrou — um card com dez versoes corretivas e UM
         // replanejamento aparecia como orcamento esgotado. Os quatro cards da fase 5 estavam
         // exatamente assim: acusados de ter gastado quatro rodadas operacionais tendo usado uma.
-        // E uma rodada operacional só é gasta quando o replanejamento PRODUZIU despacho. Um
-        // replanejamento aplicado que não gerou tentativa nenhuma não devolveu o card a lugar
-        // nenhum — foi exatamente o que aconteceu quando a devolução esbarrou no orçamento de
-        // rodadas e o card voltou a escalar no mesmo ciclo: três versões de instrução gravadas em
-        // dez minutos, nenhuma delas despachada, e o teto consumido por um laço em vez de por
-        // trabalho. Contar essas voltas puniria o card por um defeito do sistema pela terceira vez
-        // — que é o defeito que este bloco inteiro existe para não repetir.
-        var attemptStarts = attempts.Select(attempt => attempt.StartedAt).ToArray();
-        var operationalReplans = instructions.Count(instruction =>
-            instruction.Body.Contains(ReplanMarker, StringComparison.Ordinal) &&
-            ReplanAttemptPolicy.ProducedDispatch(instruction.CreatedAt, attemptStarts));
         if (alreadyReplanned &&
-            (realAttempts > 0 || operationalReplans >= MaximumOperationalReplanRounds))
+            (realAttempts > 0 || replanRound >= MaximumOperationalReplanRounds))
         {
             return false;
         }
@@ -4049,10 +4045,16 @@ public sealed partial class ChiefBacklogLoopService(
         var previousBody = instructions[^1].Body;
         var replanResolution = ChiefCardResolver.Resolve(
             task.Title, previousBody, [], task.Priority);
+        // O bloco de replanejamento SUBSTITUI o anterior em vez de se somar a ele. Acumulando,
+        // o ator recebia cinco cópias idênticas da mesma ordem — "a abordagem anterior NÃO deve
+        // ser repetida... registre o bloqueio em vez de tentar de novo" — sem nada que dissesse
+        // que eram a mesma frase repetida. Um enunciado que cresce por acréscimo a cada volta não
+        // é o enunciado que alguém escolheu mandar.
         var content =
             RebuildInstructionHeader(
-                previousBody, replanResolution.Role, replanResolution.PersonaKey, task.CardType) +
-            $"\n\n{ReplanMarker}\n" +
+                ReplanAttemptPolicy.StripReplanBlocks(previousBody),
+                replanResolution.Role, replanResolution.PersonaKey, task.CardType) +
+            $"\n\n{ReplanMarker} (rodada {replanRound + 1})\n" +
             $"A abordagem anterior esgotou os ciclos de revisão ({rejected} reprovação(ões)) e NÃO " +
             "deve ser repetida como está. Antes de escrever qualquer código:\n" +
             "1. Releia os achados da revisão e diga, em uma linha, por que a abordagem anterior " +
@@ -4455,54 +4457,58 @@ public sealed partial class ChiefBacklogLoopService(
     /// <paramref name="now"/> quando existe candidato sem restrição declarada; e a MENOR janela de
     /// retorno declarada pelo provedor quando todos os candidatos estão em cota ou resfriamento.
     /// </returns>
-    private DateTimeOffset? CriticRosterReturnsBy(string producerAlias, DateTimeOffset now)
+    internal DateTimeOffset? CriticRosterReturnsBy(string producerAlias, DateTimeOffset now)
     {
-        DateTimeOffset? earliest = null;
-        foreach (var account in accounts.List())
+        var decision = _scheduler.Select(accounts, BuildCriticSchedulingRequest(producerAlias, now));
+        var eligible = decision.Candidates.Where(candidate => candidate.Eligible).ToArray();
+        if (eligible.Length > 0)
         {
-            if (account.State == AgentAccountState.Disabled ||
-                !account.AllowedRoles.Contains("critic", StringComparer.OrdinalIgnoreCase) ||
-                string.Equals(account.Alias, producerAlias, StringComparison.OrdinalIgnoreCase) ||
-                !ExternalAgentExecutorFactory.IsImplemented(account.ExecutorId))
+            return now;
+        }
+
+        DateTimeOffset? earliest = null;
+        foreach (var candidate in decision.Candidates)
+        {
+            if (candidate.Eligible ||
+                (!string.Equals(candidate.ReasonCode, "account.quota_limited", StringComparison.Ordinal) &&
+                 !string.Equals(candidate.ReasonCode, "account.cooling_down", StringComparison.Ordinal)))
             {
                 continue;
             }
 
-            var record = availability.Get(account.Alias);
-            var returnsBy = record?.CooldownUntil is { } until && until > now &&
-                record.State is AgentAccountState.QuotaLimited or AgentAccountState.CoolingDown
-                ? until
-                : now;
-            if (earliest is null || returnsBy < earliest)
+            var record = availability.Get(candidate.Alias);
+            if (record?.CooldownUntil is { } until && until > now &&
+                (until < earliest || earliest is null))
             {
-                earliest = returnsBy;
+                earliest = until;
             }
         }
 
         return earliest;
     }
 
-    private string[] SelectCriticAliases(string producerAlias, DateTimeOffset now)
+    internal string[] SelectCriticAliases(string producerAlias, DateTimeOffset now)
     {
-        var signals = CapacitySignals(now);
-        return accounts.List()
-            .Where(account =>
-                account.State != AgentAccountState.Disabled &&
-                account.AllowedRoles.Contains("critic", StringComparer.OrdinalIgnoreCase) &&
-                !string.Equals(account.Alias, producerAlias, StringComparison.OrdinalIgnoreCase) &&
-                ExternalAgentExecutorFactory.IsImplemented(account.ExecutorId))
-            .Where(account =>
-            {
-                var record = availability.Get(account.Alias);
-                var coolingDown = record?.CooldownUntil is { } until && until > now &&
-                    record.State is AgentAccountState.QuotaLimited or AgentAccountState.CoolingDown;
-                return !coolingDown && !signals.ContainsKey(account.Alias);
-            })
-            .OrderByDescending(account => account.Priority)
-            .ThenBy(account => account.Alias, StringComparer.Ordinal)
-            .Select(account => account.Alias)
+        var decision = _scheduler.Select(accounts, BuildCriticSchedulingRequest(producerAlias, now));
+        return decision.Candidates
+            .Where(candidate => candidate.Eligible)
+            .OrderByDescending(candidate => candidate.Priority)
+            .ThenBy(candidate => candidate.Alias, StringComparer.Ordinal)
+            .Select(candidate => candidate.Alias)
             .ToArray();
     }
+
+    private AccountSchedulingRequest BuildCriticSchedulingRequest(
+        string producerAlias, DateTimeOffset now) =>
+        new()
+        {
+            Role = AgentRoles.Critic,
+            RequiredCapability = "review",
+            Now = now,
+            ForCritic = true,
+            ActorAlias = producerAlias,
+            Quotas = CapacitySignals(now),
+        };
 
     /// <summary>
     /// Colheita git da tentativa: se a worktree sobreviveu (worker terminou sem commitar), commita
