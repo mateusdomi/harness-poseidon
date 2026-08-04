@@ -689,3 +689,144 @@ Por ID, nesta ordem — está tudo no `nextAction` do `STATE.json`:
 
 O passo 2 é o que prova o `OPS-062`. Ele foi publicado às 23:10:51Z (binário `aa309902`), com
 `publish-when-idle` — janela sem tentativa em voo, esteira pausada antes e retomada depois.
+
+---
+
+# Madrugada de 2026-08-04, ciclo 55 — o gate que ninguém podia passar, e o eixo que virou verde
+
+## Leia isto antes de procurar trabalho
+
+**Não sobrou trabalho de agente.** O único bloqueio é `OPS-070`, e ele é do proprietário — ele foi
+notificado no Telegram às 03:49Z com recomendação fundamentada em medição, e o finding agora
+**declara** `blocksAxes: ["cleanE2E"]`, que é o mecanismo que o `OPS-042` instalou para o supervisor
+esperar em vez de relançar contra nada.
+
+Se você chegou aqui e o dono ainda não respondeu, **não invente trabalho e não implemente a opção
+(B)**: ela foi medida e não serve (ver abaixo).
+
+## O defeito que travava tudo por construção — `OPS-071`
+
+O pacote de objetivo exigia `Gates: build, tests`. O revisor cobrava a prova de execução,
+corretamente. E a CLI que executa o card roda em sandbox própria que **nega rodar o runtime dentro
+da worktree**. O ator entregava declarando por escrito que não pudera executar, e o revisor
+reprovava exatamente por essa declaração — achado P0, duas vezes, dois revisores independentes, em
+entregas sem outro defeito.
+
+Nenhum dos dois lados estava errado. **O defeito era pedir a prova a quem não pode produzi-la.**
+
+Agora quem executa é a plataforma, na worktree da tentativa, antes de ela ser removida. A fronteira
+entrou no código junto com a correção, não depois:
+
+- **ambiente construído, não herdado** — o processo filho não vê nenhuma variável do Host, portanto
+  nenhum segredo. Há teste que define uma variável no pai e prova que ela não chega do outro lado;
+- **sem rede**, teto de 4 min por comando e 10 no total, saída truncada guardando **início e fim**;
+- **o comando sai da declaração da própria entrega**, de um conjunto fechado. Nenhum texto livre do
+  agente vira linha de comando.
+
+Gate vermelho é reprovação objetiva. Gate que não pôde ser apurado é `NotRun`, que **bloqueia** — o
+contrato do `OPS-064` continua valendo. E `ApplyTo` **nunca** escreve por cima de uma falha já
+apurada por outro gate: "gate falhou" cobrindo "segredo na entrega" seria a quinta ocorrência de *o
+envelope apaga a causa*.
+
+## O erro que eu quase cometi, e como ele foi pego
+
+Publiquei a correção e fui **provar contra o artefato real**. A única entrega de código aprovada
+desta operação é **Python da biblioteca padrão**, com os gates em `tools/backend/{build,test}.sh` —
+a convenção do próprio repositório do Poseidon, que o ator estava lendo. Meu executor só reconhecia
+`package.json`.
+
+**A correção que existe para destravar card de código teria bloqueado exatamente o card que ela
+deveria destravar.** É o erro simétrico outra vez, e desta vez quem o pegou foi a medição contra o
+artefato, não a leitura do código. Agora as duas formas de declaração valem, e **todas** as
+declarações de um gate executam: verificar só uma fatia e dizer "build passou" seria a mesma
+meia-verdade do `Pass` fabricado.
+
+**Regra prática:** depois de publicar um gate novo, rode-o contra a última entrega REAL antes de
+confiar nele. Ler o código diz o que pode acontecer; rodar contra o artefato diz o que vai.
+
+## O eixo §49 saiu de `pending` — o produto gerado foi iniciado e testado
+
+Só foi possível porque a fábrica escreveu código de verdade às 03:23Z; até então o repositório do
+produto tinha **apenas `docs/`**. Medido, não deduzido — evidência completa em
+`EVIDENCIA-PRODUTO-GERADO.md`:
+
+- `build` e **42 testes do próprio produto** verdes, em ambiente mínimo sem rede;
+- servidor no ar, empréstimo registrado (`201`), devolvido (`200`), histórico com os dois eventos e
+  `registrado_por_id` em cada um;
+- as três regras de negócio recusando pelo motivo certo — `409` para equipamento com empréstimo
+  aberto, `404` para responsável inexistente, `400` para prazo anterior à retirada — e `201` de novo
+  depois da devolução, que é o contrapeso que separa tolerância de defeito;
+- persistência real em SQLite.
+
+## A afirmação vencida que eu quase propaguei — `OPS-066`
+
+O finding dizia *"não existe `adr-0002-stack-concreta` em `docs/decisions/`"*. Fui conferir antes de
+agir sobre ela: **o arquivo existe**, desde a colheita `d12eb1f`, mergeado em `08a3c01` após review
+por conta distinta. Ele se identifica como o card **C-00**, declara o template 05 (MADR), lista as
+fontes com os **IDs das versões aceitas** de cada artefato e registra por escrito que *"este papel
+não aprova o próprio ADR"* — e ainda documenta a correção de um achado P1 anterior, em que a versão
+passada se fundamentava num documento fora do pacote aceito do projeto.
+
+O ator fechou a lacuna sozinho, citando a cadeia aceita, e um revisor independente aprovou.
+
+**Um finding envelhece.** Antes de agir sobre a afirmação de um finding — principalmente uma
+afirmação de ausência — confira se ela ainda é verdade. Um `nextAction` escrito há quatro horas pode
+mandar você consertar algo que já foi consertado por outro caminho.
+
+Medido e **descartado** como caminho, para ninguém repetir: acrescentar "ADR de stack concreta" aos
+objetivos documentais da fase 5. A precondição que assustava é **falsa** — `MatchTemplate` devolver
+`null` é seguro, porque sem código de template declarado a validação documental responde válido. O
+motivo de não fazer é melhor: com o `OPS-072` no ar, isso criaria um **segundo** card para a mesma
+decisão em todo projeto novo. Trocar um elo rompido por uma duplicação canônica não é progresso.
+
+## Por que eu NÃO decidi o `OPS-070` sozinho
+
+A opção (B) do ciclo anterior — *"tentativa com diff vazio nunca exerceu a abordagem, logo não gasta
+rodada"* — parecia principiada. O banco a derruba:
+
+1. **não há sinal durável de "vazio"**: `work_evidence` tem três referências para **toda** tentativa
+   destes quatro cards, inclusive as de diff vazio. "Vazio" existe no parecer do revisor, não no
+   registro que a guarda lê;
+2. **as rodadas não foram gastas só contra vazio**: o card `01KZ4ZM2X6QH64674T7T0ZH7QR` queimou uma
+   rodada com uma entrega de **45.457 tokens e 1515 linhas de código real**, reprovada por
+   `OPS-071` — defeito nosso. A opção (B) não devolveria esse card.
+
+As versões de instrução são 10/8/10/10, todas acima do teto operacional de 4. Não existe caminho
+automático **e não existe critério honesto que eu pudesse implementar sozinho para criar um**.
+
+Recomendei a opção (A) — devolver os quatro à fila, uma vez, como exceção registrada — com as três
+paredes nomeadas e todas já corrigidas: `OPS-069`, `OPS-072` e `OPS-071`.
+
+## O alarme tinha emudecido — `OPS-074`
+
+Quando fui chamar o dono, `notify.sh` respondeu **"sem destino"**. O `getUpdates` do Telegram só
+devolve as últimas ~24 h e o destino nunca era guardado: um destino conhecido ontem simplesmente não
+existia hoje. Com o `OPS-018` dado como fechado desde 03/08 e o supervisor dependendo desse caminho,
+a espera de até 24 h que o `OPS-042` instalou viraria **espera silenciosa**.
+
+Quinta ocorrência da mesma família: a informação existia — o próprio script tinha impresso
+`notificado (chat ...)` no log de 03/08. Recuperei o id dali, a mensagem foi entregue, e o destino
+agora é lembrado em `~/.harness/telegram-chat-id`.
+
+**Se um caminho de alarme foi "provado" uma vez, pergunte se ele continua provado hoje.** Prova de
+entrega não é prova de disponibilidade.
+
+## `OPS-073` — contenção de perfil parou de custar tentativa e de mentir
+
+Três tentativas em quatro minutos, quatro milissegundos cada, zero token, `failure_reason` **nulo** —
+e o próprio Chefe repetindo "parede: sem motivo registrado" sobre uma causa que ele conhecia no
+instante em que a produziu. Duas metades: o motivo passou a ser gravado, e a pergunta passou a ser
+feita **antes** de a tentativa durável existir (`HasFreeSlot`, ao lado de `HasLiveScopeConflict`).
+
+E uma terceira peça que não estava pedida: gravar o motivo **reintroduziria** a regressão que este
+handoff descreve — tornar a causa visível já fez reinício do Host abrir circuito de card saudável.
+Os três códigos de recusa de despacho entraram na classificação de infraestrutura no mesmo commit.
+
+**Quando você tornar uma causa visível, classifique-a no mesmo commit.** Já custou uma vez.
+
+## Coordenação
+
+Havia **outra sessão viva neste mesmo repositório** (commits `acd3c2b8`, `6aaea414`, `22b95dd3`
+entre 03:20 e 03:25Z). Ela cuida de `coordination/board.yaml` e do `vigil.sh`, e corrigiu a
+atribuição de causa do `OPS-070`. Nós não colidimos porque ela commita rápido e eu conferi
+`git status` antes de cada bloco. **Confira antes de escolher item.**
