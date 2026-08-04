@@ -61,6 +61,20 @@ ordem_provar_a_fabrica:
     config_alterada: "worker-claude-secondary ganhou o papel 'critic' em ~/.harness/agent-accounts.json (backup .bak-antes-critic-202608032025). Motivo: com os dois Codex sem cota, era a unica forma de ter DUAS contas critic com cota e sair do conselho degradado. allowedPathScopes fica vazio de proposito — a conta herda os escopos dos tres papeis, entao continua especialista E passa a poder escrever parecer em docs/conselho/**."
 
   onda_2_integrar_D3_D4_D5_e_fases_6_9: { estado: bloqueada, bloqueado_por: "onda 1" }
+  incidente_fase5_20260804:
+    resumo: "A fase 5 parou 2h40 com tres cards bloqueados. DUAS causas independentes, e so uma era defeito."
+    causa_1_cota:
+      natureza: "espera legitima, nao defeito"
+      detalhe: "As contas de ATOR acabaram. Sobraram apenas worker-antigravity-review e worker-codex-critic, ambas com papel critic APENAS — nenhuma conta com backend-specialist ou frontend-specialist elegivel. worker-claude-secondary QuotaLimited ate 04:30Z; worker-codex-frontend em AuthenticationRequired (run.account_model_unsupported); glm ate 06/08. Com um unico card ready e nenhum ator possivel, a esteira parada e o comportamento correto."
+      acao: "nenhuma. Esperar 04:30Z."
+    causa_2_ops069:
+      natureza: "defeito real, corrigido"
+      detalhe: "O cabecalho de roteamento (papel, persona, tipo de card) era copiado adiante a cada nova versao de instrucao. Os cinco cards de implementacao nasceram 6 minutos antes de OPS-065 e chegaram a decima versao ainda mandando um Product Owner — cujo DeniedScopes e src/** — implementar backend. O ator obedeceu a persona e entregou diff vazio."
+      conserto: "477681d9 (correcao) + 98a0a1ad (replanejamento). O segundo so existiu porque fui conferir se o primeiro alcancava os cards bloqueados — e nao alcancava: eles passam por replanejamento, nao por correcao, e TryReplanEscalatedAsync tinha o mesmo defeito. Corrigir so a correcao teria feito os tres cards voltarem, falharem igual e escalarem de novo, agora gastando o unico replanejamento que cada um tem."
+      publicado: "binario 98a0a1ad no ar as 03:03:00Z"
+    verificacao_pendente: "Quando worker-claude-secondary voltar (04:30Z), confirmar que a instrucao dos tres cards bloqueados nasce com persona de implementacao e que o ator produz diff NAO vazio. Consulta: select board_state, case when (select content from instruction_versions iv where iv.task_id=t.id order by version desc limit 1) like '%playbook-product-owner%' then 'ERRADA' else 'ok' end from work_tasks t where t.title like 'FEAT/%';"
+    licao: "Um conserto declarado fechado sem conferir se alcanca o estado JA EXISTENTE e meio conserto. OPS-069 foi marcado fixed e continuava sem destravar nada — o que fechou de verdade foi ir olhar o caminho pelo qual os cards presos efetivamente voltam."
+
   onda_3_fechamento_dos_27_achados: { estado: bloqueada, bloqueado_por: "onda 2" }
   achado_desta_sessao:
     - "TERCEIRO bloqueador do Conselho, achado por OUTRA sessao viva e ainda NAO COMMITADO nesta maquina: work_attempts.summary e um campo do contrato que NENHUM escritor preenche. A mensagem final do executor morre com a sessao e a colheita acontece depois, entao AgentCouncilPolicy.FromExecution recebia null em todo assento e o conselho respondia council.incomplete para sempre — com os pareceres ja escritos e entregues no disco. O WIP cria ICouncilOpinionArtifactReader (le o parecer do artefato em docs/conselho/**, que e a fonte real da opiniao) e faz o assento sem opiniao legivel virar failure nomeado em vez de continue mudo. PRESERVAR. Este defeito e independente de F-03 e de D1: sem ele, destravar o elenco nao bastaria."
