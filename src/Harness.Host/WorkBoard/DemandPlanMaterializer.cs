@@ -275,6 +275,22 @@ public sealed class DemandPlanMaterializer(IWorkBoardStore board, IDemandPlanSto
         if (card.Gates.Count > 0)
         {
             builder.Append("\nGates: ").Append(string.Join(", ", card.Gates)).Append('\n');
+
+            // Quem EXECUTA os gates é a plataforma, e o pacote precisa dizer isso. Enquanto não
+            // dizia, o ator entendia — corretamente — que precisava provar a execução, tentava, era
+            // negado pela sandbox da própria CLI, declarava a impossibilidade por escrito, e o
+            // revisor reprovava com P0 exatamente por essa declaração. A exigência estava certa e a
+            // impossibilidade era real: o defeito era pedir a prova a quem não pode produzi-la.
+            builder.Append(
+                "Você NÃO precisa executar esses gates, e não vai conseguir: o ambiente de " +
+                "execução do card nega rodar o runtime do projeto. Quem os executa é a " +
+                "plataforma, numa cópia isolada da sua entrega, sem rede e com teto de tempo, e o " +
+                "resultado real vai ao revisor no seu lugar. O que se exige de você é DECLARÁ-LOS " +
+                "no manifesto da entrega (a seção `scripts` do package.json, com os nomes `build`, " +
+                "`test` e `lint`) e que eles rodem apenas com a biblioteca padrão do runtime — " +
+                "gate que dependa de instalação de pacote não roda sem rede e conta como não " +
+                "verificado, o que bloqueia a aprovação. Não afirme que executou o que não " +
+                "executou.\n");
         }
 
         if (card.Dependencies.Count > 0)

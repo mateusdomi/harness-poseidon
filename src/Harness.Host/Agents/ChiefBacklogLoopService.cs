@@ -1,5 +1,6 @@
 using Harness.Host.Architecture;
 using Harness.Host.Documents;
+using Harness.Host.WorkBoard;
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Agents.Application.Execution.External;
@@ -155,6 +156,10 @@ public sealed partial class ChiefBacklogLoopService(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: despacho do projeto {ProjectId} bloqueado por {ErrorCount} erro(s) de compilação no índice.")]
     private static partial void LogCodeDiagnosticsBlocked(ILogger logger, string projectId, int errorCount);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Chief: gates da entrega do card {TaskId} (tentativa {AttemptId}) executados pela plataforma: {ReasonCode} — {Detail}")]
+    private static partial void LogDeliveryGatesRan(
+        ILogger logger, string taskId, string attemptId, string reasonCode, string detail);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Chief: card {TaskId} não despachado por divergência {Code} com {RelatedCardId}: {Explanation} (evidências={EvidenceCount}).")]
     private static partial void LogPlanGraphBlocked(
@@ -2326,6 +2331,16 @@ public sealed partial class ChiefBacklogLoopService(
             string diff;
             CodeGraphBuildResult? branchInspection = null;
             DocumentTemplateValidationResult? documentTemplateValidation = null;
+
+            // OPS-071 — quem executa o gate é a PLATAFORMA. O pacote de objetivo exige
+            // "Gates: build, tests" e o revisor cobra a prova de execução, corretamente; mas a CLI
+            // que executa o card roda em sandbox própria que nega rodar o runtime dentro da
+            // worktree. Enquanto a prova fosse pedida a quem não pode executar, nenhum card de
+            // código podia ser aprovado — dois revisores independentes já reprovaram por isso, com
+            // achado P0, entregas que não tinham outro defeito.
+            var requiredGates = DeliveryGateExecutionPolicy.ParseRequiredGates(instructions[^1].Body);
+            var gateReport = new DeliveryGateReport(
+                [], DeliveryGateExecutionPolicy.ReasonNotRequired, "o card não exige gate executável");
             try
             {
                 using var manager = await GitWorktreeManager.OpenAsync(
@@ -2385,6 +2400,20 @@ public sealed partial class ChiefBacklogLoopService(
                 {
                     branchInspection = await codeGraph.InspectAsync(
                         project.Id, inspectionPath, token);
+
+                    // Os gates rodam AQUI, com a worktree da tentativa viva e antes de ela ser
+                    // removida — é a única janela em que o que se executa é exatamente o que se
+                    // revisa. O plano sai do manifesto entregue; o executor impõe ambiente mínimo,
+                    // ausência de rede e teto de tempo.
+                    if (requiredGates.Count > 0)
+                    {
+                        var plan = DeliveryGateExecutionPolicy.Plan(
+                            requiredGates, DeliveryGateRunner.CollectManifests(inspectionPath));
+                        var outcomes = await DeliveryGateRunner.RunAsync(plan, inspectionPath, token);
+                        gateReport = DeliveryGateExecutionPolicy.Consolidate(plan, outcomes);
+                        LogDeliveryGatesRan(
+                            logger, task.Id, awaiting.Id, gateReport.ReasonCode, gateReport.Detail);
+                    }
                 }
                 finally
                 {
@@ -2478,7 +2507,10 @@ public sealed partial class ChiefBacklogLoopService(
             // depois do corte passaria despercebido justamente na entrega mais longa. Vale para
             // documento também: um passo-a-passo com a chave colada dentro vaza igual.
             var secretVerdict = DeliverySecretScanGate.Inspect(diff);
-            var deterministicLayer = DeliverySecretScanGate.ApplyTo(diagnosticLayer, secretVerdict);
+            var scannedLayer = DeliverySecretScanGate.ApplyTo(diagnosticLayer, secretVerdict);
+
+            // A camada só é rebaixada, nunca promovida: gate verde não compensa segredo achado.
+            var deterministicLayer = DeliveryGateExecutionPolicy.ApplyTo(scannedLayer, gateReport);
             if (!secretVerdict.IsClean)
             {
                 var secretResult = new CriticReviewResult(
@@ -2507,6 +2539,53 @@ public sealed partial class ChiefBacklogLoopService(
                 {
                     _ = await DeferOrEscalateReviewAsync(
                         tenantId, task, awaiting.Id, "secret.gate_not_applied", chain, now, token);
+                }
+
+                continue;
+            }
+
+            // Gate exigido que a plataforma executou e reprovou, ou que não pôde ser apurado. Não
+            // ocupa revisor: build quebrado e teste vermelho são fatos, e a resposta deles já está
+            // escrita. A exceção é falta de RUNTIME no host — essa é falha nossa, e punir o card
+            // por ela seria a mesma misatribuição de culpa que esta operação já corrigiu três vezes.
+            if (!gateReport.NotApplicable && !gateReport.AllPassed)
+            {
+                if (string.Equals(
+                        gateReport.ReasonCode,
+                        DeliveryGateExecutionPolicy.ReasonRuntimeUnavailable,
+                        StringComparison.Ordinal))
+                {
+                    LogReviewInfrastructureFailure(
+                        logger, task.Id, awaiting.Id, gateReport.ReasonCode);
+                    _ = await DeferOrEscalateReviewAsync(
+                        tenantId, task, awaiting.Id, gateReport.ReasonCode, chain, now, token);
+                    continue;
+                }
+
+                var gateResult = new CriticReviewResult(
+                    UlidValue.New(now).ToString(), awaiting.Id, "deterministic-delivery-gates",
+                    "deterministic", producerAlias, CriticVerdict.Fail,
+                    DeterministicRejectionReasonCode,
+                    [new CriticFinding(
+                        CriticFindingSeverity.P1,
+                        gateReport.ReasonCode,
+                        gateReport.Detail,
+                        null,
+                        DeliveryGateExecutionPolicy.DescribeForReviewer(gateReport))],
+                    "A plataforma executou os gates declarados pela própria entrega e o " +
+                    $"resultado não autoriza a revisão: {gateReport.Detail}",
+                    null,
+                    0);
+                if (await ApplyReviewVerdictAsync(
+                        tenantId, task, awaiting.Id, gateResult, chain, token, deterministicLayer))
+                {
+                    reviewed++;
+                    ClearReviewDeferrals(awaiting.Id);
+                }
+                else
+                {
+                    _ = await DeferOrEscalateReviewAsync(
+                        tenantId, task, awaiting.Id, "delivery_gates.not_applied", chain, now, token);
                 }
 
                 continue;
@@ -2587,11 +2666,13 @@ public sealed partial class ChiefBacklogLoopService(
                             ReviewDirectory = repositoryRoot,
                             Diff = diff,
                             DelegationInstruction = instructions[^1].Body,
-                            TestEvidence = awaiting.CommitRefs.Count == 0
-                                ? "(nenhuma evidência durável foi registrada; falhe fechado)"
-                                : string.Join(
-                                    Environment.NewLine,
-                                    awaiting.CommitRefs.Select(reference => $"- {reference}")),
+                            // A evidência de execução vem de QUEM EXECUTOU. Antes eram só as
+                            // referências duráveis da tentativa, e o revisor — corretamente —
+                            // lia isso como "nenhuma prova de que os gates rodaram" e reprovava
+                            // com P0. O ator não podia produzir essa prova: a sandbox da CLI
+                            // dele nega rodar o runtime. Agora quem produz é a plataforma, e o
+                            // resultado real chega aqui.
+                            TestEvidence = ComposeTestEvidence(awaiting.CommitRefs, gateReport),
                             AcceptanceCriteria = resolution.Card.AcceptanceCriteria,
                             ScopeClaims = resolution.ScopeClaims,
                         },
@@ -2729,6 +2810,39 @@ public sealed partial class ChiefBacklogLoopService(
 
         LogReviewInfrastructureFailure(logger, task.Id, attemptId, $"chain:{applied.Status}");
         return false;
+    }
+
+    /// <summary>
+    /// A "Evidência de testes" que o revisor lê. Duas fontes, e a ordem importa: primeiro o que a
+    /// PLATAFORMA executou (fato), depois as referências duráveis da tentativa (rastro).
+    ///
+    /// Sem a primeira, o revisor lia apenas commits e — corretamente — concluía que não havia prova
+    /// de execução; era o achado P0 que reprovava toda entrega de código, incluindo as que não
+    /// tinham outro defeito. O ator não podia produzir essa prova: a sandbox da CLI dele nega rodar
+    /// o runtime na worktree. Continuar exigindo dele seria manter um gate que ninguém pode passar.
+    /// </summary>
+    internal static string ComposeTestEvidence(
+        IReadOnlyList<string> commitRefs, DeliveryGateReport gateReport)
+    {
+        ArgumentNullException.ThrowIfNull(commitRefs);
+        ArgumentNullException.ThrowIfNull(gateReport);
+
+        var references = commitRefs.Count == 0
+            ? "(nenhuma referência durável foi registrada)"
+            : string.Join(Environment.NewLine, commitRefs.Select(reference => $"- {reference}"));
+
+        if (gateReport.NotApplicable)
+        {
+            return commitRefs.Count == 0
+                ? "(nenhuma evidência durável foi registrada; falhe fechado)"
+                : references;
+        }
+
+        return string.Join(
+            Environment.NewLine + Environment.NewLine,
+            DeliveryGateExecutionPolicy.DescribeForReviewer(gateReport),
+            "Referências duráveis da tentativa:",
+            references);
     }
 
     private async Task<bool> ApplyCodeDiagnosticsFailureAsync(
