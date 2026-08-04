@@ -1,5 +1,9 @@
+using System.Security.Cryptography;
+using System.Text;
 using Harness.Persistence.Abstractions.Foundation;
+using Harness.Persistence.Abstractions.WorkChain;
 using Harness.Persistence.Sqlite;
+using Harness.SharedKernel.Identifiers;
 
 namespace Harness.IntegrationTests.Persistence;
 
@@ -87,6 +91,134 @@ public sealed class SqliteWorkChainStoreTests
             Assert.DoesNotContain(
                 pageOfTwo,
                 attempt => attempt.Id == WorkChainStoreBehavior.CrowdedOldestAttemptId);
+        }
+        finally
+        {
+            if (Directory.Exists(artifactRoot))
+            {
+                Directory.Delete(artifactRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ReviewRejectionCauseIsPersistedAndReadBack()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var artifactRoot = Path.Combine(
+            AppContext.BaseDirectory,
+            "poc-artifacts",
+            "f22-work-review-cause",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(artifactRoot);
+        try
+        {
+            await using var dispatcher = await SqliteWriteDispatcher.CreateAsync(
+                Path.Combine(artifactRoot, "work-chain.db"),
+                timeout.Token);
+            await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token);
+            await new SqliteFoundationTransactionStore(dispatcher).ProvisionProjectAsync(
+                FoundationTransactionBehavior.Command(),
+                timeout.Token);
+            var store = new SqliteWorkChainStore(dispatcher);
+            const string instruction = "Implement the immutable work-chain transaction.";
+            var chain = new WorkChainCreateCommand(
+                FoundationTransactionBehavior.TenantId,
+                FoundationTransactionBehavior.ProjectId,
+                "01ARZ3NDEKTSV4RRFFQ69G5FAY",
+                "01ARZ3NDEKTSV4RRFFQ69G5FF0",
+                "Build the first persisted work chain.",
+                "01ARZ3NDEKTSV4RRFFQ69G5FF1",
+                "Persist the demand",
+                "[\"State is atomic\",\"Audit is complete\"]",
+                "01ARZ3NDEKTSV4RRFFQ69G5FF2",
+                "Create work-chain transaction",
+                "low",
+                5m,
+                "01ARZ3NDEKTSV4RRFFQ69G5FF3",
+                instruction,
+                Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(instruction))),
+                "work-chain:create:f22",
+                new DateTimeOffset(2026, 7, 18, 16, 10, 0, TimeSpan.Zero));
+
+            await store.CreateAsync(chain, cancellationToken: timeout.Token);
+
+            var triage = new WorkTaskLifecycleCommand(
+                chain.TenantId,
+                chain.SolicitationId,
+                chain.TaskId,
+                "chief",
+                "bruna",
+                "Demand scope and risk were triaged.",
+                "triage:accepted",
+                1,
+                "work-chain:task:triage:f22",
+                chain.OccurredAt.AddSeconds(20));
+            var triaged = await store.TriageTaskAsync(triage, timeout.Token);
+            Assert.Equal(WorkChainMutationStatus.Applied, triaged.Status);
+
+            var readiness = triage with
+            {
+                Reason = "Acceptance criteria and dependencies satisfy the Definition of Ready.",
+                EvidenceReference = "dor:validated",
+                ExpectedTaskVersion = triaged.TaskVersion!.Value,
+                IdempotencyKey = "work-chain:task:ready:f22",
+                OccurredAt = chain.OccurredAt.AddSeconds(30),
+            };
+            var ready = await store.MarkTaskReadyAsync(readiness, timeout.Token);
+            Assert.Equal(WorkChainMutationStatus.Applied, ready.Status);
+
+            var start = new WorkAttemptStartCommand(
+                chain.TenantId,
+                chain.SolicitationId,
+                chain.TaskId,
+                chain.InstructionVersionId,
+                "01ARZ3NDEKTSV4RRFFQ69G5FF4",
+                "worker-alias",
+                ready.TaskVersion!.Value,
+                "work-chain:attempt:start:f22",
+                chain.OccurredAt.AddMinutes(1));
+            var started = await store.StartAttemptAsync(start, timeout.Token);
+            Assert.Equal(WorkChainMutationStatus.Applied, started.Status);
+
+            var complete = new WorkAttemptCompleteCommand(
+                chain.TenantId,
+                chain.SolicitationId,
+                chain.TaskId,
+                start.AttemptId,
+                started.TaskVersion!.Value,
+                [new WorkEvidenceInput("01ARZ3NDEKTSV4RRFFQ69G5FF5", "evidence:f22")],
+                "work-chain:attempt:complete:f22",
+                chain.OccurredAt.AddMinutes(2));
+            var completed = await store.CompleteAttemptAsync(complete, timeout.Token);
+            Assert.Equal(WorkChainMutationStatus.Applied, completed.Status);
+
+            var review = new WorkAttemptReviewCommand(
+                chain.TenantId,
+                chain.SolicitationId,
+                chain.TaskId,
+                start.AttemptId,
+                UlidValue.New(chain.OccurredAt.AddMinutes(5)).ToString(),
+                "independent-reviewer",
+                "rejected",
+                "Evidência insuficiente.",
+                completed.TaskVersion!.Value,
+                "work-chain:attempt:review:f22",
+                chain.OccurredAt.AddMinutes(5))
+            {
+                RejectionCause = "contextMissing",
+            };
+
+            var reviewed = await store.ReviewAttemptAsync(review, timeout.Token);
+            Assert.Equal(WorkChainMutationStatus.Applied, reviewed.Status);
+
+            var aggregate = await store.ReadAggregateAsync(
+                chain.TenantId, chain.SolicitationId, timeout.Token);
+            Assert.NotNull(aggregate);
+            var attempt = Assert.Single(Assert.Single(aggregate.Demands).Tasks).Attempts[^1];
+            Assert.NotNull(attempt.Review);
+            Assert.Equal("rejected", attempt.Review.Decision);
+            Assert.Equal("contextMissing", attempt.Review.RejectionCause);
         }
         finally
         {

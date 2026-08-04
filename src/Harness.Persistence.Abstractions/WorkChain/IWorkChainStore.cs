@@ -815,6 +815,12 @@ public static class WorkChainMutationValidator
         {
             throw new ArgumentException("Review decision is invalid.", nameof(command));
         }
+
+        if (command.RejectionCause is not
+            ("none" or "contextMissing" or "acceptanceNotMet" or "scopeViolation" or "qualityBar" or "other"))
+        {
+            throw new ArgumentException("Review rejection cause is invalid.", nameof(command));
+        }
     }
 
     public static void Validate(WorkTaskMergeCommand command)
