@@ -29,11 +29,23 @@ public sealed record OperationFinding
     public bool Blocking { get; init; }
 
     public string? Area { get; init; }
+
+    [JsonConverter(typeof(FlexibleTextConverter))]
     public string? Title { get; init; }
+
+    [JsonConverter(typeof(FlexibleTextConverter))]
     public string? Cause { get; init; }
+
+    [JsonConverter(typeof(FlexibleTextConverter))]
     public string? Fix { get; init; }
+
+    [JsonConverter(typeof(FlexibleTextConverter))]
     public string? Evidence { get; init; }
+
+    [JsonConverter(typeof(FlexibleTextConverter))]
     public string? Test { get; init; }
+
+    [JsonConverter(typeof(FlexibleTextConverter))]
     public string? NextAction { get; init; }
 
     /// <summary>
