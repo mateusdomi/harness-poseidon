@@ -31461,6 +31461,12 @@
                             "null",
                             "boolean"
                         ]
+                    },
+                    "requiresArchitectureDecision": {
+                        "type": [
+                            "null",
+                            "boolean"
+                        ]
                     }
                 },
                 "additionalProperties": false

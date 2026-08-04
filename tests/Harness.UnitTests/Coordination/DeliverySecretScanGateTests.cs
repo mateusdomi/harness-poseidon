@@ -94,7 +94,10 @@ public sealed class DeliverySecretScanGateTests
 
     [Theory]
     [InlineData("+telegram = \"1234567890:AA" + "abcdefghijklmnopqrstuvwxyz012345678\"", "telegram-bot-token")]
-    [InlineData("+-----BEGIN RSA PRIVATE KEY-----", "private-key-block")]
+    // Quebrado em duas partes como TODOS os irmãos abaixo: escrito inteiro, este literal casa o
+    // padrão do `tools/backend/scan-secrets.sh` e deixa o gate de higiene do próprio repositório
+    // vermelho — foi o único da lista que passou sem a quebra e derrubou o `verify.sh`.
+    [InlineData("+-----BEGIN RSA PRIVATE " + "KEY-----", "private-key-block")]
     [InlineData("+slack = \"xox" + "b-1234567890abcdef\"", "slack-token")]
     [InlineData("+google = \"AIza" + "0123456789012345678901234567890abcd\"", "google-api-key")]
     [InlineData("+anthropic = \"sk-ant-" + "0123456789abcdefghij\"", "anthropic-api-key")]

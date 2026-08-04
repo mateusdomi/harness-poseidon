@@ -14,6 +14,8 @@ markdownAllowlist:
   reason: Prompt de bootstrap entregue pelo OperationSupervisor à Integradora; artefato operacional, não norma canônica.
 - path: coordination/final-operation/EVIDENCIA-RECUPERACAO.md
   reason: Evidência datada do eixo de recuperação da Operação Final (§31), com ids de tentativa e card; registro operacional, não norma canônica.
+- path: coordination/final-operation/EVIDENCIA-PRODUTO-GERADO.md
+  reason: Evidência datada do eixo "produto gerado iniciado e testado" (§49) da Operação Final, com saída de gate, respostas HTTP e ids; registro operacional, não norma canônica.
 - path: coordination/final-operation/HANDOFF.md
   reason: Registro de transferência entre integradoras da Operação Final; evidência operacional, não norma canônica.
 - path: coordination/final-operation/OPERATION-SPEC.md

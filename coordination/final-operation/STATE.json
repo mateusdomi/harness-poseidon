@@ -1,7 +1,7 @@
 {
   "operation": "poseidon-final-validation",
   "schemaVersion": 1,
-  "updatedAt": "2026-08-04T04:10:00Z",
+  "updatedAt": "2026-08-04T04:35:00Z",
   "updatedBy": "integrador-claude-ciclo-55",
   "branch": "develop",
   "baselineCommit": "a25bb1ff",
@@ -37,15 +37,18 @@
   "mandatoryGatesFailed": 0,
   "mandatoryTestsPending": 0,
   "testBaseline": {
-    "unit": 1711,
-    "integration": 311,
-    "recovery": 28,
-    "frontend": 783,
-    "allGreenAt": "2026-08-03T23:05:00Z"
+    "unit": 1812,
+    "integration": 313,
+    "recovery": 30,
+    "contract": 42,
+    "architecture": 22,
+    "concurrency": 8,
+    "allGreenAt": "2026-08-04T04:35:00Z",
+    "note": "verify.sh EXIT=0 ponta a ponta, incluindo scan-secrets, governance-lint e os gates de frontend."
   },
   "metricsInstrumented": true,
   "metricsNote": "Medidas por `supervisor metrics`. Desperdicio transitorio 0,98% (meta do §34 batida); retrabalho 73% do custo.",
-  "nextAction": "POR ID E NESTA ORDEM. (1) CONFERIR O OPS-071 EM PRODUCAO no proximo card de codigo que for revisado: o log deve trazer 'gates da entrega do card ... executados pela plataforma: delivery_gates.passed' e o parecer deve deixar de citar ausencia de prova de execucao como achado P0. Enquanto os quatro cards estiverem escalated nao havera card de codigo novo — entao esta conferencia depende da decisao do OPS-070. (2) OPS-070 e o unico bloqueio real da fase 5 e e do PROPRIETARIO: notificado as 03:49Z com recomendacao fundamentada em medicao (opcao A, devolver os quatro a fila uma vez como excecao registrada). NAO implementar a opcao (B): ela foi medida e nao serve. (3) OPS-066 FECHADO — e eu quase propaguei uma afirmacao vencida. O adr-0002-stack-concreta EXISTE em docs/decisions/ desde a colheita d12eb1f, mergeado em 08a3c01 apos review de conta distinta; ele se identifica como o card C-00 e lista as fontes com os IDs das versoes ACEITAS. O elo da DECISAO nao esta mais rompido nesta prova. A metade estrutural e do OPS-072. NAO acrescentar objetivo canonico de ADR na fase 5: a precondicao que assustava e falsa (MatchTemplate null e seguro — sem codigo de template a validacao responde valido), mas com o OPS-072 no ar isso duplicaria o card em todo projeto novo. (4) OPS-073 e OPS-074 estao fechados; conferir no proximo adiamento que 'card ... ADIADO — perfil da conta ... ocupado' aparece NO LUGAR de 'run REJEITADO ... profile.locked'. (5) OPS-015 segue 'accepted' (ADR ou consumidor de producao para o ToolCallBroker). NAO-ACHADOS conferidos, para ninguem re-investigar: o revisor nao tem defeito; as tres materializacoes de demanda estao completed; e o produto gerado agora tem evidencia de execucao real, nao so de teste.",
+  "nextAction": "VERIFY.SH ESTA VERDE (exit 0, 04:35Z) — e ele NAO estava quando este ciclo comecou. POR ID E NESTA ORDEM. (1) CONFERIR O OPS-071 EM PRODUCAO no proximo card de codigo que for revisado: o log deve trazer 'gates da entrega do card ... executados pela plataforma: delivery_gates.passed' e o parecer deve deixar de citar ausencia de prova de execucao como achado P0. Enquanto os quatro cards estiverem escalated nao havera card de codigo novo — entao esta conferencia depende da decisao do OPS-070. (2) OPS-070 e o unico bloqueio real da fase 5 e e do PROPRIETARIO: notificado as 03:49Z com recomendacao fundamentada em medicao (opcao A, devolver os quatro a fila uma vez como excecao registrada). NAO implementar a opcao (B): ela foi medida e nao serve. (3) OPS-066 FECHADO — e eu quase propaguei uma afirmacao vencida. O adr-0002-stack-concreta EXISTE em docs/decisions/ desde a colheita d12eb1f, mergeado em 08a3c01 apos review de conta distinta; ele se identifica como o card C-00 e lista as fontes com os IDs das versoes ACEITAS. O elo da DECISAO nao esta mais rompido nesta prova. A metade estrutural e do OPS-072. NAO acrescentar objetivo canonico de ADR na fase 5: a precondicao que assustava e falsa (MatchTemplate null e seguro — sem codigo de template a validacao responde valido), mas com o OPS-072 no ar isso duplicaria o card em todo projeto novo. (4) OPS-073 e OPS-074 estao fechados; conferir no proximo adiamento que 'card ... ADIADO — perfil da conta ... ocupado' aparece NO LUGAR de 'run REJEITADO ... profile.locked'. (5) OPS-015 segue 'accepted' (ADR ou consumidor de producao para o ToolCallBroker). NAO-ACHADOS conferidos, para ninguem re-investigar: o revisor nao tem defeito; as tres materializacoes de demanda estao completed; e o produto gerado agora tem evidencia de execucao real, nao so de teste. (6) OPS-075: NAO declare 'verify verde' a partir do handoff ou do STATE; rode. Os tres gates quebrados eram de HIGIENE (segredo, manifesto, contrato publicado), nenhum era teste — e higiene e exatamente o que ninguem re-roda por achar que nao mexeu nisso.",
   "humanDecisionRequired": true,
   "externalBlockers": [],
   "recoveryEvidence": "coordination/final-operation/EVIDENCIA-RECUPERACAO.md — reinicio do Host e morte de worker provados AO VIVO com IDs; falha de provedor ao vivo e fixada em teste; 26 provas de recuperacao verdes."
