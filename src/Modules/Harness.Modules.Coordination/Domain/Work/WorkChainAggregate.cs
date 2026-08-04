@@ -470,7 +470,8 @@ public sealed class WorkChainAggregate
         EntityId<WorkAttemptTag> attemptId,
         string reviewerAgentId,
         ReviewDecision decision,
-        string rationale)
+        string rationale,
+        ReviewRejectionCause rejectionCause = ReviewRejectionCause.None)
     {
         ValidateText(reviewerAgentId, nameof(reviewerAgentId), 200);
         ValidateText(rationale, nameof(rationale), 10_000);
@@ -505,7 +506,10 @@ public sealed class WorkChainAggregate
             reviewerAgentId,
             decision,
             rationale,
-            _clock.UtcNow);
+            _clock.UtcNow)
+        {
+            RejectionCause = rejectionCause,
+        };
         _reviews.Add(review);
         if (decision == ReviewDecision.Approved)
         {

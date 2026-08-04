@@ -60,3 +60,17 @@ public enum ReviewDecision
     Approved,
     Rejected,
 }
+
+/// <summary>
+/// Causa tipada de uma reprovação em <see cref="WorkReview"/>. Usada para métricas,
+/// agrupamento no board e direcionamento da correção sem depender de parsing do racional.
+/// </summary>
+public enum ReviewRejectionCause
+{
+    None,
+    ContextMissing,
+    AcceptanceNotMet,
+    ScopeViolation,
+    QualityBar,
+    Other,
+}

@@ -106,4 +106,10 @@ public sealed record WorkReview(
     string ReviewerAgentId,
     ReviewDecision Decision,
     string Rationale,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt)
+{
+    /// <summary>
+    /// Causa tipada da reprovação. Aprovadas usam <see cref="ReviewRejectionCause.None"/>.
+    /// </summary>
+    public ReviewRejectionCause RejectionCause { get; init; } = ReviewRejectionCause.None;
+}

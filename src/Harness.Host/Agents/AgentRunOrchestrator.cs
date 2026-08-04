@@ -1043,13 +1043,16 @@ public sealed partial class AgentRunOrchestrator(
                     criticLock.FencingToken);
             }
 
-            var (verdict, reasonCode, findings, summary) =
+            var (verdict, reasonCode, findings, summary, rejectionCause) =
                 CriticReviewContract.Parse(execution.FinalMessage);
             return new CriticReviewResult(
                 reviewId, command.AttemptId, command.CriticAlias, critic.ExecutorId,
                 command.ActorAlias, verdict, reasonCode, findings, summary,
                 criticLock.FencingToken,
-                (long)System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+                (long)System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds)
+            {
+                RejectionCause = rejectionCause,
+            };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

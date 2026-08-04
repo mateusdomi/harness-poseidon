@@ -72,7 +72,7 @@ public sealed class AntigravityAdapterProcessTests : IDisposable
         Assert.Equal(ExternalAgentRunStatus.Completed, result.Status);
         Assert.Contains("verdict", result.FinalMessage, StringComparison.Ordinal);
 
-        var (verdict, _, findings, _) = Harness.Host.Agents.CriticReviewContract.Parse(result.FinalMessage);
+        var (verdict, _, findings, _, _) = Harness.Host.Agents.CriticReviewContract.Parse(result.FinalMessage);
         Assert.Equal(Harness.Host.Agents.CriticVerdict.Fail, verdict);
         Assert.Single(findings);
     }

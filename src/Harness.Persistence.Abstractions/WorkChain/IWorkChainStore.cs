@@ -347,7 +347,14 @@ public sealed record WorkAttemptReviewCommand(
     string Rationale,
     long ExpectedTaskVersion,
     string IdempotencyKey,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset OccurredAt)
+{
+    /// <summary>
+    /// Causa tipada da reprovação ( valores: none, contextMissing, acceptanceNotMet,
+    /// scopeViolation, qualityBar, other ). Aprovadas usam "none".
+    /// </summary>
+    public string RejectionCause { get; init; } = "none";
+}
 
 public sealed record WorkTaskMergeCommand(
     string TenantId,
@@ -440,7 +447,14 @@ public sealed record WorkReviewSnapshot(
     string ReviewerAgentId,
     string Decision,
     string Rationale,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt)
+{
+    /// <summary>
+    /// Causa tipada da reprovação ( valores: none, contextMissing, acceptanceNotMet,
+    /// scopeViolation, qualityBar, other ). Aprovadas usam "none".
+    /// </summary>
+    public string RejectionCause { get; init; } = "none";
+}
 
 public static class WorkChainCreateValidator
 {

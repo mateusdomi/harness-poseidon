@@ -264,7 +264,7 @@ public sealed partial class SqliteWorkChainStore
             connection,
             transaction,
             """
-            SELECT id, reviewer_agent_id, decision, rationale, created_at
+            SELECT id, reviewer_agent_id, decision, rationale, rejection_cause, created_at
             FROM work_reviews WHERE attempt_id = $attemptId;
             """,
             ("$attemptId", attemptId));
@@ -272,7 +272,10 @@ public sealed partial class SqliteWorkChainStore
         return await reader.ReadAsync(cancellationToken)
             ? new WorkReviewSnapshot(
                 reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
-                ParseHistoryTimestamp(reader.GetString(4)))
+                ParseHistoryTimestamp(reader.GetString(5)))
+            {
+                RejectionCause = reader.IsDBNull(4) ? "none" : reader.GetString(4),
+            }
             : null;
     }
 

@@ -13,7 +13,7 @@ public sealed class CriticReviewContractTests
     [InlineData("   ")]
     public void AbsentOutputIsFailNeverPass(string? output)
     {
-        var (verdict, reason, _, _) = CriticReviewContract.Parse(output);
+        var (verdict, reason, _, _, _) = CriticReviewContract.Parse(output);
         Assert.Equal(CriticVerdict.Fail, verdict);
         Assert.Equal("critic.no_output", reason);
     }
@@ -23,7 +23,7 @@ public sealed class CriticReviewContractTests
     [InlineData("{ isso nao e json valido")]
     public void UnstructuredOrInvalidOutputIsFail(string output)
     {
-        var (verdict, reason, _, _) = CriticReviewContract.Parse(output);
+        var (verdict, reason, _, _, _) = CriticReviewContract.Parse(output);
         Assert.Equal(CriticVerdict.Fail, verdict);
         Assert.Contains("critic.output_not_json", reason, StringComparison.Ordinal);
     }
@@ -31,7 +31,7 @@ public sealed class CriticReviewContractTests
     [Fact]
     public void AVerdictOutsideTheClosedSetIsFail()
     {
-        var (verdict, _, _, _) = CriticReviewContract.Parse(
+        var (verdict, _, _, _, _) = CriticReviewContract.Parse(
             """{"verdict":"aprovado","summary":"ok","findings":[]}""");
         Assert.Equal(CriticVerdict.Fail, verdict);
     }
@@ -39,7 +39,7 @@ public sealed class CriticReviewContractTests
     [Fact]
     public void AMissingVerdictIsFail()
     {
-        var (verdict, reason, _, _) = CriticReviewContract.Parse(
+        var (verdict, reason, _, _, _) = CriticReviewContract.Parse(
             """{"summary":"parece bom","findings":[]}""");
         Assert.Equal(CriticVerdict.Fail, verdict);
         Assert.Equal("critic.verdict_missing", reason);
@@ -50,7 +50,7 @@ public sealed class CriticReviewContractTests
     {
         // Um critic que aprova e ao mesmo tempo relata P0/P1 está incoerente; prevalece o
         // achado, nunca a aprovação.
-        var (verdict, reason, findings, _) = CriticReviewContract.Parse(
+        var (verdict, reason, findings, _, _) = CriticReviewContract.Parse(
             """
             {"verdict":"pass","summary":"ok","findings":[
               {"severity":"P0","code":"suite-vermelha","summary":"teste falhando"}]}
@@ -64,7 +64,7 @@ public sealed class CriticReviewContractTests
     [Fact]
     public void ACoherentPassIsAccepted()
     {
-        var (verdict, reason, findings, summary) = CriticReviewContract.Parse(
+        var (verdict, reason, findings, summary, _) = CriticReviewContract.Parse(
             """
             {"verdict":"pass","summary":"critérios atendidos","findings":[
               {"severity":"P3","code":"estilo","summary":"nome poderia ser melhor"}],
@@ -81,7 +81,7 @@ public sealed class CriticReviewContractTests
     [Fact]
     public void APassWithoutMaterializedChecksFailsClosed()
     {
-        var (verdict, reason, _, _) = CriticReviewContract.Parse(
+        var (verdict, reason, _, _, _) = CriticReviewContract.Parse(
             """{"verdict":"pass","summary":"parece bom","findings":[]}""");
 
         Assert.Equal(CriticVerdict.Fail, verdict);
@@ -103,7 +103,7 @@ public sealed class CriticReviewContractTests
             "\"evidenceSufficient\":true,\"unsupportedClaims\":" + unsupported + "," +
             "\"unlabeledInferences\":" + unlabeled + "}}";
 
-        var (verdict, reason, _, _) = CriticReviewContract.Parse(output);
+        var (verdict, reason, _, _, _) = CriticReviewContract.Parse(output);
         Assert.Equal(CriticVerdict.Fail, verdict);
         Assert.Equal(expectedReason, reason);
     }
@@ -113,7 +113,7 @@ public sealed class CriticReviewContractTests
     {
         // Modelos frequentemente cercam o JSON com prosa; isso não pode virar FAIL por
         // tecnicalidade, mas o objeto precisa existir e ser válido.
-        var (verdict, _, findings, _) = CriticReviewContract.Parse(
+        var (verdict, _, findings, _, _) = CriticReviewContract.Parse(
             """
             Segue minha avaliação.
 
@@ -125,10 +125,24 @@ public sealed class CriticReviewContractTests
         Assert.Equal("a.tsx", Assert.Single(findings).Path);
     }
 
+    [Theory]
+    [InlineData("""{"verdict":"fail","summary":"x","findings":[],"checks":{"delegationCompared":true,"scopeVerified":true,"evidenceSufficient":false,"unsupportedClaims":[],"unlabeledInferences":[]}}""", ReviewRejectionCause.ContextMissing)]
+    [InlineData("""{"verdict":"fail","summary":"x","findings":[],"checks":{"delegationCompared":true,"scopeVerified":false,"evidenceSufficient":true,"unsupportedClaims":[],"unlabeledInferences":[]}}""", ReviewRejectionCause.ScopeViolation)]
+    [InlineData("""{"verdict":"fail","summary":"x","findings":[],"checks":{"delegationCompared":true,"scopeVerified":true,"evidenceSufficient":true,"unsupportedClaims":["a"],"unlabeledInferences":[]}}""", ReviewRejectionCause.QualityBar)]
+    [InlineData("""{"verdict":"fail","summary":"x","findings":[],"checks":{"delegationCompared":true,"scopeVerified":true,"evidenceSufficient":true,"unsupportedClaims":[],"unlabeledInferences":["a"]}}""", ReviewRejectionCause.QualityBar)]
+    [InlineData("""{"verdict":"fail","summary":"x","findings":[{"severity":"P1","code":"acceptance.missing","summary":"critério não atendido"}],"checks":{"delegationCompared":true,"scopeVerified":true,"evidenceSufficient":true,"unsupportedClaims":[],"unlabeledInferences":[]}}""", ReviewRejectionCause.AcceptanceNotMet)]
+    [InlineData("""{"verdict":"fail","summary":"x","findings":[],"checks":{"delegationCompared":true,"scopeVerified":true,"evidenceSufficient":true,"unsupportedClaims":[],"unlabeledInferences":[]}}""", ReviewRejectionCause.Other)]
+    [InlineData("""{"verdict":"pass","summary":"ok","findings":[],"checks":{"delegationCompared":true,"scopeVerified":true,"evidenceSufficient":true,"unsupportedClaims":[],"unlabeledInferences":[]}}""", ReviewRejectionCause.None)]
+    public void RejectionCauseIsClassifiedFromChecksAndFindings(string output, ReviewRejectionCause expectedCause)
+    {
+        var (_, _, _, _, cause) = CriticReviewContract.Parse(output);
+        Assert.Equal(expectedCause, cause);
+    }
+
     [Fact]
     public void FindingsCarryTheClosedSeverityScale()
     {
-        var (_, _, findings, _) = CriticReviewContract.Parse(
+        var (_, _, findings, _, _) = CriticReviewContract.Parse(
             """
             {"verdict":"fail","summary":"x","findings":[
               {"severity":"P0","code":"a","summary":"a"},

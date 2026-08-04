@@ -1167,9 +1167,9 @@ public sealed partial class SqliteWorkChainStore
             mutation.CommandText =
                 """
                 INSERT INTO work_reviews
-                    (id, tenant_id, project_id, attempt_id, reviewer_agent_id, decision, rationale, created_at)
+                    (id, tenant_id, project_id, attempt_id, reviewer_agent_id, decision, rationale, rejection_cause, created_at)
                 VALUES
-                    ($reviewId, $tenantId, $projectId, $attemptId, $reviewer, $decision, $rationale, $occurredAt);
+                    ($reviewId, $tenantId, $projectId, $attemptId, $reviewer, $decision, $rationale, $rejectionCause, $occurredAt);
                 UPDATE work_attempts SET state = $decision,
                     operational_state = CASE WHEN $decision='rejected' THEN 'failed' ELSE 'completed' END
                 WHERE id = $attemptId AND state = 'awaiting_review';
@@ -1197,6 +1197,7 @@ public sealed partial class SqliteWorkChainStore
             Add(mutation, "$reviewer", command.ReviewerAgentId);
             Add(mutation, "$decision", command.Decision);
             Add(mutation, "$rationale", command.Rationale);
+            Add(mutation, "$rejectionCause", command.RejectionCause);
             Add(mutation, "$occurredAt", ToStorage(command.OccurredAt));
             Add(mutation, "$taskState", taskState);
             Add(mutation, "$nextVersion", nextVersion);

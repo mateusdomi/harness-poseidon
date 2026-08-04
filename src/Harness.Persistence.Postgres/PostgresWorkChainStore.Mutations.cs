@@ -970,12 +970,13 @@ public sealed partial class PostgresWorkChainStore
                 connection, transaction,
                 """
                 INSERT INTO harness.work_reviews
-                    (id, tenant_id, project_id, attempt_id, reviewer_agent_id, decision, rationale, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+                    (id, tenant_id, project_id, attempt_id, reviewer_agent_id, decision, rationale, rejection_cause, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
                 """,
                 cancellationToken,
                 Text(command.ReviewId), Text(command.TenantId), Text(row.ProjectId), Text(command.AttemptId),
                 Text(command.ReviewerAgentId), Text(command.Decision), Text(command.Rationale),
+                Text(command.RejectionCause),
                 Timestamp(command.OccurredAt));
             await ExecuteAsync(
                 connection, transaction,

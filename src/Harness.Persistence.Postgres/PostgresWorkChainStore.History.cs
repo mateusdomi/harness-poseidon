@@ -250,7 +250,7 @@ public sealed partial class PostgresWorkChainStore
             connection,
             transaction,
             """
-            SELECT id, reviewer_agent_id, decision, rationale, created_at
+            SELECT id, reviewer_agent_id, decision, rationale, rejection_cause, created_at
             FROM harness.work_reviews WHERE attempt_id = $1;
             """,
             Text(attemptId));
@@ -258,7 +258,10 @@ public sealed partial class PostgresWorkChainStore
         return await reader.ReadAsync(cancellationToken)
             ? new WorkReviewSnapshot(
                 TrimId(reader.GetString(0)), reader.GetString(1), reader.GetString(2),
-                reader.GetString(3), reader.GetFieldValue<DateTimeOffset>(4))
+                reader.GetString(3), reader.GetFieldValue<DateTimeOffset>(5))
+            {
+                RejectionCause = reader.IsDBNull(4) ? "none" : reader.GetString(4),
+            }
             : null;
     }
 

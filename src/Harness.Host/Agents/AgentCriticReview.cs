@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Harness.Modules.Coordination.Contracts;
 
 namespace Harness.Host.Agents;
 
@@ -11,6 +12,39 @@ public enum CriticFindingSeverity
     P1,
     P2,
     P3,
+}
+
+/// <summary>
+/// POR QUE a revisão reprovou. Conjunto fechado, e a distinção existe para responder uma pergunta
+/// que a operação não sabia responder: 73% do custo medido é retrabalho, e sem esta classificação
+/// não havia como separar "faltou contexto ao ator" de "o critério do revisor é severo" de "o
+/// enunciado estava errado". Três causas diferentes, três correções diferentes, uma métrica só.
+///
+/// <see cref="None"/> é o valor de quem NÃO reprovou — aprovação não tem causa de reprovação, e
+/// deixar isso implícito faria "sem causa" e "causa desconhecida" colidirem no mesmo silêncio.
+/// <see cref="Other"/> é o honesto para quando o classificador não soube dizer: ele preserva o
+/// fato de que houve reprovação sem inventar um motivo que ninguém observou.
+/// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter<ReviewRejectionCause>))]
+public enum ReviewRejectionCause
+{
+    /// <summary>Não houve reprovação.</summary>
+    None,
+
+    /// <summary>O ator não recebeu o que precisava para executar — falha do pacote, não dele.</summary>
+    ContextMissing,
+
+    /// <summary>O trabalho rodou e não satisfez os critérios de aceite declarados.</summary>
+    AcceptanceNotMet,
+
+    /// <summary>A entrega saiu do escopo declarado do card.</summary>
+    ScopeViolation,
+
+    /// <summary>Satisfez o combinado, mas não a barra de qualidade do revisor.</summary>
+    QualityBar,
+
+    /// <summary>Reprovou e o classificador não soube dizer por quê. Honesto, nunca conveniente.</summary>
+    Other,
 }
 
 /// <summary>Veredito do critic. `Fail` é o padrão quando falta evidência.</summary>
@@ -48,6 +82,13 @@ public sealed record CriticReviewResult(
     long DurationMs)
 {
     public bool Approved => Verdict == CriticVerdict.Pass;
+
+    /// <summary>
+    /// Causa tipada da reprovação, derivada do contrato do crítico. Só é populada quando
+    /// <see cref="Verdict"/> é <see cref="CriticVerdict.Fail"/>; aprovações usam
+    /// <see cref="ReviewRejectionCause.None"/>.
+    /// </summary>
+    public ReviewRejectionCause RejectionCause { get; init; } = ReviewRejectionCause.None;
 }
 
 /// <summary>
@@ -108,19 +149,21 @@ public static class CriticReviewContract
     /// <summary>
     /// Extrai o veredito da saída do critic. Qualquer desvio — JSON ausente, inválido,
     /// veredito fora do conjunto — resulta em FAIL com código tipado, jamais em PASS.
+    /// Também classifica a causa tipada da reprovação para persistência em
+    /// <see cref="CriticReviewResult.RejectionCause"/>.
     /// </summary>
-    public static (CriticVerdict Verdict, string ReasonCode, IReadOnlyList<CriticFinding> Findings, string? Summary)
+    public static (CriticVerdict Verdict, string ReasonCode, IReadOnlyList<CriticFinding> Findings, string? Summary, ReviewRejectionCause RejectionCause)
         Parse(string? output)
     {
         if (string.IsNullOrWhiteSpace(output))
         {
-            return (CriticVerdict.Fail, "critic.no_output", [], null);
+            return (CriticVerdict.Fail, "critic.no_output", [], null, ReviewRejectionCause.Other);
         }
 
         var json = ExtractJsonObject(output);
         if (json is null)
         {
-            return (CriticVerdict.Fail, "critic.output_not_json", [], null);
+            return (CriticVerdict.Fail, "critic.output_not_json", [], null, ReviewRejectionCause.Other);
         }
 
         try
@@ -131,7 +174,7 @@ public static class CriticReviewContract
                 !root.TryGetProperty("verdict", out var verdictElement) ||
                 verdictElement.ValueKind != JsonValueKind.String)
             {
-                return (CriticVerdict.Fail, "critic.verdict_missing", [], null);
+                return (CriticVerdict.Fail, "critic.verdict_missing", [], null, ReviewRejectionCause.Other);
             }
 
             var findings = new List<CriticFinding>();
@@ -161,12 +204,17 @@ public static class CriticReviewContract
             var verdict = string.Equals(verdictElement.GetString(), "pass", StringComparison.OrdinalIgnoreCase)
                 ? CriticVerdict.Pass
                 : CriticVerdict.Fail;
+            var checks = root.TryGetProperty("checks", out var checksElement) &&
+                checksElement.ValueKind == JsonValueKind.Object
+                ? checksElement
+                : (JsonElement?)null;
 
             // Um PASS acompanhado de achado P0/P1 é incoerente: prevalece o achado.
             if (verdict == CriticVerdict.Pass &&
                 findings.Any(finding => finding.Severity is CriticFindingSeverity.P0 or CriticFindingSeverity.P1))
             {
-                return (CriticVerdict.Fail, "critic.pass_contradicted_by_findings", findings, summary);
+                return (CriticVerdict.Fail, "critic.pass_contradicted_by_findings", findings, summary,
+                    ClassifyRejectionCause(checks, CriticVerdict.Fail, findings));
             }
 
             // Um resumo otimista não substitui a prova. Para aprovar, o revisor precisa
@@ -176,36 +224,86 @@ public static class CriticReviewContract
             // licencia repetir inferências como fatos em outras seções.
             if (verdict == CriticVerdict.Pass)
             {
-                if (!root.TryGetProperty("checks", out var checks) ||
-                    checks.ValueKind != JsonValueKind.Object)
+                if (checks is null)
                 {
-                    return (CriticVerdict.Fail, "critic.checks_missing", findings, summary);
+                    return (CriticVerdict.Fail, "critic.checks_missing", findings, summary,
+                        ReviewRejectionCause.Other);
                 }
 
-                if (!ReadTrue(checks, "delegationCompared") ||
-                    !ReadTrue(checks, "scopeVerified") ||
-                    !ReadTrue(checks, "evidenceSufficient"))
+                if (!ReadTrue(checks.Value, "delegationCompared") ||
+                    !ReadTrue(checks.Value, "scopeVerified") ||
+                    !ReadTrue(checks.Value, "evidenceSufficient"))
                 {
-                    return (CriticVerdict.Fail, "critic.checks_failed", findings, summary);
+                    return (CriticVerdict.Fail, "critic.checks_failed", findings, summary,
+                        ClassifyRejectionCause(checks, CriticVerdict.Fail, findings));
                 }
 
-                if (HasArrayItems(checks, "unsupportedClaims"))
+                if (HasArrayItems(checks.Value, "unsupportedClaims"))
                 {
-                    return (CriticVerdict.Fail, "critic.unsupported_claims", findings, summary);
+                    return (CriticVerdict.Fail, "critic.unsupported_claims", findings, summary,
+                        ReviewRejectionCause.QualityBar);
                 }
 
-                if (HasArrayItems(checks, "unlabeledInferences"))
+                if (HasArrayItems(checks.Value, "unlabeledInferences"))
                 {
-                    return (CriticVerdict.Fail, "critic.unlabeled_inferences", findings, summary);
+                    return (CriticVerdict.Fail, "critic.unlabeled_inferences", findings, summary,
+                        ReviewRejectionCause.QualityBar);
                 }
             }
 
-            return (verdict, verdict == CriticVerdict.Pass ? "critic.pass" : "critic.fail", findings, summary);
+            var reasonCode = verdict == CriticVerdict.Pass ? "critic.pass" : "critic.fail";
+            var cause = verdict == CriticVerdict.Pass
+                ? ReviewRejectionCause.None
+                : ClassifyRejectionCause(checks, CriticVerdict.Fail, findings);
+            return (verdict, reasonCode, findings, summary, cause);
         }
         catch (JsonException)
         {
-            return (CriticVerdict.Fail, "critic.output_not_json", [], null);
+            return (CriticVerdict.Fail, "critic.output_not_json", [], null, ReviewRejectionCause.Other);
         }
+    }
+
+    private static ReviewRejectionCause ClassifyRejectionCause(
+        JsonElement? checks,
+        CriticVerdict verdict,
+        IReadOnlyList<CriticFinding> findings)
+    {
+        if (verdict == CriticVerdict.Pass)
+        {
+            return ReviewRejectionCause.None;
+        }
+
+        if (checks is not null)
+        {
+            if (!ReadTrue(checks.Value, "evidenceSufficient"))
+            {
+                return ReviewRejectionCause.ContextMissing;
+            }
+
+            if (!ReadTrue(checks.Value, "scopeVerified"))
+            {
+                return ReviewRejectionCause.ScopeViolation;
+            }
+
+            if (HasArrayItems(checks.Value, "unsupportedClaims") ||
+                HasArrayItems(checks.Value, "unlabeledInferences"))
+            {
+                return ReviewRejectionCause.QualityBar;
+            }
+        }
+
+        foreach (var finding in findings)
+        {
+            var code = finding.Code.AsSpan();
+            if (code.Contains("acceptance".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
+                code.Contains("criteria".AsSpan(), StringComparison.OrdinalIgnoreCase) ||
+                code.Contains("requirement".AsSpan(), StringComparison.OrdinalIgnoreCase))
+            {
+                return ReviewRejectionCause.AcceptanceNotMet;
+            }
+        }
+
+        return ReviewRejectionCause.Other;
     }
 
     private static bool ReadTrue(JsonElement parent, string property) =>

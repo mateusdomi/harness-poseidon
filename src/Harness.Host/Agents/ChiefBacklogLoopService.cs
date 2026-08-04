@@ -2531,7 +2531,10 @@ public sealed partial class ChiefBacklogLoopService(
                         "Corrija a estrutura documental e submeta uma nova versão.")],
                     $"Gate documental recusou a entrega: {detail}",
                     null,
-                    0);
+                    0)
+                {
+                    RejectionCause = ReviewRejectionCause.QualityBar,
+                };
                 // Quem reprovou foi o gate DOCUMENTAL, e é isso que precisa constar. Sem passar
                 // o veredito real, a mesma entrega ficava registrada com a camada determinística
                 // "limpa" — a auditoria leria o contrário do que houve.
@@ -2605,7 +2608,10 @@ public sealed partial class ChiefBacklogLoopService(
                     "A entrega adiciona segredo em texto claro. O critério do portão de " +
                     "Desenvolvimento exige entrega sem segredo em código.",
                     null,
-                    0);
+                    0)
+                {
+                    RejectionCause = ReviewRejectionCause.QualityBar,
+                };
                 if (await ApplyReviewVerdictAsync(
                         tenantId, task, awaiting.Id, secretResult, chain, token, deterministicLayer))
                 {
@@ -2652,7 +2658,10 @@ public sealed partial class ChiefBacklogLoopService(
                     "A plataforma executou os gates declarados pela própria entrega e o " +
                     $"resultado não autoriza a revisão: {gateReport.Detail}",
                     null,
-                    0);
+                    0)
+                {
+                    RejectionCause = ReviewRejectionCause.AcceptanceNotMet,
+                };
                 if (await ApplyReviewVerdictAsync(
                         tenantId, task, awaiting.Id, gateResult, chain, token, deterministicLayer))
                 {
@@ -2699,7 +2708,10 @@ public sealed partial class ChiefBacklogLoopService(
                         value))],
                     "Placeholders de entrega precisam ser resolvidos antes da revisão comportamental.",
                     null,
-                    0);
+                    0)
+                {
+                    RejectionCause = ReviewRejectionCause.QualityBar,
+                };
                 if (await ApplyReviewVerdictAsync(
                         tenantId, task, awaiting.Id, deterministicResult, chain, token,
                         new LayerResult(
@@ -2876,7 +2888,10 @@ public sealed partial class ChiefBacklogLoopService(
             new WorkAttemptReviewCommand(
                 tenantId, task.BackingSolicitationId, task.Id, attemptId, result.ReviewId,
                 result.CriticAlias, decision, rationale, task.Version,
-                $"chief-loop-review:{result.ReviewId}", clock.UtcNow),
+                $"chief-loop-review:{result.ReviewId}", clock.UtcNow)
+            {
+                RejectionCause = ToStorageRejectionCause(result.RejectionCause),
+            },
             token);
         if (applied.Status is WorkChainMutationStatus.Applied
             or WorkChainMutationStatus.IdempotentReplay)
@@ -2888,6 +2903,18 @@ public sealed partial class ChiefBacklogLoopService(
         LogReviewInfrastructureFailure(logger, task.Id, attemptId, $"chain:{applied.Status}");
         return false;
     }
+
+    private static string ToStorageRejectionCause(ReviewRejectionCause cause) =>
+        cause switch
+        {
+            ReviewRejectionCause.None => "none",
+            ReviewRejectionCause.ContextMissing => "contextMissing",
+            ReviewRejectionCause.AcceptanceNotMet => "acceptanceNotMet",
+            ReviewRejectionCause.ScopeViolation => "scopeViolation",
+            ReviewRejectionCause.QualityBar => "qualityBar",
+            ReviewRejectionCause.Other => "other",
+            _ => "other",
+        };
 
     /// <summary>
     /// A "Evidência de testes" que o revisor lê. Duas fontes, e a ordem importa: primeiro o que a
@@ -2943,7 +2970,10 @@ public sealed partial class ChiefBacklogLoopService(
                 $"{verdict.ReasonCode}: {verdict.Detail}",
                 task.Version,
                 $"chief-loop-code-diagnostics:{attemptId}",
-                clock.UtcNow),
+                clock.UtcNow)
+            {
+                RejectionCause = ToStorageRejectionCause(ReviewRejectionCause.QualityBar),
+            },
             token);
         if (applied.Status is WorkChainMutationStatus.Applied
             or WorkChainMutationStatus.IdempotentReplay)
