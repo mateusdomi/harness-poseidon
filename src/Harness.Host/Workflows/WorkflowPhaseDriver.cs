@@ -5,6 +5,7 @@ using Harness.Host.Product;
 using Harness.Modules.Workflows.Product;
 using Harness.Modules.Coordination.Application;
 using Harness.Modules.Workflows.Application;
+using Harness.Persistence.Abstractions.AttemptWorkspaces;
 using Harness.Persistence.Abstractions.Conversations;
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Contracts;
@@ -70,8 +71,43 @@ public sealed class WorkflowPhaseDriver(
     ICouncilOpinionArtifactReader? councilOpinions = null,
     IModelInvocationStore? invocations = null,
     AgentAccountRegistry? accounts = null,
-    ProductDeliveryEvaluator? productDelivery = null)
+    ProductDeliveryEvaluator? productDelivery = null,
+    IAttemptWorkspaceStore? workspaces = null)
 {
+    /// <summary>
+    /// O SHA que a última tentativa entregue desta fase produziu. É o estado que a verificação
+    /// julga, e o que amarra a evidência ao código: uma prova colhida sobre outro commit não
+    /// aprova este. Nulo quando nenhuma tentativa registrou commit — e nesse caso o chamador cai
+    /// no identificador da execução, que nunca casa com evidência real e portanto reprova.
+    /// </summary>
+    private async Task<string?> ResolveVerifiedCommitAsync(
+        string tenantId,
+        IReadOnlyList<BoardTaskRecord> tasks,
+        string phaseName,
+        CancellationToken cancellationToken)
+    {
+        if (workspaces is null)
+        {
+            return null;
+        }
+
+        foreach (var task in tasks.Where(item =>
+                     string.Equals(item.PhaseName, phaseName, StringComparison.Ordinal)))
+        {
+            var attempts = await _board.ListAttemptsAsync(tenantId, task.Id, null, 20, cancellationToken);
+            foreach (var attempt in attempts.OrderByDescending(item => item.StartedAt))
+            {
+                var snapshot = await workspaces.GetAsync(tenantId, attempt.Id, cancellationToken);
+                if (snapshot?.CommitSha is { Length: 40 } sha)
+                {
+                    return sha;
+                }
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>Tipo de objetivo cujo entregável é um documento produzível por agente.</summary>
     private const string DocumentKind = "document";
 
@@ -395,8 +431,13 @@ public sealed class WorkflowPhaseDriver(
         ProductDeliveryVerdict? productVerdict = null;
         if (productDelivery is not null)
         {
+            // O COMMIT REALMENTE VERIFICADO, não o id da execução. Sem isso, a correlação de
+            // evidência compararia identificadores de execução e a regra "prova do commit A não
+            // aprova o commit B" nunca teria efeito.
+            var verifiedCommit = await ResolveVerifiedCommitAsync(
+                tenantId, page.Items, phase.Name, cancellationToken) ?? running.Id;
             var outcome = await productDelivery.EvaluateAsync(
-                tenantId, project.Id, project.RepositoryUrl, running.Id, phase.Order, cancellationToken,
+                tenantId, project.Id, project.RepositoryUrl, verifiedCommit, phase.Order, cancellationToken,
                 // A prosa do usuário é a entrada da resolução: é dela que sai a modalidade, e é a
                 // modalidade que decide o que "pronto" significa.
                 string.Join(

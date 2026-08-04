@@ -44,7 +44,8 @@ public static class ProductDeliveryFailures
 public sealed class ProductDeliveryEvaluator(
     IProjectEffectiveProfileStore profiles,
     IClock clock,
-    ILogger<ProductDeliveryEvaluator>? logger = null)
+    ILogger<ProductDeliveryEvaluator>? logger = null,
+    ProductVerificationRunner? verifications = null)
 {
     private readonly ProductEvidenceCollectorPipeline _pipeline = new();
 
@@ -57,7 +58,9 @@ public sealed class ProductDeliveryEvaluator(
     public sealed record Outcome(
         ProductDeliveryVerdict? Verdict,
         string? Failure,
-        ProjectEffectiveProfileRecord? Profile);
+        ProjectEffectiveProfileRecord? Profile,
+        ProductDeliveryEvidence? Evidence = null,
+        ProductVerificationPlan? Plan = null);
 
     public async Task<Outcome> EvaluateAsync(
         string tenantId,
@@ -66,7 +69,9 @@ public sealed class ProductDeliveryEvaluator(
         string commitSha,
         int phaseOrder,
         CancellationToken cancellationToken,
-        string? demandText = null)
+        string? demandText = null,
+        string? attemptId = null,
+        string? cardId = null)
     {
         var record = await profiles.GetCurrentAsync(tenantId, projectId, cancellationToken);
 
@@ -132,15 +137,34 @@ public sealed class ProductDeliveryEvaluator(
                 record);
         }
 
+        // O PLANO é derivado do perfil e auditável: dá para responder por que este projeto teve o
+        // build de frontend verificado e aquele não.
+        var plan = ProductVerificationPlan.From(profile);
+
+        // VERIFICAÇÃO REAL. É aqui que o Poseidon deixa de acreditar e passa a constatar: os
+        // verificadores executam build, testes e contrato dentro da worktree, com allowlist de
+        // executável e teto de tempo, e devolvem comando, código de saída e commit.
+        IReadOnlyList<ProductVerificationRecord> verified = [];
+        if (verifications is not null)
+        {
+            verified = await verifications.RunAsync(
+                new ProductVerificationContext(
+                    profile, repositoryRoot, commitSha, projectId, attemptId, cardId),
+                plan,
+                cancellationToken);
+        }
+
         var workspace = new FileSystemProductWorkspace(repositoryRoot, commitSha);
-        var evidence = _pipeline.Collect(profile, workspace);
+        var evidence = _pipeline.Collect(profile, workspace, verified);
         var verdict = ProductDeliveryGate.Evaluate(profile, evidence.Items, commitSha);
         LogProductVerdict(logger, projectId, record.Version, verdict.Summary(), evidence.Summary());
 
         return new Outcome(
             verdict,
             verdict.Satisfied ? null : ProductDeliveryFailures.DeliveryIncomplete,
-            record);
+            record,
+            evidence,
+            plan);
     }
 
     /// <summary>

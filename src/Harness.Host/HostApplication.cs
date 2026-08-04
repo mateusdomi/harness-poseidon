@@ -568,6 +568,17 @@ public static class HostApplication
                 new Workflows.GitCouncilOpinionArtifactReader(
                     services.GetRequiredService<Projects.ProjectRepositoryStorage>(),
                     Path.GetFullPath(agentRunSettings.ControlledRoot!)));
+            builder.Services.AddSingleton<Product.TrustedProcessRunner>();
+            builder.Services.AddSingleton<Product.IProductVerifier, Product.DotNetBuildVerifier>();
+            builder.Services.AddSingleton<Product.IProductVerifier, Product.DotNetTestVerifier>();
+            builder.Services.AddSingleton<Product.IProductVerifier, Product.FrontendBuildVerifier>();
+            builder.Services.AddSingleton(services => new Product.ProductVerificationRunner(
+                [
+                    .. services.GetServices<Product.IProductVerifier>(),
+                    .. Product.ScriptedVerifierCatalog.Create(
+                        services.GetRequiredService<Product.TrustedProcessRunner>()),
+                ],
+                services.GetService<ILogger<Product.ProductVerificationRunner>>()));
             builder.Services.AddScoped<Product.ProductDeliveryEvaluator>();
             builder.Services.AddScoped<Workflows.WorkflowPhaseDriver>();
             builder.Services.AddHostedService<ChiefBacklogLoopService>();
