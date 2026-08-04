@@ -57,6 +57,7 @@ using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Licensing;
 using Harness.Persistence.Abstractions.Messaging;
 using Harness.Persistence.Abstractions.Governance;
+using Harness.Persistence.Abstractions.Product;
 using Harness.Persistence.Abstractions.Organizations;
 using Harness.Persistence.Abstractions.Notifications;
 using Harness.Persistence.Abstractions.Projects;
@@ -259,6 +260,7 @@ public static class HostApplication
             builder.Services.AddSingleton<INotificationStore, PostgresNotificationStore>();
             builder.Services.AddSingleton<IAuditEventStore, PostgresAuditEventStore>();
             builder.Services.AddSingleton<IGovernanceRuntimeStore, PostgresGovernanceRuntimeStore>();
+            builder.Services.AddSingleton<IProjectEffectiveProfileStore, PostgresProjectEffectiveProfileStore>();
             builder.Services.AddSingleton<ILearningCandidateStore, PostgresLearningCandidateStore>();
             builder.Services.AddSingleton<IChiefTurnIntentStore, PostgresChiefTurnIntentStore>();
             builder.Services.AddSingleton<IPhaseObligationStore, PostgresPhaseObligationStore>();
@@ -299,6 +301,8 @@ public static class HostApplication
             builder.Services.AddSingleton<INotificationStore, SqliteNotificationStore>();
             builder.Services.AddSingleton<IAuditEventStore, SqliteAuditEventStore>();
             builder.Services.AddSingleton<IGovernanceRuntimeStore, SqliteGovernanceRuntimeStore>();
+            builder.Services.AddSingleton<IProjectEffectiveProfileStore>(services =>
+                new SqliteProjectEffectiveProfileStore(services.GetRequiredService<SqliteWriteDispatcher>()));
             builder.Services.AddSingleton<ILearningCandidateStore, SqliteLearningCandidateStore>();
             builder.Services.AddSingleton<IChiefTurnIntentStore, SqliteChiefTurnIntentStore>();
             builder.Services.AddSingleton<IPhaseObligationStore, SqlitePhaseObligationStore>();
@@ -564,6 +568,7 @@ public static class HostApplication
                 new Workflows.GitCouncilOpinionArtifactReader(
                     services.GetRequiredService<Projects.ProjectRepositoryStorage>(),
                     Path.GetFullPath(agentRunSettings.ControlledRoot!)));
+            builder.Services.AddScoped<Product.ProductDeliveryEvaluator>();
             builder.Services.AddScoped<Workflows.WorkflowPhaseDriver>();
             builder.Services.AddHostedService<ChiefBacklogLoopService>();
             builder.Services.AddSingleton(new AttemptArtifactArchive(

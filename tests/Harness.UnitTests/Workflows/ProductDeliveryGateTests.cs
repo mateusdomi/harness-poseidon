@@ -65,7 +65,10 @@ public sealed class ProductDeliveryGateTests
     {
         var verdict = Evaluate(Web(), Complete()
             .Where(evidence => evidence.Kind != ProductEvidenceKind.FrontendBuild)
-            .Append(new ProductEvidence(ProductEvidenceKind.FrontendBuild, false, "vite build falhou")));
+            .Append(new ProductEvidence(
+                ProductEvidenceKind.FrontendBuild, false, "vite build falhou",
+                ProductEvidenceProvenanceRecord.FromVerifier(
+                    "frontend-builder", Commit, DateTimeOffset.UnixEpoch, "npm run build", 1))));
 
         var finding = Assert.Single(verdict.Findings);
         Assert.Equal(ProductEvidenceGap.Failed, finding.Gap);
@@ -77,7 +80,9 @@ public sealed class ProductDeliveryGateTests
         var verdict = Evaluate(Web(), Complete()
             .Where(evidence => evidence.Kind != ProductEvidenceKind.FrontendBackendIntegration)
             .Append(new ProductEvidence(
-                ProductEvidenceKind.FrontendBackendIntegration, false, "tela alimentada por mock")));
+                ProductEvidenceKind.FrontendBackendIntegration, false, "tela alimentada por mock",
+                ProductEvidenceProvenanceRecord.FromVerifier(
+                    "integration-probe", Commit, DateTimeOffset.UnixEpoch, "npm run test:integration", 1))));
 
         Assert.False(verdict.Satisfied);
     }
@@ -157,6 +162,21 @@ public sealed class ProductDeliveryGateTests
     private static ProjectEffectiveProfile Web() => EffectiveProfileResolver.Resolve(
         new EffectiveProfileInputs("project", "Quero um sistema de empréstimos.", []));
 
-    private static IEnumerable<ProductEvidence> Complete() =>
-        Enum.GetValues<ProductEvidenceKind>().Select(kind => new ProductEvidence(kind, true));
+    /// <summary>
+    /// Conjunto completo com a proveniência que cada tipo exige: existência e forma podem ser
+    /// CONSTATADAS; funcionamento precisa ser VERIFICADO. É o formato que uma coleta real produz.
+    /// </summary>
+    internal static IEnumerable<ProductEvidence> Complete(string commitSha = Commit) =>
+        Enum.GetValues<ProductEvidenceKind>().Select(kind => Satisfied(kind, commitSha));
+
+    internal const string Commit = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678";
+
+    internal static ProductEvidence Satisfied(ProductEvidenceKind kind, string commitSha = Commit) =>
+        kind is ProductEvidenceKind.FrontendPresent or ProductEvidenceKind.ApiPresent
+            or ProductEvidenceKind.DatabaseMigrationValidated or ProductEvidenceKind.RunbookPresent
+            ? new ProductEvidence(kind, true, null,
+                ProductEvidenceProvenanceRecord.FromRepository(commitSha, DateTimeOffset.UnixEpoch))
+            : new ProductEvidence(kind, true, null,
+                ProductEvidenceProvenanceRecord.FromVerifier(
+                    "test-runner", commitSha, DateTimeOffset.UnixEpoch, "verify", 0));
 }

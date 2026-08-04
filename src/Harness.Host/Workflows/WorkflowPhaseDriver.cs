@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text;
 using Harness.Host.Documents;
+using Harness.Host.Product;
+using Harness.Modules.Workflows.Product;
 using Harness.Modules.Coordination.Application;
 using Harness.Modules.Workflows.Application;
 using Harness.Persistence.Abstractions.Conversations;
@@ -67,7 +69,8 @@ public sealed class WorkflowPhaseDriver(
     IClock clock,
     ICouncilOpinionArtifactReader? councilOpinions = null,
     IModelInvocationStore? invocations = null,
-    AgentAccountRegistry? accounts = null)
+    AgentAccountRegistry? accounts = null,
+    ProductDeliveryEvaluator? productDelivery = null)
 {
     /// <summary>Tipo de objetivo cujo entregável é um documento produzível por agente.</summary>
     private const string DocumentKind = "document";
@@ -384,12 +387,31 @@ public sealed class WorkflowPhaseDriver(
         var blocked = page.Items.Any(task =>
             string.Equals(task.PhaseName, phase.Name, StringComparison.Ordinal) &&
             string.Equals(task.InternalState, "blocked", StringComparison.Ordinal));
+        // ---- DEFINITION OF DONE DO PRODUTO ----
+        //
+        // Obrigação documental cumprida não é entrega feita. Aqui o portão passa a consultar o
+        // perfil efetivo do projeto e a EVIDÊNCIA CONSTATADA da árvore entregue — não o que o
+        // executor escreveu sobre ela.
+        ProductDeliveryVerdict? productVerdict = null;
+        if (productDelivery is not null)
+        {
+            var outcome = await productDelivery.EvaluateAsync(
+                tenantId, project.Id, project.RepositoryUrl, running.Id, phase.Order, cancellationToken);
+            productVerdict = outcome.Verdict;
+            if (outcome.Failure is { Length: > 0 } productFailure &&
+                !string.Equals(productFailure, ProductDeliveryFailures.LegacyProjectExempt, StringComparison.Ordinal))
+            {
+                _failures.Add($"phase:{phase.Key}:{productFailure}");
+            }
+        }
+
         var evidence = new PhaseGateEvidence(
             HasGate: gate is not null,
             AllRequiredObligationsAccepted: progress.TechnicallyComplete,
             HasBlockingFinding: _failures.Count > 0,
             HasOpenBlocker: blocked,
-            RequiredObligationCount: progress.RequiredTotal);
+            RequiredObligationCount: progress.RequiredTotal,
+            ProductDelivery: productVerdict);
 
         var decision = PhaseGatePolicy.Decide(
             mode, phase.Name, gate?.Name, bindings[0].SemiautonomousPauseGates, evidence);

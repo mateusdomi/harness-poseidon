@@ -154,6 +154,68 @@ public sealed record ProjectEffectiveProfile(
     }
 
     /// <summary>
+    /// Representação COMPACTA para entrar no contexto do agente. O perfil inteiro em JSON gastaria
+    /// orçamento repetindo nulos e proveniência; o que o executor precisa saber é o que vale.
+    /// </summary>
+    public string ToContextSummary()
+    {
+        var builder = new System.Text.StringBuilder();
+        builder.Append("product.type: ").AppendLine(Modality.ToString().ToLowerInvariant());
+        if (Backend.Required)
+        {
+            builder.Append("backend: ").Append(Backend.Runtime ?? "n/d")
+                .Append(" / ").Append(Backend.Framework ?? "n/d")
+                .Append(" / ").AppendLine(Backend.Language ?? "n/d");
+            builder.Append("architecture: ").AppendLine(Backend.ArchitectureStyle ?? "n/d");
+        }
+
+        builder.Append("frontend.required: ").AppendLine(Frontend.Required ? "true" : "false");
+        if (Frontend.Required)
+        {
+            builder.Append("frontend: ").Append(Frontend.Framework ?? "n/d")
+                .Append(" / ").Append(Frontend.Language ?? "n/d")
+                .Append(" / ").AppendLine(Frontend.BuildSystem ?? "n/d");
+            if (Frontend.DesignSystem is { Length: > 0 } design)
+            {
+                builder.Append("frontend.designSystem: ").AppendLine(design);
+            }
+        }
+
+        if (Data.Required)
+        {
+            builder.Append("database: ").AppendLine(Data.Database ?? "n/d");
+            builder.Append("migrations: ").AppendLine(Data.MigrationStrategy ?? "n/d");
+        }
+
+        if (Api.Required)
+        {
+            builder.Append("api: ").Append(Api.Protocol ?? "n/d")
+                .Append(" / openapi: ").AppendLine(Api.OpenApiRequired ? "required" : "optional");
+        }
+
+        if (Security.Authentication is { Length: > 0 } authentication)
+        {
+            builder.Append("security.authentication: ").AppendLine(authentication);
+        }
+
+        foreach (var item in Overrides)
+        {
+            builder.Append("override: ").Append(item.Area).Append(" = ").Append(item.OverrideValue)
+                .Append(" (era ").Append(item.DefaultValue).Append("; ")
+                .Append(item.AdrId ?? item.Reason).AppendLine(")");
+        }
+
+        foreach (var constraint in Constraints)
+        {
+            builder.Append("constraint: ").AppendLine(constraint);
+        }
+
+        builder.Append("baselineVersion: ").AppendLine(BaselineVersion);
+        builder.Append("profileFingerprint: ").AppendLine(Fingerprint());
+        return builder.ToString().TrimEnd();
+    }
+
+    /// <summary>
     /// Identidade estável do conteúdo do perfil. Permite ao recibo de governança dizer QUAL perfil
     /// a execução usou, e não apenas que havia um.
     /// </summary>

@@ -7,7 +7,10 @@ namespace Harness.Modules.Workflows.Product;
 /// </summary>
 public enum ProductEvidenceKind
 {
-    /// <summary>O backend existe e compila.</summary>
+    /// <summary>Existe projeto de backend, no runtime que o perfil decidiu.</summary>
+    BackendPresent,
+
+    /// <summary>O backend compila.</summary>
     BackendBuild,
 
     /// <summary>Existe projeto de frontend no entregável.</summary>
@@ -45,10 +48,21 @@ public enum ProductEvidenceKind
 }
 
 /// <summary>
-/// Um fato observado da execução. <see cref="Satisfied"/> falso e evidência AUSENTE são coisas
-/// diferentes e ambas reprovam — a diferença aparece no motivo, para o diagnóstico não mentir.
+/// Um fato sobre a entrega. <see cref="Satisfied"/> falso e evidência AUSENTE são coisas diferentes
+/// e ambas reprovam — a diferença aparece no motivo, para o diagnóstico não mentir.
+///
+/// <see cref="Provenance"/> é o que separa fato de afirmação. O default é
+/// <see cref="ProductEvidenceProvenance.Declared"/> de propósito: quem não declara a origem não
+/// ganha o benefício da dúvida.
 /// </summary>
-public sealed record ProductEvidence(ProductEvidenceKind Kind, bool Satisfied, string? Detail = null);
+public sealed record ProductEvidence(
+    ProductEvidenceKind Kind,
+    bool Satisfied,
+    string? Detail = null,
+    ProductEvidenceProvenanceRecord? Provenance = null)
+{
+    public ProductEvidenceProvenance Level => Provenance?.Level ?? ProductEvidenceProvenance.Declared;
+}
 
 /// <summary>Por que uma exigência não foi satisfeita.</summary>
 public enum ProductEvidenceGap
@@ -58,6 +72,18 @@ public enum ProductEvidenceGap
 
     /// <summary>A evidência foi produzida e reprovou.</summary>
     Failed,
+
+    /// <summary>
+    /// A evidência existe e diz que passou, mas é apenas uma AFIRMAÇÃO do ator. Um requisito
+    /// técnico não pode ser satisfeito por texto que o próprio executor escreveu.
+    /// </summary>
+    Declared,
+
+    /// <summary>
+    /// A evidência é real, mas foi produzida sobre outro estado do repositório. Verificar o
+    /// commit A, mudar para o commit B e aprovar B com a prova de A é o mesmo que não verificar.
+    /// </summary>
+    Stale,
 }
 
 public sealed record ProductEvidenceFinding(
@@ -95,6 +121,9 @@ public static class ProductDeliveryRequirements
 
         if (profile.Backend.Required)
         {
+            // Existir e compilar são fatos diferentes, provados por meios diferentes: o primeiro
+            // se constata olhando, o segundo exige execução.
+            required.Add(ProductEvidenceKind.BackendPresent);
             required.Add(ProductEvidenceKind.BackendBuild);
         }
 
@@ -154,23 +183,46 @@ public static class ProductDeliveryRequirements
 /// </summary>
 public static class ProductDeliveryGate
 {
+    /// <summary>
+    /// Força mínima exigida de cada tipo de evidência. Tudo o que é requisito TÉCNICO precisa ser
+    /// no mínimo constatado pelo Poseidon; nada aqui se satisfaz com afirmação do ator.
+    /// </summary>
+    private static ProductEvidenceProvenance MinimumLevel(ProductEvidenceKind kind) => kind switch
+    {
+        // Existência e forma podem ser constatadas por inspeção do estado entregue.
+        ProductEvidenceKind.BackendPresent or
+        ProductEvidenceKind.FrontendPresent or
+        ProductEvidenceKind.ApiPresent or
+        ProductEvidenceKind.DatabaseMigrationValidated or
+        ProductEvidenceKind.RunbookPresent => ProductEvidenceProvenance.Observed,
+
+        // Funcionamento não se constata olhando: exige execução controlada com resultado
+        // reproduzível. É aqui que "o agente disse que buildou" deixa de valer.
+        _ => ProductEvidenceProvenance.Verified,
+    };
+
     public static ProductDeliveryVerdict Evaluate(
         ProjectEffectiveProfile profile,
-        IReadOnlyList<ProductEvidence>? observed)
+        IReadOnlyList<ProductEvidence>? observed,
+        string? expectedCommitSha = null)
     {
         ArgumentNullException.ThrowIfNull(profile);
 
         var required = ProductDeliveryRequirements.For(profile);
         var byKind = (observed ?? [])
             .GroupBy(evidence => evidence.Kind)
-            // Uma evidência reportada duas vezes com vereditos diferentes não pode virar "passou":
-            // vale a mais severa.
-            .ToDictionary(group => group.Key, group => group.All(evidence => evidence.Satisfied));
+            // Reportada duas vezes com vereditos diferentes não vira "passou": qualquer reprovação
+            // vence. Entre as que passaram, vale a prova MAIS FORTE — uma verificação executada
+            // não é enfraquecida por alguém ter também afirmado o mesmo em texto.
+            .ToDictionary(
+                group => group.Key,
+                group => group.FirstOrDefault(evidence => !evidence.Satisfied)
+                    ?? group.OrderByDescending(evidence => (int)evidence.Level).First());
 
         var findings = new List<ProductEvidenceFinding>();
         foreach (var kind in required)
         {
-            if (!byKind.TryGetValue(kind, out var satisfied))
+            if (!byKind.TryGetValue(kind, out var evidence))
             {
                 findings.Add(new ProductEvidenceFinding(
                     kind,
@@ -179,12 +231,36 @@ public static class ProductDeliveryGate
                 continue;
             }
 
-            if (!satisfied)
+            if (!evidence.Satisfied)
             {
                 findings.Add(new ProductEvidenceFinding(
                     kind,
                     ProductEvidenceGap.Failed,
                     $"A evidência {kind} foi registrada e reprovou."));
+                continue;
+            }
+
+            var minimum = MinimumLevel(kind);
+            if (evidence.Level < minimum)
+            {
+                findings.Add(new ProductEvidenceFinding(
+                    kind,
+                    ProductEvidenceGap.Declared,
+                    $"{kind} exige evidência {minimum} e chegou como {evidence.Level} " +
+                    $"(origem: {evidence.Provenance?.Source ?? "não declarada"}). " +
+                    "Afirmação do executor não satisfaz requisito técnico."));
+                continue;
+            }
+
+            // Amarração ao estado verificado: prova do commit A não aprova o commit B.
+            if (expectedCommitSha is { Length: > 0 } expected &&
+                evidence.Provenance?.CommitSha is { Length: > 0 } actual &&
+                !string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
+            {
+                findings.Add(new ProductEvidenceFinding(
+                    kind,
+                    ProductEvidenceGap.Stale,
+                    $"{kind} foi verificada sobre {Short(actual)} e a entrega avaliada é {Short(expected)}."));
             }
         }
 
@@ -193,11 +269,13 @@ public static class ProductDeliveryGate
         if (profile.Modality == ProductModality.Unspecified)
         {
             findings.Add(new ProductEvidenceFinding(
-                ProductEvidenceKind.BackendBuild,
+                ProductEvidenceKind.BackendPresent,
                 ProductEvidenceGap.Missing,
                 "A modalidade do produto não foi resolvida no perfil efetivo; o que significa 'pronto' é indefinido."));
         }
 
         return new ProductDeliveryVerdict(findings.Count == 0, profile.Modality, required, findings);
     }
+
+    private static string Short(string sha) => sha.Length <= 8 ? sha : sha[..8];
 }

@@ -11,6 +11,7 @@ using Harness.Modules.Coordination.Application;
 using Harness.Modules.Execution.Infrastructure.Git;
 using Harness.Modules.Governance.Context;
 using Harness.Modules.Workflows.Product;
+using Harness.Persistence.Abstractions.Product;
 using Harness.Modules.Governance.Coordination;
 using Harness.Modules.Governance.Memory;
 using Harness.Modules.Providers.Application;
@@ -65,8 +66,23 @@ public sealed partial class AgentRunOrchestrator(
     IAgentCatalogStore personas,
     IsolatedExecutionSettings isolatedSettings,
     ILogger<AgentRunOrchestrator> logger,
-    ISandboxProvider? sandboxProvider = null) : IHostedService
+    ISandboxProvider? sandboxProvider = null,
+    IProjectEffectiveProfileStore? effectiveProfiles = null) : IHostedService
 {
+    /// <summary>Overrides do perfil, em forma curta, para o recibo de governança.</summary>
+    private static string[]? ProfileOverrides(
+        Harness.Persistence.Abstractions.Product.ProjectEffectiveProfileRecord? record) =>
+        record is null
+            ? null
+            : ProjectEffectiveProfile.FromJson(record.ProfileJson)?.Overrides
+                .Select(item => $"{item.Area}={item.OverrideValue}" +
+                    (item.AdrId is { Length: > 0 } adr ? $" ({adr})" : string.Empty))
+                .ToArray();
+
+    private static IReadOnlyList<string>? ProfileAdrs(
+        Harness.Persistence.Abstractions.Product.ProjectEffectiveProfileRecord? record) =>
+        record is null ? null : ProjectEffectiveProfile.FromJson(record.ProfileJson)?.ActiveAdrs;
+
     private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
     private readonly IsolatedExecutionOptions isolatedOptions = isolatedSettings.ToOptions();
 
@@ -1332,6 +1348,17 @@ public sealed partial class AgentRunOrchestrator(
             // executava com papel e escopo e nenhuma palavra sobre como a especialidade pensa,
             // o que ela entrega e onde ela para — um executor genérico com crachá de especialista.
             var personaSlice = await ResolvePersonaSliceAsync(command, cancellationToken);
+
+            // Fase 3: o PERFIL EFETIVO do projeto entra como contexto obrigatório. Sem ele o
+            // executor decide stack, arquitetura e modalidade por conta própria — que é o defeito
+            // que produziu um endpoint no lugar de um sistema.
+            var effectiveProfile = effectiveProfiles is null
+                ? null
+                : await effectiveProfiles.GetCurrentAsync(
+                    command.TenantId, command.ProjectId, cancellationToken);
+            var profileSummary = effectiveProfile is null
+                ? null
+                : ProjectEffectiveProfile.FromJson(effectiveProfile.ProfileJson)?.ToContextSummary();
             var bundle = bundleBuilder.BuildOrFallback(new ContextBundleRequest(
                 command.TenantId, command.ProjectId, command.TaskId, command.AttemptId,
                 command.AccountAlias, account.ProviderKind, command.Model,
@@ -1356,7 +1383,8 @@ public sealed partial class AgentRunOrchestrator(
                     slice.TokenCount)).ToArray(),
                 skills,
                 personaSlice,
-                command.Role));
+                command.Role,
+                profileSummary));
 
             await governance.CreateContextSnapshotAsync(
                 ContextSnapshotFactory.Create(
@@ -1387,10 +1415,13 @@ public sealed partial class AgentRunOrchestrator(
                         Workflow: command.WorkflowKey,
                         Phase: command.PhaseName,
                         CardType: command.CardType,
-                        BaselineVersion: ProjectEffectiveProfile.CurrentBaselineVersion,
-                        EffectiveProfileFingerprint: null,
-                        Overrides: null,
-                        ActiveAdrs: null,
+                        BaselineVersion: effectiveProfile?.BaselineVersion
+                            ?? ProjectEffectiveProfile.CurrentBaselineVersion,
+                        EffectiveProfileFingerprint: effectiveProfile is null
+                            ? null
+                            : $"v{effectiveProfile.Version}:{effectiveProfile.Fingerprint}",
+                        Overrides: ProfileOverrides(effectiveProfile),
+                        ActiveAdrs: ProfileAdrs(effectiveProfile),
                         Truncations: [.. bundle.Truncations.Select(item =>
                             new GovernanceReceiptTruncationRecord(
                                 item.SourceId, item.Reason, item.LoadPolicy, item.EstimatedTokens))])),

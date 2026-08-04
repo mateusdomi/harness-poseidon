@@ -62,9 +62,10 @@ public sealed class EmprestimosIncidentRegressionTests
         // endpoint verde. Nada de interface, nada de jornada.
         var oQueFoiEntregue = new[]
         {
-            new ProductEvidence(ProductEvidenceKind.BackendBuild, true, "dotnet build ok"),
-            new ProductEvidence(ProductEvidenceKind.ApiPresent, true, "GET /emprestimos → 200"),
-            new ProductEvidence(ProductEvidenceKind.AutomatedTestsPassed, true, "1 teste de endpoint"),
+            ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.BackendPresent),
+            ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.BackendBuild),
+            ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.ApiPresent),
+            ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.AutomatedTestsPassed),
         };
 
         var verdict = ProductDeliveryGate.Evaluate(Resolve(), oQueFoiEntregue);
@@ -82,9 +83,10 @@ public sealed class EmprestimosIncidentRegressionTests
         var verdict = ProductDeliveryGate.Evaluate(
             Resolve(),
             [
-                new ProductEvidence(ProductEvidenceKind.BackendBuild, true),
-                new ProductEvidence(ProductEvidenceKind.ApiPresent, true),
-                new ProductEvidence(ProductEvidenceKind.AutomatedTestsPassed, true),
+                ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.BackendPresent),
+            ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.BackendBuild),
+                ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.ApiPresent),
+                ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.AutomatedTestsPassed),
             ]);
 
         // Mesmo no modo autônomo, com todas as obrigações documentais da fase aceitas e nenhum
@@ -111,8 +113,9 @@ public sealed class EmprestimosIncidentRegressionTests
         var verdict = ProductDeliveryGate.Evaluate(
             Resolve(),
             [
-                new ProductEvidence(ProductEvidenceKind.BackendBuild, true),
-                new ProductEvidence(ProductEvidenceKind.ApiPresent, true),
+                ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.BackendPresent),
+            ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.BackendBuild),
+                ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.ApiPresent),
             ]);
 
         // Um diagnóstico que nomeia o que falta é a diferença entre "reprovado" e "reprovado por
@@ -131,13 +134,14 @@ public sealed class EmprestimosIncidentRegressionTests
         var verdict = ProductDeliveryGate.Evaluate(
             apiOnly,
             [
-                new ProductEvidence(ProductEvidenceKind.BackendBuild, true),
-                new ProductEvidence(ProductEvidenceKind.ApiPresent, true),
-                new ProductEvidence(ProductEvidenceKind.OpenApiGenerated, true),
-                new ProductEvidence(ProductEvidenceKind.DatabaseMigrationValidated, true),
-                new ProductEvidence(ProductEvidenceKind.PersistenceVerified, true),
-                new ProductEvidence(ProductEvidenceKind.AutomatedTestsPassed, true),
-                new ProductEvidence(ProductEvidenceKind.RunbookPresent, true),
+                ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.BackendPresent),
+            ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.BackendBuild),
+                ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.ApiPresent),
+                ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.OpenApiGenerated),
+                ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.DatabaseMigrationValidated),
+                ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.PersistenceVerified),
+                ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.AutomatedTestsPassed),
+                ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.RunbookPresent),
             ]);
 
         Assert.True(verdict.Satisfied);

@@ -101,7 +101,14 @@ public sealed record ContextBundleRequest(
     /// card responde "que trabalho é este". Usar um como substituto do outro foi o defeito que
     /// fazia o manifesto selecionar por um vocabulário que o runtime nunca enviava.
     /// </summary>
-    string AgentRole = "");
+    string AgentRole = "",
+
+    /// <summary>
+    /// Perfil efetivo do projeto, na forma compacta. É contexto OBRIGATÓRIO onde existe: sem ele o
+    /// executor decide stack, arquitetura e modalidade por conta própria — que é exatamente o
+    /// defeito que originou este trabalho.
+    /// </summary>
+    string? ProductProfileSummary = null);
 
 public sealed record ContextBundleDocument(
     string DocumentId,
@@ -363,6 +370,13 @@ public sealed class ContextBundleBuilder
         List<ContextBundleSegment> segments,
         ContextBundleRequest request)
     {
+        // OBRIGATÓRIO: o orçamento corta qualquer outra coisa antes de cortar a decisão técnica
+        // que governa o projeto.
+        if (request.ProductProfileSummary is { Length: > 0 } profile)
+        {
+            Add(segments, ContextSegmentKind.Project, "runtime:effective-profile", [profile], true);
+        }
+
         Add(segments, ContextSegmentKind.PathConstraint, "runtime:path-constraints", request.Paths, false);
         Add(segments, ContextSegmentKind.StatusDigest, "runtime:status-digest", [request.StatusDigestJson], false);
         Add(segments, ContextSegmentKind.AcceptanceCriteria, "runtime:acceptance-criteria", request.AcceptanceCriteria, true);
