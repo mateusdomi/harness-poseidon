@@ -142,6 +142,32 @@ public static class CanonicalWorkflowTemplates
         All.Single(template => template.Key == PlaybookStandardKey);
 
     /// <summary>
+    /// A qual workflow uma fase pertence, quando a resposta é inequívoca.
+    ///
+    /// O card guarda a fase em que vive (<c>work_tasks.phase_name</c>), não o workflow. A seleção
+    /// de contexto precisa das duas dimensões, e consultar o vínculo do projeto a cada despacho
+    /// custaria uma ida ao banco no laço quente para um dado que já é derivável dos templates
+    /// compilados. Devolve <see langword="null"/> quando a fase não existe ou aparece em mais de
+    /// um template — inferir nesse caso seria adivinhar.
+    /// </summary>
+    public static string? WorkflowKeyForPhase(string? phaseName)
+    {
+        if (string.IsNullOrWhiteSpace(phaseName))
+        {
+            return null;
+        }
+
+        var owners = All
+            .Where(template => template.Phases.Contains(phaseName, StringComparer.OrdinalIgnoreCase))
+            .Select(template => template.Key)
+            .Distinct(StringComparer.Ordinal)
+            .Take(2)
+            .ToArray();
+
+        return owners.Length == 1 ? owners[0] : null;
+    }
+
+    /// <summary>
     /// As 9 fases da esteira do playbook, com o gate de cada fase escrito com os critérios
     /// objetivos do próprio playbook (seção 5) e os artefatos de saída esperados. Gates são
     /// Default-FAIL: a transição de fase é um card `gate` aprovado, nunca uma passagem implícita.

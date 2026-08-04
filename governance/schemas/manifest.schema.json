@@ -151,6 +151,9 @@
         "agents": {
           "$ref": "#/$defs/stringArray"
         },
+        "roles": {
+          "$ref": "#/$defs/stringArray"
+        },
         "workflows": {
           "$ref": "#/$defs/stringArray"
         },

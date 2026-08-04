@@ -69,6 +69,25 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
             new EventId(3, nameof(LogBrunaPersonaFallback)),
             "F-04-B: docs/agents/bruna.md não encontrado ou vazio em nenhum candidato ({Candidates}); usando persona embutida como fallback.");
 
+    private static readonly Action<ILogger, string, Exception?> LogGovernanceCoreReadFailed =
+        LoggerMessage.Define<string>(
+            LogLevel.Warning,
+            new EventId(4, nameof(LogGovernanceCoreReadFailed)),
+            "Não foi possível ler o núcleo de governança em {GovernanceCorePath}; tentando próximo candidato.");
+
+    private static readonly Action<ILogger, string, Exception?> LogGovernanceCoreAccessDenied =
+        LoggerMessage.Define<string>(
+            LogLevel.Warning,
+            new EventId(5, nameof(LogGovernanceCoreAccessDenied)),
+            "Acesso negado ao ler o núcleo de governança em {GovernanceCorePath}; tentando próximo candidato.");
+
+    private static readonly Action<ILogger, string, Exception?> LogGovernanceCoreFallback =
+        LoggerMessage.Define<string>(
+            LogLevel.Error,
+            new EventId(6, nameof(LogGovernanceCoreFallback)),
+            "GOVERNANÇA DEGRADADA: governance/core.md não encontrado em nenhum candidato ({Candidates}); " +
+            "a chefe está operando com o resumo embutido, não com o núcleo canônico.");
+
     public ConversationChiefAgentExecutor(
         AgentAccountRegistry accounts,
         AgentAccountScheduler scheduler,
@@ -680,16 +699,21 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
                     }
                 }
             }
-            catch (IOException)
+            catch (IOException ex)
             {
-                // Núcleo de governança indisponível em disco: tenta o próximo candidato ou
-                // degrada para o resumo embutido. A persona já carrega as regras essenciais.
+                LogGovernanceCoreReadFailed(_logger, path, ex);
             }
-            catch (UnauthorizedAccessException)
+            catch (UnauthorizedAccessException ex)
             {
+                LogGovernanceCoreAccessDenied(_logger, path, ex);
             }
         }
 
+        // A degradação NÃO pode ser silenciosa. O núcleo tem uma centena de linhas e o resumo
+        // embutido tem seis: rodar com o segundo achando que se está rodando com o primeiro é o
+        // tipo de erro que ninguém descobre até o comportamento ficar estranho — e a única pista
+        // seria o comportamento, nunca o log.
+        LogGovernanceCoreFallback(_logger, string.Join("; ", candidates), null);
         return GovernanceFallback;
     }
 

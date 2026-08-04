@@ -1,5 +1,5 @@
 manifestVersion: 2.0.0
-lastGeneratedAt: 2026-08-04T17:37:58.4325850+00:00
+lastGeneratedAt: 2026-08-04T18:10:35.3673160+00:00
 tokenBudget: 24000
 knownOwners:
 - Platform Governance
@@ -126,6 +126,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -175,6 +176,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -225,6 +227,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -277,6 +280,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -331,6 +335,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -379,6 +384,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -427,6 +433,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -481,6 +488,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -529,7 +537,9 @@ documents:
   providers:
   - '*'
   agents:
+  - chief-orchestrator
   - bruna
+  roles: []
   workflows:
   - '*'
   phases:
@@ -579,6 +589,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -628,6 +639,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -677,6 +689,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -735,6 +748,7 @@ documents:
   - kimi-code
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -795,6 +809,7 @@ documents:
   - claude-code
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -855,6 +870,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -904,6 +920,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -951,6 +968,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -997,6 +1015,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -1044,6 +1063,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -1092,6 +1112,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -1138,6 +1159,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -1185,6 +1207,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -1232,6 +1255,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -1282,6 +1306,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -1330,8 +1355,9 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
-  - standard-nine-phase
+  - playbook-standard
   phases:
   - '*'
   taskTypes:
@@ -1377,6 +1403,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -1425,6 +1452,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -1475,8 +1503,9 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
-  - standard-nine-phase
+  - playbook-standard
   phases:
   - triage
   taskTypes:
@@ -1523,6 +1552,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -1568,6 +1598,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -1614,6 +1645,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -1660,6 +1692,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -1706,6 +1739,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -1754,6 +1788,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -1802,6 +1837,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -1849,6 +1885,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -1891,6 +1928,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -1936,6 +1974,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - standard-nine-phase
   phases:
@@ -1980,6 +2019,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -2025,6 +2065,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -2070,7 +2111,9 @@ documents:
   providers:
   - '*'
   agents:
+  - chief-orchestrator
   - bruna
+  roles: []
   workflows:
   - '*'
   phases:
@@ -2119,6 +2162,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -2169,6 +2213,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -2226,6 +2271,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -2278,6 +2324,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -2331,6 +2378,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -2388,6 +2436,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -2438,6 +2487,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -2483,6 +2533,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -2528,6 +2579,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:
@@ -2573,6 +2625,7 @@ documents:
   - '*'
   agents:
   - '*'
+  roles: []
   workflows:
   - '*'
   phases:

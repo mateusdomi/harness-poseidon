@@ -83,6 +83,13 @@ public sealed class GovernanceDocument
 
     public required List<string> Agents { get; init; }
 
+    /// <summary>
+    /// Papéis lógicos a que o documento se aplica (<c>backend-specialist</c>, <c>critic</c>, …).
+    /// Opcional: ausente ou vazio significa "qualquer papel". Dimensão separada de
+    /// <see cref="TaskTypes"/> de propósito — papel é quem executa, tipo de card é que trabalho é.
+    /// </summary>
+    public List<string> Roles { get; init; } = [];
+
     public required List<string> Workflows { get; init; }
 
     public required List<string> Phases { get; init; }

@@ -93,7 +93,15 @@ public sealed record ContextBundleRequest(
     int TokenBudget,
     IReadOnlyList<ContextMemorySlice>? MemorySlices = null,
     IReadOnlyList<ContextSkillSlice>? SkillSlices = null,
-    ContextPersonaSlice? Persona = null);
+    ContextPersonaSlice? Persona = null,
+
+    /// <summary>
+    /// Papel LÓGICO de quem executa (<c>backend-specialist</c>, <c>critic</c>, …). Dimensão
+    /// própria, distinta de <see cref="TaskType"/>: o papel responde "quem executa", o tipo de
+    /// card responde "que trabalho é este". Usar um como substituto do outro foi o defeito que
+    /// fazia o manifesto selecionar por um vocabulário que o runtime nunca enviava.
+    /// </summary>
+    string AgentRole = "");
 
 public sealed record ContextBundleDocument(
     string DocumentId,
@@ -111,6 +119,17 @@ public sealed record ContextBundleSegment(
     bool Mandatory,
     string? CitationReference = null);
 
+/// <summary>
+/// Um item que ficou de fora do bundle, com o motivo. Existia só a lista de ids: para investigar
+/// depois "a regra existia, foi selecionada, mas não chegou", saber QUE item caiu não basta —
+/// é preciso saber POR QUE e sob qual política de carga ele estava.
+/// </summary>
+public sealed record ContextBundleTruncation(
+    string SourceId,
+    string Reason,
+    string LoadPolicy,
+    int EstimatedTokens);
+
 public sealed record ContextBundle(
     string ManifestVersion,
     IReadOnlyList<ContextBundleDocument> Documents,
@@ -120,7 +139,12 @@ public sealed record ContextBundle(
     IReadOnlyList<string> Conflicts,
     int CacheHits,
     string BundleChecksum,
-    string RenderedContext);
+    string RenderedContext,
+    IReadOnlyList<ContextBundleTruncation>? TruncationDetails = null)
+{
+    /// <summary>Motivo por item truncado. Nunca nulo; vazio quando nada foi cortado.</summary>
+    public IReadOnlyList<ContextBundleTruncation> Truncations { get; } = TruncationDetails ?? [];
+}
 
 public sealed class ContextBundleConflictException(IReadOnlyList<string> conflicts)
     : Exception("Canonical context bundle conflicts prevent delivery.")
@@ -155,7 +179,16 @@ public sealed class ContextBundleBuilder
             return BlockedBundle(manifest, documents, segments, conflicts, request);
         }
 
-        var selected = ApplyBudget(segments, request.TokenBudget, out var truncated);
+        var selected = ApplyBudget(
+            segments, request.TokenBudget, out var truncated, out var mandatoryOverflow);
+        if (mandatoryOverflow is not null)
+        {
+            // Fail-closed: contexto obrigatório que não cabe bloqueia a execução com diagnóstico,
+            // em vez de entregar um agente sem as regras que o governam.
+            conflicts.Add(mandatoryOverflow);
+            return BlockedBundle(manifest, documents, segments, conflicts, request);
+        }
+
         var rendered = Render(selected);
         if (SecretTextProtector.ContainsSecret(rendered))
         {
@@ -182,11 +215,12 @@ public sealed class ContextBundleBuilder
                 !includedIds.Contains(document.Id))).ToArray(),
             selected,
             selected.Sum(segment => segment.EstimatedTokens),
-            truncated,
+            truncated.Select(item => item.SourceId).ToArray(),
             [],
             0,
             checksum,
-            rendered);
+            rendered,
+            truncated);
         Cache[cacheKey] = result;
         return result;
     }
@@ -267,10 +301,11 @@ public sealed class ContextBundleBuilder
         .Where(document => document.Status == DocumentStatus.Active &&
             document.LoadPolicy is DocumentLoadPolicy.Always or DocumentLoadPolicy.Entry or DocumentLoadPolicy.Bundle &&
             Matches(document.Providers, request.Provider) &&
-            Matches(document.Agents, request.AgentId) &&
-            Matches(document.Workflows, request.Workflow) &&
-            Matches(document.Phases, request.Phase) &&
-            Matches(document.TaskTypes, request.TaskType) &&
+            MatchesAny(document.Agents, ContextSelectorVocabulary.AgentAliases(request.AgentId, request.Persona?.Key)) &&
+            MatchesAny(document.Roles, ContextSelectorVocabulary.RoleAliases(request.AgentRole)) &&
+            MatchesAny(document.Workflows, ContextSelectorVocabulary.WorkflowAliases(request.Workflow)) &&
+            MatchesAny(document.Phases, ContextSelectorVocabulary.PhaseAliases(request.Phase)) &&
+            MatchesAny(document.TaskTypes, ContextSelectorVocabulary.TaskTypeAliases(request.TaskType)) &&
             Matches(document.RiskTiers, request.RiskTier) &&
             MatchesPaths(document.PathGlobs, request.Paths))
         .OrderBy(document => Order(document))
@@ -314,7 +349,11 @@ public sealed class ContextBundleBuilder
                 document.Id,
                 content,
                 document.TokenEstimate,
-                document.Id == "governance-core"));
+                // O manifesto já declara o que é indispensável: `always`/`entry` significa "entra
+                // em todo bundle". Antes só o núcleo era obrigatório e qualquer documento
+                // `always` podia ser cortado pelo orçamento — a política dizia uma coisa e o
+                // corte fazia outra.
+                document.LoadPolicy is DocumentLoadPolicy.Always or DocumentLoadPolicy.Entry));
         }
 
         return segments;
@@ -490,29 +529,62 @@ public sealed class ContextBundleBuilder
             mandatory));
     }
 
+    /// <summary>
+    /// Orçamento em duas faixas. O obrigatório entra INTEIRO e primeiro: núcleo de governança,
+    /// documentos que o manifesto declara <c>always</c>/<c>entry</c>, critério de aceite, condição
+    /// de parada, orçamento e persona. Só o que sobra do orçamento é disputado pelo resto, na
+    /// ordem determinística de sempre.
+    ///
+    /// A regra que faltava: quando o obrigatório sozinho não cabe, o bundle NÃO segue mutilado.
+    /// O excesso é devolvido em <paramref name="mandatoryOverflow"/> e o chamador transforma isso
+    /// num bundle bloqueado com diagnóstico — porque uma execução que perdeu a regra de segurança
+    /// por falta de token não é uma execução governada, é uma execução sem governança que ninguém
+    /// percebeu.
+    /// </summary>
     private static ContextBundleSegment[] ApplyBudget(
         IReadOnlyList<ContextBundleSegment> segments,
         int budget,
-        out string[] truncated)
+        out ContextBundleTruncation[] truncated,
+        out string? mandatoryOverflow)
     {
-        var selected = new List<ContextBundleSegment>();
-        var omitted = new List<string>();
+        var ordered = segments
+            .OrderBy(segment => segment.Kind)
+            .ThenBy(segment => segment.SourceId, StringComparer.Ordinal)
+            .ToArray();
+
+        var selected = new List<ContextBundleSegment>(ordered.Length);
+        var omitted = new List<ContextBundleTruncation>();
         var used = 0;
-        foreach (var segment in segments.OrderBy(segment => segment.Kind).ThenBy(segment => segment.SourceId, StringComparer.Ordinal))
+
+        foreach (var segment in ordered.Where(segment => segment.Mandatory))
         {
-            if (segment.Mandatory || used + segment.EstimatedTokens <= budget)
+            selected.Add(segment);
+            used += segment.EstimatedTokens;
+        }
+
+        mandatoryOverflow = used > budget
+            ? $"mandatory_context_exceeds_budget:{used}/{budget}"
+            : null;
+
+        foreach (var segment in ordered.Where(segment => !segment.Mandatory))
+        {
+            if (used + segment.EstimatedTokens <= budget)
             {
                 selected.Add(segment);
                 used += segment.EstimatedTokens;
             }
             else
             {
-                omitted.Add(segment.SourceId);
+                omitted.Add(new ContextBundleTruncation(
+                    segment.SourceId, "budget_exhausted", "bundle", segment.EstimatedTokens));
             }
         }
 
         truncated = omitted.ToArray();
-        return selected.ToArray();
+        return selected
+            .OrderBy(segment => segment.Kind)
+            .ThenBy(segment => segment.SourceId, StringComparer.Ordinal)
+            .ToArray();
     }
 
     private static string Render(IEnumerable<ContextBundleSegment> segments)
@@ -528,7 +600,9 @@ public sealed class ContextBundleBuilder
     }
 
     private static string SelectionReason(GovernanceDocument document, ContextBundleRequest request) =>
-        $"{document.LoadPolicy};provider={request.Provider};workflow={request.Workflow};phase={request.Phase};risk={request.RiskTier}";
+        $"{document.LoadPolicy};provider={request.Provider};workflow={request.Workflow};" +
+        $"phase={request.Phase};cardType={request.TaskType};role={request.AgentRole};" +
+        $"risk={request.RiskTier}";
 
     private static int Order(GovernanceDocument document) => document.Id == "governance-core" ? 0 : document.Category switch
     {
@@ -556,6 +630,17 @@ public sealed class ContextBundleBuilder
 
     private static bool Matches(IReadOnlyList<string> values, string expected) =>
         values.Contains("*", StringComparer.Ordinal) || values.Contains(expected, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Casa quando o documento declara <c>*</c> ou qualquer um dos valores aceitáveis daquela
+    /// dimensão. Uma lista vazia é curinga: uma dimensão que o manifesto não declara não pode
+    /// excluir o documento — foi assim que <c>roles</c> nasceu sem invalidar as 50 entradas
+    /// existentes.
+    /// </summary>
+    private static bool MatchesAny(List<string> values, IReadOnlyList<string> candidates) =>
+        values.Count == 0 ||
+        values.Contains("*", StringComparer.Ordinal) ||
+        candidates.Any(candidate => values.Contains(candidate, StringComparer.OrdinalIgnoreCase));
 
     private static bool MatchesPaths(IReadOnlyList<string> globs, IReadOnlyList<string> paths) =>
         globs.Contains("**", StringComparer.Ordinal) || paths.Count == 0 || paths.Any(path => globs.Any(glob =>

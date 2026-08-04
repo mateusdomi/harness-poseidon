@@ -5,11 +5,13 @@ using Harness.Host.Agents;
 using Harness.Host.Governance;
 using Harness.Host.Leadership;
 using Harness.Host.Observability;
+using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Conversations.Application;
 using Harness.Modules.Conversations.Domain;
 using Harness.Modules.Coordination.Application;
 using Harness.Host.WorkBoard;
+using Harness.Host.Workflows;
 using Harness.Modules.Governance.Context;
 using Harness.Modules.Governance.Evaluation;
 using Harness.Modules.Governance.Memory;
@@ -49,6 +51,28 @@ public sealed partial class ChiefTurnBackgroundService(
     ILogger<ChiefTurnBackgroundService> logger) : BackgroundService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    /// <summary>
+    /// O turno de conversa não é um card: é orquestração. Declarar isso como tipo próprio permite
+    /// endereçar documentos à chefe pelo manifesto sem inventar um card fantasma no quadro.
+    /// </summary>
+    private const string ChiefTurnCardType = "orquestracao";
+
+    /// <summary>
+    /// A identidade catalogada da chefe no bundle. O nome e a chave são os do catálogo de
+    /// personas (`chief-orchestrator`); a mentalidade e os limites vivem em `docs/agents/bruna.md`,
+    /// que o executor de conversa já carrega — repeti-los aqui gastaria orçamento dizendo duas
+    /// vezes a mesma coisa.
+    /// </summary>
+    private static readonly ContextPersonaSlice ChiefPersonaSlice = new(
+        AgentRoles.ChiefOrchestrator,
+        "Bruna",
+        null,
+        null,
+        [],
+        [],
+        []);
+
     private static readonly IReadOnlyDictionary<string, string> ReasonCodeTranslations =
         ReasonCodeHumanizer.KnownCodes.ToDictionary(
             code => code,
@@ -208,6 +232,9 @@ public sealed partial class ChiefTurnBackgroundService(
             var digest = await digests.ReadAsync(
                 lease.Turn.TenantId, lease.Turn.ProjectId, 20, cancellationToken);
             var digestJson = JsonSerializer.Serialize(digest, JsonOptions);
+            // Fase REAL do projeto. Sem ela a chefe pedia contexto para uma fase literal
+            // "execution", que nenhum documento do manifesto declara.
+            var projectPhase = digest?.Workflow?.PhaseName;
             var projectContext = await contextComposer.ComposeProjectAsync(
                 lease.Turn.TenantId,
                 lease.Turn.ProjectId,
@@ -230,9 +257,15 @@ public sealed partial class ChiefTurnBackgroundService(
                     lease.ChiefAgentId,
                     "poseidon",
                     lease.Turn.Selection?.ModelName,
-                    "chief-turn",
-                    "execution",
-                    "orchestration",
+                    // A chefe não pode ter menos governança que os subordinados. O pedido dela
+                    // declarava três literais que nenhum documento do manifesto conhece
+                    // (`chief-turn`/`execution`/`orchestration`); o resultado era um bundle que
+                    // não trazia o canon do produto nem a própria persona catalogada dela.
+                    // Workflow e fase reais quando o projeto está numa esteira; papel próprio.
+                    CanonicalWorkflowTemplates.WorkflowKeyForPhase(projectPhase)
+                        ?? CanonicalWorkflowTemplates.PlaybookStandardKey,
+                    projectPhase ?? ContextSelectorVocabulary.UnknownPhase,
+                    ChiefTurnCardType,
                     "medium",
                     [],
                     digestJson,
@@ -245,7 +278,13 @@ public sealed partial class ChiefTurnBackgroundService(
                         slice.DocumentId,
                         slice.Content,
                         slice.CitationReference,
-                        slice.TokenCount)).ToArray()));
+                        slice.TokenCount)).ToArray(),
+                    null,
+                    // A persona da chefe entra como qualquer outra: é o que permite ao manifesto
+                    // endereçar documentos a ela por `agents: [chief-orchestrator]` em vez de por
+                    // um alias de conta, que é identidade de quem paga, não de quem executa.
+                    ChiefPersonaSlice,
+                    AgentRoles.ChiefOrchestrator));
                 contextActivity?.SetTag("context.document_count", bundle.Documents.Count);
                 contextActivity?.SetTag("context.estimated_tokens", bundle.EstimatedTokens);
                 contextActivity?.SetTag("context.truncated_count", bundle.Truncated.Count);

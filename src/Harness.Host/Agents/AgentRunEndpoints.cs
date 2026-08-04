@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Harness.Host.Profiles;
+using Harness.Host.Workflows;
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Application.Execution.External;
 using Harness.Modules.Agents.Contracts;
@@ -397,6 +398,12 @@ public static class AgentRunEndpoints
                 // fornecido pelo cliente: a nova worktree nasce de `origin/develop` atual.
                 BaseReference = continuation is null ? "HEAD" : "origin/develop",
                 RiskTier = input.RiskTier ?? "medium",
+                // As dimensões semânticas vêm do CARD, não do cliente: o card é a fonte canônica
+                // de que trabalho é este e em que fase ele vive. Aceitar do corpo da requisição
+                // abriria um caminho para pedir contexto de uma fase que o card não está.
+                PhaseName = task.PhaseName,
+                CardType = task.CardType,
+                WorkflowKey = CanonicalWorkflowTemplates.WorkflowKeyForPhase(task.PhaseName),
                 AcceptanceCriteria = continuation is null
                     ? input.AcceptanceCriteria ?? []
                     : [.. continuation.PriorFindings, .. input.AcceptanceCriteria ?? []],

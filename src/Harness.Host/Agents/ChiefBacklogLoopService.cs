@@ -1,6 +1,7 @@
 using Harness.Host.Architecture;
 using Harness.Host.Documents;
 using Harness.Host.WorkBoard;
+using Harness.Host.Workflows;
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Agents.Application.Execution.External;
@@ -4919,6 +4920,11 @@ public sealed partial class ChiefBacklogLoopService(
                 Model = model,
                 Effort = effort,
                 RiskTier = resolution.Card.RiskTier,
+                // As três dimensões semânticas do trabalho, que a seleção de contexto precisa e
+                // que o card já carrega. Papel continua sendo papel: quem executa.
+                WorkflowKey = CanonicalWorkflowTemplates.WorkflowKeyForPhase(task.PhaseName),
+                PhaseName = task.PhaseName,
+                CardType = task.CardType,
                 AcceptanceCriteria = resolution.Card.AcceptanceCriteria,
                 // null é deliberadamente fail-closed no orquestrador: uma persona resolvida que
                 // declara zero ferramentas é diferente de não ter resolvido persona alguma.

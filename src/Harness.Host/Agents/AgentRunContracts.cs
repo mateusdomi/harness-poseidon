@@ -186,6 +186,22 @@ public sealed record StartAgentRunCommand
 
     public string RiskTier { get; init; } = "medium";
 
+    /// <summary>
+    /// Workflow que governa este trabalho (a chave do template, ex. <c>playbook-standard</c>).
+    /// Alimenta a seleção de contexto: sem ele o bundle era pedido para um workflow literal
+    /// <c>agent-run</c>, que nenhum documento do manifesto declara.
+    /// </summary>
+    public string? WorkflowKey { get; init; }
+
+    /// <summary>Fase real da esteira em que o card vive (ex. <c>5-Desenvolvimento</c>).</summary>
+    public string? PhaseName { get; init; }
+
+    /// <summary>
+    /// Tipo real do card (<c>historia</c>, <c>tarefa</c>, <c>documento</c>, …). NÃO é o papel:
+    /// o papel responde quem executa, o tipo responde que trabalho é.
+    /// </summary>
+    public string? CardType { get; init; }
+
     public IReadOnlyList<string> AcceptanceCriteria { get; init; } = [];
 
     /// <summary>

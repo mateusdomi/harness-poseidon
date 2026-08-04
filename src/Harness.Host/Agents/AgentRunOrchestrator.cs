@@ -1334,7 +1334,14 @@ public sealed partial class AgentRunOrchestrator(
             var bundle = bundleBuilder.BuildOrFallback(new ContextBundleRequest(
                 command.TenantId, command.ProjectId, command.TaskId, command.AttemptId,
                 command.AccountAlias, account.ProviderKind, command.Model,
-                "agent-run", "execution", command.Role, command.RiskTier,
+                // Vocabulário REAL do trabalho. O pedido carregava `agent-run`/`execution` e o
+                // papel no lugar do tipo de card — três literais que nenhum documento do
+                // manifesto declara, e por isso regras canônicas de teste, revisão e contrato de
+                // card nunca chegavam a quem executa.
+                command.WorkflowKey ?? ContextSelectorVocabulary.UnknownPhase,
+                command.PhaseName ?? ContextSelectorVocabulary.UnknownPhase,
+                command.CardType ?? ContextSelectorVocabulary.UnknownTaskType,
+                command.RiskTier,
                 command.ScopeClaims, "{}",
                 command.AcceptanceCriteria,
                 [$"path-scope:{command.PathScopeKind}", $"access:{command.Access}"],
@@ -1347,7 +1354,8 @@ public sealed partial class AgentRunOrchestrator(
                     slice.CitationReference,
                     slice.TokenCount)).ToArray(),
                 skills,
-                personaSlice));
+                personaSlice,
+                command.Role));
 
             await governance.CreateContextSnapshotAsync(
                 ContextSnapshotFactory.Create(
