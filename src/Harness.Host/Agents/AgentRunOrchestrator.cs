@@ -138,6 +138,25 @@ public sealed partial class AgentRunOrchestrator(
     /// autoridade final (inclusive entre processos); este sinal elimina o conflito já conhecido
     /// entre runs vivos deste Host, sem substituir o CAS durável.
     /// </summary>
+    /// <summary>
+    /// A conta tem slot livre no perfil AGORA. Mesma natureza de
+    /// <see cref="HasLiveScopeConflict"/>: pré-admissão barata para o scheduler não criar uma
+    /// tentativa durável que a concessão do perfil recusaria dois passos depois.
+    ///
+    /// Sem ela, contenção de perfil custava uma tentativa inteira por rodada — três em quatro
+    /// minutos no mesmo card, todas com quatro milissegundos, estado `cancelled` e motivo NULO,
+    /// enquanto o próprio Chefe anunciava "parede: sem motivo registrado" sobre uma causa que ele
+    /// conhecia (OPS-073). A store e o semáforo continuam sendo a autoridade; isto só evita o
+    /// desperdício previsível.
+    /// </summary>
+    public bool HasProfileCapacity(string accountAlias)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(accountAlias);
+        var account = accounts.Get(accountAlias);
+        return account is null ||
+            profiles.HasFreeSlot(accountAlias, clock.UtcNow, account.ConcurrencyLimit);
+    }
+
     public bool HasLiveScopeConflict(string projectId, IReadOnlyList<string> requestedClaims)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectId);

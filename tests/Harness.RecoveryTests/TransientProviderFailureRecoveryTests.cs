@@ -64,6 +64,11 @@ public sealed class TransientProviderFailureRecoveryTests
     [InlineData("executor.account_model_unsupported")]
     [InlineData("run.authentication_required")]
     [InlineData("TaskCanceledException")]
+    // OPS-073: a recusa de despacho passou a GRAVAR o motivo. Tornar a causa visível já
+    // introduziu esta regressão uma vez — reinícios do Host abrindo circuito de card saudável —,
+    // e o perfil ocupado é contenção nossa: a tentativa morre em milissegundos sem ler o enunciado.
+    [InlineData("chief.dispatch_rejected: Rejected/profile.locked")]
+    [InlineData("chief.dispatch_rejected: Rejected/profile.concurrency_exhausted")]
     public void AProviderOrHostFailureIsRecognizedAsInfrastructureAndNeverAsTheCardsFault(
         string reason)
     {

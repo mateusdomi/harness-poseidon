@@ -339,6 +339,38 @@ public sealed class AccountProfileProvisioner
         }
     }
 
+    /// <summary>
+    /// Há slot livre no semáforo do perfil AGORA — a mesma pergunta que
+    /// <see cref="AcquireLock"/> responde, sem tomar o slot e sem escrever nada.
+    ///
+    /// Existe porque contenção de perfil não é falha do card. Sem esta pergunta, a única forma de
+    /// descobrir que o perfil estava ocupado era criar a tentativa durável, chamar
+    /// <see cref="AcquireLock"/>, receber <c>profile.locked</c> e compensar — três tentativas
+    /// queimadas em quatro minutos, todas com duração de milissegundos e sem motivo registrado
+    /// (OPS-073). Contenção é infraestrutura: pertence ao adiamento, como o escopo ocupado por run
+    /// vivo, e não ao orçamento de rodadas do card.
+    ///
+    /// Não é garantia: entre a pergunta e a aquisição outro dono pode tomar o slot, e é por isso
+    /// que <see cref="AcquireLock"/> continua sendo a autoridade. Isto evita o desperdício comum,
+    /// não substitui a checagem sob lock.
+    /// </summary>
+    public bool HasFreeSlot(string alias, DateTimeOffset now, int concurrencyLimit = 1)
+    {
+        var layout = Layout(alias);
+        if (!Directory.Exists(layout.RootPath))
+        {
+            // Perfil ainda não provisionado: `Ensure` roda no despacho e cria. Recusar aqui
+            // transformaria a primeira execução de uma conta nova em adiamento eterno.
+            return true;
+        }
+
+        lock (_lockSync)
+        {
+            return ReadLedger(layout).Grants.Count(grant => grant.ExpiresAt > now)
+                < Math.Max(1, concurrencyLimit);
+        }
+    }
+
     /// <summary>Renova uma concessão; um fencing que não corresponde a uma concessão viva não renova.</summary>
     public AccountProfileLock RenewLock(
         string alias, long fencingToken, DateTimeOffset now, TimeSpan duration)

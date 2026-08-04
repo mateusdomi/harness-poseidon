@@ -953,6 +953,23 @@ public sealed partial class ChiefBacklogLoopService(
                         continue;
                     }
 
+                    // Contenção de PERFIL é infraestrutura, exatamente como o escopo ocupado logo
+                    // acima — e por isso pertence ao adiamento, não ao orçamento de rodadas do
+                    // card. Enquanto a pergunta só era feita depois de a tentativa durável
+                    // existir, cada rodada contra um perfil ocupado gastava uma tentativa de
+                    // quatro milissegundos, sem motivo registrado, e o detector de parede acusava
+                    // "sem motivo registrado pelo executor" sobre uma causa que o sistema
+                    // conhecia. O backoff de despacho recusado continua sendo o teto: adiar sem
+                    // teto trocaria contenção por espera infinita.
+                    if (!orchestrator.HasProfileCapacity(decision.AccountAlias))
+                    {
+                        deferred++;
+                        _dispatchBackoff[entry.Task.Id] = clock.UtcNow.Add(RejectedDispatchBackoff);
+                        LogCardProfileBusyDeferred(
+                            logger, entry.Task.Id, decision.AccountAlias);
+                        continue;
+                    }
+
                     var routing = await providerRouting.RouteAndAuditAsync(
                         profile.TenantId,
                         project.Id,
@@ -4497,6 +4514,10 @@ public sealed partial class ChiefBacklogLoopService(
     [LoggerMessage(Level = LogLevel.Debug, Message = "Chief: card {TaskId} adiado antes da tentativa — escopo ocupado por run vivo.")]
     private static partial void LogCardScopeDeferred(ILogger logger, string taskId);
 
+    [LoggerMessage(Level = LogLevel.Information, Message = "Chief: card {TaskId} ADIADO — perfil da conta {AccountAlias} ocupado (chief.account_profile_busy); nenhuma tentativa foi gasta.")]
+    private static partial void LogCardProfileBusyDeferred(
+        ILogger logger, string taskId, string accountAlias);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Chief: esteira do projeto {ProjectId} — {Created} card(s) de artefato criado(s), {Advanced} objetivo(s) de fase concluído(s).")]
     private static partial void LogPhaseDriven(ILogger logger, string projectId, int created, int advanced);
 
@@ -4703,10 +4724,19 @@ public sealed partial class ChiefBacklogLoopService(
             // o run (ex.: conflito de claim com um run vivo). Sem abandoná-la, o card ficaria em
             // `development` com uma tentativa órfã PARA SEMPRE. O abandono devolve o card a
             // `ready` e o próximo ciclo re-tenta quando o claim liberar.
+            //
+            // O MOTIVO viaja com a compensação. O campo sempre existiu no contrato e o chamador
+            // nunca o preenchia: a tentativa nascia e morria com `failure_reason` NULO, e o
+            // detector de parede — que lê exatamente esse campo — anunciava "sem motivo
+            // registrado pelo executor" para uma recusa cujo código o sistema tinha em mãos no
+            // instante em que a produziu. É a quinta vez nesta operação que a causa existe e
+            // ninguém a escreve.
             _ = await chain.ExpireAttemptLeaseAsync(
                 new WorkAttemptLeaseExpiredCommand(
                     tenantId, task.BackingSolicitationId, task.Id, attemptId,
-                    started.TaskVersion!.Value, $"chief-loop-compensate:{attemptId}", clock.UtcNow),
+                    started.TaskVersion!.Value, $"chief-loop-compensate:{attemptId}", clock.UtcNow,
+                    CountsTowardRoundBudget: false,
+                    FailureReason: $"chief.dispatch_rejected: {rejection}"),
                 token);
             return false;
         }

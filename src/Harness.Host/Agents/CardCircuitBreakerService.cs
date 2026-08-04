@@ -227,7 +227,16 @@ internal sealed class CardCircuitBreakerService(
         // nunca chegou a ser julgado.
         reason.Contains("Canceled", StringComparison.OrdinalIgnoreCase) ||
         reason.Contains("Cancelled", StringComparison.OrdinalIgnoreCase) ||
-        reason.Contains("run.cancelled", StringComparison.OrdinalIgnoreCase);
+        reason.Contains("run.cancelled", StringComparison.OrdinalIgnoreCase) ||
+        // RECUSA DE DESPACHO: o orquestrador não aceitou o run (perfil ocupado, claim em
+        // conflito, adaptador ausente). A tentativa morre em milissegundos sem ler o enunciado.
+        // A guarda de duração acima já a descartaria; a classificação entra aqui porque agora o
+        // motivo é GRAVADO — e o handoff avisa que tornar a causa visível já introduziu, uma vez,
+        // exatamente esta regressão: reinícios do Host passaram a abrir circuito de card
+        // saudável. Escrever o motivo sem classificá-lo seria repetir o mesmo erro.
+        reason.Contains("chief.dispatch_rejected", StringComparison.OrdinalIgnoreCase) ||
+        reason.Contains("profile.locked", StringComparison.OrdinalIgnoreCase) ||
+        reason.Contains("profile.concurrency_exhausted", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsSuccess(string state) =>
         string.Equals(state, "completed", StringComparison.Ordinal) ||

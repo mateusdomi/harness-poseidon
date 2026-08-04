@@ -271,6 +271,34 @@ public sealed class AccountProfileProvisionerTests : IDisposable
     }
 
     [Fact]
+    public void ContentionCanBeAskedAboutWithoutSpendingAnAttempt()
+    {
+        // OPS-073: a única forma de descobrir que o perfil estava ocupado era criar a tentativa
+        // durável e receber `profile.locked` — três tentativas de quatro milissegundos em quatro
+        // minutos, todas sem motivo registrado. A pergunta agora existe e não escreve nada.
+        var provisioner = Provisioner();
+        var alias = "chief-claude-primary";
+        provisioner.Ensure(Account(alias, ExecutorCatalog.ClaudeCode), Profile(ExecutorCatalog.ClaudeCode), Now);
+
+        Assert.True(provisioner.HasFreeSlot(alias, Now));
+
+        var held = provisioner.AcquireLock(alias, "attempt-viva", Now, TimeSpan.FromMinutes(5));
+        Assert.False(provisioner.HasFreeSlot(alias, Now));
+
+        // Perguntar não toma o slot: o dono vivo continua sendo o mesmo.
+        Assert.Equal(held.FencingToken, provisioner.ReadLock(alias)!.FencingToken);
+
+        // Concessão expirada não ocupa — quem espera a janela precisa vê-la abrir.
+        Assert.True(provisioner.HasFreeSlot(alias, Now.AddMinutes(10)));
+
+        // Com limite maior, um slot ocupado ainda deixa vaga.
+        Assert.True(provisioner.HasFreeSlot(alias, Now, concurrencyLimit: 2));
+
+        // Conta nunca provisionada não é adiada para sempre: o despacho provisiona.
+        Assert.True(provisioner.HasFreeSlot("conta-que-nunca-rodou", Now));
+    }
+
+    [Fact]
     public void TheProfileSemaphoreAllowsMultipleInstancesOfTheSameAccountUpToTheLimit()
     {
         // Gap 3: N instâncias da MESMA conta (donos distintos) ocupam slots concorrentes até
