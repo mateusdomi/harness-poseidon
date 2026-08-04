@@ -1309,6 +1309,61 @@ public sealed partial class ChiefBacklogLoopService(
         return string.Equals(task.CardType, "revisao", StringComparison.Ordinal);
     }
 
+    /// <summary>As três linhas de roteamento no topo de toda instrução, na ordem em que nascem.</summary>
+    private static readonly string[] InstructionHeaderPrefixes =
+    [
+        "Capacidade de execução autorizada:",
+        "Especialidade exigida:",
+        "Tipo de card:",
+    ];
+
+    /// <summary>
+    /// Troca o cabeçalho de roteamento pelo estado ATUAL, preservando o corpo intacto.
+    ///
+    /// Papel, persona e tipo de card são derivados do card a cada despacho; mantê-los na
+    /// instrução é conveniência para o executor, não registro histórico. Carregá-los adiante
+    /// transformava um erro de roteamento da versão 1 em erro permanente — ver OPS-069.
+    ///
+    /// Regras de segurança, nesta ordem de importância: o CORPO nunca é alterado, porque é onde
+    /// está o trabalho; um texto sem cabeçalho reconhecível ganha um, em vez de perder linhas por
+    /// palpite; e a remoção só acontece nas linhas do TOPO, para que uma menção a "Tipo de card:"
+    /// no meio de um achado do crítico não seja engolida.
+    /// </summary>
+    internal static string RebuildInstructionHeader(
+        string previousBody, string role, string personaKey, string cardType)
+    {
+        ArgumentNullException.ThrowIfNull(previousBody);
+        var header =
+            $"Capacidade de execução autorizada: {role}\n" +
+            $"Especialidade exigida: {personaKey}\n" +
+            $"Tipo de card: {cardType}";
+
+        var lines = previousBody.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        var skip = 0;
+        while (skip < lines.Length &&
+            InstructionHeaderPrefixes.Any(prefix =>
+                lines[skip].StartsWith(prefix, StringComparison.Ordinal)))
+        {
+            skip++;
+        }
+
+        // Nenhuma linha de cabeçalho reconhecida: o corpo inteiro é preservado e ganha o
+        // cabeçalho novo. Nunca se remove por suposição.
+        if (skip == 0)
+        {
+            return $"{header}\n\n{previousBody}";
+        }
+
+        // A linha em branco que separava cabeçalho de corpo pertence ao cabeçalho, não ao corpo.
+        while (skip < lines.Length && lines[skip].Length == 0)
+        {
+            skip++;
+        }
+
+        var body = string.Join('\n', lines.Skip(skip));
+        return body.Length == 0 ? header : $"{header}\n\n{body}";
+    }
+
     private static readonly HashSet<string> CorrectableDocumentPublicationFailures = new(
         [
             "document.artifact_missing",
@@ -3894,8 +3949,31 @@ public sealed partial class ChiefBacklogLoopService(
                 string.Equals(entry.Kind, "note", StringComparison.Ordinal))?.Content
                 ?? "(o review não registrou achados estruturados)";
 
+            // O CABEÇALHO É FATO DERIVÁVEL, NÃO HISTÓRIA A PRESERVAR.
+            //
+            // Copiar o corpo anterior inteiro carregava para a frente as três linhas de
+            // roteamento — papel, persona e tipo de card —, e com elas qualquer defeito que
+            // estivesse lá desde a versão 1. Medido em 04/08 (OPS-069): os cards de implementação
+            // nasceram seis minutos antes do conserto que tirava a persona de descoberta da fatia
+            // de código, e chegaram à décima versão de instrução ainda mandando um Product Owner
+            // — cujo escopo NEGA `src/**` — implementar backend. O ator obedeceu a persona e
+            // entregou diff vazio, duas vezes, em três cards. Um defeito no cabeçalho original
+            // era imortal dentro do card: a correção o recopiava a cada reprovação, e nem o
+            // replanejamento o alcançava.
+            //
+            // Agora a correção reconstrói o cabeçalho do estado ATUAL e preserva apenas o corpo,
+            // que é onde mora o trabalho de verdade. Achado do crítico continua sendo acrescentado
+            // ao fim, nunca sobrescrevendo nada.
+            var previous = instructions[^1].Body;
+            var correctionResolution = ChiefCardResolver.Resolve(
+                task.Title, previous, [], task.Priority);
             var content =
-                $"{instructions[^1].Body}\n\n## Correções exigidas pelo review independente (tentativa {rejected.Id})\n{findings}\n" +
+                RebuildInstructionHeader(
+                    previous,
+                    correctionResolution.Role,
+                    correctionResolution.PersonaKey,
+                    task.CardType) +
+                $"\n\n## Correções exigidas pelo review independente (tentativa {rejected.Id})\n{findings}\n" +
                 "Feche TODOS os achados acima sem reintroduzir nenhum deles.";
             var now = clock.UtcNow;
             var receipt = await chain.AddInstructionVersionAsync(
