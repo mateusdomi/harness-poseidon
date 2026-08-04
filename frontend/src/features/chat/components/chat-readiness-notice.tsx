@@ -10,6 +10,13 @@ export interface ChatReadinessNoticeProps {
   hasWorkflow: boolean;
   /** O read model canônico pode bloquear por outros motivos, como agente degradado. */
   executionBlocked?: boolean;
+  /**
+   * Para onde a ação leva no modo Negócio. Vem do `nextAction` do read model — a MESMA fonte que
+   * decidiu bloquear. Enquanto era `/onboarding` fixo, o botão prometia resolver e entregava a
+   * tela inicial: o dono clicava, era jogado no começo, e voltava sem saber o que faltava.
+   * Ausente, o botão não é oferecido — botão que não resolve nada é pior que botão nenhum.
+   */
+  resolutionRoute?: string | null;
   showTechnicalDetails: boolean;
 }
 
@@ -29,6 +36,7 @@ export function ChatReadinessNotice({
   hasModel,
   hasWorkflow,
   executionBlocked = false,
+  resolutionRoute = null,
   showTechnicalDetails,
 }: ChatReadinessNoticeProps) {
   const { t } = useTranslation();
@@ -53,12 +61,14 @@ export function ChatReadinessNotice({
           </h2>
         </div>
         <p className="text-sm text-foreground-muted">{t('chat.readiness.businessBody')}</p>
-        <Button asChild size="sm" className="self-start">
-          <Link to="/onboarding">
-            {t('chat.readiness.actions.reviewConfiguration')}
-            <ArrowRight aria-hidden="true" className="size-4" />
-          </Link>
-        </Button>
+        {resolutionRoute ? (
+          <Button asChild size="sm" className="self-start">
+            <Link to={resolutionRoute}>
+              {t('chat.readiness.actions.reviewConfiguration')}
+              <ArrowRight aria-hidden="true" className="size-4" />
+            </Link>
+          </Button>
+        ) : null}
       </section>
     );
   }

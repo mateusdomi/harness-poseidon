@@ -476,6 +476,7 @@ export default function ChatPage() {
         {/* Bloqueia apenas a execução e explica o motivo — nunca esconde (§13). */}
         {!canExecute && (
           <ChatReadinessNotice
+            resolutionRoute={goldenPath.state.nextActions[0]?.route ?? null}
             hasProvider={hasProvider}
             hasModel={hasModel}
             hasWorkflow={hasWorkflow}
