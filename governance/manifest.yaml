@@ -1,5 +1,5 @@
 manifestVersion: 2.0.0
-lastGeneratedAt: 2026-08-04T18:10:35.3673160+00:00
+lastGeneratedAt: 2026-08-04T20:36:35.1407410+00:00
 tokenBudget: 24000
 knownOwners:
 - Platform Governance
@@ -886,7 +886,7 @@ documents:
   - '**'
   load: always
   priority: 800
-  tokenCost: 1869
+  tokenCost: 1904
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -901,7 +901,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:098ecb094fc67eaa8dd226ce13858ff484056c6c6e41563585345a3b5cfb900b
+  checksum: sha256:ae7f0c8fa49f9b5957ad90ddaf15727a3f17def01328e052c69de10db9e67f77
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -2126,8 +2126,7 @@ documents:
   - high
   - critical
   pathGlobs:
-  - src/Harness.Host/Workers/**
-  - src/Harness.Host/Agents/**
+  - '**'
   load: bundle
   priority: 900
   tokenCost: 1953
@@ -2658,3 +2657,49 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/decisions/ADR-0006-baseline-de-engenharia-do-produto-entregue.md
+- id: adr-0007-empty-path-scope
+  path: docs/decisions/ADR-0007-escopo-de-path-vazio-na-selecao-de-contexto.md
+  title: ADR-0007 — Escopo de path vazio na seleção de contexto
+  category: decision
+  topic: empty-path-scope
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  providers:
+  - '*'
+  agents:
+  - '*'
+  roles: []
+  workflows:
+  - '*'
+  phases:
+  - architecture
+  taskTypes:
+  - adr
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: on-demand
+  priority: 700
+  tokenCost: 1155
+  owner: Platform Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-08-04T00:00:00-03:00
+  reviewDueAt: 2027-02-04T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - backend-context
+  enforcedBy: []
+  checksum: sha256:c587bb5b9c386d9086142ad283afa4f7439fde51d828f061af6d0125690d272c
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/decisions/ADR-0007-escopo-de-path-vazio-na-selecao-de-contexto.md

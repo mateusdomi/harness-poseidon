@@ -656,8 +656,19 @@ public sealed class ContextBundleBuilder
         values.Contains("*", StringComparer.Ordinal) ||
         candidates.Any(candidate => values.Contains(candidate, StringComparer.OrdinalIgnoreCase));
 
+    /// <summary>
+    /// A dimensão de path é SIMÉTRICA (ADR-0007): o pedido declara onde trabalha, o documento
+    /// declara onde se aplica.
+    ///
+    /// Um documento universal (<c>**</c>) vale sempre. Um documento que se restringe a caminhos
+    /// não se aplica a um pedido que não trabalha em caminho nenhum — o turno de conversa da chefe
+    /// não adquire claim, não abre worktree e não toca em arquivo, e receber documentos endereçados
+    /// a quem edita `src/Modules/Harness.Modules.Governance/**` não é "casar tudo", é casar o
+    /// irrelevante. Documento que precisa alcançar trabalho sem escopo declara <c>**</c>, que é o
+    /// que esse valor sempre significou.
+    /// </summary>
     private static bool MatchesPaths(IReadOnlyList<string> globs, IReadOnlyList<string> paths) =>
-        globs.Contains("**", StringComparer.Ordinal) || paths.Count == 0 || paths.Any(path => globs.Any(glob =>
+        globs.Contains("**", StringComparer.Ordinal) || paths.Any(path => globs.Any(glob =>
             glob.EndsWith("/**", StringComparison.Ordinal)
                 ? path.StartsWith(glob[..^3].TrimEnd('/') + "/", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(path, glob[..^3].TrimEnd('/'), StringComparison.OrdinalIgnoreCase)

@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=2.0.0 checksum=sha256:ed2b41db6111cc9c68404e1ba1022072e666a41bfe1c249fde180f8d8c737ea8 -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=2.0.0 checksum=sha256:4a29b29cf5d53f5980fe69c0c7ae3ed94ce416e0d429fb62627fe21ed243f05a -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -6,7 +6,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 ## By authority
 
 - `Adapter`: 2
-- `Canonical`: 48
+- `Canonical`: 49
 - `Generated`: 1
 
 ## By domain
@@ -16,7 +16,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `architecture`: 1
 - `backend`: 4
 - `contract`: 7
-- `decision`: 6
+- `decision`: 7
 - `entrypoint`: 1
 - `governance`: 1
 - `index`: 1
@@ -29,7 +29,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 ## By phase
 
 - `*`: 40
-- `architecture`: 6
+- `architecture`: 7
 - `development`: 1
 - `homologation`: 1
 - `planning`: 1
@@ -38,12 +38,12 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By status
 
-- `Active`: 51
+- `Active`: 52
 
 ## By owner
 
 - `Operations`: 7
-- `Platform Engineering`: 17
+- `Platform Engineering`: 18
 - `Platform Governance`: 14
 - `Product Security`: 8
 - `Quality Engineering`: 5
@@ -52,7 +52,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 - `Always`: 4
 - `Bundle`: 33
-- `OnDemand`: 14
+- `OnDemand`: 15
 
 ## Documents by authority and domain
 
@@ -101,6 +101,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [ADR-0004 — Maturidade honesta das fases 6 a 9](decisions/ADR-0004-maturidade-honesta-das-fases-6-9.md) | architecture | Active | Platform Engineering | OnDemand | 828 |
 | [ADR-0005 — Contenção desligada: decisão reversível para uso interno](decisions/ADR-0005-contencao-desligada.md) | architecture | Active | Product Security | OnDemand | 1121 |
 | [ADR-0006 — Baseline de engenharia do produto entregue](decisions/ADR-0006-baseline-de-engenharia-do-produto-entregue.md) | architecture | Active | Platform Engineering | OnDemand | 1932 |
+| [ADR-0007 — Escopo de path vazio na seleção de contexto](decisions/ADR-0007-escopo-de-path-vazio-na-selecao-de-contexto.md) | architecture | Active | Platform Engineering | OnDemand | 1155 |
 
 #### entrypoint
 

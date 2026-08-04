@@ -264,3 +264,167 @@ public sealed class ContextSelectionByDimensionTests : IDisposable
         }
     }
 }
+
+/// <summary>
+/// Manifesto sintético com um documento UNIVERSAL (`**`) e um RESTRITO a `src/**`. É o par mínimo
+/// para exercitar a simetria da dimensão de path decidida na ADR-0007.
+/// </summary>
+internal static class ContextSelectionFixture
+{
+    public static string Create()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"poseidon-paths-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(Path.Combine(root, "governance", "schemas"));
+        Directory.CreateDirectory(Path.Combine(root, "docs"));
+        File.Copy(
+            Path.Combine(RepositoryRoot(), "governance", "schemas", "manifest.schema.json"),
+            Path.Combine(root, "governance", "schemas", "manifest.schema.json"));
+
+        var manifest = new System.Text.StringBuilder();
+        manifest.AppendLine("manifestVersion: 1.0.0");
+        manifest.AppendLine("lastGeneratedAt: 2026-08-04T00:00:00.0000000+00:00");
+        manifest.AppendLine("tokenBudget: 24000");
+        manifest.AppendLine("knownOwners:");
+        manifest.AppendLine("- Platform Governance");
+        manifest.AppendLine("markdownAllowlist: []");
+        manifest.AppendLine("documents:");
+        Append(manifest, root, "universal", "'**'");
+        Append(manifest, root, "restrito-src", "src/**");
+        File.WriteAllText(Path.Combine(root, "governance", "manifest.yaml"), manifest.ToString());
+        return root;
+    }
+
+    private static void Append(System.Text.StringBuilder manifest, string root, string id, string glob)
+    {
+        var content = $"# {id}\n\nConteudo do documento {id}.\n";
+        File.WriteAllText(Path.Combine(root, "docs", $"{id}.md"), content);
+        var checksum = "sha256:" + Convert.ToHexStringLower(
+            System.Security.Cryptography.SHA256.HashData(
+                File.ReadAllBytes(Path.Combine(root, "docs", $"{id}.md"))));
+
+        manifest.AppendLine(CultureInfo.InvariantCulture, $"- id: {id}");
+        manifest.AppendLine(CultureInfo.InvariantCulture, $"  path: docs/{id}.md");
+        manifest.AppendLine(CultureInfo.InvariantCulture, $"  title: {id}");
+        manifest.AppendLine("  category: rule");
+        manifest.AppendLine(CultureInfo.InvariantCulture, $"  topic: {id}");
+        manifest.AppendLine("  authority: canonical");
+        manifest.AppendLine("  scope: fixture");
+        manifest.AppendLine("  audience:");
+        manifest.AppendLine("  - agent");
+        manifest.AppendLine("  providers:");
+        manifest.AppendLine("  - '*'");
+        manifest.AppendLine("  agents:");
+        manifest.AppendLine("  - '*'");
+        manifest.AppendLine("  workflows:");
+        manifest.AppendLine("  - '*'");
+        manifest.AppendLine("  phases:");
+        manifest.AppendLine("  - '*'");
+        manifest.AppendLine("  taskTypes:");
+        manifest.AppendLine("  - '*'");
+        manifest.AppendLine("  riskTiers:");
+        manifest.AppendLine("  - medium");
+        manifest.AppendLine("  pathGlobs:");
+        manifest.AppendLine(CultureInfo.InvariantCulture, $"  - {glob}");
+        manifest.AppendLine("  load: bundle");
+        manifest.AppendLine("  priority: 500");
+        manifest.AppendLine(
+            CultureInfo.InvariantCulture,
+            $"  tokenCost: {GovernanceManifestSynchronizer.EstimateTokens(content)}");
+        manifest.AppendLine("  owner: Platform Governance");
+        manifest.AppendLine("  status: active");
+        manifest.AppendLine("  version: 1.0.0");
+        manifest.AppendLine("  lastVerifiedAt: 2026-08-04T00:00:00+00:00");
+        manifest.AppendLine("  reviewDueAt: 2027-08-04T00:00:00+00:00");
+        manifest.AppendLine("  supersedes: []");
+        manifest.AppendLine("  dependencies: []");
+        manifest.AppendLine("  related: []");
+        manifest.AppendLine("  enforcedBy:");
+        manifest.AppendLine("  - ci:governance");
+        manifest.AppendLine(CultureInfo.InvariantCulture, $"  checksum: {checksum}");
+        manifest.AppendLine("  containsSecrets: false");
+        manifest.AppendLine("  generated: false");
+        manifest.AppendLine(CultureInfo.InvariantCulture, $"  sourceOfTruth: docs/{id}.md");
+    }
+
+    private static string RepositoryRoot()
+    {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "governance", "manifest.yaml")))
+            {
+                return directory.FullName;
+            }
+        }
+
+        throw new DirectoryNotFoundException("Repository root not found.");
+    }
+}
+
+/// <summary>
+/// ADR-0007 — a dimensão de path é simétrica: o pedido declara onde trabalha, o documento declara
+/// onde se aplica. Um turno que não toca em arquivo nenhum não é "todos os arquivos".
+/// </summary>
+public sealed class EmptyPathScopeSelectionTests : IDisposable
+{
+    private readonly string _root = ContextSelectionFixture.Create();
+
+    [Fact]
+    public void PedidoSemEscopoRecebeODocumentoUniversal()
+    {
+        // Governança, regras e o canon do produto declaram `**`: valem para qualquer trabalho.
+        Assert.Contains("universal", Ids(Request() with { Paths = [] }));
+    }
+
+    [Fact]
+    public void PedidoSemEscopoNaoRecebeODocumentoRestritoAUmCaminho()
+    {
+        // O turno de conversa da chefe não adquire claim nem abre worktree; um documento
+        // endereçado a quem edita `src/**` não lhe diz respeito.
+        Assert.DoesNotContain("restrito-src", Ids(Request() with { Paths = [] }));
+    }
+
+    [Fact]
+    public void CardDeBackendRecebeODocumentoDoCaminhoQueEleToca()
+    {
+        Assert.Contains("restrito-src", Ids(Request() with { Paths = ["src/**"] }));
+        Assert.Contains("universal", Ids(Request() with { Paths = ["src/**"] }));
+    }
+
+    [Fact]
+    public void CardDeFrontendNaoRecebeODocumentoDeOutraSubarvore()
+    {
+        var ids = Ids(Request() with { Paths = ["frontend/**"], AgentRole = "frontend-specialist" });
+
+        Assert.DoesNotContain("restrito-src", ids);
+        Assert.Contains("universal", ids);
+    }
+
+    [Fact]
+    public void ExecucaoDeAgenteNaoMudouDeComportamento()
+    {
+        // Execuções sempre declaram claims: o ramo do pedido sem escopo nunca era alcançado por
+        // elas, e a mudança não pode alterar o que um card recebe.
+        var comEscopo = Ids(Request() with { Paths = ["src/**"] });
+
+        Assert.Contains("universal", comEscopo);
+        Assert.Contains("restrito-src", comEscopo);
+    }
+
+    private string[] Ids(ContextBundleRequest request) =>
+        new ContextBundleBuilder(_root).Build(request).Documents
+            .Select(document => document.DocumentId)
+            .ToArray();
+
+    private static ContextBundleRequest Request() => new(
+        "tenant", "project", "task", "attempt", "worker-alias", "claude-code", null,
+        "playbook-standard", "5-Desenvolvimento", "historia", "medium", [], "{}",
+        ["criterion"], [], [], ["stop"], 12000, null, null, null, "backend-specialist");
+
+    public void Dispose()
+    {
+        if (Directory.Exists(_root))
+        {
+            Directory.Delete(_root, recursive: true);
+        }
+    }
+}

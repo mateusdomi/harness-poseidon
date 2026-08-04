@@ -873,6 +873,91 @@
                 }
             }
         },
+        "/api/v1/workflow-runs/{runId}/phases/{phaseKey}/obligations/{obligationId}/cancel": {
+            "post": {
+                "tags": [
+                    "workflows"
+                ],
+                "parameters": [
+                    {
+                        "name": "runId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "phaseKey",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "obligationId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PhaseObligationCancelRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PhaseObligationCancelResult"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/projects/{id}/workflow": {
             "post": {
                 "tags": [
@@ -31164,6 +31249,51 @@
                     },
                     "status": {
                         "type": "string"
+                    }
+                }
+            },
+            "PhaseObligationCancelRequest": {
+                "required": [
+                    "reason"
+                ],
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string"
+                    },
+                    "evidence": {
+                        "type": [
+                            "null",
+                            "array"
+                        ],
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "PhaseObligationCancelResult": {
+                "required": [
+                    "obligationId",
+                    "state"
+                ],
+                "type": "object",
+                "properties": {
+                    "obligationId": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "cardId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "cardClosed": {
+                        "type": "boolean",
+                        "default": false
                     }
                 }
             },
