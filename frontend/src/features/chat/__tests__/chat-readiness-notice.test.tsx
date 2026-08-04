@@ -15,6 +15,7 @@ function renderNotice(props: {
   hasWorkflow: boolean;
   executionBlocked?: boolean;
   showTechnicalDetails?: boolean;
+  resolutionRoute?: string | null;
 }) {
   return renderWithApi(
     <MemoryRouter>
@@ -89,9 +90,36 @@ describe('ChatReadinessNotice', () => {
     expect(screen.queryByText(/provedor conectado/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/modelo habilitado/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/workflow vinculado/i)).not.toBeInTheDocument();
+  });
+
+  // A rota vem do `nextAction` do read model — a MESMA fonte que decidiu bloquear. Enquanto era
+  // `/onboarding` fixo, o botão prometia resolver e entregava a tela inicial: o dono clicava, era
+  // jogado no começo e voltava sem saber o que faltava.
+  it('leva à rota da pendência que o read model apontou', () => {
+    renderNotice({
+      hasProvider: false,
+      hasModel: false,
+      hasWorkflow: false,
+      showTechnicalDetails: false,
+      resolutionRoute: '/agents',
+    });
+
     expect(screen.getByRole('link', { name: /revisar configuração/i })).toHaveAttribute(
       'href',
-      '/onboarding',
+      '/agents',
     );
+  });
+
+  // Sem rota não há ação possível, e um botão que não resolve nada é pior que botão nenhum:
+  // ele ensina a ignorar o aviso inteiro.
+  it('não oferece botão quando o read model não aponta rota', () => {
+    renderNotice({
+      hasProvider: false,
+      hasModel: false,
+      hasWorkflow: false,
+      showTechnicalDetails: false,
+    });
+
+    expect(screen.queryByRole('link', { name: /revisar configuração/i })).not.toBeInTheDocument();
   });
 });
