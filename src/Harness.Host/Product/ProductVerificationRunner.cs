@@ -16,7 +16,8 @@ namespace Harness.Host.Product;
 /// </summary>
 public sealed class ProductVerificationRunner(
     IReadOnlyList<IProductVerifier> verifiers,
-    ILogger<ProductVerificationRunner>? logger = null)
+    ILogger<ProductVerificationRunner>? logger = null,
+    HeavyWorkPermit? heavyWork = null)
 {
     /// <summary>
     /// Os tipos para os quais existe verificador cujo CONTEÚDO o Poseidon controla. É esta lista
@@ -53,6 +54,16 @@ public sealed class ProductVerificationRunner(
 
         var required = plan.Required.ToHashSet();
         var records = new List<ProductVerificationRecord>();
+
+        // A LICENÇA DE TRABALHO PESADO cobre o plano INTEIRO, não cada verificador.
+        //
+        // Por verificador seria pior do que não ter: entre o build do backend e a subida da API os
+        // outros planos entrariam, e a máquina voltaria a ter N aplicações e N navegadores no ar ao
+        // mesmo tempo — só que agora com a falsa sensação de estar protegida. O que precisa
+        // serializar é a AVALIAÇÃO, porque é ela que ocupa a máquina do começo ao fim.
+        using var lease = heavyWork is null
+            ? null
+            : await heavyWork.AcquireAsync(cancellationToken);
 
         foreach (var verifier in verifiers)
         {

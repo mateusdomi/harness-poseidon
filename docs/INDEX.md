@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=2.0.0 checksum=sha256:4a29b29cf5d53f5980fe69c0c7ae3ed94ce416e0d429fb62627fe21ed243f05a -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=2.0.0 checksum=sha256:725125fe74276b3475197b0f9a56a31db848c8d186b80a8ecafccf6e4c6ac52b -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -6,7 +6,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 ## By authority
 
 - `Adapter`: 2
-- `Canonical`: 49
+- `Canonical`: 50
 - `Generated`: 1
 
 ## By domain
@@ -16,7 +16,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `architecture`: 1
 - `backend`: 4
 - `contract`: 7
-- `decision`: 7
+- `decision`: 8
 - `entrypoint`: 1
 - `governance`: 1
 - `index`: 1
@@ -32,18 +32,18 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `architecture`: 7
 - `development`: 1
 - `homologation`: 1
-- `planning`: 1
+- `planning`: 2
 - `sustentation`: 2
 - `triage`: 1
 
 ## By status
 
-- `Active`: 52
+- `Active`: 53
 
 ## By owner
 
 - `Operations`: 7
-- `Platform Engineering`: 18
+- `Platform Engineering`: 19
 - `Platform Governance`: 14
 - `Product Security`: 8
 - `Quality Engineering`: 5
@@ -52,7 +52,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 - `Always`: 4
 - `Bundle`: 33
-- `OnDemand`: 15
+- `OnDemand`: 16
 
 ## Documents by authority and domain
 
@@ -102,6 +102,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [ADR-0005 — Contenção desligada: decisão reversível para uso interno](decisions/ADR-0005-contencao-desligada.md) | architecture | Active | Product Security | OnDemand | 1121 |
 | [ADR-0006 — Baseline de engenharia do produto entregue](decisions/ADR-0006-baseline-de-engenharia-do-produto-entregue.md) | architecture | Active | Platform Engineering | OnDemand | 1932 |
 | [ADR-0007 — Escopo de path vazio na seleção de contexto](decisions/ADR-0007-escopo-de-path-vazio-na-selecao-de-contexto.md) | architecture | Active | Platform Engineering | OnDemand | 1155 |
+| [ADR-0008 — Semântica do Conselho e o fim da recursão de crítico](decisions/ADR-0008-semantica-do-conselho-e-o-fim-da-recursao-de-critico.md) | planning | Active | Platform Engineering | OnDemand | 1562 |
 
 #### entrypoint
 

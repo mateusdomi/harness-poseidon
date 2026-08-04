@@ -1,5 +1,5 @@
 manifestVersion: 2.0.0
-lastGeneratedAt: 2026-08-04T20:36:35.1407410+00:00
+lastGeneratedAt: 2026-08-04T23:32:49.2670770+00:00
 tokenBudget: 24000
 knownOwners:
 - Platform Governance
@@ -886,7 +886,7 @@ documents:
   - '**'
   load: always
   priority: 800
-  tokenCost: 1904
+  tokenCost: 1941
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -901,7 +901,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:ae7f0c8fa49f9b5957ad90ddaf15727a3f17def01328e052c69de10db9e67f77
+  checksum: sha256:4bd8c7c1222d0e32d19cae1662dc079f81015e5d748becdcc2baf9b8be1cb1c3
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -2703,3 +2703,49 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/decisions/ADR-0007-escopo-de-path-vazio-na-selecao-de-contexto.md
+- id: adr-0008-council-semantics
+  path: docs/decisions/ADR-0008-semantica-do-conselho-e-o-fim-da-recursao-de-critico.md
+  title: ADR-0008 — Semântica do Conselho e o fim da recursão de crítico
+  category: decision
+  topic: council-semantics
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  providers:
+  - '*'
+  agents:
+  - '*'
+  roles: []
+  workflows:
+  - '*'
+  phases:
+  - planning
+  taskTypes:
+  - adr
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: on-demand
+  priority: 700
+  tokenCost: 1562
+  owner: Platform Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-08-04T00:00:00-03:00
+  reviewDueAt: 2027-02-04T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - backend-context
+  enforcedBy: []
+  checksum: sha256:a6ca57bccfaf8fcb9f2a2b23b13e8e5b34dbe301c15b385cb3a9d3e1b7358542
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/decisions/ADR-0008-semantica-do-conselho-e-o-fim-da-recursao-de-critico.md

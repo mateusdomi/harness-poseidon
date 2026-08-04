@@ -199,4 +199,99 @@ public sealed class AgentCouncilPolicyTests
         Assert.Contains("Motivo(s) dos assentos não ouvidos", verdict.Rationale, StringComparison.Ordinal);
         Assert.Contains("escopo de escrita", verdict.Rationale, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// ADR-0008, item 4: capacidade curta SERIALIZA o conselho, não o bloqueia. O teto nunca pode
+    /// devolver zero — devolver zero travaria a fase por aritmética, que é o modo mais estúpido de
+    /// um portão parar.
+    /// </summary>
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(1, 1)]
+    [InlineData(2, 2)]
+    [InlineData(6, 6)]
+    public void CapacidadeCurtaSerializaOConselhoEmVezDeTravarPorAritmetica(
+        int contas, int esperado)
+    {
+        var teto = AgentCouncilPolicy.MaximumConcurrentSeats(new CouncilCapacity(contas, 1));
+
+        Assert.Equal(esperado, teto);
+        Assert.True(teto >= 1, "o teto de assentos jamais pode ser zero.");
+    }
+
+    /// <summary>
+    /// ADR-0008, item 5: reinício no meio retoma. A garantia concreta é que a lista de assentos é
+    /// ESTÁVEL — mesma entrada, mesma ordem —, porque a convocação procura os cards existentes pela
+    /// posição na lista antes de criar qualquer coisa. Uma ordem instável faria o Host que reinicia
+    /// abrir de novo assentos que já existem.
+    /// </summary>
+    [Fact]
+    public void AListaDeAssentosEEstavelParaQueOReinicioEncontreOQueJaFoiAberto()
+    {
+        var contexto = new CouncilContext(
+            ExternalSurface: true, Authentication: true, Persistence: true, Deployment: true);
+
+        var primeira = AgentCouncilPolicy.SelectSeats(contexto);
+        var segunda = AgentCouncilPolicy.SelectSeats(contexto);
+
+        Assert.Equal(
+            primeira.Select(seat => seat.PersonaKey),
+            segunda.Select(seat => seat.PersonaKey));
+        Assert.Equal(
+            primeira.Select(seat => seat.PersonaKey).Distinct(StringComparer.Ordinal).Count(),
+            primeira.Count);
+    }
+
+    /// <summary>
+    /// ADR-0008, item 6: <b>síntese textual não sobrescreve estrutura.</b> A consolidação decide por
+    /// campos tipados; a prosa entra no registro e nunca no veredito. Um parecer que BLOQUEIA com
+    /// um resumo conciliador continua bloqueando — e este é o teste que impede alguém, um dia, de
+    /// "melhorar" a consolidação lendo o texto.
+    /// </summary>
+    [Fact]
+    public void ProsaConciliadoraNaoTransformaBloqueioEmAprovacao()
+    {
+        var verdict = AgentCouncilPolicy.Consolidate(
+        [
+            new CouncilOpinion("playbook-product-owner", false, false, "Tudo certo, pode seguir."),
+            new CouncilOpinion("playbook-arquiteto", false, false, "Excelente planejamento."),
+            new CouncilOpinion(
+                "playbook-seguranca",
+                IsBlocking: true,
+                HasConcern: false,
+                "No geral está muito bom e recomendo prosseguir sem preocupação."),
+        ]);
+
+        Assert.False(verdict.MayProceed);
+        Assert.Equal("council.blocking_finding", verdict.ReasonCode);
+        Assert.Contains(verdict.Dissent, item => item.StartsWith("playbook-seguranca", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// O inverso, igualmente importante: prosa alarmante num parecer que NÃO bloqueia não inventa
+    /// bloqueio. Se o texto pudesse decidir nos dois sentidos, o veredito passaria a depender de
+    /// como o modelo escreveu, e não do que o conselheiro concluiu.
+    /// </summary>
+    [Fact]
+    public void ProsaAlarmanteNaoInventaBloqueioOndeNaoHouve()
+    {
+        var verdict = AgentCouncilPolicy.Consolidate(
+        [
+            new CouncilOpinion("playbook-product-owner", false, false, "ok", false, "conta-a", "p1"),
+            new CouncilOpinion("playbook-arquiteto", false, false, "ok", false, "conta-b", "p2"),
+            new CouncilOpinion(
+                "playbook-tech-lead",
+                IsBlocking: false,
+                HasConcern: true,
+                "Isto é um desastre iminente e vai explodir em produção.",
+                false, "conta-a", "p1"),
+        ]);
+
+        Assert.True(verdict.MayProceed);
+        Assert.StartsWith("council.cleared", verdict.ReasonCode, StringComparison.Ordinal);
+
+        // A ressalva sobrevive no registro mesmo sem bloquear: a ressalva de hoje costuma ser o
+        // incidente de depois.
+        Assert.Contains(verdict.Dissent, item => item.Contains("desastre", StringComparison.Ordinal));
+    }
 }

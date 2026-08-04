@@ -572,10 +572,15 @@ public static class HostApplication
                     services.GetRequiredService<Projects.ProjectRepositoryStorage>(),
                     Path.GetFullPath(agentRunSettings.ControlledRoot!)));
             builder.Services.AddSingleton<Product.TrustedProcessRunner>();
+            builder.Services.AddSingleton(
+                new Product.HeavyWorkPermit(agentRunSettings.MaxConcurrentHeavyOperations));
             builder.Services.AddSingleton(services => new Product.ProductVerificationRunner(
                 Product.ProductVerifierCatalog.CreateAll(
                     services.GetRequiredService<Product.TrustedProcessRunner>()),
-                services.GetService<ILogger<Product.ProductVerificationRunner>>()));
+                services.GetService<ILogger<Product.ProductVerificationRunner>>(),
+                services.GetRequiredService<Product.HeavyWorkPermit>()));
+            builder.Services.AddSingleton(services => new Product.GoldenRunPreflight(
+                services.GetRequiredService<Product.TrustedProcessRunner>()));
             builder.Services.AddScoped(services => new Product.ProfileDirectiveExtractor(
                 services.GetRequiredService<IWorkBoardStore>(),
                 services.GetService<Harness.Persistence.Abstractions.Documents.IDocumentCatalogStore>(),

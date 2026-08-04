@@ -64,7 +64,15 @@ public sealed class ProductDeliveryEvaluator(
         ProjectEffectiveProfileRecord? Profile,
         ProductDeliveryEvidence? Evidence = null,
         ProductVerificationPlan? Plan = null,
-        string? EvidenceSetId = null);
+        string? EvidenceSetId = null,
+
+        /// <summary>
+        /// O que mudou desde a avaliação anterior deste projeto. PURAMENTE observável: nada no
+        /// portão, no escalonamento ou no replanejamento lê este campo, e é assim de propósito —
+        /// a política de "sem progresso" precisa ser desenhada sobre comportamento real observado,
+        /// não sobre a intuição de quem escreveu o medidor.
+        /// </summary>
+        ProgressDelta? Progress = null);
 
     public async Task<Outcome> EvaluateAsync(
         string tenantId,
@@ -180,6 +188,11 @@ public sealed class ProductDeliveryEvaluator(
         // do perfil. Sem isso, "quais evidências fizeram este projeto passar?" não tem resposta
         // depois que o ciclo termina — e a tentativa que reprovou desaparece quando a seguinte
         // passa, apagando o que a fábrica precisa para aprender.
+        // TELEMETRIA DE PROGRESSO, medida antes de gravar esta avaliação — a comparação é com a
+        // ANTERIOR, e gravar primeiro faria o conjunto novo comparar-se consigo mesmo.
+        var progress = await MeasureProgressAsync(tenantId, projectId, verdict, cancellationToken);
+        LogProgress(logger, projectId, progress.Summary());
+
         var evidenceSetId = await PersistEvidenceAsync(
             tenantId, projectId, record, plan, evidence, verdict, commitSha, attemptId, cardId,
             cancellationToken);
@@ -197,8 +210,79 @@ public sealed class ProductDeliveryEvaluator(
             record,
             evidence,
             plan,
-            evidenceSetId);
+            evidenceSetId,
+            progress);
     }
+
+    private static readonly System.Text.Json.JsonSerializerOptions TelemetryJson =
+        new(System.Text.Json.JsonSerializerDefaults.Web)
+        {
+            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+        };
+
+    /// <summary>
+    /// Compara esta avaliação com a anterior DO MESMO PROJETO, lida do ledger. É o que permite
+    /// distinguir 8 → 5 → 2 de 8 → 8 → 8 sem reconstruir nada à mão: a comparação é derivada dos
+    /// achados já gravados, com a mesma chave estável (tipo + natureza da lacuna).
+    ///
+    /// Falha de leitura devolve a linha de base em vez de derrubar a avaliação: perder uma medição
+    /// é ruim, travar o portão por causa de um medidor é inaceitável.
+    /// </summary>
+    private async Task<ProgressDelta> MeasureProgressAsync(
+        string tenantId,
+        string projectId,
+        ProductDeliveryVerdict verdict,
+        CancellationToken cancellationToken)
+    {
+        if (evidenceSets is null)
+        {
+            return ProgressTelemetry.Compare(null, verdict.Findings);
+        }
+
+        try
+        {
+            var previous = await evidenceSets.ListAsync(tenantId, projectId, 1, cancellationToken);
+            var findings = previous.Count == 0
+                ? null
+                : System.Text.Json.JsonSerializer.Deserialize<ProductEvidenceFinding[]>(
+                    previous[0].FindingsJson, TelemetryJson);
+            return ProgressTelemetry.Compare(findings, verdict.Findings);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            LogProgressUnavailable(logger, projectId, exception);
+            return ProgressTelemetry.Compare(null, verdict.Findings);
+        }
+    }
+
+    private static void LogProgress(ILogger? logger, string projectId, string summary)
+    {
+        if (logger is not null)
+        {
+            Progress(logger, projectId, summary, null);
+        }
+    }
+
+    private static void LogProgressUnavailable(ILogger? logger, string projectId, Exception exception)
+    {
+        if (logger is not null)
+        {
+            ProgressUnavailable(logger, projectId, exception);
+        }
+    }
+
+    private static readonly Action<ILogger, string, string, Exception?> Progress =
+        LoggerMessage.Define<string, string>(
+            LogLevel.Information,
+            new EventId(7, nameof(Progress)),
+            "Progresso do projeto {ProjectId} desde a avaliação anterior: {Delta}");
+
+    private static readonly Action<ILogger, string, Exception?> ProgressUnavailable =
+        LoggerMessage.Define<string>(
+            LogLevel.Warning,
+            new EventId(8, nameof(ProgressUnavailable)),
+            "Não foi possível medir o progresso do projeto {ProjectId}; a avaliação seguiu sem a " +
+            "métrica, que é observabilidade e nunca decide nada.");
 
     private static readonly System.Text.Json.JsonSerializerOptions LedgerJson =
         new(System.Text.Json.JsonSerializerDefaults.Web)

@@ -88,6 +88,18 @@ public sealed record AgentRunSettings
     public int AutoDispatchMaxConcurrent { get; init; } = 2;
 
     /// <summary>
+    /// Teto de operações PESADAS simultâneas — compilar, rodar suíte, subir aplicação, abrir
+    /// navegador.
+    ///
+    /// O default é 1 e é deliberado para o piloto: uma avaliação de entrega Web já dispara dois
+    /// builds, uma suíte, um build de frontend, duas subidas de API, um servidor de interface e um
+    /// navegador. Duas em paralelo na mesma máquina não somam — competem, e esta máquina já travou
+    /// por isso. Quem souber que a máquina aguenta mais aumenta aqui; o piso efetivo é 1, porque
+    /// zero pararia a fábrica sem produzir erro nenhum.
+    /// </summary>
+    public int MaxConcurrentHeavyOperations { get; init; } = 1;
+
+    /// <summary>
     /// Falhas consecutivas que abrem o circuito de um card. O default é o histórico (3).
     ///
     /// É configurável porque o número certo depende de quanto a infraestrutura da vez está
