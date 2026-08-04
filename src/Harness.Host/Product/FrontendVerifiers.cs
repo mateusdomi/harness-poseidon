@@ -32,7 +32,7 @@ public sealed class FrontendBuildVerifier(TrustedProcessRunner runner) : Process
         }
 
         var (directory, content) = manifest.Value;
-        if (!DeclaresBuildScript(content))
+        if (!FrontendLocator.DeclaresScript(content, "build"))
         {
             return new ProductVerificationRecord(
                 Kind, false, Name, "npm run build", -1, context.CommitSha, DateTimeOffset.UtcNow,
@@ -42,21 +42,35 @@ public sealed class FrontendBuildVerifier(TrustedProcessRunner runner) : Process
 
         // O gerenciador vem do LOCKFILE da entrega, não de preferência: instalar com um e buildar
         // com outro produz um build que não é o da entrega.
-        var (manager, arguments) = ResolvePackageManager(context.WorkspaceRoot, directory);
+        var (manager, arguments) = FrontendLocator.ResolvePackageManager(
+            context.WorkspaceRoot, directory, "build");
         var result = await Runner.RunAsync(
             manager, arguments, context.WorkspaceRoot, directory,
             TimeSpan.FromMinutes(10), cancellationToken);
         return ToRecord(context, result);
     }
 
+    private static (string Directory, string Content)? LocateManifest(ProductVerificationContext context) =>
+        FrontendLocator.LocateManifest(context.WorkspaceRoot, context.Profile.Frontend.Framework);
+}
+
+/// <summary>
+/// Onde está o frontend da entrega, no framework que o PERFIL decidiu.
+///
+/// Vive separado porque três verificações precisam da mesma resposta — compilar, servir para a
+/// jornada e apontar a integração — e três buscas independentes acabariam divergindo justamente
+/// no projeto que sobrescreveu o baseline, que é o caso em que errar custa caro.
+/// </summary>
+public static class FrontendLocator
+{
     /// <summary>O manifesto que declara o framework do perfil. Nenhum outro serve.</summary>
-    private static (string Directory, string Content)? LocateManifest(ProductVerificationContext context)
+    public static (string Directory, string Content)? LocateManifest(
+        string workspaceRoot, string? expected)
     {
-        var expected = context.Profile.Frontend.Framework;
-        foreach (var relative in SafeFind(context.WorkspaceRoot, "package.json"))
+        foreach (var relative in Discover(workspaceRoot, "package.json"))
         {
             var absolute = Path.Combine(
-                context.WorkspaceRoot, relative.Replace('/', Path.DirectorySeparatorChar));
+                workspaceRoot, relative.Replace('/', Path.DirectorySeparatorChar));
             string content;
             try
             {
@@ -81,6 +95,40 @@ public sealed class FrontendBuildVerifier(TrustedProcessRunner runner) : Process
         return null;
     }
 
+    /// <summary>Gerenciador de pacotes vindo do LOCKFILE da entrega, com o argumento do script pedido.</summary>
+    public static (string Manager, string[] Arguments) ResolvePackageManager(
+        string workspaceRoot, string directory, string script)
+    {
+        var folder = directory == "." ? workspaceRoot : Path.Combine(workspaceRoot, directory);
+        if (File.Exists(Path.Combine(folder, "pnpm-lock.yaml")))
+        {
+            return ("pnpm", ["run", script]);
+        }
+
+        return File.Exists(Path.Combine(folder, "yarn.lock"))
+            ? ("yarn", [script])
+            : ("npm", ["run", script, "--silent"]);
+    }
+
+    /// <summary>O manifesto declara este script?</summary>
+    public static bool DeclaresScript(string manifest, string script)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(manifest);
+            return document.RootElement.TryGetProperty("scripts", out var scripts) &&
+                scripts.ValueKind == JsonValueKind.Object &&
+                scripts.TryGetProperty(script, out _);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static IReadOnlyList<string> Discover(string root, string pattern) =>
+        FileDiscovery.Find(root, pattern);
+
     private static bool DeclaresFramework(string manifest, string framework)
     {
         var needle = framework.Trim().ToLowerInvariant() switch
@@ -94,21 +142,6 @@ public sealed class FrontendBuildVerifier(TrustedProcessRunner runner) : Process
         };
 
         return Dependencies(manifest).Contains(needle, StringComparer.OrdinalIgnoreCase);
-    }
-
-    private static bool DeclaresBuildScript(string manifest)
-    {
-        try
-        {
-            using var document = JsonDocument.Parse(manifest);
-            return document.RootElement.TryGetProperty("scripts", out var scripts) &&
-                scripts.ValueKind == JsonValueKind.Object &&
-                scripts.TryGetProperty("build", out _);
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
     }
 
     private static List<string> Dependencies(string manifest)
@@ -134,17 +167,4 @@ public sealed class FrontendBuildVerifier(TrustedProcessRunner runner) : Process
         }
     }
 
-    private static (string Manager, string[] Arguments) ResolvePackageManager(
-        string workspaceRoot, string directory)
-    {
-        var folder = directory == "." ? workspaceRoot : Path.Combine(workspaceRoot, directory);
-        if (File.Exists(Path.Combine(folder, "pnpm-lock.yaml")))
-        {
-            return ("pnpm", ["run", "build"]);
-        }
-
-        return File.Exists(Path.Combine(folder, "yarn.lock"))
-            ? ("yarn", ["build"])
-            : ("npm", ["run", "build", "--silent"]);
-    }
 }

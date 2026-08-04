@@ -31,6 +31,15 @@ public interface IProductVerifier
     /// <summary>Nome estável do verificador, registrado na proveniência da evidência.</summary>
     string Name { get; }
 
+    /// <summary>
+    /// Outros tipos de evidência que ESTE verificador consegue produzir de quebra, como registro
+    /// derivado. Existe porque o plano precisa saber que aquele requisito tem prova nativa: sem
+    /// isso, a integração tela↔API — provada pela jornada, medindo tráfego real — apareceria no
+    /// plano como coberta apenas por script do produto, e a barra dela ficaria mais baixa do que a
+    /// prova que ela de fato recebe.
+    /// </summary>
+    IReadOnlyList<ProductEvidenceKind> DerivedKinds => [];
+
     /// <summary>Este verificador tem o que fazer neste perfil?</summary>
     bool AppliesTo(ProjectEffectiveProfile profile);
 

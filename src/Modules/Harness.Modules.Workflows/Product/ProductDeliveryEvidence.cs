@@ -44,7 +44,18 @@ public sealed record ProductVerificationRecord(
     /// Quem controlou o CONTEÚDO da verificação. Um script do manifesto do produto é
     /// <see cref="VerificationTrustLevel.ProjectControlled"/> por mais que o Poseidon o invoque.
     /// </summary>
-    VerificationTrustLevel Trust = VerificationTrustLevel.PoseidonControlled);
+    VerificationTrustLevel Trust = VerificationTrustLevel.PoseidonControlled,
+
+    /// <summary>
+    /// Fatos que ESTA verificação provou de quebra, cada um com o próprio registro.
+    ///
+    /// Existe por causa de uma tentação concreta: uma jornada que atravessa tela → API → banco
+    /// também prova que a tela conversa com o backend. Deduzir isso em silêncio, dentro do portão,
+    /// criaria evidência sem origem — quem auditasse veria `FrontendBackendIntegration` satisfeita
+    /// sem nenhuma verificação que a tivesse produzido. Aqui a derivação é um registro próprio,
+    /// nomeado, com o comando e o motivo de quem a derivou.
+    /// </summary>
+    IReadOnlyList<ProductVerificationRecord>? Derived = null);
 
 /// <summary>
 /// Compõe as fontes de evidência numa ordem que reflete a confiança: verificação executada vence
@@ -88,7 +99,7 @@ public sealed class ProductEvidenceCollectorPipeline(RepositoryEvidenceCollector
 
         if (verifications is { Count: > 0 })
         {
-            items.AddRange(verifications.Select(record => new ProductEvidence(
+            items.AddRange(Flatten(verifications).Select(record => new ProductEvidence(
                 record.Kind,
                 record.Succeeded,
                 record.Detail ?? $"{record.Command} → exit {record.ExitCode}",
@@ -100,5 +111,19 @@ public sealed class ProductEvidenceCollectorPipeline(RepositoryEvidenceCollector
         }
 
         return new ProductDeliveryEvidence(workspace.CommitSha, items, collectors);
+    }
+
+    /// <summary>Cada registro e os fatos que ele derivou, todos como evidência de primeira classe.</summary>
+    private static IEnumerable<ProductVerificationRecord> Flatten(
+        IReadOnlyList<ProductVerificationRecord> records)
+    {
+        foreach (var record in records)
+        {
+            yield return record;
+            foreach (var derived in record.Derived ?? [])
+            {
+                yield return derived;
+            }
+        }
     }
 }

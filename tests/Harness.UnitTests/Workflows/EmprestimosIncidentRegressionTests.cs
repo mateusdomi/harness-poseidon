@@ -142,6 +142,10 @@ public sealed class EmprestimosIncidentRegressionTests
                 ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.PersistenceVerified),
                 ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.AutomatedTestsPassed),
                 ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.RunbookPresent),
+
+                // Segurança passou a ser exigida de toda entrega, inclusive API-only: segredo em
+                // código não depende de haver tela.
+                ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.SecurityScanPassed),
             ]);
 
         Assert.True(verdict.Satisfied);

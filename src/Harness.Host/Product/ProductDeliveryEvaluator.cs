@@ -47,7 +47,8 @@ public sealed class ProductDeliveryEvaluator(
     ILogger<ProductDeliveryEvaluator>? logger = null,
     ProductVerificationRunner? verifications = null,
     ProfileDirectiveExtractor? directives = null,
-    IProductEvidenceSetStore? evidenceSets = null)
+    IProductEvidenceSetStore? evidenceSets = null,
+    Harness.Persistence.Abstractions.Governance.IGovernanceRuntimeStore? governance = null)
 {
     private readonly ProductEvidenceCollectorPipeline _pipeline = new();
 
@@ -154,7 +155,8 @@ public sealed class ProductDeliveryEvaluator(
 
         // O PLANO é derivado do perfil e auditável: dá para responder por que este projeto teve o
         // build de frontend verificado e aquele não.
-        var plan = ProductVerificationPlan.From(profile, verifications?.NativeVerifiers);
+        var plan = ProductVerificationPlan.From(
+            profile, verifications?.NativeVerifiers, verifications?.ProjectControlledVerifiers);
 
         // VERIFICAÇÃO REAL. É aqui que o Poseidon deixa de acreditar e passa a constatar: os
         // verificadores executam build, testes e contrato dentro da worktree, com allowlist de
@@ -181,6 +183,13 @@ public sealed class ProductDeliveryEvaluator(
         var evidenceSetId = await PersistEvidenceAsync(
             tenantId, projectId, record, plan, evidence, verdict, commitSha, attemptId, cardId,
             cancellationToken);
+
+        // PONTE RECIBO → EVIDÊNCIA. O recibo do turno nasceu antes de existir portão para decidir;
+        // é aqui, com a decisão tomada e o conjunto gravado, que ele passa a apontar para a prova.
+        // Sem este passo, `EvidenceSetId` continuaria nulo para sempre e a trilha de auditoria
+        // pararia no recibo — que é onde ela parava até agora.
+        await LinkReceiptAsync(
+            tenantId, projectId, attemptId, evidenceSetId, commitSha, verdict, cancellationToken);
 
         return new Outcome(
             verdict,
@@ -240,6 +249,69 @@ public sealed class ProductDeliveryEvaluator(
             return null;
         }
     }
+
+    /// <summary>
+    /// Liga os recibos da tentativa ao conjunto de evidências. Falhar aqui não desfaz a decisão do
+    /// portão — como no ledger, perder o registro é ruim e travar a fábrica por causa dele é pior —,
+    /// mas fica logado.
+    /// </summary>
+    private async Task LinkReceiptAsync(
+        string tenantId,
+        string projectId,
+        string? attemptId,
+        string? evidenceSetId,
+        string commitSha,
+        ProductDeliveryVerdict verdict,
+        CancellationToken cancellationToken)
+    {
+        if (governance is null || evidenceSetId is null || string.IsNullOrWhiteSpace(attemptId))
+        {
+            return;
+        }
+
+        try
+        {
+            var linked = await governance.LinkEvidenceAsync(
+                new Harness.Persistence.Abstractions.Governance.GovernanceReceiptEvidenceLinkCommand(
+                    tenantId, attemptId, evidenceSetId, commitSha, verdict.Summary(), clock.UtcNow),
+                cancellationToken);
+            LogReceiptLinked(logger, projectId, linked, evidenceSetId);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            LogReceiptNotLinked(logger, projectId, exception);
+        }
+    }
+
+    private static void LogReceiptLinked(ILogger? logger, string projectId, int linked, string evidenceSetId)
+    {
+        if (logger is not null)
+        {
+            ReceiptLinked(logger, projectId, linked, evidenceSetId, null);
+        }
+    }
+
+    private static void LogReceiptNotLinked(ILogger? logger, string projectId, Exception exception)
+    {
+        if (logger is not null)
+        {
+            ReceiptNotLinked(logger, projectId, exception);
+        }
+    }
+
+    private static readonly Action<ILogger, string, int, string, Exception?> ReceiptLinked =
+        LoggerMessage.Define<string, int, string>(
+            LogLevel.Information,
+            new EventId(5, nameof(ReceiptLinked)),
+            "Projeto {ProjectId}: {Linked} recibo(s) passaram a apontar para o conjunto de " +
+            "evidências {EvidenceSetId}.");
+
+    private static readonly Action<ILogger, string, Exception?> ReceiptNotLinked =
+        LoggerMessage.Define<string>(
+            LogLevel.Error,
+            new EventId(6, nameof(ReceiptNotLinked)),
+            "Não foi possível ligar os recibos do projeto {ProjectId} ao conjunto de evidências; a " +
+            "decisão do portão seguiu, mas a trilha de auditoria ficou interrompida no recibo.");
 
     /// <summary>
     /// Resolve e PERSISTE o perfil efetivo do projeto. Idempotente por conteúdo: resolver duas

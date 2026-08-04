@@ -1,6 +1,31 @@
 namespace Harness.Modules.Workflows.Product;
 
 /// <summary>
+/// Por que um passo do plano está no estado em que está. O §16 existe por causa da confusão que
+/// este tipo desfaz: <b>"não existe verificador implementado" não é "requisito não aplicável"</b>.
+/// </summary>
+public enum ProductVerificationDisposition
+{
+    /// <summary>O perfil exige e existe verificador nativo: prova controlada pelo Poseidon.</summary>
+    RequiredNative,
+
+    /// <summary>
+    /// O perfil exige e só existe caminho controlado pelo produto. Vale como compatibilidade
+    /// enquanto nenhum verificador nativo cobre o tipo — e deixa de valer no dia em que um cobrir.
+    /// </summary>
+    RequiredProjectControlled,
+
+    /// <summary>
+    /// O perfil exige, a plataforma NÃO sabe verificar, e ninguém está dispensado. É o estado que o
+    /// §16 obriga a nomear: o buraco é da plataforma, e o requisito continua reprovando.
+    /// </summary>
+    RequiredUnsupported,
+
+    /// <summary>A modalidade não exige. Só aqui o requisito realmente não incide.</summary>
+    NotApplicable,
+}
+
+/// <summary>
 /// Um item do plano: o que verificar, com que força de prova, e por quê.
 ///
 /// O NÍVEL DE PROVA mora aqui, não no portão. É o que permite ao gate continuar genérico — ele
@@ -13,7 +38,8 @@ public sealed record ProductVerificationStep(
     string Rationale,
     ProductEvidenceProvenance MinimumProvenance = ProductEvidenceProvenance.Verified,
     VerificationTrustLevel MinimumTrust = VerificationTrustLevel.ProjectControlled,
-    string? PreferredVerifier = null);
+    string? PreferredVerifier = null,
+    ProductVerificationDisposition Disposition = ProductVerificationDisposition.NotApplicable);
 
 /// <summary>
 /// O plano determinístico de verificação de um projeto, derivado do perfil efetivo.
@@ -31,7 +57,17 @@ public sealed record ProductVerificationPlan(
         [.. Steps.Where(step => step.Required).Select(step => step.Kind)];
 
     public IReadOnlyList<ProductEvidenceKind> NotApplicable =>
-        [.. Steps.Where(step => !step.Required).Select(step => step.Kind)];
+        [.. Steps.Where(step => step.Disposition == ProductVerificationDisposition.NotApplicable)
+            .Select(step => step.Kind)];
+
+    /// <summary>
+    /// Requisitos que o perfil exige e que a plataforma NÃO sabe verificar. É o buraco declarado —
+    /// e a razão de existir: enquanto esta lista não estiver vazia, dizer que a plataforma está
+    /// pronta para um Golden Run daquele perfil é falso.
+    /// </summary>
+    public IReadOnlyList<ProductEvidenceKind> Unsupported =>
+        [.. Steps.Where(step => step.Disposition == ProductVerificationDisposition.RequiredUnsupported)
+            .Select(step => step.Kind)];
 
     public string Summary() => string.Join(
         ' ',
@@ -50,32 +86,63 @@ public sealed record ProductVerificationPlan(
     /// </summary>
     public static ProductVerificationPlan From(
         ProjectEffectiveProfile profile,
-        IReadOnlyDictionary<ProductEvidenceKind, string>? nativeVerifiers = null)
+        IReadOnlyDictionary<ProductEvidenceKind, string>? nativeVerifiers = null,
+        IReadOnlyDictionary<ProductEvidenceKind, string>? projectControlledVerifiers = null)
     {
         ArgumentNullException.ThrowIfNull(profile);
 
         var required = ProductDeliveryRequirements.For(profile).ToHashSet();
         var native = nativeVerifiers ?? EmptyNative;
+        var scripted = projectControlledVerifiers ?? EmptyNative;
         var steps = new List<ProductVerificationStep>();
 
         foreach (var kind in Enum.GetValues<ProductEvidenceKind>())
         {
             var isRequired = required.Contains(kind);
+            var hasNative = native.ContainsKey(kind);
+            var hasAnyProvider = hasNative || scripted.ContainsKey(kind) || ObservedByScanner(kind);
+
+            var disposition = !isRequired
+                ? ProductVerificationDisposition.NotApplicable
+                : hasNative
+                    ? ProductVerificationDisposition.RequiredNative
+                    : hasAnyProvider
+                        ? ProductVerificationDisposition.RequiredProjectControlled
+                        : ProductVerificationDisposition.RequiredUnsupported;
+
             steps.Add(new ProductVerificationStep(
                 kind,
                 isRequired,
-                isRequired
-                    ? RequiredBecause(kind, profile)
-                    : $"A modalidade {profile.Modality} não exige {kind}.",
+                disposition switch
+                {
+                    ProductVerificationDisposition.NotApplicable =>
+                        $"A modalidade {profile.Modality} não exige {kind}.",
+                    ProductVerificationDisposition.RequiredUnsupported =>
+                        $"{RequiredBecause(kind, profile)} NENHUM verificador sabe produzir esta " +
+                        "evidência: o requisito continua valendo e a plataforma não o alcança.",
+                    _ => RequiredBecause(kind, profile),
+                },
                 MinimumProvenanceFor(kind),
-                native.ContainsKey(kind)
+                hasNative
                     ? VerificationTrustLevel.PoseidonControlled
                     : VerificationTrustLevel.ProjectControlled,
-                native.GetValueOrDefault(kind)));
+                native.GetValueOrDefault(kind) ?? scripted.GetValueOrDefault(kind),
+                disposition));
         }
 
         return new ProductVerificationPlan(profile.Modality, profile.BaselineVersion, steps);
     }
+
+    /// <summary>
+    /// Tipos que o inspetor de repositório constata sem executar nada. Têm produtor por construção —
+    /// é o que impede que "existe backend" apareça como buraco da plataforma.
+    /// </summary>
+    private static bool ObservedByScanner(ProductEvidenceKind kind) => kind is
+        ProductEvidenceKind.BackendPresent or
+        ProductEvidenceKind.FrontendPresent or
+        ProductEvidenceKind.ApiPresent or
+        ProductEvidenceKind.DatabaseMigrationValidated or
+        ProductEvidenceKind.RunbookPresent;
 
     private static readonly Dictionary<ProductEvidenceKind, string> EmptyNative = [];
 
@@ -115,6 +182,9 @@ public sealed record ProductVerificationPlan(
             "Toda entrega precisa de suíte executada.",
         ProductEvidenceKind.RunbookPresent =>
             "Produto que só quem escreveu consegue operar não foi entregue.",
+        ProductEvidenceKind.SecurityScanPassed =>
+            "Segredo em código e dependência com vulnerabilidade conhecida reprovam qualquer entrega, " +
+            "em qualquer modalidade.",
         _ => "Exigido pelo perfil efetivo.",
     };
 }

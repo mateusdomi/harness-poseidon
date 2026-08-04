@@ -15,6 +15,14 @@ public enum VerificationOutcomeKind
 
     /// <summary>O perfil não exige esta verificação.</summary>
     NotApplicable,
+
+    /// <summary>
+    /// O perfil EXIGE esta verificação e o Poseidon não sabe produzi-la com segurança nesta entrega.
+    /// É diferente de <see cref="NotApplicable"/>: ali o requisito não incide, aqui ele incide e a
+    /// plataforma não alcança. Confundir os dois transforma buraco da plataforma em dispensa do
+    /// produto, que é a mentira mais cara que este conjunto de tipos pode contar.
+    /// </summary>
+    NotSupported,
 }
 
 /// <summary>
@@ -90,7 +98,8 @@ public sealed class TrustedProcessRunner(TimeProvider? timeProvider = null)
         string workspaceRoot,
         string? relativeWorkingDirectory,
         TimeSpan timeout,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyDictionary<string, string>? extraEnvironment = null)
     {
         ArgumentNullException.ThrowIfNull(arguments);
         var startedAt = _time.GetUtcNow();
@@ -102,38 +111,13 @@ public sealed class TrustedProcessRunner(TimeProvider? timeProvider = null)
                 $"Executável '{executableName}' fora da allowlist de verificação.");
         }
 
-        var workingDirectory = ResolveConfined(workspaceRoot, relativeWorkingDirectory);
-        if (workingDirectory is null)
+        var (info, workingDirectory, error) = Prepare(
+            executableName, arguments, workspaceRoot, relativeWorkingDirectory, extraEnvironment);
+        if (info is null || workingDirectory is null)
         {
             return Infrastructure(
-                executableName, arguments, workspaceRoot, startedAt,
-                $"Diretório de trabalho '{relativeWorkingDirectory}' escapa da worktree da tentativa.");
+                executableName, arguments, workingDirectory ?? workspaceRoot, startedAt, error!);
         }
-
-        var executable = ResolveExecutable(executableName);
-        if (executable is null)
-        {
-            return Infrastructure(
-                executableName, arguments, workingDirectory, startedAt,
-                $"Executável '{executableName}' não encontrado no host.");
-        }
-
-        var info = new ProcessStartInfo
-        {
-            FileName = executable,
-            WorkingDirectory = workingDirectory,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            RedirectStandardInput = true,
-        };
-
-        foreach (var argument in arguments)
-        {
-            info.ArgumentList.Add(argument);
-        }
-
-        ApplyMinimalEnvironment(info, executable);
 
         using var process = new Process { StartInfo = info };
         var output = new StringBuilder();
@@ -211,6 +195,126 @@ public sealed class TrustedProcessRunner(TimeProvider? timeProvider = null)
     }
 
     /// <summary>
+    /// Inicia um processo de LONGA DURAÇÃO sob as mesmas garantias do
+    /// <see cref="RunAsync"/> — allowlist, argumentos tipados, confinamento na worktree, ambiente
+    /// construído — e devolve o controle dele ao chamador.
+    ///
+    /// Existe porque verificar contrato e jornada exige a aplicação NO AR: não dá para buscar o
+    /// OpenAPI real de um processo que já terminou. O handle é <see cref="IAsyncDisposable"/> e
+    /// mata a árvore de processos no descarte, porque um verificador que deixa órfão transforma a
+    /// próxima verificação numa disputa por porta.
+    ///
+    /// <paramref name="extraEnvironment"/> é POSEIDON-CONTROLADO: quem chama é código deste
+    /// repositório, nunca texto de agente. É por onde entram a URL de escuta e a base da API.
+    /// </summary>
+    public TrustedProcessHandle Start(
+        string executableName,
+        IReadOnlyList<string> arguments,
+        string workspaceRoot,
+        string? relativeWorkingDirectory,
+        IReadOnlyDictionary<string, string>? extraEnvironment = null)
+    {
+        ArgumentNullException.ThrowIfNull(arguments);
+        var startedAt = _time.GetUtcNow();
+
+        if (!IsAllowed(executableName))
+        {
+            return TrustedProcessHandle.Failed(
+                executableName, arguments, startedAt,
+                $"Executável '{executableName}' fora da allowlist de verificação.");
+        }
+
+        var (info, _, error) = Prepare(
+            executableName, arguments, workspaceRoot, relativeWorkingDirectory, extraEnvironment);
+        if (info is null)
+        {
+            return TrustedProcessHandle.Failed(executableName, arguments, startedAt, error!);
+        }
+
+        var process = new Process { StartInfo = info };
+        var output = new StringBuilder();
+        var sink = new object();
+        process.OutputDataReceived += (_, args) => Append(sink, output, args.Data);
+        process.ErrorDataReceived += (_, args) => Append(sink, output, args.Data);
+
+        try
+        {
+            if (!process.Start())
+            {
+                process.Dispose();
+                return TrustedProcessHandle.Failed(
+                    executableName, arguments, startedAt, "O processo não iniciou.");
+            }
+        }
+        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or IOException)
+        {
+            process.Dispose();
+            return TrustedProcessHandle.Failed(
+                executableName, arguments, startedAt,
+                $"Falha ao iniciar o processo: {exception.GetType().Name}.");
+        }
+
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+        process.StandardInput.Close();
+
+        return new TrustedProcessHandle(process, output, sink, executableName, arguments, startedAt);
+    }
+
+    /// <summary>
+    /// Monta o <see cref="ProcessStartInfo"/> sob as garantias do runner, ou explica por que não.
+    /// Uma implementação só: execução curta e processo longo NÃO podem divergir em confinamento nem
+    /// em ambiente, ou a garantia valeria só para metade dos verificadores.
+    /// </summary>
+    private static (ProcessStartInfo? Info, string? WorkingDirectory, string? Error) Prepare(
+        string executableName,
+        IReadOnlyList<string> arguments,
+        string workspaceRoot,
+        string? relativeWorkingDirectory,
+        IReadOnlyDictionary<string, string>? extraEnvironment)
+    {
+        var workingDirectory = ResolveConfined(workspaceRoot, relativeWorkingDirectory);
+        if (workingDirectory is null)
+        {
+            return (null, null,
+                $"Diretório de trabalho '{relativeWorkingDirectory}' escapa da worktree da tentativa.");
+        }
+
+        var executable = ResolveExecutable(executableName);
+        if (executable is null)
+        {
+            return (null, workingDirectory, $"Executável '{executableName}' não encontrado no host.");
+        }
+
+        var info = new ProcessStartInfo
+        {
+            FileName = executable,
+            WorkingDirectory = workingDirectory,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            RedirectStandardInput = true,
+        };
+
+        foreach (var argument in arguments)
+        {
+            info.ArgumentList.Add(argument);
+        }
+
+        ApplyMinimalEnvironment(info, executable);
+
+        if (extraEnvironment is not null)
+        {
+            foreach (var (key, value) in extraEnvironment)
+            {
+                info.Environment[key] = value;
+            }
+        }
+
+        return (info, workingDirectory, null);
+    }
+
+    /// <summary>
     /// Caminho absoluto DENTRO da raiz, ou nulo. Canonicaliza antes de comparar: é o que fecha
     /// `../`, caminho absoluto disfarçado e link simbólico apontando para fora.
     /// </summary>
@@ -277,7 +381,7 @@ public sealed class TrustedProcessRunner(TimeProvider? timeProvider = null)
         new(VerificationOutcomeKind.InfrastructureError, executable, arguments, workingDirectory,
             startedAt, _time.GetUtcNow(), -1, reason);
 
-    private static void Append(object sink, StringBuilder output, string? line)
+    internal static void Append(object sink, StringBuilder output, string? line)
     {
         if (line is null)
         {
@@ -324,7 +428,7 @@ public sealed class TrustedProcessRunner(TimeProvider? timeProvider = null)
     }
 
     /// <summary>Início E fim: a linha que explica raramente está no meio.</summary>
-    private static string Truncate(string value)
+    internal static string Truncate(string value)
     {
         var trimmed = value.Trim();
         if (trimmed.Length <= MaxOutputCharacters)
@@ -355,5 +459,143 @@ public sealed class TrustedProcessRunner(TimeProvider? timeProvider = null)
         }
 
         return null;
+    }
+}
+
+/// <summary>
+/// Um processo de verificação VIVO — a aplicação da entrega no ar, sob controle do Poseidon.
+///
+/// Duas responsabilidades: dar acesso à saída acumulada enquanto ele roda (é assim que se descobre
+/// que a aplicação subiu ou morreu) e garantir que ele MORRA, com filhos, no descarte. `dotnet run`
+/// nasce como pai de um segundo processo; matar só o pai deixa a porta ocupada e a verificação
+/// seguinte falha por um motivo que não é o dela.
+/// </summary>
+public sealed class TrustedProcessHandle : IAsyncDisposable
+{
+    private readonly Process? _process;
+    private readonly StringBuilder _output;
+    private readonly object _sink;
+    private bool _disposed;
+
+    internal TrustedProcessHandle(
+        Process process,
+        StringBuilder output,
+        object sink,
+        string executable,
+        IReadOnlyList<string> arguments,
+        DateTimeOffset startedAt)
+    {
+        _process = process;
+        _output = output;
+        _sink = sink;
+        Executable = executable;
+        Arguments = arguments;
+        StartedAt = startedAt;
+        Started = true;
+    }
+
+    private TrustedProcessHandle(
+        string executable,
+        IReadOnlyList<string> arguments,
+        DateTimeOffset startedAt,
+        string failureReason)
+    {
+        _output = new StringBuilder();
+        _sink = new object();
+        Executable = executable;
+        Arguments = arguments;
+        StartedAt = startedAt;
+        Started = false;
+        FailureReason = failureReason;
+    }
+
+    internal static TrustedProcessHandle Failed(
+        string executable, IReadOnlyList<string> arguments, DateTimeOffset startedAt, string reason) =>
+        new(executable, arguments, startedAt, reason);
+
+    public string Executable { get; }
+
+    public IReadOnlyList<string> Arguments { get; }
+
+    public DateTimeOffset StartedAt { get; }
+
+    /// <summary>O processo chegou a nascer.</summary>
+    public bool Started { get; }
+
+    /// <summary>Por que não nasceu. Nulo quando nasceu.</summary>
+    public string? FailureReason { get; }
+
+    public string CommandLine => Arguments.Count == 0
+        ? Path.GetFileName(Executable)
+        : $"{Path.GetFileName(Executable)} {string.Join(' ', Arguments)}";
+
+    /// <summary>
+    /// O processo continua vivo. É verificação obrigatória ao final de uma jornada: um teste que
+    /// "passou" com a aplicação morta no meio provou outra coisa.
+    /// </summary>
+    public bool IsRunning
+    {
+        get
+        {
+            if (!Started || _process is null)
+            {
+                return false;
+            }
+
+            try
+            {
+                return !_process.HasExited;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }
+    }
+
+    public string Output
+    {
+        get
+        {
+            lock (_sink)
+            {
+                return TrustedProcessRunner.Truncate(_output.ToString());
+            }
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        if (_process is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!_process.HasExited)
+            {
+                _process.Kill(entireProcessTree: true);
+                await _process.WaitForExitAsync(CancellationToken.None)
+                    .WaitAsync(TimeSpan.FromSeconds(10), CancellationToken.None);
+            }
+        }
+        catch (Exception exception) when (
+            exception is InvalidOperationException or NotSupportedException or TimeoutException
+                or System.ComponentModel.Win32Exception)
+        {
+            // Já morreu, ou o host não sabe matar a árvore. O descarte não pode lançar: ele roda em
+            // `finally` de verificadores, e uma exceção aqui apagaria o resultado real da jornada.
+        }
+        finally
+        {
+            _process.Dispose();
+        }
     }
 }

@@ -43,6 +43,23 @@ public static class GovernanceRuntimeStoreBehavior
         Assert.Equal(2, metrics.Count);
         Assert.Single(await store.ListReceiptsAsync(tenantId, projectId, null, 10, token));
 
+        // A PONTE RECIBO → EVIDÊNCIA. O recibo nasceu antes de existir portão para decidir; é aqui,
+        // com a decisão tomada, que ele passa a apontar para a prova. Sem este passo a trilha de
+        // auditoria parava no recibo, com os três campos gravados como nulo para sempre.
+        var linked = await store.LinkEvidenceAsync(
+            new GovernanceReceiptEvidenceLinkCommand(
+                tenantId, turnId, "01ARZ3NDEKTSV4RRFFQ69G5FQ9", new string('c', 40),
+                "product_dod_satisfied:web", at.AddSeconds(3)),
+            token);
+        Assert.Equal(1, linked);
+
+        var bridged = await store.GetReceiptAsync(tenantId, turnId, token);
+        Assert.NotNull(bridged);
+        Assert.Equal("01ARZ3NDEKTSV4RRFFQ69G5FQ9", bridged.Context?.EvidenceSetId);
+        Assert.Equal(new string('c', 40), bridged.Context?.EvidenceCommitSha);
+        Assert.Equal("product_dod_satisfied:web", bridged.Context?.GateDecision);
+        Assert.Equal(3, bridged.Version);
+
         const string snapshotId = "01ARZ3NDEKTSV4RRFFQ69G5FQ5";
         var snapshotCommand = new ContextSnapshotCreateCommand(
             tenantId,

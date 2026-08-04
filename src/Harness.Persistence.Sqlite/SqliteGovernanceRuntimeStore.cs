@@ -28,6 +28,59 @@ public sealed class SqliteGovernanceRuntimeStore(SqliteWriteDispatcher dispatche
         return _dispatcher.ExecuteAsync((connection, token) => CompleteCoreAsync(connection, command, token), cancellationToken);
     }
 
+    public Task<int> LinkEvidenceAsync(
+        GovernanceReceiptEvidenceLinkCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        return _dispatcher.ExecuteAsync(
+            (connection, token) => LinkEvidenceCoreAsync(connection, command, token), cancellationToken);
+    }
+
+    private static async Task<int> LinkEvidenceCoreAsync(
+        SqliteConnection connection,
+        GovernanceReceiptEvidenceLinkCommand command,
+        CancellationToken token)
+    {
+        await using var query = connection.CreateCommand();
+        query.CommandText =
+            $"{SelectReceipt} WHERE tenant_id=$tenant AND attempt_id=$attempt;";
+        Add(query, "$tenant", command.TenantId);
+        Add(query, "$attempt", command.AttemptId);
+
+        var receipts = new List<GovernanceTurnReceiptRecord>();
+        await using (var reader = await query.ExecuteReaderAsync(token))
+        {
+            while (await reader.ReadAsync(token))
+            {
+                receipts.Add(MapReceipt(reader));
+            }
+        }
+
+        var linked = 0;
+        foreach (var receipt in receipts)
+        {
+            var context = (receipt.Context ?? new GovernanceReceiptContextRecord()) with
+            {
+                EvidenceSetId = command.EvidenceSetId,
+                EvidenceCommitSha = command.EvidenceCommitSha,
+                GateDecision = command.GateDecision,
+            };
+
+            await using var update = connection.CreateCommand();
+            update.CommandText =
+                "UPDATE governance_turn_receipts SET context_json=$context,version=version+1 " +
+                "WHERE tenant_id=$tenant AND turn_id=$turn AND version=$version;";
+            Add(update, "$context", JsonSerializer.Serialize(context, JsonOptions));
+            Add(update, "$tenant", receipt.TenantId);
+            Add(update, "$turn", receipt.TurnId);
+            Add(update, "$version", receipt.Version);
+            linked += await update.ExecuteNonQueryAsync(token);
+        }
+
+        return linked;
+    }
+
     public Task<GovernanceTurnReceiptRecord?> GetReceiptAsync(
         string tenantId,
         string turnId,

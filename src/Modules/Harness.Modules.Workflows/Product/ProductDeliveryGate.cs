@@ -176,6 +176,11 @@ public static class ProductDeliveryRequirements
 
         required.Add(ProductEvidenceKind.RunbookPresent);
 
+        // Segurança não depende de modalidade: segredo em código e dependência com vulnerabilidade
+        // conhecida são falhas de qualquer entrega. O requisito existia no enum desde o começo e
+        // NINGUÉM o exigia — um tipo de evidência que nunca é cobrado é decoração.
+        required.Add(ProductEvidenceKind.SecurityScanPassed);
+
         return required;
     }
 }

@@ -26,6 +26,20 @@ public sealed class ProductVerificationRunner(
     public IReadOnlyDictionary<ProductEvidenceKind, string> NativeVerifiers { get; } =
         verifiers
             .Where(verifier => verifier is not ScriptedProductVerifier)
+            .SelectMany(verifier => verifier.DerivedKinds
+                .Prepend(verifier.Kind)
+                .Select(kind => (Kind: kind, verifier.Name)))
+            .GroupBy(entry => entry.Kind)
+            .ToDictionary(group => group.Key, group => group.First().Name);
+
+    /// <summary>
+    /// Os tipos cobertos por verificador cujo conteúdo o PRODUTO define. Entram no plano para
+    /// distinguir "requisito sem prova forte" de "requisito sem nenhum produtor" — que é a
+    /// distinção do §16.
+    /// </summary>
+    public IReadOnlyDictionary<ProductEvidenceKind, string> ProjectControlledVerifiers { get; } =
+        verifiers
+            .Where(verifier => verifier is ScriptedProductVerifier)
             .GroupBy(verifier => verifier.Kind)
             .ToDictionary(group => group.Key, group => group.First().Name);
 
@@ -44,6 +58,16 @@ public sealed class ProductVerificationRunner(
         {
             if (!required.Contains(verifier.Kind) || !verifier.AppliesTo(context.Profile))
             {
+                continue;
+            }
+
+            // Existindo verificador nativo para o tipo, o do script SAI DE CENA. Deixar os dois
+            // rodando faria a ausência de um script convencionado reprovar uma entrega cujo
+            // requisito o Poseidon acabou de provar por conta própria — e o portão, que trata
+            // qualquer reprovação como definitiva, não teria como distinguir as duas.
+            if (verifier is ScriptedProductVerifier && NativeVerifiers.ContainsKey(verifier.Kind))
+            {
+                LogSupersededByNative(logger, verifier.Name, NativeVerifiers[verifier.Kind]);
                 continue;
             }
 
@@ -74,6 +98,21 @@ public sealed class ProductVerificationRunner(
 
         return records;
     }
+
+    private static void LogSupersededByNative(ILogger? logger, string scripted, string native)
+    {
+        if (logger is not null)
+        {
+            SupersededByNative(logger, scripted, native, null);
+        }
+    }
+
+    private static readonly Action<ILogger, string, string, Exception?> SupersededByNative =
+        LoggerMessage.Define<string, string>(
+            LogLevel.Debug,
+            new EventId(4, nameof(SupersededByNative)),
+            "Verificador por script {Scripted} não roda: {Native} prova o mesmo requisito com " +
+            "conteúdo controlado pelo Poseidon.");
 
     private static void LogVerified(ILogger? logger, string verifier, bool succeeded, int exitCode)
     {

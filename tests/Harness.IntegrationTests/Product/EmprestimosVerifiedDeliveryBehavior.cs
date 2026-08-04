@@ -124,11 +124,17 @@ public sealed class EmprestimosVerifiedDeliveryBehavior : IDisposable
             new DotNetBuildVerifier(runner),
             new DotNetTestVerifier(runner),
             new FrontendBuildVerifier(runner),
+
+            // A varredura de segurança roda em toda entrega e é barata: lê a árvore e consulta as
+            // dependências. Sem ela, `SecurityScanPassed` ficaria ausente e os cenários abaixo
+            // reprovariam por um requisito que não é o que cada um está medindo.
+            new SecurityBaselineVerifier(runner),
         };
         verifiers.AddRange(ScriptedVerifierCatalog.Create(runner));
 
         var runnerOfVerifiers = new ProductVerificationRunner(verifiers);
-        var plan = ProductVerificationPlan.From(profile, runnerOfVerifiers.NativeVerifiers);
+        var plan = ProductVerificationPlan.From(
+            profile, runnerOfVerifiers.NativeVerifiers, runnerOfVerifiers.ProjectControlledVerifiers);
         var verified = await runnerOfVerifiers.RunAsync(
             new ProductVerificationContext(profile, _root, commit, "projeto", "tentativa", "card"),
             plan,

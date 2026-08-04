@@ -108,3 +108,26 @@ public static class ScriptedVerifierCatalog
             _ => false),
     ];
 }
+
+/// <summary>
+/// O REGISTRO CANÔNICO de verificadores do Poseidon.
+///
+/// Existe para que a lista que roda em produção e a lista que os testes de prontidão examinam sejam
+/// literalmente a mesma. Um teste que montasse a própria lista provaria que AQUELA lista está
+/// completa, e o dia em que alguém esquecesse de registrar um verificador no Host o teste
+/// continuaria verde — que é o modo mais silencioso de um portão deixar de existir.
+/// </summary>
+public static class ProductVerifierCatalog
+{
+    public static IReadOnlyList<IProductVerifier> CreateAll(TrustedProcessRunner runner) =>
+    [
+        new DotNetBuildVerifier(runner),
+        new DotNetTestVerifier(runner),
+        new FrontendBuildVerifier(runner),
+        new OpenApiNativeVerifier(runner),
+        new PlaywrightJourneyVerifier(runner),
+        new PersistenceNativeVerifier(runner),
+        new SecurityBaselineVerifier(runner),
+        .. ScriptedVerifierCatalog.Create(runner),
+    ];
+}

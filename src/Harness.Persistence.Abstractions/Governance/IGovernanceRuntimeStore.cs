@@ -204,6 +204,22 @@ public sealed record ContextSnapshotRecord(
     int TokenCount,
     DateTimeOffset CreatedAt);
 
+/// <summary>
+/// Liga um recibo já gravado ao conjunto de evidências que decidiu o portão daquela tentativa.
+///
+/// Existe como operação SEPARADA por causa do ciclo de vida real: o recibo nasce quando o turno
+/// começa, e o portão do produto só decide depois de o trabalho ser entregue e verificado. Inventar
+/// um id de evidência na criação transformaria ausência de dado em dado errado; por isso o campo
+/// nasce nulo e é preenchido quando existe o que preencher.
+/// </summary>
+public sealed record GovernanceReceiptEvidenceLinkCommand(
+    string TenantId,
+    string AttemptId,
+    string EvidenceSetId,
+    string EvidenceCommitSha,
+    string GateDecision,
+    DateTimeOffset OccurredAt);
+
 public interface IGovernanceRuntimeStore
 {
     Task<GovernanceTurnReceiptRecord> CreateReceiptAsync(
@@ -212,6 +228,14 @@ public interface IGovernanceRuntimeStore
 
     Task<GovernanceTurnReceiptRecord> CompleteReceiptAsync(
         GovernanceTurnReceiptCompleteCommand command,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Preenche a ponte recibo → evidência dos recibos da tentativa. Devolve quantos foram ligados;
+    /// zero significa que a tentativa não produziu recibo, o que é fato a registrar, não erro.
+    /// </summary>
+    Task<int> LinkEvidenceAsync(
+        GovernanceReceiptEvidenceLinkCommand command,
         CancellationToken cancellationToken = default);
 
     Task<GovernanceTurnReceiptRecord?> GetReceiptAsync(

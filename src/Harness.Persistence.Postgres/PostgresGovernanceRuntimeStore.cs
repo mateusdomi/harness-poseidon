@@ -51,6 +51,50 @@ public sealed class PostgresGovernanceRuntimeStore(NpgsqlDataSource dataSource)
         return (await ReadAsync(connection, command.TenantId, command.TurnId, cancellationToken))!;
     }
 
+    public async Task<int> LinkEvidenceAsync(
+        GovernanceReceiptEvidenceLinkCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+
+        var receipts = new List<GovernanceTurnReceiptRecord>();
+        await using (var query = connection.CreateCommand())
+        {
+            query.CommandText = $"{SelectReceipt} WHERE tenant_id=$1 AND attempt_id=$2;";
+            query.Parameters.Add(Text(command.TenantId));
+            query.Parameters.Add(Text(command.AttemptId));
+            await using var reader = await query.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                receipts.Add(MapReceipt(reader));
+            }
+        }
+
+        var linked = 0;
+        foreach (var receipt in receipts)
+        {
+            var context = (receipt.Context ?? new GovernanceReceiptContextRecord()) with
+            {
+                EvidenceSetId = command.EvidenceSetId,
+                EvidenceCommitSha = command.EvidenceCommitSha,
+                GateDecision = command.GateDecision,
+            };
+
+            await using var update = connection.CreateCommand();
+            update.CommandText =
+                "UPDATE harness.governance_turn_receipts SET context_json=$1,version=version+1 " +
+                "WHERE tenant_id=$2 AND turn_id=$3 AND version=$4;";
+            update.Parameters.Add(Json(JsonSerializer.Serialize(context, JsonOptions)));
+            update.Parameters.Add(Text(receipt.TenantId));
+            update.Parameters.Add(Text(receipt.TurnId));
+            update.Parameters.Add(Bigint(receipt.Version));
+            linked += await update.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        return linked;
+    }
+
     public async Task<GovernanceTurnReceiptRecord?> GetReceiptAsync(
         string tenantId,
         string turnId,

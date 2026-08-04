@@ -15,6 +15,8 @@ public abstract class ProcessProductVerifier(TrustedProcessRunner runner) : IPro
 
     public abstract string Name { get; }
 
+    public virtual IReadOnlyList<ProductEvidenceKind> DerivedKinds => [];
+
     public abstract bool AppliesTo(ProjectEffectiveProfile profile);
 
     public abstract Task<ProductVerificationRecord?> VerifyAsync(
@@ -81,7 +83,19 @@ public abstract class ProcessProductVerifier(TrustedProcessRunner runner) : IPro
         };
     }
 
-    protected static IReadOnlyList<string> SafeFind(string root, string pattern)
+    protected static IReadOnlyList<string> SafeFind(string root, string pattern) =>
+        FileDiscovery.Find(root, pattern);
+}
+
+/// <summary>
+/// Busca de arquivos na árvore entregue, com as podas que tornam a descoberta previsível:
+/// profundidade limitada, teto de resultados, ordem estável e nada de `node_modules`, `bin`, `obj`
+/// nem diretório oculto. Diretório ilegível é diretório ausente — descoberta não é o lugar de
+/// lançar exceção sobre permissão.
+/// </summary>
+public static class FileDiscovery
+{
+    public static IReadOnlyList<string> Find(string root, string pattern)
     {
         if (!Directory.Exists(root))
         {
