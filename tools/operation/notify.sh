@@ -25,6 +25,16 @@ TEXT="${1:-}"
 TOKEN="$(security find-generic-password -s "poseidon-telegram-bot" -w 2>/dev/null)"
 [[ -n "$TOKEN" ]] || { echo "token do bot ausente no Keychain" >&2; exit 1; }
 
+# O destino descoberto é LEMBRADO. O `getUpdates` do Telegram só devolve o que chegou nas
+# últimas ~24 h: um destino descoberto ontem simplesmente some hoje, e o alarme emudece
+# exatamente na noite em que ninguém está olhando o terminal. Foi o que aconteceu em
+# 04/08/2026 às 03:45Z, com o OPS-018 dado como fechado desde 03/08.
+#
+# O id do chat não é segredo — é um destino, como um número de telefone; o token continua
+# vindo só do Keychain e nunca toca o disco. O cache fica FORA do repositório, em ~/.harness,
+# pela mesma razão de sempre: estado de instalação não é código.
+CACHE="${POSEIDON_TELEGRAM_CHAT_CACHE:-$HOME/.harness/telegram-chat-id}"
+
 CHAT="${POSEIDON_TELEGRAM_CHAT_ID:-}"
 if [[ -z "$CHAT" ]]; then
   CHAT="$(curl -s --max-time 15 "https://api.telegram.org/bot${TOKEN}/getUpdates" |
@@ -36,6 +46,13 @@ for u in reversed(d.get('result',[])):
     m=u.get('message') or u.get('edited_message') or {}
     c=(m.get('chat') or {}).get('id')
     if c: print(c); break" 2>/dev/null)"
+fi
+
+if [[ -n "$CHAT" ]]; then
+  mkdir -p "$(dirname "$CACHE")" 2>/dev/null
+  printf '%s\n' "$CHAT" > "$CACHE" 2>/dev/null
+elif [[ -r "$CACHE" ]]; then
+  CHAT="$(tr -d '[:space:]' < "$CACHE")"
 fi
 
 if [[ -z "$CHAT" ]]; then
