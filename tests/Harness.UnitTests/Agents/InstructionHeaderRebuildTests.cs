@@ -140,4 +140,31 @@ public sealed class InstructionHeaderRebuildTests
 
         Assert.Equal($"{Header}\n\nCorpo.", rebuilt);
     }
+
+    /// <summary>
+    /// O REPLANEJAMENTO usa a mesma reconstrução — e é o caminho que mais precisa dela. Ele é a
+    /// última via de volta de um card escalado: se recopiar um roteamento errado, o card volta à
+    /// fila para repetir exatamente o fracasso que o escalou, e gasta o único replanejamento que
+    /// tinha. Corrigir só a correção teria deixado os três cards bloqueados da fase 5 onde estavam.
+    /// </summary>
+    [Fact]
+    public void OReplanejamentoTambemNasceComOCabecalhoAtual()
+    {
+        var escalado =
+            "Capacidade de execução autorizada: backend-specialist\n" +
+            "Especialidade exigida: playbook-product-owner\n" +
+            "Tipo de card: agent_task\n\n" +
+            "Implementar a fatia de servidor.\n\n" +
+            "## Correções exigidas pelo review independente (tentativa 01ABC)\n" +
+            "O diff apresentado é totalmente vazio.";
+
+        var rebuilt = ChiefBacklogLoopService.RebuildInstructionHeader(
+            escalado, "backend-specialist", "playbook-dev-executor", "agent_task");
+        var replan = $"{rebuilt}\n\n## Replanejamento após escalonamento\nA abordagem anterior...";
+
+        Assert.DoesNotContain("playbook-product-owner", replan, StringComparison.Ordinal);
+        Assert.Contains("Especialidade exigida: playbook-dev-executor", replan, StringComparison.Ordinal);
+        // O histórico da reprovação sobrevive: é ele que diz ao próximo ator o que não repetir.
+        Assert.Contains("O diff apresentado é totalmente vazio.", replan, StringComparison.Ordinal);
+    }
 }

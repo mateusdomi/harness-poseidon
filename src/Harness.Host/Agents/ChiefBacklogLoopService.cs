@@ -3829,8 +3829,18 @@ public sealed partial class ChiefBacklogLoopService(
 
         var rejected = attempts.Count(attempt =>
             string.Equals(attempt.State, "failed", StringComparison.Ordinal));
+        // O MESMO cabeçalho derivável da correção, pela MESMA razão — e este é o caminho que mais
+        // precisa dele. O replanejamento é a última via de volta de um card escalado: se ele
+        // recopiar um roteamento errado, o card volta à fila para repetir exatamente o fracasso
+        // que o escalou, e gasta o único replanejamento que tinha. Corrigir só a correção
+        // (OPS-069) teria deixado os três cards bloqueados da fase 5 exatamente onde estavam.
+        var previousBody = instructions[^1].Body;
+        var replanResolution = ChiefCardResolver.Resolve(
+            task.Title, previousBody, [], task.Priority);
         var content =
-            $"{instructions[^1].Body}\n\n{ReplanMarker}\n" +
+            RebuildInstructionHeader(
+                previousBody, replanResolution.Role, replanResolution.PersonaKey, task.CardType) +
+            $"\n\n{ReplanMarker}\n" +
             $"A abordagem anterior esgotou os ciclos de revisão ({rejected} reprovação(ões)) e NÃO " +
             "deve ser repetida como está. Antes de escrever qualquer código:\n" +
             "1. Releia os achados da revisão e diga, em uma linha, por que a abordagem anterior " +
