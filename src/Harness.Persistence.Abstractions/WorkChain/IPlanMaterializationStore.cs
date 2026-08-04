@@ -84,7 +84,13 @@ public sealed record PlanMaterializationSurfaces(
     bool? Backend = null,
     bool? ExternalCredential = null,
     bool? TechnicalUncertainty = null,
-    bool? Decision = null);
+    bool? Decision = null,
+
+    /// <summary>
+    /// Falta decidir a TECNOLOGIA CONCRETA (stack). Diferente de <see cref="Decision"/>: aquela é
+    /// decisão de negócio e pertence ao humano; esta é card do Arquiteto e é despachável.
+    /// </summary>
+    bool? ArchitectureDecision = null);
 
 public sealed record PlanMaterializationRecord(
     string TenantId,

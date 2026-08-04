@@ -39,7 +39,15 @@ public sealed record DemandDecompositionHints(
     /// investigação ou um documento não produz — e emitir uma fatia de backend para ela manda um
     /// agente escrever código de produção para algo que ainda nem foi decidido.
     /// </summary>
-    bool? HasImplementationSurface = null);
+    bool? HasImplementationSurface = null,
+
+    /// <summary>
+    /// A decisão que falta é ARQUITETURAL — escolher a tecnologia concreta, o formato de
+    /// persistência, a plataforma. Diferente de <see cref="RequiresDecision"/>, que é decisão de
+    /// negócio/escopo e pertence ao humano: esta é trabalho delegável de análise e registro, e
+    /// pertence ao Arquiteto.
+    /// </summary>
+    bool? RequiresArchitectureDecision = null);
 
 /// <summary>
 /// Um card proposto do plano. <see cref="ProposedTitle"/> começa sempre pelo código estável
@@ -107,6 +115,16 @@ public static class DemandDecompositionPlanner
     public const string CardTypeSpike = "spike";
     public const string CardTypeDecision = "decision";
 
+    /// <summary>
+    /// Registro de decisão arquitetural. É DESPACHÁVEL (ver <c>CardReadinessEvaluator</c>): um ADR
+    /// é trabalho de análise e registro que o Arquiteto executa, ao contrário de
+    /// <see cref="CardTypeDecision"/>, que é a decisão de negócio reservada ao humano.
+    /// </summary>
+    public const string CardTypeAdr = "adr";
+
+    /// <summary>Persona do catálogo que responde por decisão de arquitetura.</summary>
+    public const string SpecialtyArchitect = "playbook-arquiteto";
+
     public const string FallbackFeatureId = "FEAT";
 
     private static readonly Regex FeatureIdPattern =
@@ -172,6 +190,17 @@ public static class DemandDecompositionPlanner
         "optar por", "definir estratégia", "definir estrategia", "aprovar direção", "aprovar direcao",
     ];
 
+    /// <summary>
+    /// Sinais de que o que falta decidir é a TECNOLOGIA CONCRETA, não o escopo. Uma decisão dessas
+    /// não é do humano: é card do Arquiteto, que a analisa e a registra num ADR.
+    /// </summary>
+    private static readonly string[] ArchitectureDecisionTerms =
+    [
+        "stack", "tecnologia concreta", "tecnologia a usar", "linguagem e framework",
+        "escolha de framework", "escolha de banco", "banco a usar", "plataforma alvo",
+        "adr de stack", "definir a stack", "decidir a stack",
+    ];
+
     public static DemandPlanProposal Plan(DemandDecompositionRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -198,6 +227,15 @@ public static class DemandDecompositionPlanner
         var needsCredential = hints?.RequiresExternalCredential ?? MentionsAny(haystack, ExternalCredentialTerms);
         var hasUncertainty = ceremonial && (hints?.HasTechnicalUncertainty ?? MentionsAny(haystack, UncertaintyTerms));
         var needsDecision = ceremonial && (hints?.RequiresDecision ?? MentionsAny(haystack, DecisionTerms));
+
+        // A decisão ARQUITETURAL não passa pelo pedágio de `ceremonial`. Escrever código sem a
+        // tecnologia decidida não é rito extra evitável: é a diferença entre um card executável e
+        // um card que o ator recusa — e ele recusa com razão, porque o plano aceito declara a
+        // decisão como pré-requisito. Medido nesta operação em 04/08/2026: quatro tentativas
+        // seguidas, ~38 mil tokens, zero commit, todas reprovadas por "diff vazio", enquanto o
+        // transcript do ator dizia "fabricar uma stack aqui usurparia a decisão do Arquiteto".
+        var needsArchitectureDecision =
+            hints?.RequiresArchitectureDecision ?? MentionsAny(haystack, ArchitectureDecisionTerms);
         var hasDocumentation = ceremonial && MentionsAny(haystack, DocumentationTerms);
 
         // A fatia de backend deixou de ser incondicional. Uma demanda cujo entregável é uma DECISÃO
@@ -240,6 +278,37 @@ public static class DemandDecompositionPlanner
         var prerequisiteCodes = new List<string>();
         // Códigos dos cards de implementação dos quais a integração/crítica final depende.
         var implementationCodes = new List<string>();
+
+        // A decisão de arquitetura vem ANTES de tudo: é dela que os demais cards dependem, e o
+        // código estável do card ("T01") reflete essa ordem. Só existe quando o plano de fato
+        // produz código — decidir a stack de um entregável que é documento não faz sentido.
+        if (needsArchitectureDecision && (hasBackend || hasFrontend))
+        {
+            var code = Code();
+            prerequisiteCodes.Add(code);
+            cards.Add(new ProposedCard(
+                Title(code, "ADR: decidir e registrar a stack concreta"),
+                // `adr` e não `decision`: o segundo é humano e NÃO despachável, então um plano que
+                // o emitisse deixaria a implementação esperando para sempre por um card que agente
+                // nenhum executa. Esse era o dead-end — as duas metades (criar a decisão e segurar
+                // a implementação) andam juntas ou nenhuma anda.
+                CardTypeAdr,
+                RoleBackend,
+                $"Decidir e registrar, em um ADR novo, a tecnologia concreta que realiza a forma " +
+                    $"arquitetural já aceita para {subjectOrFeature}: linguagem, framework, " +
+                    "formato de persistência e plataforma de execução. O ADR é o entregável — " +
+                    "não implemente a demanda neste card.",
+                $"Um ADR em docs/decisions/ que fixa a stack concreta de {featureId}, com " +
+                    "alternativas consideradas e justificativa.",
+                "Qualquer implementação da demanda; a decisão apenas destrava os cards de código.",
+                [
+                    "O ADR registra a tecnologia concreta escolhida (linguagem, framework, persistência e plataforma) com justificativa.",
+                    "O ADR não reabre decisões de arquitetura já aceitas em artefatos anteriores; escolhe dentro delas.",
+                ],
+                [],
+                [],
+                SpecialtyArchitect));
+        }
 
         if (hasUncertainty)
         {

@@ -577,5 +577,6 @@ public sealed class PlanMaterializationService(
                 surfaces.ExternalCredential,
                 surfaces.TechnicalUncertainty,
                 surfaces.Decision,
-                surfaces.Backend);
+                surfaces.Backend,
+                surfaces.ArchitectureDecision);
 }

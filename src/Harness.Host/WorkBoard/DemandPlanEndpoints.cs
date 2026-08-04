@@ -49,7 +49,7 @@ public static class DemandPlanEndpoints
                 : new DemandDecompositionHints(
                     input.Hints.HasFrontendSurface, input.Hints.RequiresExternalCredential,
                     input.Hints.HasTechnicalUncertainty, input.Hints.RequiresDecision,
-                    input.Hints.HasImplementationSurface);
+                    input.Hints.HasImplementationSurface, input.Hints.RequiresArchitectureDecision);
             var result = await materializer.EnsurePlanAsync(
                 profile.TenantId, demand, criteria, hints, input?.Specialty, clock.UtcNow, token);
             var contract = ToContract(result.Plan);
@@ -201,7 +201,7 @@ public sealed record GeneratePlanRequest(
 public sealed record PlanHintsPayload(
     bool? HasFrontendSurface = null, bool? RequiresExternalCredential = null,
     bool? HasTechnicalUncertainty = null, bool? RequiresDecision = null,
-    bool? HasImplementationSurface = null);
+    bool? HasImplementationSurface = null, bool? RequiresArchitectureDecision = null);
 
 public sealed record ProposedCardContract(
     string ProposedTitle, string CardType, string RequiredRole, string Instruction, string InScope,

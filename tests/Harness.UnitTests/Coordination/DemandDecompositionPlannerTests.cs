@@ -445,4 +445,66 @@ public sealed class DemandDecompositionPlannerTests
 
         Assert.Contains(plan.Cards, c => c.RequiredRole == DemandDecompositionPlanner.RoleFrontend);
     }
+
+    /// <summary>
+    /// Regressão da prova limpa de 04/08/2026: os cards de implementação nasceram sem nenhum
+    /// pré-requisito num projeto onde a tecnologia concreta não estava decidida. O ator recusou —
+    /// com razão, citando o plano aceito — e quatro tentativas queimaram ~38 mil tokens sem um
+    /// único commit. A decisão precisa virar card, e o card precisa ser EXECUTÁVEL.
+    /// </summary>
+    [Fact]
+    public void AnImplementationPlanWithoutADecidedStackLeadsWithTheArchitectureDecision()
+    {
+        var plan = DemandDecompositionPlanner.Plan(Request(
+            hints: new DemandDecompositionHints(
+                HasFrontendSurface: true, RequiresArchitectureDecision: true)));
+
+        var adr = Assert.Single(
+            plan.Cards, card => card.CardType == DemandDecompositionPlanner.CardTypeAdr);
+
+        // Primeiro card do plano: é dele que todo o resto depende.
+        Assert.Same(plan.Cards[0], adr);
+        Assert.Equal(DemandDecompositionPlanner.SpecialtyArchitect, adr.Specialty);
+        Assert.Empty(adr.Dependencies);
+
+        var code = adr.ProposedTitle.Split(' ')[0];
+        var implementation = plan.Cards
+            .Where(card => card.CardType == DemandDecompositionPlanner.CardTypeAgentTask)
+            .ToArray();
+        Assert.Equal(2, implementation.Length);
+        Assert.All(implementation, card => Assert.Contains(code, card.Dependencies));
+    }
+
+    /// <summary>
+    /// A metade que impede o erro simétrico. `decision` é humano e NÃO despachável
+    /// (<c>CardReadinessEvaluator.DispatchableCardTypes</c>): se a decisão de stack nascesse com
+    /// aquele tipo, a implementação esperaria para sempre por um card que agente nenhum executa —
+    /// trocaríamos "implementa sem decidir" por "nunca implementa".
+    /// </summary>
+    [Fact]
+    public void TheArchitectureDecisionIsDispatchableUnlikeTheHumanDecision()
+    {
+        Assert.Contains(
+            DemandDecompositionPlanner.CardTypeAdr,
+            CardReadinessEvaluator.DispatchableCardTypes);
+        Assert.DoesNotContain(
+            DemandDecompositionPlanner.CardTypeDecision,
+            CardReadinessEvaluator.DispatchableCardTypes);
+    }
+
+    /// <summary>
+    /// Uma demanda cujo entregável é documento não decide stack nenhuma: não há código para o ADR
+    /// destravar, e o card só acrescentaria espera.
+    /// </summary>
+    [Fact]
+    public void ADocumentDemandDoesNotGetAStackDecision()
+    {
+        var plan = DemandDecompositionPlanner.Plan(Request(
+            title: "DOC-01: registrar a stack no manual",
+            description: "Documentar a stack concreta já adotada pelo time no guia de onboarding.",
+            hints: new DemandDecompositionHints(HasImplementationSurface: false)));
+
+        Assert.DoesNotContain(
+            plan.Cards, card => card.CardType == DemandDecompositionPlanner.CardTypeAdr);
+    }
 }
