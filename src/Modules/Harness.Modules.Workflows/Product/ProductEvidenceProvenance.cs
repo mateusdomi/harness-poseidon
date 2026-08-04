@@ -30,6 +30,32 @@ public enum ProductEvidenceProvenance
 }
 
 /// <summary>
+/// QUEM controla o que a verificação de fato executa.
+///
+/// A distinção que a Fase 5 existe para introduzir: um script `test:e2e` cujo conteúdo é
+/// <c>node -e "process.exit(0)"</c> roda sob o comando do Poseidon e devolve exit zero — mas o que
+/// ele executa foi escrito por quem está sendo avaliado. Nome de script confiável não torna o
+/// conteúdo do script uma verificação confiável.
+/// </summary>
+public enum VerificationTrustLevel
+{
+    /// <summary>O ator determinou o que rodaria. Não prova nada por si.</summary>
+    ActorControlled,
+
+    /// <summary>
+    /// O Poseidon escolheu o comando; o PRODUTO define o que ele faz (script do manifesto). Vale
+    /// como sinal suplementar, não como prova de requisito crítico.
+    /// </summary>
+    ProjectControlled,
+
+    /// <summary>
+    /// O Poseidon escolheu o comando E o que ele verifica: compilar, subir a aplicação, buscar o
+    /// contrato, dirigir o navegador. É o único nível que libera requisito crítico.
+    /// </summary>
+    PoseidonControlled,
+}
+
+/// <summary>
 /// A cadeia de custódia de uma evidência. Sem ela, "o teste passou" é uma frase; com ela é um fato
 /// datado, atribuído a um verificador, amarrado a um commit e reproduzível.
 /// </summary>
@@ -57,12 +83,19 @@ public sealed record ProductEvidenceProvenanceRecord(
 
     string? ExecutionId = null,
 
-    string? CardId = null)
+    string? CardId = null,
+
+    /// <summary>
+    /// Quem controlou o CONTEÚDO da verificação. Default conservador: o que não se declara vale
+    /// como controlado pelo produto, e portanto não libera requisito crítico sozinho.
+    /// </summary>
+    VerificationTrustLevel Trust = VerificationTrustLevel.ProjectControlled)
 {
     /// <summary>Proveniência de um fato constatado por inspeção do repositório entregue.</summary>
     public static ProductEvidenceProvenanceRecord FromRepository(
         string commitSha, DateTimeOffset observedAt, string? artifact = null) =>
-        new(ProductEvidenceProvenance.Observed, "repository-scanner", commitSha, observedAt, Artifact: artifact);
+        new(ProductEvidenceProvenance.Observed, "repository-scanner", commitSha, observedAt,
+            Artifact: artifact, Trust: VerificationTrustLevel.PoseidonControlled);
 
     /// <summary>Proveniência de uma verificação executada pelo Poseidon.</summary>
     public static ProductEvidenceProvenanceRecord FromVerifier(
@@ -72,11 +105,13 @@ public sealed record ProductEvidenceProvenanceRecord(
         string command,
         int exitCode,
         string? executionId = null,
-        string? artifact = null) =>
+        string? artifact = null,
+        VerificationTrustLevel trust = VerificationTrustLevel.PoseidonControlled) =>
         new(ProductEvidenceProvenance.Verified, source, commitSha, observedAt, command, exitCode,
-            artifact, null, executionId);
+            artifact, null, executionId, null, trust);
 
     /// <summary>Proveniência de uma afirmação do ator. Não satisfaz requisito técnico.</summary>
     public static ProductEvidenceProvenanceRecord FromActor(string accountAlias, string? cardId = null) =>
-        new(ProductEvidenceProvenance.Declared, $"actor:{accountAlias}", CardId: cardId);
+        new(ProductEvidenceProvenance.Declared, $"actor:{accountAlias}", CardId: cardId,
+            Trust: VerificationTrustLevel.ActorControlled);
 }

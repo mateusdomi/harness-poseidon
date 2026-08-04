@@ -82,7 +82,17 @@ public sealed record GovernanceReceiptContextRecord(
     string? EffectiveProfileFingerprint = null,
     IReadOnlyList<string>? Overrides = null,
     IReadOnlyList<string>? ActiveAdrs = null,
-    IReadOnlyList<GovernanceReceiptTruncationRecord>? Truncations = null);
+    IReadOnlyList<GovernanceReceiptTruncationRecord>? Truncations = null,
+
+    /// <summary>
+    /// Ponte para a prova completa. O recibo NÃO duplica o conjunto de evidências — guarda a
+    /// referência, e quem investiga navega dela até o ledger.
+    /// </summary>
+    string? EvidenceSetId = null,
+
+    string? EvidenceCommitSha = null,
+
+    string? GateDecision = null);
 
 public sealed record GovernanceTurnReceiptRecord(
     string TenantId,

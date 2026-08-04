@@ -11,6 +11,16 @@ public sealed record EffectiveProfileInputs(
     IReadOnlyList<string>? ActiveAdrs = null);
 
 /// <summary>
+/// Duas decisões de MESMA autoridade dizendo coisas diferentes sobre a mesma área. Não há regra
+/// que desempate — e escolher em silêncio seria inventar uma decisão que ninguém tomou.
+/// </summary>
+public sealed class ProfileResolutionConflictException(IReadOnlyList<string> conflicts)
+    : Exception("profile_resolution_conflict")
+{
+    public IReadOnlyList<string> Conflicts { get; } = conflicts;
+}
+
+/// <summary>
 /// Resolve o perfil efetivo de um projeto — PURO, determinístico e sem I/O.
 ///
 /// A regra que este resolvedor existe para impor: <b>ausência de especificação do usuário é
@@ -46,6 +56,14 @@ public static class EffectiveProfileResolver
         var directives = (inputs.Directives ?? [])
             .Where(directive => !string.IsNullOrWhiteSpace(directive.Area))
             .ToArray();
+
+        // Conflito ANTES de resolver: entregar um perfil com uma das duas decisões escolhida a
+        // esmo é pior que não entregar perfil nenhum, porque tem aparência de decisão aprovada.
+        var conflicts = DetectConflicts(directives);
+        if (conflicts.Count > 0)
+        {
+            throw new ProfileResolutionConflictException(conflicts);
+        }
 
         var modality = ResolveModality(inputs.DemandText, directives, out var modalitySource);
         var defaults = BaselineDefaults(modality);
@@ -133,6 +151,25 @@ public static class EffectiveProfileResolver
                 .ToArray(),
             sources);
     }
+
+    /// <summary>
+    /// Áreas em que duas diretivas de mesma autoridade discordam. Autoridades diferentes não
+    /// conflitam — para isso existe a precedência.
+    /// </summary>
+    private static List<string> DetectConflicts(IReadOnlyList<ProfileDirective> directives) =>
+    [
+        .. directives
+            .GroupBy(directive => (directive.Area.ToLowerInvariant(), directive.Authority))
+            .Where(group => group
+                .Select(directive => directive.Value)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count() > 1)
+            .Select(group =>
+                $"profile_resolution_conflict:{group.Key.Item1}:" +
+                $"{group.Key.Authority.ToString().ToLowerInvariant()}:" +
+                string.Join('|', group.Select(directive => directive.Value).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal)))
+            .Order(StringComparer.Ordinal),
+    ];
 
     /// <summary>
     /// A diretiva vencedora de uma área: maior autoridade primeiro; empatando, a última declarada.

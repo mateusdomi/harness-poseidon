@@ -38,7 +38,13 @@ public sealed record ProductVerificationRecord(
     DateTimeOffset ObservedAt,
     string? ExecutionId = null,
     string? Artifact = null,
-    string? Detail = null);
+    string? Detail = null,
+
+    /// <summary>
+    /// Quem controlou o CONTEÚDO da verificação. Um script do manifesto do produto é
+    /// <see cref="VerificationTrustLevel.ProjectControlled"/> por mais que o Poseidon o invoque.
+    /// </summary>
+    VerificationTrustLevel Trust = VerificationTrustLevel.PoseidonControlled);
 
 /// <summary>
 /// Compõe as fontes de evidência numa ordem que reflete a confiança: verificação executada vence
@@ -88,7 +94,8 @@ public sealed class ProductEvidenceCollectorPipeline(RepositoryEvidenceCollector
                 record.Detail ?? $"{record.Command} → exit {record.ExitCode}",
                 ProductEvidenceProvenanceRecord.FromVerifier(
                     record.Verifier, record.CommitSha, record.ObservedAt,
-                    record.Command, record.ExitCode, record.ExecutionId, record.Artifact))));
+                    record.Command, record.ExitCode, record.ExecutionId, record.Artifact,
+                    record.Trust))));
             collectors.Add("verification-log");
         }
 

@@ -28,6 +28,12 @@ public sealed class ScriptedProductVerifier(
 
     public override bool AppliesTo(ProjectEffectiveProfile profile) => applies(profile);
 
+    /// <summary>
+    /// O PRODUTO define o que o script faz. O Poseidon escolhe o nome e o invoca, mas o conteúdo
+    /// é de quem está sendo avaliado — e é por isso que este nível não libera requisito crítico.
+    /// </summary>
+    protected override VerificationTrustLevel Trust => VerificationTrustLevel.ProjectControlled;
+
     public override async Task<ProductVerificationRecord?> VerifyAsync(
         ProductVerificationContext context, CancellationToken cancellationToken)
     {
@@ -38,7 +44,8 @@ public sealed class ScriptedProductVerifier(
                 Kind, false, Name, $"npm run {scriptName}", -1, context.CommitSha,
                 DateTimeOffset.UtcNow, context.AttemptId, ".",
                 $"Nenhum manifesto da entrega declara o script `{scriptName}`: não há o que executar, " +
-                "e ausência de verificação não é aprovação.");
+                "e ausência de verificação não é aprovação.",
+                Trust);
         }
 
         var result = await Runner.RunAsync(

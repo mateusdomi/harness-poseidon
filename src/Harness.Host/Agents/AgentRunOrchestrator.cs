@@ -1424,7 +1424,13 @@ public sealed partial class AgentRunOrchestrator(
                         ActiveAdrs: ProfileAdrs(effectiveProfile),
                         Truncations: [.. bundle.Truncations.Select(item =>
                             new GovernanceReceiptTruncationRecord(
-                                item.SourceId, item.Reason, item.LoadPolicy, item.EstimatedTokens))])),
+                                item.SourceId, item.Reason, item.LoadPolicy, item.EstimatedTokens))],
+                        // A ponte para a prova: o recibo não duplica o conjunto de evidências,
+                        // guarda a referência. Preenchida quando o portão do produto já avaliou
+                        // esta entrega.
+                        EvidenceSetId: null,
+                        EvidenceCommitSha: null,
+                        GateDecision: null)),
                 cancellationToken);
 
             if (bundle.Conflicts.Count > 0)

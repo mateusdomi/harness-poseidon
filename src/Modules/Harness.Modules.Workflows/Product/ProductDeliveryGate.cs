@@ -62,6 +62,9 @@ public sealed record ProductEvidence(
     ProductEvidenceProvenanceRecord? Provenance = null)
 {
     public ProductEvidenceProvenance Level => Provenance?.Level ?? ProductEvidenceProvenance.Declared;
+
+    public VerificationTrustLevel Trust =>
+        Provenance?.Trust ?? VerificationTrustLevel.ActorControlled;
 }
 
 /// <summary>Por que uma exigência não foi satisfeita.</summary>
@@ -84,6 +87,13 @@ public enum ProductEvidenceGap
     /// commit A, mudar para o commit B e aprovar B com a prova de A é o mesmo que não verificar.
     /// </summary>
     Stale,
+
+    /// <summary>
+    /// A verificação rodou e passou, mas QUEM DEFINIU o que ela faz foi o próprio produto — um
+    /// script `test:e2e` que só chama <c>process.exit(0)</c> devolve exit zero sem testar nada.
+    /// Para requisito crítico, exige-se verificação controlada pelo Poseidon.
+    /// </summary>
+    Untrusted,
 }
 
 public sealed record ProductEvidenceFinding(
@@ -201,13 +211,29 @@ public static class ProductDeliveryGate
         _ => ProductEvidenceProvenance.Verified,
     };
 
+    /// <summary>
+    /// Confiança mínima quando NÃO há plano. Deliberadamente permissiva: quem sabe que um
+    /// requisito exige verificação controlada pelo Poseidon é o PLANO, porque é ele que conhece
+    /// quais verificadores nativos existem. Duplicar a regra aqui criaria duas verdades sobre a
+    /// mesma coisa — e a mais escondida venceria em silêncio.
+    /// </summary>
+    private static VerificationTrustLevel MinimumTrust(ProductEvidenceKind kind) =>
+        VerificationTrustLevel.ProjectControlled;
+
+    /// <summary>
+    /// Avalia a entrega. Quando um <paramref name="plan"/> é fornecido, os limiares de prova vêm
+    /// dele — o portão não conhece framework nem stack, só compara o que chegou com o que o plano
+    /// exige. Sem plano, cai nos limiares embutidos.
+    /// </summary>
     public static ProductDeliveryVerdict Evaluate(
         ProjectEffectiveProfile profile,
         IReadOnlyList<ProductEvidence>? observed,
-        string? expectedCommitSha = null)
+        string? expectedCommitSha = null,
+        ProductVerificationPlan? plan = null)
     {
         ArgumentNullException.ThrowIfNull(profile);
 
+        var steps = plan?.Steps.ToDictionary(step => step.Kind);
         var required = ProductDeliveryRequirements.For(profile);
         var byKind = (observed ?? [])
             .GroupBy(evidence => evidence.Kind)
@@ -240,7 +266,9 @@ public static class ProductDeliveryGate
                 continue;
             }
 
-            var minimum = MinimumLevel(kind);
+            var minimum = steps is not null && steps.TryGetValue(kind, out var planned)
+                ? planned.MinimumProvenance
+                : MinimumLevel(kind);
             if (evidence.Level < minimum)
             {
                 findings.Add(new ProductEvidenceFinding(
@@ -249,6 +277,20 @@ public static class ProductDeliveryGate
                     $"{kind} exige evidência {minimum} e chegou como {evidence.Level} " +
                     $"(origem: {evidence.Provenance?.Source ?? "não declarada"}). " +
                     "Afirmação do executor não satisfaz requisito técnico."));
+                continue;
+            }
+
+            var minimumTrust = steps is not null && steps.TryGetValue(kind, out var trustStep)
+                ? trustStep.MinimumTrust
+                : MinimumTrust(kind);
+            if (evidence.Trust < minimumTrust)
+            {
+                findings.Add(new ProductEvidenceFinding(
+                    kind,
+                    ProductEvidenceGap.Untrusted,
+                    $"{kind} exige verificação {minimumTrust} e a prova veio de {evidence.Trust} " +
+                    $"({evidence.Provenance?.Source ?? "origem não declarada"}). " +
+                    "Um script definido pelo próprio produto não prova o requisito."));
                 continue;
             }
 

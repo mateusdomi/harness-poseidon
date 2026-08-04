@@ -21,6 +21,9 @@ public abstract class ProcessProductVerifier(TrustedProcessRunner runner) : IPro
         ProductVerificationContext context,
         CancellationToken cancellationToken);
 
+    /// <summary>Quem controla o CONTEÚDO desta verificação. Padrão: o Poseidon.</summary>
+    protected virtual VerificationTrustLevel Trust => VerificationTrustLevel.PoseidonControlled;
+
     protected ProductVerificationRecord ToRecord(
         ProductVerificationContext context, TrustedProcessResult result, string? detail = null) =>
         new(
@@ -33,7 +36,8 @@ public abstract class ProcessProductVerifier(TrustedProcessRunner runner) : IPro
             result.CompletedAt,
             context.AttemptId,
             Path.GetRelativePath(context.WorkspaceRoot, result.WorkingDirectory).Replace('\\', '/'),
-            detail ?? Describe(result));
+            detail ?? Describe(result),
+            Trust);
 
     private static string Describe(TrustedProcessResult result) => result.Outcome switch
     {

@@ -18,6 +18,17 @@ public sealed class ProductVerificationRunner(
     IReadOnlyList<IProductVerifier> verifiers,
     ILogger<ProductVerificationRunner>? logger = null)
 {
+    /// <summary>
+    /// Os tipos para os quais existe verificador cujo CONTEÚDO o Poseidon controla. É esta lista
+    /// que eleva a barra de um requisito: registrar um verificador nativo faz o script do produto
+    /// deixar de bastar para aquele tipo, sem tocar no portão nem no plano.
+    /// </summary>
+    public IReadOnlyDictionary<ProductEvidenceKind, string> NativeVerifiers { get; } =
+        verifiers
+            .Where(verifier => verifier is not ScriptedProductVerifier)
+            .GroupBy(verifier => verifier.Kind)
+            .ToDictionary(group => group.Key, group => group.First().Name);
+
     public async Task<IReadOnlyList<ProductVerificationRecord>> RunAsync(
         ProductVerificationContext context,
         ProductVerificationPlan plan,

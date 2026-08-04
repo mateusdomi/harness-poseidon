@@ -261,6 +261,7 @@ public static class HostApplication
             builder.Services.AddSingleton<IAuditEventStore, PostgresAuditEventStore>();
             builder.Services.AddSingleton<IGovernanceRuntimeStore, PostgresGovernanceRuntimeStore>();
             builder.Services.AddSingleton<IProjectEffectiveProfileStore, PostgresProjectEffectiveProfileStore>();
+            builder.Services.AddSingleton<IProductEvidenceSetStore, PostgresProductEvidenceSetStore>();
             builder.Services.AddSingleton<ILearningCandidateStore, PostgresLearningCandidateStore>();
             builder.Services.AddSingleton<IChiefTurnIntentStore, PostgresChiefTurnIntentStore>();
             builder.Services.AddSingleton<IPhaseObligationStore, PostgresPhaseObligationStore>();
@@ -303,6 +304,8 @@ public static class HostApplication
             builder.Services.AddSingleton<IGovernanceRuntimeStore, SqliteGovernanceRuntimeStore>();
             builder.Services.AddSingleton<IProjectEffectiveProfileStore>(services =>
                 new SqliteProjectEffectiveProfileStore(services.GetRequiredService<SqliteWriteDispatcher>()));
+            builder.Services.AddSingleton<IProductEvidenceSetStore>(services =>
+                new SqliteProductEvidenceSetStore(services.GetRequiredService<SqliteWriteDispatcher>()));
             builder.Services.AddSingleton<ILearningCandidateStore, SqliteLearningCandidateStore>();
             builder.Services.AddSingleton<IChiefTurnIntentStore, SqliteChiefTurnIntentStore>();
             builder.Services.AddSingleton<IPhaseObligationStore, SqlitePhaseObligationStore>();
@@ -579,6 +582,11 @@ public static class HostApplication
                         services.GetRequiredService<Product.TrustedProcessRunner>()),
                 ],
                 services.GetService<ILogger<Product.ProductVerificationRunner>>()));
+            builder.Services.AddScoped(services => new Product.ProfileDirectiveExtractor(
+                services.GetRequiredService<IWorkBoardStore>(),
+                services.GetService<Harness.Persistence.Abstractions.Documents.IDocumentCatalogStore>(),
+                services.GetService<AgentRunSettings>()?.ControlledRoot,
+                services.GetService<ILogger<Product.ProfileDirectiveExtractor>>()));
             builder.Services.AddScoped<Product.ProductDeliveryEvaluator>();
             builder.Services.AddScoped<Workflows.WorkflowPhaseDriver>();
             builder.Services.AddHostedService<ChiefBacklogLoopService>();

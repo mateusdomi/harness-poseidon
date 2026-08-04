@@ -45,7 +45,9 @@ public sealed class ProductDeliveryEvaluator(
     IProjectEffectiveProfileStore profiles,
     IClock clock,
     ILogger<ProductDeliveryEvaluator>? logger = null,
-    ProductVerificationRunner? verifications = null)
+    ProductVerificationRunner? verifications = null,
+    ProfileDirectiveExtractor? directives = null,
+    IProductEvidenceSetStore? evidenceSets = null)
 {
     private readonly ProductEvidenceCollectorPipeline _pipeline = new();
 
@@ -60,7 +62,8 @@ public sealed class ProductDeliveryEvaluator(
         string? Failure,
         ProjectEffectiveProfileRecord? Profile,
         ProductDeliveryEvidence? Evidence = null,
-        ProductVerificationPlan? Plan = null);
+        ProductVerificationPlan? Plan = null,
+        string? EvidenceSetId = null);
 
     public async Task<Outcome> EvaluateAsync(
         string tenantId,
@@ -81,8 +84,20 @@ public sealed class ProductDeliveryEvaluator(
         if (record is null && phaseOrder >= ArchitecturePhaseOrder &&
             !string.IsNullOrWhiteSpace(demandText))
         {
+            // As decisões HUMANAS entram aqui: requisito escrito pelo usuário e ADR aprovado, lidos
+            // das fontes canônicas onde já vivem. Sem esta extração o resolvedor recebia listas
+            // vazias e o perfil era sempre o baseline, por mais que alguém tivesse decidido outra
+            // coisa.
+            var extraction = directives is null
+                ? null
+                : await directives.ExtractAsync(tenantId, projectId, cancellationToken);
+
             var materialized = await MaterializeAsync(
-                tenantId, projectId, demandText, [], [], "workflow-phase-driver", cancellationToken);
+                tenantId, projectId,
+                string.IsNullOrWhiteSpace(extraction?.DemandText) ? demandText : extraction.DemandText,
+                extraction?.Directives ?? [],
+                extraction?.ActiveAdrs ?? [],
+                "workflow-phase-driver", cancellationToken);
             record = materialized.Profile;
             LogProfileMaterialized(logger, projectId, record.Version, record.Modality);
         }
@@ -139,7 +154,7 @@ public sealed class ProductDeliveryEvaluator(
 
         // O PLANO é derivado do perfil e auditável: dá para responder por que este projeto teve o
         // build de frontend verificado e aquele não.
-        var plan = ProductVerificationPlan.From(profile);
+        var plan = ProductVerificationPlan.From(profile, verifications?.NativeVerifiers);
 
         // VERIFICAÇÃO REAL. É aqui que o Poseidon deixa de acreditar e passa a constatar: os
         // verificadores executam build, testes e contrato dentro da worktree, com allowlist de
@@ -156,15 +171,74 @@ public sealed class ProductDeliveryEvaluator(
 
         var workspace = new FileSystemProductWorkspace(repositoryRoot, commitSha);
         var evidence = _pipeline.Collect(profile, workspace, verified);
-        var verdict = ProductDeliveryGate.Evaluate(profile, evidence.Items, commitSha);
+        var verdict = ProductDeliveryGate.Evaluate(profile, evidence.Items, commitSha, plan);
         LogProductVerdict(logger, projectId, record.Version, verdict.Summary(), evidence.Summary());
+
+        // LEDGER: o conjunto que decidiu este portão fica gravado, amarrado ao commit e à versão
+        // do perfil. Sem isso, "quais evidências fizeram este projeto passar?" não tem resposta
+        // depois que o ciclo termina — e a tentativa que reprovou desaparece quando a seguinte
+        // passa, apagando o que a fábrica precisa para aprender.
+        var evidenceSetId = await PersistEvidenceAsync(
+            tenantId, projectId, record, plan, evidence, verdict, commitSha, attemptId, cardId,
+            cancellationToken);
 
         return new Outcome(
             verdict,
             verdict.Satisfied ? null : ProductDeliveryFailures.DeliveryIncomplete,
             record,
             evidence,
-            plan);
+            plan,
+            evidenceSetId);
+    }
+
+    private static readonly System.Text.Json.JsonSerializerOptions LedgerJson =
+        new(System.Text.Json.JsonSerializerDefaults.Web)
+        {
+            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+        };
+
+    /// <summary>
+    /// Grava o conjunto e devolve o id. Falha de auditoria nunca impede a DECISÃO do portão —
+    /// perder o registro é ruim, travar a fábrica por causa dele é pior —, mas ela é logada.
+    /// </summary>
+    private async Task<string?> PersistEvidenceAsync(
+        string tenantId,
+        string projectId,
+        ProjectEffectiveProfileRecord record,
+        ProductVerificationPlan plan,
+        ProductDeliveryEvidence evidence,
+        ProductDeliveryVerdict verdict,
+        string commitSha,
+        string? attemptId,
+        string? cardId,
+        CancellationToken cancellationToken)
+    {
+        if (evidenceSets is null)
+        {
+            return null;
+        }
+
+        var id = Harness.SharedKernel.Identifiers.UlidValue.New(clock.UtcNow).ToString();
+        try
+        {
+            await evidenceSets.AppendAsync(
+                new ProductEvidenceSetRecord(
+                    tenantId, id, projectId, null, cardId, attemptId, commitSha,
+                    record.Version, record.Fingerprint, record.Modality,
+                    verdict.Satisfied ? "satisfied" : "failed",
+                    System.Text.Json.JsonSerializer.Serialize(plan.Steps, LedgerJson),
+                    System.Text.Json.JsonSerializer.Serialize(evidence.Items, LedgerJson),
+                    System.Text.Json.JsonSerializer.Serialize(verdict.Findings, LedgerJson),
+                    string.Join(',', evidence.Collectors),
+                    clock.UtcNow),
+                cancellationToken);
+            return id;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            LogEvidenceNotPersisted(logger, projectId, exception);
+            return null;
+        }
     }
 
     /// <summary>
@@ -228,6 +302,21 @@ public sealed class ProductDeliveryEvaluator(
             new EventId(3, nameof(ProfileMaterialized)),
             "Perfil efetivo do projeto {ProjectId} materializado na v{ProfileVersion} " +
             "(modalidade {Modality}).");
+
+    private static void LogEvidenceNotPersisted(ILogger? logger, string projectId, Exception exception)
+    {
+        if (logger is not null)
+        {
+            EvidenceNotPersisted(logger, projectId, exception);
+        }
+    }
+
+    private static readonly Action<ILogger, string, Exception?> EvidenceNotPersisted =
+        LoggerMessage.Define<string>(
+            LogLevel.Error,
+            new EventId(4, nameof(EvidenceNotPersisted)),
+            "Não foi possível gravar o conjunto de evidências do projeto {ProjectId}; a decisão do " +
+            "portão seguiu, mas a prova não ficou auditável.");
 
     private static readonly Action<ILogger, string, Exception?> LegacyExempt =
         LoggerMessage.Define<string>(

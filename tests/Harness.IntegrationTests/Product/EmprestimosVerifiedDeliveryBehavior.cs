@@ -127,15 +127,16 @@ public sealed class EmprestimosVerifiedDeliveryBehavior : IDisposable
         };
         verifiers.AddRange(ScriptedVerifierCatalog.Create(runner));
 
-        var plan = ProductVerificationPlan.From(profile);
-        var verified = await new ProductVerificationRunner(verifiers).RunAsync(
+        var runnerOfVerifiers = new ProductVerificationRunner(verifiers);
+        var plan = ProductVerificationPlan.From(profile, runnerOfVerifiers.NativeVerifiers);
+        var verified = await runnerOfVerifiers.RunAsync(
             new ProductVerificationContext(profile, _root, commit, "projeto", "tentativa", "card"),
             plan,
             CancellationToken.None);
 
         var workspace = new Harness.Host.Product.FileSystemProductWorkspace(_root, commit);
         var evidence = new ProductEvidenceCollectorPipeline().Collect(profile, workspace, verified);
-        return (ProductDeliveryGate.Evaluate(profile, evidence.Items, commit), evidence);
+        return (ProductDeliveryGate.Evaluate(profile, evidence.Items, commit, plan), evidence);
     }
 
     private static string Diagnostico(ProductDeliveryVerdict verdict, ProductDeliveryEvidence evidence) =>
