@@ -46,10 +46,24 @@ while [[ $(date -u +%s) -lt "$deadline" ]]; do
 
     log "publicando"
     "$ROOT/poseidon" stop  >/dev/null 2>&1
+
+    # O `stop` RETORNA ANTES DE TERMINAR. Emendar o `start` nele fazia o novo processo encontrar a
+    # porta ainda ocupada e falhar — e a falha aparecia como "FALHA ao subir o Host", que manda
+    # investigar o binário quando o problema era pressa. Aconteceu três vezes em 04/08: o publicador
+    # desistia, deixava a esteira PAUSADA, e o mesmo `poseidon start` rodado à mão minutos depois
+    # subia sem reclamar. Esperar a porta liberar de fato custa segundos; a esteira parada custou
+    # meia hora por vez.
+    for _ in $(seq 1 45); do
+      curl -sf -m 2 "$API/health" >/dev/null 2>&1 || break
+      sleep 2
+    done
+
     if "$ROOT/poseidon" start >/dev/null 2>&1; then
       log "host reiniciado com o binário do HEAD ($(git -C "$ROOT" rev-parse --short HEAD))"
     else
-      log "FALHA ao subir o Host — a esteira segue pausada de propósito, investigue antes de retomar"
+      log "FALHA ao subir o Host — a esteira segue pausada de propósito. Saída do start:"
+      "$ROOT/poseidon" start 2>&1 | grep -viE "^\s+at |node_modules|react-dom|jsdom" | tail -12 \
+        | while IFS= read -r linha; do log "  | $linha"; done
       exit 1
     fi
 
