@@ -88,9 +88,9 @@ public sealed class SqliteGovernanceRuntimeStore(SqliteWriteDispatcher dispatche
             "INSERT OR IGNORE INTO governance_turn_receipts " +
             "(tenant_id,project_id,task_id,attempt_id,turn_id,agent_id,manifest_version,documents_json," +
             "estimated_tokens,actual_prompt_tokens,truncated_json,conflicts_json,cache_hits,provider,model," +
-            "occurred_at,bundle_checksum,state,gate_result,version) " +
+            "occurred_at,bundle_checksum,state,gate_result,version,context_json) " +
             "VALUES ($tenant,$project,$task,$attempt,$turn,$agent,$manifest,$documents,$estimated,NULL," +
-            "$truncated,$conflicts,$hits,$provider,$model,$at,$checksum,'selected',NULL,1);";
+            "$truncated,$conflicts,$hits,$provider,$model,$at,$checksum,'selected',NULL,1,$context);";
         Add(insert, "$tenant", command.TenantId);
         Add(insert, "$project", command.ProjectId);
         Add(insert, "$task", command.TaskId);
@@ -107,6 +107,9 @@ public sealed class SqliteGovernanceRuntimeStore(SqliteWriteDispatcher dispatche
         Add(insert, "$model", command.Model);
         Add(insert, "$at", Store(command.Timestamp));
         Add(insert, "$checksum", command.BundleChecksum);
+        Add(insert, "$context", command.Context is null
+            ? null
+            : JsonSerializer.Serialize(command.Context, JsonOptions));
         await insert.ExecuteNonQueryAsync(token);
         var receipt = await ReadAsync(connection, command.TenantId, command.TurnId, token)
             ?? throw new InvalidOperationException("Governance receipt insert did not produce a row.");
@@ -312,12 +315,15 @@ public sealed class SqliteGovernanceRuntimeStore(SqliteWriteDispatcher dispatche
         JsonSerializer.Deserialize<string[]>(reader.GetString(10), JsonOptions) ?? [],
         JsonSerializer.Deserialize<string[]>(reader.GetString(11), JsonOptions) ?? [],
         reader.GetInt32(12), reader.GetString(13), NullString(reader, 14), Parse(reader.GetString(15)),
-        reader.GetString(16), ParseState(reader.GetString(17)), NullString(reader, 18), reader.GetInt64(19));
+        reader.GetString(16), ParseState(reader.GetString(17)), NullString(reader, 18), reader.GetInt64(19),
+        reader.IsDBNull(20)
+            ? null
+            : JsonSerializer.Deserialize<GovernanceReceiptContextRecord>(reader.GetString(20), JsonOptions));
 
     private const string SelectReceipt =
         "SELECT tenant_id,project_id,task_id,attempt_id,turn_id,agent_id,manifest_version,documents_json," +
         "estimated_tokens,actual_prompt_tokens,truncated_json,conflicts_json,cache_hits,provider,model," +
-        "occurred_at,bundle_checksum,state,gate_result,version FROM governance_turn_receipts";
+        "occurred_at,bundle_checksum,state,gate_result,version,context_json FROM governance_turn_receipts";
 
     private static void Validate(GovernanceTurnReceiptCreateCommand command)
     {

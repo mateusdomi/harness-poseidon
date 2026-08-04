@@ -4,7 +4,13 @@ public sealed record GovernanceFeatureSettings
 {
     public bool ContextBundlesEnabled { get; init; } = true;
 
-    public int ContextTokenBudget { get; init; } = 12000;
+    /// <summary>
+    /// Orçamento do bundle documental. Subiu de 12.000 quando a seleção passou a usar o
+    /// vocabulário real do trabalho: o conjunto correto de documentos é maior que o conjunto
+    /// que a incompatibilidade de vocabulário deixava passar. A política de faixas garante que o
+    /// obrigatório nunca caia; o orçamento maior evita que o opcional caia por engano.
+    /// </summary>
+    public int ContextTokenBudget { get; init; } = 16000;
 
     public bool HashlinePatchesEnabled { get; init; } = true;
 

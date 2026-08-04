@@ -12,6 +12,7 @@ using Harness.Modules.Conversations.Domain;
 using Harness.Modules.Coordination.Application;
 using Harness.Host.WorkBoard;
 using Harness.Host.Workflows;
+using Harness.Modules.Workflows.Product;
 using Harness.Modules.Governance.Context;
 using Harness.Modules.Governance.Evaluation;
 using Harness.Modules.Governance.Memory;
@@ -322,7 +323,21 @@ public sealed partial class ChiefTurnBackgroundService(
                     lease.Turn.Selection?.Source ?? "poseidon",
                     lease.Turn.Selection?.ModelName,
                     clock.UtcNow,
-                    bundle.BundleChecksum),
+                    bundle.BundleChecksum,
+                    new GovernanceReceiptContextRecord(
+                        PersonaKey: AgentRoles.ChiefOrchestrator,
+                        AgentRole: AgentRoles.ChiefOrchestrator,
+                        Workflow: CanonicalWorkflowTemplates.WorkflowKeyForPhase(projectPhase)
+                            ?? CanonicalWorkflowTemplates.PlaybookStandardKey,
+                        Phase: projectPhase,
+                        CardType: ChiefTurnCardType,
+                        BaselineVersion: ProjectEffectiveProfile.CurrentBaselineVersion,
+                        EffectiveProfileFingerprint: null,
+                        Overrides: null,
+                        ActiveAdrs: null,
+                        Truncations: [.. bundle.Truncations.Select(item =>
+                            new GovernanceReceiptTruncationRecord(
+                                item.SourceId, item.Reason, item.LoadPolicy, item.EstimatedTokens))])),
                 cancellationToken);
             await AppendBundleMetricsAsync(governance, lease, bundle, clock.UtcNow, cancellationToken);
             if (bundle.Conflicts.Count > 0)

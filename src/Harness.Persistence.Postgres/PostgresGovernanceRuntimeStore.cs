@@ -190,8 +190,8 @@ public sealed class PostgresGovernanceRuntimeStore(NpgsqlDataSource dataSource)
             "INSERT INTO harness.governance_turn_receipts " +
             "(tenant_id,project_id,task_id,attempt_id,turn_id,agent_id,manifest_version,documents_json," +
             "estimated_tokens,actual_prompt_tokens,truncated_json,conflicts_json,cache_hits,provider,model," +
-            "occurred_at,bundle_checksum,state,gate_result,version) " +
-            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NULL,$10,$11,$12,$13,$14,$15,$16,'selected',NULL,1) " +
+            "occurred_at,bundle_checksum,state,gate_result,version,context_json) " +
+            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NULL,$10,$11,$12,$13,$14,$15,$16,'selected',NULL,1,$17) " +
             "ON CONFLICT (tenant_id,turn_id) DO NOTHING;";
         insert.Parameters.Add(Text(command.TenantId));
         insert.Parameters.Add(Text(command.ProjectId));
@@ -209,6 +209,9 @@ public sealed class PostgresGovernanceRuntimeStore(NpgsqlDataSource dataSource)
         insert.Parameters.Add(Text(command.Model));
         insert.Parameters.Add(Timestamp(command.Timestamp));
         insert.Parameters.Add(Text(command.BundleChecksum));
+        insert.Parameters.Add(NullableJson(command.Context is null
+            ? null
+            : JsonSerializer.Serialize(command.Context, JsonOptions)));
         await insert.ExecuteNonQueryAsync(token);
         var receipt = await ReadAsync(connection, command.TenantId, command.TurnId, token)
             ?? throw new InvalidOperationException("Governance receipt insert did not produce a row.");
@@ -275,12 +278,16 @@ public sealed class PostgresGovernanceRuntimeStore(NpgsqlDataSource dataSource)
         JsonSerializer.Deserialize<string[]>(reader.GetFieldValue<string>(10), JsonOptions) ?? [],
         JsonSerializer.Deserialize<string[]>(reader.GetFieldValue<string>(11), JsonOptions) ?? [],
         reader.GetInt32(12), reader.GetString(13), NullString(reader, 14), reader.GetFieldValue<DateTimeOffset>(15),
-        reader.GetString(16), ParseState(reader.GetString(17)), NullString(reader, 18), reader.GetInt64(19));
+        reader.GetString(16), ParseState(reader.GetString(17)), NullString(reader, 18), reader.GetInt64(19),
+        reader.IsDBNull(20)
+            ? null
+            : JsonSerializer.Deserialize<GovernanceReceiptContextRecord>(
+                reader.GetFieldValue<string>(20), JsonOptions));
 
     private const string SelectReceipt =
         "SELECT tenant_id,project_id,task_id,attempt_id,turn_id,agent_id,manifest_version,documents_json::text," +
         "estimated_tokens,actual_prompt_tokens,truncated_json::text,conflicts_json::text,cache_hits,provider,model," +
-        "occurred_at,bundle_checksum,state,gate_result,version FROM harness.governance_turn_receipts";
+        "occurred_at,bundle_checksum,state,gate_result,version,context_json::text FROM harness.governance_turn_receipts";
 
     private static void Validate(GovernanceTurnReceiptCreateCommand command)
     {
@@ -315,6 +322,11 @@ public sealed class PostgresGovernanceRuntimeStore(NpgsqlDataSource dataSource)
         : new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Integer, Value = DBNull.Value };
     private static NpgsqlParameter<long> Bigint(long value) => new() { TypedValue = value };
     private static NpgsqlParameter<string> Json(string value) => new() { NpgsqlDbType = NpgsqlDbType.Jsonb, TypedValue = value };
+
+    /// <summary>Coluna jsonb anulável: ausência de contexto é NULL, nunca `"null"` textual.</summary>
+    private static NpgsqlParameter NullableJson(string? value) => value is null
+        ? new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Jsonb, Value = DBNull.Value }
+        : Json(value);
     private static NpgsqlParameter<DateTimeOffset> Timestamp(DateTimeOffset value) => new() { TypedValue = value };
     private static string? NullString(NpgsqlDataReader reader, int ordinal) => reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
 

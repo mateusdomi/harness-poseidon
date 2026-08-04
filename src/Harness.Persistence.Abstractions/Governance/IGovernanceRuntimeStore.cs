@@ -50,6 +50,40 @@ public sealed record GovernanceReceiptDocumentRecord(
     string LoadPolicy,
     int EstimatedTokens);
 
+/// <summary>
+/// Um item que a montagem selecionou e o orçamento cortou, com o motivo. Só a lista de ids não
+/// permitia distinguir "a regra não foi selecionada" de "foi selecionada e não coube".
+/// </summary>
+public sealed record GovernanceReceiptTruncationRecord(
+    string SourceId,
+    string Reason,
+    string LoadPolicy,
+    int EstimatedTokens);
+
+/// <summary>
+/// O contexto EFETIVO de uma execução, além dos documentos: quem executou, sob qual papel, em que
+/// fase de qual workflow, com qual tipo de card, sob qual baseline e qual perfil efetivo, e o que
+/// foi sobrescrito.
+///
+/// Existe para tornar respondível a pergunta que hoje termina em "o agente fez errado": a regra
+/// existia? estava ativa? foi selecionada? foi carregada? foi truncada? qual versão? qual override
+/// estava valendo? qual persona recebeu? — e só então, se todas derem sim, "mesmo assim violou".
+///
+/// Todos os campos são opcionais: recibos históricos não os têm, e inventar valor para satisfazer
+/// o desserializador transformaria ausência de dado em dado errado.
+/// </summary>
+public sealed record GovernanceReceiptContextRecord(
+    string? PersonaKey = null,
+    string? AgentRole = null,
+    string? Workflow = null,
+    string? Phase = null,
+    string? CardType = null,
+    string? BaselineVersion = null,
+    string? EffectiveProfileFingerprint = null,
+    IReadOnlyList<string>? Overrides = null,
+    IReadOnlyList<string>? ActiveAdrs = null,
+    IReadOnlyList<GovernanceReceiptTruncationRecord>? Truncations = null);
+
 public sealed record GovernanceTurnReceiptRecord(
     string TenantId,
     string ProjectId,
@@ -70,7 +104,10 @@ public sealed record GovernanceTurnReceiptRecord(
     string BundleChecksum,
     GovernanceReceiptState State,
     string? GateResult,
-    long Version);
+    long Version,
+
+    /// <summary>Contexto efetivo da execução. Nulo em recibos anteriores a este campo.</summary>
+    GovernanceReceiptContextRecord? Context = null);
 
 public sealed record GovernanceTurnReceiptCreateCommand(
     string TenantId,
@@ -88,7 +125,10 @@ public sealed record GovernanceTurnReceiptCreateCommand(
     string Provider,
     string? Model,
     DateTimeOffset Timestamp,
-    string BundleChecksum);
+    string BundleChecksum,
+
+    /// <summary>Contexto efetivo da execução; opcional para não quebrar produtores existentes.</summary>
+    GovernanceReceiptContextRecord? Context = null);
 
 public sealed record GovernanceTurnReceiptCompleteCommand(
     string TenantId,

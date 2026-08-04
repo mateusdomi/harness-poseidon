@@ -6,7 +6,15 @@ public sealed record ChiefTurnWorkerOptions(
 {
     public bool ContextBundlesEnabled { get; init; } = true;
 
-    public int ContextTokenBudget { get; init; } = 12000;
+    /// <summary>
+    /// Orçamento do bundle documental da chefe. Subiu de 12.000 quando o turno passou a pedir
+    /// contexto pelo vocabulário real (fase do projeto, workflow do playbook, persona catalogada):
+    /// o conjunto selecionado cresceu e, no orçamento antigo, as fatias de MEMÓRIA — que são o
+    /// resultado da recuperação feita para AQUELE turno — eram as primeiras a cair, porque entram
+    /// por último na ordem determinística. Perder a memória recuperada para caber documento
+    /// estático é o oposto do que a recuperação existe para fazer.
+    /// </summary>
+    public int ContextTokenBudget { get; init; } = 16000;
 
     public TimeSpan ActivityHeartbeatInterval { get; init; } = TimeSpan.FromSeconds(30);
 

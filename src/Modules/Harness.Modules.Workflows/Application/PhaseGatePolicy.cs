@@ -42,7 +42,16 @@ public sealed record PhaseGateEvidence(
     bool AllRequiredObligationsAccepted,
     bool HasBlockingFinding,
     bool HasOpenBlocker,
-    int RequiredObligationCount);
+    int RequiredObligationCount,
+
+    /// <summary>
+    /// Veredito do Definition of Done do PRODUTO, quando a fase entrega software ao usuário.
+    /// <see langword="null"/> significa "não se aplica a esta fase" — uma fase documental não
+    /// precisa provar que existe frontend. Onde se aplica, um veredito reprovado mantém o portão
+    /// fechado independentemente das obrigações documentais estarem aceitas: documento que afirma
+    /// que o produto está pronto não é evidência de que ele está.
+    /// </summary>
+    Product.ProductDeliveryVerdict? ProductDelivery = null);
 
 /// <summary>
 /// Política PURA do portão de fase. É aqui que os três modos do produto deixam de ser um campo
@@ -103,6 +112,14 @@ public static class PhaseGatePolicy
             !evidence.AllRequiredObligationsAccepted ||
             evidence.HasBlockingFinding ||
             evidence.HasOpenBlocker)
+        {
+            return PhaseGateDecision.NotReady;
+        }
+
+        // Definition of Done do produto. Onde a fase entrega software a uma pessoa, obrigação
+        // documental cumprida não basta: um `GET /emprestimos` com todos os documentos da fase
+        // aceitos continua não sendo um sistema de empréstimos.
+        if (evidence.ProductDelivery is { Satisfied: false })
         {
             return PhaseGateDecision.NotReady;
         }

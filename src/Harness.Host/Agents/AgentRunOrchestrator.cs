@@ -10,6 +10,7 @@ using Harness.Modules.Agents.Contracts;
 using Harness.Modules.Coordination.Application;
 using Harness.Modules.Execution.Infrastructure.Git;
 using Harness.Modules.Governance.Context;
+using Harness.Modules.Workflows.Product;
 using Harness.Modules.Governance.Coordination;
 using Harness.Modules.Governance.Memory;
 using Harness.Modules.Providers.Application;
@@ -1376,7 +1377,23 @@ public sealed partial class AgentRunOrchestrator(
                         document.DocumentId, document.Checksum, document.SelectionReason,
                         document.LoadPolicy.ToString(), document.EstimatedTokens))],
                     bundle.EstimatedTokens, bundle.Truncated, bundle.Conflicts, bundle.CacheHits,
-                    account.ProviderKind, command.Model, clock.UtcNow, bundle.BundleChecksum),
+                    account.ProviderKind, command.Model, clock.UtcNow, bundle.BundleChecksum,
+                    // O contexto EFETIVO, e não apenas os documentos: sem ele, "a regra existia e
+                    // não foi carregada" e "a regra foi carregada e o agente violou" produziam
+                    // exatamente o mesmo registro.
+                    new GovernanceReceiptContextRecord(
+                        PersonaKey: command.PersonaKey,
+                        AgentRole: command.Role,
+                        Workflow: command.WorkflowKey,
+                        Phase: command.PhaseName,
+                        CardType: command.CardType,
+                        BaselineVersion: ProjectEffectiveProfile.CurrentBaselineVersion,
+                        EffectiveProfileFingerprint: null,
+                        Overrides: null,
+                        ActiveAdrs: null,
+                        Truncations: [.. bundle.Truncations.Select(item =>
+                            new GovernanceReceiptTruncationRecord(
+                                item.SourceId, item.Reason, item.LoadPolicy, item.EstimatedTokens))])),
                 cancellationToken);
 
             if (bundle.Conflicts.Count > 0)

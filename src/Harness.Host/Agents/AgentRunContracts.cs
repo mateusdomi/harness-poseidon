@@ -57,7 +57,13 @@ public sealed record AgentRunSettings
     /// </summary>
     public TimeSpan RunNoProgressTimeout { get; init; } = TimeSpan.FromMinutes(15);
 
-    public int ContextTokenBudget { get; init; } = 8000;
+    /// <summary>
+    /// Orçamento do bundle documental de uma execução de agente. Subiu de 8.000: com o canon do
+    /// produto registrado e a seleção pelo vocabulário real, o conjunto correto mede perto do
+    /// teto antigo, e o corte alcançava a regra de coordenação. Elevar o teto não substitui a
+    /// política de faixas — ela é que garante que o obrigatório nunca desapareça em silêncio.
+    /// </summary>
+    public int ContextTokenBudget { get; init; } = 16000;
 
     /// <summary>
     /// Loop autônomo do chefe (drena o backlog e delega).
