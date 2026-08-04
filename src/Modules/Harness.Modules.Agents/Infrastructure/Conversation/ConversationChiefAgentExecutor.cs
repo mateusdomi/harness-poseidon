@@ -617,22 +617,36 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
 
     private string LoadGovernanceCore()
     {
-        try
+        // A governança é parte da distribuição do Host (copiada pelo csproj para o output),
+        // então a fonte primária é o diretório do binário. O ControlledRoot (RepositoryRoot)
+        // continua como fallback para instalações customizadas.
+        var candidates = new[]
         {
-            var path = Path.Combine(_options.RepositoryRoot, "governance", "core.md");
-            if (File.Exists(path))
+            Path.Combine(AppContext.BaseDirectory, "governance", "core.md"),
+            Path.Combine(_options.RepositoryRoot, "governance", "core.md"),
+        };
+
+        foreach (var path in candidates)
+        {
+            try
             {
-                var text = File.ReadAllText(path).Trim();
-                return text.Length == 0 ? GovernanceFallback : text;
+                if (File.Exists(path))
+                {
+                    var text = File.ReadAllText(path).Trim();
+                    if (text.Length > 0)
+                    {
+                        return text;
+                    }
+                }
             }
-        }
-        catch (IOException)
-        {
-            // Núcleo de governança indisponível em disco: degrada para o resumo embutido em
-            // vez de falhar o turno. A persona já carrega as regras invioláveis essenciais.
-        }
-        catch (UnauthorizedAccessException)
-        {
+            catch (IOException)
+            {
+                // Núcleo de governança indisponível em disco: tenta o próximo candidato ou
+                // degrada para o resumo embutido. A persona já carrega as regras essenciais.
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
         }
 
         return GovernanceFallback;

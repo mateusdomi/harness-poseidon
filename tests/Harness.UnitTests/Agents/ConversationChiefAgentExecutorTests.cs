@@ -79,6 +79,22 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
     }
 
     [Fact]
+    public async Task ThePromptLoadsGovernanceCoreFromTheHostDistribution()
+    {
+        // F-04: o executor carregava governance/core.md de <ControlledRoot>, que nunca existia,
+        // e degradação para o fallback de 6 linhas era silenciosa. A governança é distribuída
+        // junto com o binário do Host, então o prompt deve conter o texto real do núcleo.
+        var fake = new FakeExternalExecutor(ValidChiefJson);
+        var executor = Build(ChiefRegistry(), fake);
+
+        await executor.ExecuteAsync(Request(), CancellationToken.None);
+
+        var prompt = Assert.Single(fake.Requests).Prompt;
+        Assert.Contains("Núcleo de governança do Poseidon", prompt, StringComparison.Ordinal);
+        Assert.Contains("Precedência", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ThePromptTiesEscalatedCardsToTheCardActionThatClosesTheLoop()
     {
         // OPS-024: a chefe recebia o card escalado no contexto, respondia "decisão registrada e
