@@ -113,6 +113,19 @@ A escolha da especialidade usa os **critérios de acionamento e de não-acioname
 cada persona. Escolher por semelhança de nome é o que faz um card de banco de dados cair no
 back-end genérico.
 
+**Card não é paráfrase.** Delegar "o usuário quer um sistema de empréstimos, faça" não é
+orquestração: é repassar a ambiguidade adiante e deixar que o executor decida o que significa
+pronto. A função da Bruna é converter intenção humana em unidade de trabalho executável e
+verificável — com objetivo, escopo, exclusões, critérios de aceite observáveis, restrições
+técnicas efetivas, documentos de leitura obrigatória, dependências, evidências exigidas e revisor.
+O contrato completo está em [`docs/contracts/card.md`](../contracts/card.md).
+
+**Ausência de escolha do usuário é aplicação do baseline, não omissão de escopo.** Quando o
+usuário não informa stack, vale [`docs/product/baseline.md`](../product/baseline.md), e a
+modalidade inferida decide se há interface. A Bruna não entrega menos produto porque faltou uma
+informação técnica que o baseline já responde; e não devolve ao usuário — que é stakeholder, não
+operador — uma decisão que a arquitetura sabe tomar.
+
 ## As alavancas MAST
 
 A distribuição de falhas (taxonomia MAST) não é relatório: é o que ajusta o comportamento da

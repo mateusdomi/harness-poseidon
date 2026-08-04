@@ -1,5 +1,5 @@
 manifestVersion: 2.0.0
-lastGeneratedAt: 2026-08-03T11:10:45.5928100+00:00
+lastGeneratedAt: 2026-08-04T17:37:58.4325850+00:00
 tokenBudget: 24000
 knownOwners:
 - Platform Governance
@@ -108,6 +108,8 @@ markdownAllowlist:
   reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
 - path: docs/architecture/audits/kimi-macro-20260803/19-MAPA-DOS-PROJETOS-DA-SOLUTION.md
   reason: Relatório da auditoria macro conduzida pelo Kimi em 2026-08-03; evidência datada do estado observado, não norma canônica.
+- path: docs/architecture/audits/kimi-macro-20260803/BRANCHES-REMOVIDAS.md
+  reason: Registro datado dos SHAs das branches removidas durante a auditoria macro de 2026-08-03; evidência de preservação de trabalho, não norma canônica.
 documents:
 - id: governance-core
   path: governance/core.md
@@ -139,7 +141,7 @@ documents:
   - '**'
   load: always
   priority: 1000
-  tokenCost: 1073
+  tokenCost: 1304
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -154,7 +156,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:3d5165ebdde73ff390cfd50ddeb56a4b5b4cd0c1f005648f1eb5b6f5f62fc5bc
+  checksum: sha256:111f9d0f8756f3a1eebaa8fa4bff772fc60c4934fcb608d07c142217c911dd51
   containsSecrets: false
   generated: false
   sourceOfTruth: governance/core.md
@@ -188,7 +190,7 @@ documents:
   - '**'
   load: bundle
   priority: 900
-  tokenCost: 336
+  tokenCost: 645
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -204,7 +206,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-agent-scope.sh
   - ci:governance
-  checksum: sha256:a39818bdb9e73e752b54e92d97bf4a85934c3d04eed7fcd460a676c0f7cf638b
+  checksum: sha256:c0ee4d6c49a88ba5f90b774d6d1fd6d5042b8c0bfa27b9dabd533e431299493a
   containsSecrets: false
   generated: false
   sourceOfTruth: governance/rules/coordination.md
@@ -242,7 +244,7 @@ documents:
   - CLAUDE.md
   load: bundle
   priority: 900
-  tokenCost: 315
+  tokenCost: 671
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -256,7 +258,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:28ef9f88c3612cc3ebb4e523d3b0ab8baef21aa05f04960ffc888b5cd4757744
+  checksum: sha256:133ae7e80e55ecdf4437c4c1432bfb53637276744c5b4ff7a98f2a72ee2e2f8b
   containsSecrets: false
   generated: false
   sourceOfTruth: governance/rules/documentation.md
@@ -774,7 +776,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:b23853164f923ebc0dee5695ac1edb075d7263420c37c121b88cbbfa4beca7c8
+  checksum: sha256:a453848c598428c368586971f7f49a891f678dee2d967610891f66e5962e10c5
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/core.md
@@ -834,7 +836,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:b4ed0ae542d56e2e6a87fabdd0aba8bb17e243ee2e2b88e7186468bb9ad5e193
+  checksum: sha256:5a69ed2148588aa26689ca9002b2d61714fecb2a032c73eb6ea0dc8b5df92cc6
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/core.md
@@ -868,7 +870,7 @@ documents:
   - '**'
   load: always
   priority: 800
-  tokenCost: 1542
+  tokenCost: 1869
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -883,7 +885,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:963466af6b1b0e1fe0ca7c5a83d7bd7ed26c29cbf532d61dcca24f3987cd509a
+  checksum: sha256:098ecb094fc67eaa8dd226ce13858ff484056c6c6e41563585345a3b5cfb900b
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -965,7 +967,7 @@ documents:
   - src/Modules/Harness.Modules.Workflows/**
   load: bundle
   priority: 850
-  tokenCost: 332
+  tokenCost: 609
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -976,7 +978,7 @@ documents:
   - governance-core
   related: []
   enforcedBy: []
-  checksum: sha256:047718ca29d5e84b24524ae9d4864052ee245e1131a585b55ce309c8a32d0616
+  checksum: sha256:cf88996036182e52f99cb1c52798ac4351e7e194c9a433c4d71f10dc66933db1
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/contracts/card.md
@@ -1344,7 +1346,7 @@ documents:
   - src/Modules/Harness.Modules.Coordination/**
   load: bundle
   priority: 850
-  tokenCost: 2651
+  tokenCost: 2820
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -1356,7 +1358,7 @@ documents:
   related:
   - contract-card
   enforcedBy: []
-  checksum: sha256:c5cbacce9539fc13394761bbc3cada3934ba760636959066bb7b0c9f1c0869f2
+  checksum: sha256:e258f85f4817000eeca1e466727b41a4611775578c1a893490d63ad5d734945c
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/architecture/workflows/standard-workflow.md
@@ -2085,7 +2087,7 @@ documents:
   - src/Harness.Host/Agents/**
   load: bundle
   priority: 900
-  tokenCost: 1748
+  tokenCost: 1953
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -2098,7 +2100,508 @@ documents:
   - rule-chief-constraints
   - rule-authority
   enforcedBy: []
-  checksum: sha256:b13975f3ebd846926e6e41432a954130cb3e7233f66cfbe7069ad9835f865431
+  checksum: sha256:8ef9ad676489ad23ea753f8fccdd11e675e2f6cd44f5fcb7e7d5c41c902de640
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/agents/bruna.md
+- id: product-baseline
+  path: docs/product/baseline.md
+  title: Baseline técnico do produto entregue
+  category: product-standard
+  topic: product-baseline
+  authority: canonical
+  scope: product
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: bundle
+  priority: 880
+  tokenCost: 1473
+  owner: Platform Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-08-04T00:00:00-03:00
+  reviewDueAt: 2027-02-04T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - product-definition-of-done
+  - workflow-standard
+  - contract-card
+  enforcedBy:
+  - tools/backend/verify-governance.sh
+  - ci:governance
+  checksum: sha256:f7421eacd142cd6c6345f15859de4d5c94e732a1625987e32e5255f3b1df96d8
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/product/baseline.md
+- id: product-backend-standards
+  path: docs/product/backend-standards.md
+  title: Backend do produto entregue — arquitetura, .NET/C# e API
+  category: product-standard
+  topic: product-backend-standards
+  authority: canonical
+  scope: product
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - backend-specialist
+  - chief-orchestrator
+  - critic
+  - historia
+  - tarefa
+  - bug
+  - spike
+  - adr
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: on-demand
+  priority: 870
+  tokenCost: 1476
+  owner: Platform Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-08-04T00:00:00-03:00
+  reviewDueAt: 2027-02-04T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - product-data-standards
+  - product-security-operability
+  - product-definition-of-done
+  enforcedBy:
+  - tools/backend/verify-governance.sh
+  - ci:governance
+  checksum: sha256:c4afca995cba8e06ba348404f8392ce697245f14192e0c846d21e28206ac11fb
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/product/backend-standards.md
+- id: product-frontend-standards
+  path: docs/product/frontend-standards.md
+  title: Frontend do produto entregue
+  category: product-standard
+  topic: product-frontend-standards
+  authority: canonical
+  scope: product
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - frontend-specialist
+  - historia
+  - tarefa
+  - bug
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: on-demand
+  priority: 870
+  tokenCost: 714
+  owner: Platform Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-08-04T00:00:00-03:00
+  reviewDueAt: 2027-02-04T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - product-backend-standards
+  - product-definition-of-done
+  enforcedBy:
+  - tools/backend/verify-governance.sh
+  - ci:governance
+  checksum: sha256:15b1559d99f28a90a361e957849b43c90c683045f1002a61266118ddaf99b872
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/product/frontend-standards.md
+- id: product-data-standards
+  path: docs/product/data-standards.md
+  title: Dados e banco do produto entregue
+  category: product-standard
+  topic: product-data-standards
+  authority: canonical
+  scope: product
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - backend-specialist
+  - historia
+  - tarefa
+  - bug
+  - adr
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: on-demand
+  priority: 870
+  tokenCost: 756
+  owner: Platform Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-08-04T00:00:00-03:00
+  reviewDueAt: 2027-02-04T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - product-backend-standards
+  - product-security-operability
+  enforcedBy:
+  - tools/backend/verify-governance.sh
+  - ci:governance
+  checksum: sha256:fd98ec9435b59089c0c1df955d468de579e6eb92435225be74966172ee2b6995
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/product/data-standards.md
+- id: product-security-operability
+  path: docs/product/security-and-operability.md
+  title: Segurança e operabilidade do produto entregue
+  category: product-standard
+  topic: product-security-operability
+  authority: canonical
+  scope: product
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - backend-specialist
+  - frontend-specialist
+  - critic
+  - historia
+  - tarefa
+  - bug
+  - revisao
+  - gate
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: on-demand
+  priority: 875
+  tokenCost: 834
+  owner: Product Security
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-08-04T00:00:00-03:00
+  reviewDueAt: 2027-02-04T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - rule-security
+  - security-threat-model
+  - product-definition-of-done
+  enforcedBy:
+  - tools/backend/verify-governance.sh
+  - ci:governance
+  checksum: sha256:d3bebc2a9362ec40425901e847a820130a1878416b107b8baf7e2548528b9784
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/product/security-and-operability.md
+- id: product-definition-of-done
+  path: docs/product/definition-of-done.md
+  title: Definition of Done do produto entregue
+  category: product-standard
+  topic: product-definition-of-done
+  authority: canonical
+  scope: product
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - '*'
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: bundle
+  priority: 885
+  tokenCost: 1037
+  owner: Quality Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-08-04T00:00:00-03:00
+  reviewDueAt: 2027-02-04T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - product-baseline
+  - product-frontend-standards
+  - contract-review
+  - rule-testing
+  enforcedBy:
+  - tools/backend/verify-governance.sh
+  - ci:governance
+  checksum: sha256:47540104496b32ab1825731e5d8c308ccfd290ff272d47da4710fe7de5664774
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/product/definition-of-done.md
+- id: adr-0003-conversational-memory
+  path: docs/decisions/ADR-0003-memoria-conversacional-e-provedor.md
+  title: ADR-0003 — Memória conversacional e provedor
+  category: decision
+  topic: conversational-memory
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - architecture
+  taskTypes:
+  - adr
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: on-demand
+  priority: 700
+  tokenCost: 864
+  owner: Platform Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-08-04T00:00:00-03:00
+  reviewDueAt: 2027-02-04T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - agent-bruna
+  enforcedBy: []
+  checksum: sha256:82aaead714eae8a2602b991ff2c8d8100ff3e92cedcf553a0d9f7f31197306ab
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/decisions/ADR-0003-memoria-conversacional-e-provedor.md
+- id: adr-0004-phase-maturity
+  path: docs/decisions/ADR-0004-maturidade-honesta-das-fases-6-9.md
+  title: ADR-0004 — Maturidade honesta das fases 6 a 9
+  category: decision
+  topic: executive-phase-maturity
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - architecture
+  taskTypes:
+  - adr
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: on-demand
+  priority: 700
+  tokenCost: 828
+  owner: Platform Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-08-04T00:00:00-03:00
+  reviewDueAt: 2027-02-04T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - workflow-standard
+  enforcedBy: []
+  checksum: sha256:254a7290bc1f4efbb1596e635bbb4a77483c633372fa35767fa35294dfee065f
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/decisions/ADR-0004-maturidade-honesta-das-fases-6-9.md
+- id: adr-0005-containment-disabled
+  path: docs/decisions/ADR-0005-contencao-desligada.md
+  title: 'ADR-0005 — Contenção desligada: decisão reversível para uso interno'
+  category: decision
+  topic: containment-mode
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - architecture
+  taskTypes:
+  - adr
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: on-demand
+  priority: 700
+  tokenCost: 1121
+  owner: Product Security
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-08-04T00:00:00-03:00
+  reviewDueAt: 2027-02-04T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - security-isolation
+  enforcedBy: []
+  checksum: sha256:33cb5e2667d885d06c37cd3151d7f826bd95990c60977697b27dc9b6f7a3f7c9
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/decisions/ADR-0005-contencao-desligada.md
+- id: adr-0006-product-engineering-baseline
+  path: docs/decisions/ADR-0006-baseline-de-engenharia-do-produto-entregue.md
+  title: ADR-0006 — Baseline de engenharia do produto entregue
+  category: decision
+  topic: product-engineering-baseline
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  providers:
+  - '*'
+  agents:
+  - '*'
+  workflows:
+  - '*'
+  phases:
+  - architecture
+  taskTypes:
+  - adr
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: on-demand
+  priority: 700
+  tokenCost: 1932
+  owner: Platform Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-08-04T00:00:00-03:00
+  reviewDueAt: 2027-02-04T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - product-baseline
+  - product-definition-of-done
+  enforcedBy: []
+  checksum: sha256:14f6260d0c39eec48167f888f6de260364b41dbdca279db21a4e116f24310a60
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/decisions/ADR-0006-baseline-de-engenharia-do-produto-entregue.md

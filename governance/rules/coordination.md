@@ -24,6 +24,31 @@ Bruna e contexto não selecionado não são delegados.
 - Bloqueios registram causa, dependência, evidência e condição objetiva de saída.
 - Retry preserva contexto, checkpoints e idempotency key; não duplica efeitos.
 
+## Protocolo de execução
+
+Nenhum agente implementa a partir apenas do enunciado recebido. Antes de produzir:
+
+1. **Descoberta** — perfil efetivo do projeto, documentação arquitetural, ADRs,
+   padrões locais, README, runbook, documentação do módulo e baseline aplicável; mais
+   a stack real, a estrutura do repositório, testes, migrations, autenticação e
+   convenções de nome.
+2. **Resolução** — consolidar objetivo, critérios de aceite, stack efetiva,
+   restrições, documentos carregados, módulos permitidos, dependências, riscos e
+   testes exigidos. Conflito documental aplica a precedência do núcleo e é registrado,
+   nunca resolvido por conveniência.
+3. **Lacuna** — o que existe, o que se reutiliza, o que se altera e o que falta.
+   Duplicar por desconhecimento é falha de execução.
+4. **Plano** — componentes, impacto, testes, migrations, riscos e critério de
+   conclusão. Mudança arquitetural relevante escala; não é decidida em silêncio.
+5. **Implementação** — dentro do baseline e do perfil efetivo. Remover camada,
+   interface, segurança ou persistência para simplificar exige autorização.
+6. **Autoverificação** — build, testes, análise estática, migrations, contrato de API,
+   fluxo funcional e segurança básica, antes de pedir revisão.
+
+Preferência individual do agente não é fonte de decisão. Divergência do baseline ou do
+perfil efetivo tem causa declarada — requisito, NFR, restrição, decisão aprovada,
+compatibilidade ou necessidade operacional — e vira ADR quando arquitetural.
+
 ## Handoff e conclusão
 
 O handoff contém objetivo, escopo, exclusões, entradas, critérios de aceite,

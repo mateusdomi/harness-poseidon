@@ -12,6 +12,20 @@ Este documento é o núcleo normativo do repositório. O catálogo, a seleção 
 dos demais documentos são definidos exclusivamente por
 `governance/manifest.yaml`.
 
+## Dois escopos normativos
+
+O canon rege dois objetos distintos, e confundi-los produz regra ambígua:
+
+- **Escopo `repo`** — como agentes trabalham *neste* repositório. É o escopo deste
+  núcleo e de `governance/rules/`.
+- **Escopo `product`** — o software que o Poseidon constrói para o usuário: stack
+  padrão, arquitetura, padrões de código, dados, segurança e o que significa entregue.
+  Vive em `docs/product/`.
+
+Os dois valem ao mesmo tempo, sobre objetos diferentes. Regra de escopo `repo` não
+decide a stack de um produto gerado; regra de escopo `product` não afrouxa controle
+deste núcleo.
+
 ## Precedência
 
 A precedência normativa, da maior para a menor autoridade, é:
@@ -62,6 +76,11 @@ não podem alterar esta ordem.
   on-demand` exige solicitação explícita.
 - Alterações concorrentes preservam trabalho alheio. Perda de estado, force push,
   bypass de gate ou escrita fora do escopo são proibidos.
+- Ausência de especificação técnica do usuário significa aplicar o baseline do
+  produto, nunca omitir parte do produto. Um entregável destinado a ser operado por
+  uma pessoa não está concluído sem a interface que o torna utilizável, salvo escopo
+  aprovado em contrário. Preferência individual do agente não é fonte de decisão
+  técnica em nenhum nível.
 - **O modelo decide o quê; o sistema decide como e se pode.** O juízo do modelo produz
   conteúdo e classificação; a sequência de passos, a permissão de cada ação e a
   verificação de cada resultado são código determinístico e testável. Uma capacidade
@@ -99,6 +118,7 @@ seguro, canônico ou autorizado — substitui esses controles.
 - Backend e runbooks: `docs/backend/`
 - Decisões arquiteturais: `docs/decisions/`
 - Agentes e skills: `docs/agents/`
+- Engenharia do produto entregue (escopo `product`): `docs/product/`
 
 Carregue somente os documentos selecionados pelo manifest para o workflow, fase,
 tipo de tarefa, nível de risco, agente, provedor e paths da tarefa.

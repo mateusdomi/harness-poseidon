@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=2.0.0 checksum=sha256:42eaad17e90935f477837c7b8c3612bfea7e2ef7f3b122c66828e83af14daeb7 -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=2.0.0 checksum=sha256:ed2b41db6111cc9c68404e1ba1022072e666a41bfe1c249fde180f8d8c737ea8 -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -6,7 +6,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 ## By authority
 
 - `Adapter`: 2
-- `Canonical`: 38
+- `Canonical`: 48
 - `Generated`: 1
 
 ## By domain
@@ -16,10 +16,11 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `architecture`: 1
 - `backend`: 4
 - `contract`: 7
-- `decision`: 2
+- `decision`: 6
 - `entrypoint`: 1
 - `governance`: 1
 - `index`: 1
+- `product-standard`: 6
 - `rule`: 11
 - `runbook`: 3
 - `security`: 3
@@ -27,8 +28,8 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By phase
 
-- `*`: 34
-- `architecture`: 2
+- `*`: 40
+- `architecture`: 6
 - `development`: 1
 - `homologation`: 1
 - `planning`: 1
@@ -37,21 +38,21 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By status
 
-- `Active`: 41
+- `Active`: 51
 
 ## By owner
 
 - `Operations`: 7
-- `Platform Engineering`: 10
+- `Platform Engineering`: 17
 - `Platform Governance`: 14
-- `Product Security`: 6
-- `Quality Engineering`: 4
+- `Product Security`: 8
+- `Quality Engineering`: 5
 
 ## By load policy
 
 - `Always`: 4
-- `Bundle`: 31
-- `OnDemand`: 6
+- `Bundle`: 33
+- `OnDemand`: 14
 
 ## Documents by authority and domain
 
@@ -61,7 +62,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Bruna](agents/bruna.md) | * | Active | Platform Governance | Bundle | 1748 |
+| [Bruna](agents/bruna.md) | * | Active | Platform Governance | Bundle | 1953 |
 
 #### architecture
 
@@ -82,7 +83,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Contrato de card](contracts/card.md) | * | Active | Platform Governance | Bundle | 332 |
+| [Contrato de card](contracts/card.md) | * | Active | Platform Governance | Bundle | 609 |
 | [Contrato de handoff](contracts/handoff.md) | * | Active | Platform Governance | Bundle | 245 |
 | [Contrato de revisão](contracts/review.md) | * | Active | Quality Engineering | Bundle | 228 |
 | [Contrato backend e frontend](contracts/api-frontend.md) | * | Active | Platform Engineering | Bundle | 191 |
@@ -96,6 +97,10 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 |---|---|---|---|---|---:|
 | [ADR-0001 — Arquitetura definitiva do Poseidon](decisions/ADR-0001-arquitetura-definitiva-v3.md) | architecture | Active | Platform Engineering | OnDemand | 356 |
 | [ADR-0002 — Onde a política de ferramentas é aplicada em executores CLI](decisions/ADR-0002-fronteira-de-ferramentas-em-executores-cli.md) | architecture | Active | Platform Engineering | OnDemand | 794 |
+| [ADR-0003 — Memória conversacional e provedor](decisions/ADR-0003-memoria-conversacional-e-provedor.md) | architecture | Active | Platform Engineering | OnDemand | 864 |
+| [ADR-0004 — Maturidade honesta das fases 6 a 9](decisions/ADR-0004-maturidade-honesta-das-fases-6-9.md) | architecture | Active | Platform Engineering | OnDemand | 828 |
+| [ADR-0005 — Contenção desligada: decisão reversível para uso interno](decisions/ADR-0005-contencao-desligada.md) | architecture | Active | Product Security | OnDemand | 1121 |
+| [ADR-0006 — Baseline de engenharia do produto entregue](decisions/ADR-0006-baseline-de-engenharia-do-produto-entregue.md) | architecture | Active | Platform Engineering | OnDemand | 1932 |
 
 #### entrypoint
 
@@ -107,7 +112,18 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Núcleo de governança do Poseidon](../governance/core.md) | * | Active | Platform Governance | Always | 1073 |
+| [Núcleo de governança do Poseidon](../governance/core.md) | * | Active | Platform Governance | Always | 1304 |
+
+#### product-standard
+
+| Document | Phase | Status | Owner | Load policy | Tokens |
+|---|---|---|---|---|---:|
+| [Definition of Done do produto entregue](product/definition-of-done.md) | * | Active | Quality Engineering | Bundle | 1037 |
+| [Baseline técnico do produto entregue](product/baseline.md) | * | Active | Platform Engineering | Bundle | 1473 |
+| [Segurança e operabilidade do produto entregue](product/security-and-operability.md) | * | Active | Product Security | OnDemand | 834 |
+| [Backend do produto entregue — arquitetura, .NET/C# e API](product/backend-standards.md) | * | Active | Platform Engineering | OnDemand | 1476 |
+| [Dados e banco do produto entregue](product/data-standards.md) | * | Active | Platform Engineering | OnDemand | 756 |
+| [Frontend do produto entregue](product/frontend-standards.md) | * | Active | Platform Engineering | OnDemand | 714 |
 
 #### rule
 
@@ -118,8 +134,8 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [Revisão de código](../governance/rules/code-review.md) | * | Active | Quality Engineering | Bundle | 275 |
 | [Segredos](../governance/rules/secrets.md) | * | Active | Product Security | Bundle | 257 |
 | [Segurança](../governance/rules/security.md) | * | Active | Product Security | Bundle | 305 |
-| [Coordenação](../governance/rules/coordination.md) | * | Active | Platform Governance | Bundle | 336 |
-| [Documentação](../governance/rules/documentation.md) | * | Active | Platform Governance | Bundle | 315 |
+| [Coordenação](../governance/rules/coordination.md) | * | Active | Platform Governance | Bundle | 645 |
+| [Documentação](../governance/rules/documentation.md) | * | Active | Platform Governance | Bundle | 671 |
 | [Git e integração](../governance/rules/git.md) | * | Active | Platform Engineering | Bundle | 293 |
 | [Testes e gates](../governance/rules/testing.md) | * | Active | Quality Engineering | Bundle | 287 |
 | [Capacidade e cotas](../governance/rules/capacity.md) | * | Active | Operations | Bundle | 227 |
@@ -146,7 +162,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
 | [Máquina de estados do card](architecture/workflows/card-state-machine.md) | * | Active | Platform Governance | Bundle | 278 |
-| [Workflow padrão de nove fases](architecture/workflows/standard-workflow.md) | * | Active | Platform Governance | Bundle | 2651 |
+| [Workflow padrão de nove fases](architecture/workflows/standard-workflow.md) | * | Active | Platform Governance | Bundle | 2820 |
 | [Intake de demandas](architecture/workflows/intake.md) | triage | Active | Product Security | Bundle | 242 |
 | [Paralelismo](architecture/workflows/parallelism.md) | planning, development | Active | Platform Engineering | Bundle | 242 |
 

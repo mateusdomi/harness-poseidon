@@ -101,8 +101,14 @@ dívida que se aceita conscientemente; ADRs em formato MADR com consequências n
 (`09`); comparativo de trade-off com critérios definidos **antes** das opções (`08`); threat model
 STRIDE cobrindo OWASP:2025 (`10b`); plano de observabilidade com SLI e SLO calculáveis (`11b`).
 
+Consolidar o **perfil efetivo do projeto** — o *constraint profile* que o gate desta fase cobra,
+definido em a Parte 2 de [`docs/product/baseline.md`](../../product/baseline.md). Ele resolve,
+de uma vez, qual stack, arquitetura, banco, modalidade de produto e modelo de autenticação valem
+aqui, o que foi herdado do baseline, o que foi sobrescrito e sob qual ADR. Sem ele, cada executor
+reinterpreta o projeto do zero e o gate exige aderência a um artefato que não existe.
+
 **Saídas.** SAD Ideal e Restrito, ADRs, C4, DER, Comparativo de trade-off, Threat Model STRIDE,
-Plano de Observabilidade.
+Plano de Observabilidade, Perfil efetivo do projeto.
 
 **Gate (Default-FAIL).** ADRs aprovados por revisor distinto, NFRs medíveis, aderência ao
 constraint profile (desvio exige ADR), threat model cobrindo OWASP:2025 e DER revisado.
@@ -145,9 +151,13 @@ worktree isolada com `ScopeClaim` próprio.
 **Condução.** `dev-executor` (N em paralelo). Revisão: `tech-lead` ★ — **revisor sempre distinto
 do implementador**. Apoio: `security` e `dba-dados` por consulta.
 
-**Entradas.** Cards prontos (DoR cumprida), briefing técnico por card (`18`).
+**Entradas.** Cards prontos (DoR cumprida), briefing técnico por card (`18`), perfil efetivo do
+projeto e o baseline de engenharia do produto ([`docs/product/`](../../product/definition-of-done.md)).
 
-**Atividades.** Implementar dentro do padrão arquitetural; testes junto do código; code review
+**Atividades.** Implementar dentro do padrão arquitetural e do
+[Definition of Done do produto](../../product/definition-of-done.md) — build verde e endpoint
+respondendo não constituem entrega quando a modalidade exige interface utilizável; testes junto do
+código; code review
 estruturado nomeando camada e severidade (`15`); capturar ADRs incrementais que emergirem;
 manter o dicionário ubíquo (`17`); registrar análise de incidente de desenvolvimento quando
 houver (`19`).
