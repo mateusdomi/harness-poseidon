@@ -467,7 +467,8 @@ public sealed partial class ChiefBacklogLoopService(
                     await IntegrateApprovedCardsAsync(
                         profile.TenantId, profile.Id, project, projectControlledRoot, board, scope, token);
                     token.ThrowIfCancellationRequested();
-                    await AnnounceEscalatedCardsAsync(profile.TenantId, project, board, scope, token);
+                    await AnnounceEscalatedCardsAsync(
+                        profile.TenantId, project, projectControlledRoot, board, scope, token);
                     token.ThrowIfCancellationRequested();
                     // Caminho BOM também é notícia: sem isto o dono só ouvia a Bruna quando algo
                     // travava, e um projeto saudável avançava fases inteiras em silêncio.
@@ -3344,6 +3345,7 @@ public sealed partial class ChiefBacklogLoopService(
     private async Task<int> AnnounceEscalatedCardsAsync(
         string tenantId,
         ProjectRecord project,
+        string controlledRoot,
         IWorkBoardStore board,
         IServiceScope scope,
         CancellationToken token)
@@ -3376,7 +3378,7 @@ public sealed partial class ChiefBacklogLoopService(
         {
             token.ThrowIfCancellationRequested();
             if (await TryReplanEscalatedAsync(
-                tenantId, project, task, board,
+                tenantId, project, task, controlledRoot, board,
                 scope.ServiceProvider.GetRequiredService<IWorkChainStore>(), token))
             {
                 _ = _announcedEscalations.Remove(task.Id);
@@ -3922,6 +3924,7 @@ public sealed partial class ChiefBacklogLoopService(
         string tenantId,
         ProjectRecord project,
         BoardTaskRecord task,
+        string controlledRoot,
         IWorkBoardStore board,
         IWorkChainStore chain,
         CancellationToken token)
@@ -3961,10 +3964,40 @@ public sealed partial class ChiefBacklogLoopService(
         // A regra continua estreita de proposito: ela vale para a guarda do REPLANEJAMENTO, e nao
         // para o orcamento de rodadas nem para o limiar do circuito. Quem impede o laco aqui e o
         // teto de replanejamentos logo abaixo, que agora conta o que diz contar.
-        var realAttempts = attempts.Count(attempt =>
-            !CardCircuitBreakerService.IsInfrastructureFailure(attempt.FailureReason) &&
-            attempt.TokensOutput > 0 &&
-            attempt.CommitRefs.Count > 0);
+        // O SINAL DE "DEIXOU COMMIT" NÃO ESTAVA EM `CommitRefs`, e medir isso ao vivo derrubou a
+        // primeira versão desta regra. A colheita governada commita os restos da worktree e
+        // devolve o HEAD dela mesmo quando não havia resto nenhum — então TODA tentativa colhida
+        // grava `agent-run:`, `git-branch:` e `git-commit:`, e `CommitRefs.Count > 0` é sempre
+        // verdadeiro. Medido nos quatro cards da fase 5: as onze tentativas têm três referências
+        // cada, inclusive as de diff vazio, e o SHA gravado para as vazias é o de um merge de OUTRA
+        // tentativa. A regra escrita para devolvê-los à fila nunca disparava — um proxy que
+        // quebrou, exatamente como a contagem de versões de instrução logo abaixo.
+        //
+        // A prova de entrega é o DIFF da branch da tentativa. `null` significa que não deu para
+        // apurar (branch ausente, git com erro) e conta como ENTREGOU: afrouxar uma guarda
+        // anti-laço por causa de uma leitura que falhou é o pior default possível aqui.
+        var realAttempts = 0;
+        foreach (var attempt in attempts)
+        {
+            // O diff só é apurado para quem passou nos dois sinais baratos: ler git por tentativa
+            // morta de cota seria custo sem pergunta.
+            if (!ReplanAttemptPolicy.ExercisedApproach(attempt.FailureReason, attempt.TokensOutput, null))
+            {
+                continue;
+            }
+
+            var introduced = await AttemptIntroducedChangesAsync(
+                project, controlledRoot, attempt.Id, token);
+            if (ReplanAttemptPolicy.ExercisedApproach(
+                    attempt.FailureReason, attempt.TokensOutput, introduced))
+            {
+                realAttempts++;
+            }
+            else
+            {
+                LogReplanEmptyDelivery(logger, task.Id, attempt.Id);
+            }
+        }
 
         // O TETO CONTA REPLANEJAMENTOS, e nao versoes de instrucao.
         //
@@ -4451,6 +4484,43 @@ public sealed partial class ChiefBacklogLoopService(
     /// os restos na branch da tentativa e remove a worktree. Nunca destrói trabalho; falha aqui é
     /// logada e não impede a colheita da cadeia (o diff apenas refletirá o que está na branch).
     /// </summary>
+    /// <summary>
+    /// A tentativa introduziu mudança na branch dela? <c>null</c> quando não deu para apurar —
+    /// quem chama decide o que fazer com a dúvida, em vez de recebê-la disfarçada de "não".
+    /// </summary>
+    private async Task<bool?> AttemptIntroducedChangesAsync(
+        ProjectRecord project,
+        string controlledRoot,
+        string attemptId,
+        CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(project.RepositoryUrl))
+        {
+            return null;
+        }
+
+        try
+        {
+            var repositoryRoot = System.IO.Path.GetFullPath(project.RepositoryUrl);
+            using var manager = await GitWorktreeManager.OpenAsync(repositoryRoot, controlledRoot, token);
+            return await manager.BranchIntroducedChangesAsync(
+                $"task/agent-run-{attemptId.ToLowerInvariant()}", token);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            LogAttemptDiffUnavailable(logger, attemptId, exception.GetType().Name);
+            return null;
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Chief: card {TaskId} — tentativa {AttemptId} não introduziu mudança nenhuma na branch; não exerceu abordagem e não gasta o replanejamento.")]
+    private static partial void LogReplanEmptyDelivery(ILogger logger, string taskId, string attemptId);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Chief: não foi possível apurar o diff da tentativa {AttemptId} ({Error}); ela conta como entrega para não afrouxar a guarda de replanejamento.")]
+    private static partial void LogAttemptDiffUnavailable(ILogger logger, string attemptId, string error);
+
     private async Task<string?> TryHarvestWorktreeAsync(
         ProjectRecord project,
         string controlledRoot,

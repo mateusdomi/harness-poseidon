@@ -1,4 +1,3 @@
-using Harness.Persistence.Abstractions.WorkChain;
 using Harness.Host.Agents;
 
 namespace Harness.UnitTests.Agents;
@@ -16,8 +15,14 @@ namespace Harness.UnitTests.Agents;
 /// limiar do circuito, que são o freio que de fato funcionou naquela noite:
 ///
 /// 1. "Tentou" passa a significar que algo foi ENTREGUE. Uma tentativa que rodou, gastou token e
-///    não deixou commit nenhum não exerceu abordagem alguma — não há o que evitar repetir.
+///    não introduziu mudança nenhuma não exerceu abordagem alguma — não há o que evitar repetir.
 ///    É o mesmo raciocínio que o código já aceita para falha de infraestrutura.
+///
+///    A PRIMEIRA VERSÃO DESTA REGRA NÃO FUNCIONAVA (OPS-078). Ela media a entrega por
+///    `CommitRefs.Count > 0`, e esse sinal é sempre verdadeiro — a colheita governada commita os
+///    restos da worktree e devolve o HEAD dela mesmo quando não havia resto. Medido nos quatro
+///    cards: onze tentativas, três referências cada, inclusive as de diff vazio. A prova de
+///    entrega é o diff da branch da tentativa, e a dúvida (`null`) conta como entrega.
 ///
 /// 2. O teto de rodadas operacionais passa a contar REPLANEJAMENTOS. Contava versões de
 ///    instrução como proxy — cada replanejamento grava uma —, mas a correção após reprovação
@@ -29,18 +34,11 @@ public sealed class ReplanGuardBudgetTests
     private const string Replan = "## Replanejamento após escalonamento";
     private static readonly string[] Original = ["original"];
 
-    private static BoardAttemptRecord Attempt(
-        long tokens, int commits, string? failureReason = null) =>
-        new("t", "01ARZ3NDEKTSV4RRFFQ69G5FAV", "card", 1, "failed", "agent",
-            DateTimeOffset.UnixEpoch, null, null, 0m, 0, tokens,
-            [.. Enumerable.Range(0, commits).Select(i => $"git-commit:{i}")],
-            null, failureReason);
-
-    private static int RealAttempts(params BoardAttemptRecord[] attempts) =>
-        attempts.Count(a =>
-            !CardCircuitBreakerService.IsInfrastructureFailure(a.FailureReason) &&
-            a.TokensOutput > 0 &&
-            a.CommitRefs.Count > 0);
+    // A regra vem da PRODUÇÃO. A versão anterior deste arquivo reimplementava o predicado aqui —
+    // e foi por isso que ela ficou verde enquanto o código real nunca disparava: o teste media a
+    // cópia, não a regra. Um teste que reescreve a regra prova apenas que sabe escrevê-la.
+    private static int RealAttempts(params (string? Reason, long Tokens, bool? Introduced)[] attempts) =>
+        attempts.Count(a => ReplanAttemptPolicy.ExercisedApproach(a.Reason, a.Tokens, a.Introduced));
 
     // ---- "Tentou" significa entregou -------------------------------------------------
 
@@ -51,7 +49,7 @@ public sealed class ReplanGuardBudgetTests
     [Fact]
     public void TentativaQueGastouTokenESemCommitNaoContaComoAbordagemExercida()
     {
-        Assert.Equal(0, RealAttempts(Attempt(tokens: 11607, commits: 0)));
+        Assert.Equal(0, RealAttempts((null, 11607, false)));
     }
 
     /// <summary>
@@ -61,7 +59,18 @@ public sealed class ReplanGuardBudgetTests
     [Fact]
     public void TentativaQueENTREGOUContaEGastaOReplanejamento()
     {
-        Assert.Equal(1, RealAttempts(Attempt(tokens: 67748, commits: 1)));
+        Assert.Equal(1, RealAttempts((null, 67748, true)));
+    }
+
+    /// <summary>
+    /// O default que impede a leitura falha de virar permissão. Branch podada, repositório fora
+    /// do lugar, git com erro: "não sei" conta como entrega e o card NÃO ganha replanejamento de
+    /// graça. É a diferença entre afrouxar uma guarda por decisão e afrouxá-la por acidente.
+    /// </summary>
+    [Fact]
+    public void DiffQueNaoPodeSerApuradoContaComoEntrega()
+    {
+        Assert.Equal(1, RealAttempts((null, 45457, null)));
     }
 
     /// <summary>Falha de infraestrutura continua não contando — a regra anterior segue valendo.</summary>
@@ -71,7 +80,7 @@ public sealed class ReplanGuardBudgetTests
     [InlineData("executor.authentication_required")]
     public void FalhaDeInfraestruturaContinuaNaoContando(string reason)
     {
-        Assert.Equal(0, RealAttempts(Attempt(tokens: 500, commits: 3, failureReason: reason)));
+        Assert.Equal(0, RealAttempts((reason, 500, true)));
     }
 
     /// <summary>
@@ -82,8 +91,8 @@ public sealed class ReplanGuardBudgetTests
     [Fact]
     public void SoContaQuandoHOUVEEntregaEConsumo()
     {
-        Assert.Equal(0, RealAttempts(Attempt(tokens: 0, commits: 2)));
-        Assert.Equal(0, RealAttempts(Attempt(tokens: 0, commits: 0)));
+        Assert.Equal(0, RealAttempts((null, 0, true)));
+        Assert.Equal(0, RealAttempts((null, 0, false)));
     }
 
     // ---- O teto conta replanejamentos, não instruções --------------------------------

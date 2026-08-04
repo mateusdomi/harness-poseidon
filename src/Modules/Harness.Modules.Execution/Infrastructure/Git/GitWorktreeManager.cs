@@ -419,6 +419,44 @@ public sealed class GitWorktreeManager : IDisposable
     }
 
     /// <summary>
+    /// A branch da tentativa INTRODUZIU alguma mudança sobre a referência publicada?
+    ///
+    /// Devolve <c>null</c> quando não dá para saber — branch ausente, repositório fora do lugar,
+    /// git com erro. "Não sei" é deliberadamente diferente de "não entregou", e por isso não
+    /// reaproveita <see cref="ListBranchChangedFilesAsync"/>, que colapsa os dois em lista vazia:
+    /// quem chama este método AFROUXA uma guarda quando a resposta é "não entregou", e um erro de
+    /// leitura virando permissão é a forma mais cara de errar aqui.
+    ///
+    /// A colheita governada commita os restos da worktree e devolve o HEAD dela — inclusive quando
+    /// nada havia para commitar. Por isso a presença de um <c>git-commit:</c> na evidência da
+    /// tentativa NÃO prova entrega: para uma tentativa que não produziu nada, o SHA registrado é o
+    /// da própria base. A única prova é o diff.
+    /// </summary>
+    public async Task<bool?> BranchIntroducedChangesAsync(
+        string branchName, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(branchName);
+        if (!branchName.StartsWith("task/", StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "Task branches must use the task/ prefix.", nameof(branchName));
+        }
+
+        var head = await RunGitAsync(
+            _repositoryRoot, ["rev-parse", "--verify", $"{branchName}^{{commit}}"], cancellationToken);
+        if (head.ExitCode != 0)
+        {
+            return null;
+        }
+
+        var names = await RunGitAsync(
+            _repositoryRoot, ["diff", "--name-only", $"HEAD...{branchName}"], cancellationToken);
+        return names.ExitCode != 0
+            ? null
+            : names.StandardOutput.Trim().Length > 0;
+    }
+
+    /// <summary>
     /// Lê um artefato diretamente da revisão da branch, sem depender de uma worktree viva. O path
     /// é deliberadamente restrito a <c>docs/</c>: este método alimenta o catálogo documental e
     /// nunca deve virar um leitor genérico de arquivos arbitrários do repositório.
