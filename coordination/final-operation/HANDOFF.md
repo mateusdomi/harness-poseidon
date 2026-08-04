@@ -830,3 +830,112 @@ Havia **outra sessão viva neste mesmo repositório** (commits `acd3c2b8`, `6aae
 entre 03:20 e 03:25Z). Ela cuida de `coordination/board.yaml` e do `vigil.sh`, e corrigiu a
 atribuição de causa do `OPS-070`. Nós não colidimos porque ela commita rápido e eu conferi
 `git status` antes de cada bloco. **Confira antes de escolher item.**
+
+---
+
+# Manhã de 2026-08-04, ciclo 56 — a regra existia, passava nos testes e nunca disparava
+
+## Leia isto antes de confiar em qualquer correção "já publicada"
+
+O ciclo anterior fechou o `OPS-070` com a decisão que o dono delegou — *"tentativa que rodou,
+gastou token e não deixou commit nenhum não exerceu abordagem alguma"* — e deixou como próximo
+passo *"publicar e confirmar ao vivo"*. Publicado estava. **A correção era inerte.**
+
+Ela media "não deixou commit" por `CommitRefs.Count > 0`, e esse sinal é **sempre verdadeiro**:
+a colheita governada commita os restos da worktree e, quando não há resto, devolve o HEAD dela.
+Toda tentativa colhida grava `agent-run:`, `git-branch:` e `git-commit:` — e para as vazias o SHA
+gravado é o da própria base; em dois dos quatro cards, literalmente o merge de OUTRA tentativa.
+
+Duas coisas doem aqui:
+
+1. **A evidência que derrubava o sinal já estava escrita no próprio finding.** O campo `evidence`
+   do `OPS-070` dizia, medido na noite anterior: *"não há sinal durável de vazio: `work_evidence`
+   tem três referências para TODA tentativa"*. A correção foi escrita contra o sinal que a medição
+   ao lado dela já havia descartado.
+2. **O teste ficou verde porque reimplementava a regra.** `ReplanGuardBudgetTests` tinha um helper
+   `RealAttempts` que repetia o predicado dentro do arquivo de teste. Ele provava que o autor sabia
+   escrever a regra, não que a produção a executava. **Um teste que reescreve a regra não testa
+   nada.** Hoje o predicado é `ReplanAttemptPolicy.ExercisedApproach` e os dois lados chamam a
+   mesma função.
+
+Como eu descobri: publiquei, esperei, e **medi** — binário no ar às 09:59:31Z, laço do Chefe a cada
+10 s, memória de escalações zerada pelo reinício, e os quatro cards ficaram **sete minutos** em
+`blocked` sem uma linha de log. Depois fui ao repositório do produto conferir as branches. É a
+mesma regra que o ciclo 55 aprendeu com o gate do `OPS-071`: **depois de publicar, rode contra o
+artefato real antes de confiar.**
+
+## Três cadeados no mesmo card, de novo — e o sintoma mudando é o sinal de que você acertou
+
+Corrigido o sinal, o card **ainda** não andou; o sintoma trocou. Foi assim três vezes seguidas:
+
+1. **`OPS-078`** — a guarda media `CommitRefs`. Trocado pelo diff real da branch.
+2. **`OPS-079`** — a devolução passou a aplicar, e o **orçamento de rodadas reescalava o card no
+   mesmo ciclo**: 10 → 13 versões de instrução em dez minutos, zero despachos. Duas contagens
+   respondiam a mesma pergunta ("o card já tentou?") e discordavam, porque uma continuava com o
+   proxy quebrado. A que estava errada anulava a outra.
+3. **`OPS-080`** — o bloco de replanejamento era **anexado** a um corpo que já o continha. O card
+   chegou ao ator com **cinco cópias idênticas** de *"a abordagem anterior NÃO deve ser repetida…
+   registre o bloqueio em vez de tentar de novo"*. E a mesma herança quebrava o teto: a instrução
+   corretiva copia o corpo anterior, então um replanejamento reaparecia em toda versão seguinte.
+
+**Se você corrigir algo e o sintoma mudar em vez de sumir, avance.** Foi assim que os três saíram
+em noventa minutos — e é a terceira vez que este mesmo bloco de código é pego usando um proxy que
+quebrou.
+
+## A regra que eu proponho para o próximo
+
+Toda vez que este código contou alguma coisa, contou errado: versões de instrução como proxy de
+rodada (`OPS-070`), referências de evidência como proxy de entrega (`OPS-078`), ocorrências de
+marcador como proxy de replanejamento (`OPS-080`). **Quando você precisar contar quantas vezes algo
+aconteceu, procure onde aquilo é DECLARADO — e, se não for declarado em lugar nenhum, declare.**
+Foi o que fiz: a rodada agora está escrita no marcador (`(rodada N)`), e não inferida de nada.
+
+## O gate estava contando um defeito que não existia
+
+`supervisor status` acusava dois itens de trabalho, e um deles era `PARSE-ERROR — linha ilegível`.
+A linha do `OPS-070` tinha sido escrita com `"fix"` como **array**, e o modelo em C# declara texto:
+a linha inteira não desserializava e virava um finding sintético. Um defeito **já corrigido** sumia
+do relatório e reaparecia como trabalho **aberto**, sem causa e sem título (`OPS-077`).
+
+Repare na forma — é a mesma de sempre nesta operação: o dado estava íntegro e legível (o Python lê
+a linha sem erro), e quem decide não o leu. Agora o leitor aceita texto **ou** array, com a
+tolerância estreita de propósito, e há um teste que lê o **arquivo real** e falha se qualquer linha
+for ilegível.
+
+## Onde a fase 5 está, medido e não deduzido
+
+- **A esteira voltou a produzir depois de sete horas parada.** Card `01KZ4ZM2XRDYR3W124KJSJQNKJ`
+  despachado, com o ator escrevendo em `src/emprestimos/**` e `tests/**` — conferido na worktree
+  viva, não no log.
+- **`OPS-071` CONFERIDO EM PRODUÇÃO**, que era o item 1 do `nextAction` anterior:
+  `gates da entrega do card … executados pela plataforma: delivery_gates.passed — bash
+  tools/backend/build.sh: OK; bash tools/backend/test.sh: OK`.
+- **Dois cards seguem escalados por desenho**: `01KZ4ZM2X6QH64674T7T0ZH7QR` e
+  `01KZ4ZM2Y0J21W0JMC00HWG7XT` ENTREGARAM (1515 linhas de código e 60.835 tokens) e foram
+  reprovados pelo `OPS-071`, defeito nosso já corrigido. O recorte estreito que o dono delegou
+  devolve quem **não** tentou; estes tentaram e esbarraram em nós. **Devolvê-los é decisão nova
+  dele**, e não há sinal durável de "reprovado por culpa do sistema" — inventar um seria o critério
+  desonesto que a rodada anterior já recusou criar.
+
+## O que eu NÃO consegui responder, e por que isso importa
+
+**Por que o ator gasta 7 a 17 mil tokens e não escreve um arquivo.** Eu tinha uma hipótese boa —
+os cinco blocos de replanejamento empilhados — e a medição a derrubou: as tentativas 1 e 2
+entregaram vazio às 00:14 e 00:19, **antes de existir qualquer bloco de replanejamento**. O claim
+inclui `src/**` e `tests/**` (conferido em `attempt_scope_claims`) e o repositório já tem `src/`,
+`tests/` e `tools/`.
+
+Não há transcript do executor no banco nem em disco depois da colheita: `model_invocations` guarda
+tokens e custo, nunca texto. **Instrumentar a captura da mensagem final do ator é o próximo passo**
+— sem ela, toda hipótese sobre o motivo é leitura de código, e esta operação já pagou caro por isso
+mais de uma vez.
+
+## Coordenação
+
+A outra sessão continua viva neste repositório e estava **no meio de uma edição** de
+`ConversationChiefAgentExecutor.cs` e `HostApplication.cs` (sem os `using` de logging). Meu
+`verify.sh` ficou vermelho por causa disso, em arquivos que eu não toquei. **Não conserte o
+trabalho em voo do outro**: rode o gate num worktree do seu próprio HEAD
+(`git worktree add /tmp/... <sha>`) e diga de onde veio o vermelho. Cuidado com a armadilha: num
+worktree novo não existe `tools/backend/.tooling/dotnet`, então `RunnerHostIpcPocTests` falha por
+falta do SDK hermético — é ambiente, não regressão.
