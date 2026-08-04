@@ -17,6 +17,12 @@ public static class ProductDeliveryFailures
     public const string DeliveryIncomplete = "product:definition_of_done_failed";
 
     /// <summary>
+    /// O perfil existe mas não decidiu a modalidade: ninguém definiu que produto é este, e sem isso
+    /// "pronto" não tem critério.
+    /// </summary>
+    public const string ProfileUndecided = "product:effective_profile_modality_unresolved";
+
+    /// <summary>
     /// Projeto anterior ao baseline de produto: o portão do produto não incide, e o fato fica
     /// registrado. Compatibilidade legada precisa ter nome, não ser silêncio.
     /// </summary>
@@ -59,15 +65,48 @@ public sealed class ProductDeliveryEvaluator(
         string? repositoryRoot,
         string commitSha,
         int phaseOrder,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? demandText = null)
     {
         var record = await profiles.GetCurrentAsync(tenantId, projectId, cancellationToken);
 
-        // Fase 3: sem perfil ao fim da Arquitetura, o gate não fecha. O gate desta fase sempre
-        // cobrou "aderência ao constraint profile"; sem o artefato, ele cobrava o inexistente.
-        if (phaseOrder >= ArchitecturePhaseOrder && record is null)
+        // Fase 3 MATERIALIZA o perfil. É o artefato da Arquitetura: a partir daqui, "aderência ao
+        // constraint profile" deixa de cobrar o inexistente. A resolução é determinística e
+        // idempotente por conteúdo — rodar o ciclo dez vezes não cria dez versões.
+        if (record is null && phaseOrder >= ArchitecturePhaseOrder &&
+            !string.IsNullOrWhiteSpace(demandText))
         {
-            return new Outcome(null, ProductDeliveryFailures.ProfileMissing, null);
+            var materialized = await MaterializeAsync(
+                tenantId, projectId, demandText, [], [], "workflow-phase-driver", cancellationToken);
+            record = materialized.Profile;
+            LogProfileMaterialized(logger, projectId, record.Version, record.Modality);
+        }
+
+        if (record is null)
+        {
+            // A janela legada, explícita: um projeto que chegou às fases executivas sem perfil e
+            // sem demanda de onde resolvê-lo é anterior a este baseline. O portão do produto não
+            // incide sobre ele, e o fato vira registro NOMEADO — nunca um `return Ready` escondido.
+            // Ela fecha sozinha: todo projeto novo materializa o perfil na Arquitetura.
+            if (phaseOrder >= DevelopmentPhaseOrder)
+            {
+                LogLegacyProjectExempt(logger, projectId);
+                return new Outcome(null, ProductDeliveryFailures.LegacyProjectExempt, null);
+            }
+
+            // Projeto governado que chegou à Arquitetura sem perfil: o gate não fecha.
+            if (phaseOrder >= ArchitecturePhaseOrder)
+            {
+                return new Outcome(null, ProductDeliveryFailures.ProfileMissing, null);
+            }
+        }
+
+        // Perfil resolvido com modalidade indefinida é perfil que não decidiu nada: ninguém sabe
+        // que produto é este, e "pronto" fica sem critério. O gate da Arquitetura reprova.
+        if (record is not null &&
+            string.Equals(record.Modality, nameof(ProductModality.Unspecified), StringComparison.Ordinal))
+        {
+            return new Outcome(null, ProductDeliveryFailures.ProfileUndecided, record);
         }
 
         if (phaseOrder < DevelopmentPhaseOrder)
@@ -75,13 +114,7 @@ public sealed class ProductDeliveryEvaluator(
             return new Outcome(null, null, record);
         }
 
-        if (record is null)
-        {
-            LogLegacyProjectExempt(logger, projectId);
-            return new Outcome(null, ProductDeliveryFailures.LegacyProjectExempt, null);
-        }
-
-        var profile = ProjectEffectiveProfile.FromJson(record.ProfileJson);
+        var profile = ProjectEffectiveProfile.FromJson(record!.ProfileJson);
         if (profile is null)
         {
             // Perfil ilegível é fail-closed: não sabemos o que o projeto decidiu, então não temos
@@ -155,6 +188,22 @@ public sealed class ProductDeliveryEvaluator(
             ProductVerdict(logger, projectId, version, verdict, evidence, null);
         }
     }
+
+    private static void LogProfileMaterialized(
+        ILogger? logger, string projectId, int version, string modality)
+    {
+        if (logger is not null)
+        {
+            ProfileMaterialized(logger, projectId, version, modality, null);
+        }
+    }
+
+    private static readonly Action<ILogger, string, int, string, Exception?> ProfileMaterialized =
+        LoggerMessage.Define<string, int, string>(
+            LogLevel.Information,
+            new EventId(3, nameof(ProfileMaterialized)),
+            "Perfil efetivo do projeto {ProjectId} materializado na v{ProfileVersion} " +
+            "(modalidade {Modality}).");
 
     private static readonly Action<ILogger, string, Exception?> LegacyExempt =
         LoggerMessage.Define<string>(

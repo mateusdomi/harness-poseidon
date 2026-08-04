@@ -396,7 +396,12 @@ public sealed class WorkflowPhaseDriver(
         if (productDelivery is not null)
         {
             var outcome = await productDelivery.EvaluateAsync(
-                tenantId, project.Id, project.RepositoryUrl, running.Id, phase.Order, cancellationToken);
+                tenantId, project.Id, project.RepositoryUrl, running.Id, phase.Order, cancellationToken,
+                // A prosa do usuário é a entrada da resolução: é dela que sai a modalidade, e é a
+                // modalidade que decide o que "pronto" significa.
+                string.Join(
+                    '\n',
+                    demands.Select(demand => $"{demand.Title}\n{demand.Description}")));
             productVerdict = outcome.Verdict;
             if (outcome.Failure is { Length: > 0 } productFailure &&
                 !string.Equals(productFailure, ProductDeliveryFailures.LegacyProjectExempt, StringComparison.Ordinal))
