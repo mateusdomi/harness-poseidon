@@ -55,6 +55,17 @@ ordem_provar_a_fabrica:
       nota: "GATE ATRAVESSADO. Binario publicado as 23:27:41Z (HEAD 21402df8) por publish-when-idle.sh, com a esteira pausada antes da conferencia. Os SEIS cards do Conselho, escalados desde 18:06Z de 03/08, voltaram sozinhos e fecharam em completed/done — sem intervencao manual, o que prova ao vivo o conserto de replanejamento (e3c4025a/7ea4b60e/75971b37) que estava testado e nao provado. workflow_phase_runs: fase 4 completed em 2026-08-03T23:32:05Z, fase 5 ACTIVE. Aceite de diversidade cumprido na forma DECLARADA e nao na forma satisfeita: o portao registrou 'DEGRADADO: 6 lente(s) em apenas 1 inteligencia(s) distinta(s) — o minimo e 2', porque os pareceres consolidados eram os ja escritos por worker-antigravity-review. E exatamente o comportamento desenhado: liberar dizendo em quantas cabecas foi pensado. Antes desta ordem, o mesmo conselho teria passado como seis opinioes."
   onda_1_fase_5:
     estado: em_andamento
+    MARCO_ATINGIDO:
+      quando: "2026-08-04T03:24:23Z"
+      o_que: "A fabrica escreveu software. O repositorio do produto, que tinha APENAS docs/, passou a ter 19 arquivos de codigo versionados em arquitetura por camadas: src/emprestimos/{dominio,aplicacao,persistencia,api}, tests/ com quatro suites e tools/backend/{build,test}.sh."
+      cadeia_com_id:
+        ator: "chief-claude-primary, 67.748 tokens de saida, tentativa 01KZ5BYQTZRPHZEG1QQF8SY982"
+        critico: "worker-antigravity-review — CONTA DISTINTA do ator; reprovou cinco tentativas e aprovou a sexta"
+        gate: "commit 08a3c01 — merge(card FEAT/T01) exigindo review aprovada"
+      card: "FEAT/T01 Backend: Registro simples de eventos de emprestimo (01KZ4ZM2XV8A4HJEZZSHF6QRMR)"
+      por_que_ESTE_card: "era o unico dos cinco cuja instrucao NAO carregava a persona errada — os outros quatro nasceram seis minutos antes do conserto OPS-065 e por isso estao bloqueados. O contraste e a prova mais limpa que a operacao produziu: mesma frota, mesma fase, mesmo momento; o card com cabecalho correto entregou codigo, os quatro com cabecalho errado entregaram diff vazio."
+      o_que_NAO_prova: "a fase 5 exige TODOS os cards da release em Merged. Um card entregue prova que a fabrica CONSEGUE; nao prova que a fase fecha. Quatro cards seguem bloqueados aguardando decisao do dono (OPS-070)."
+    correcao_de_leitura_minha: "eu declarei que nada andaria antes de 04:30Z por falta de cota. Andou: chief-claude-primary recuperou antes do CooldownUntil declarado e executou. Tratei a janela do provedor como certeza quando ela e previsao — o ledger diz quando a conta VOLTOU a ser elegivel, nao quando ela deixaria de ser."
     iniciado_em: "2026-08-03T23:32:05Z"
     nota: "O MARCO. Fase 5 ativa com cards de CODIGO DE PRODUTO reais criados pela esteira: 'FEAT/T01 Backend: Controle de emprestimo e devolucao de equipamentos', T02 Frontend, e mais — alem dos quatro documentais da fase (Briefing tecnico, Code review estruturado, Metricas DORA, Dicionario ubiquo). Um card ja em board_state=development. E a primeira vez na historia do produto que a frota recebe card de escrever codigo. Aceite pendente: codigo real commitado, revisao por agente distinto, integracao pelo gate, zero bypass, telemetria da fase (custo, duracao, pass@k, MAST) no parecer."
     capacidade_declarada_pelo_dono: "Claude principal e Claude B com cota; Antigravity com cota; AMBOS os Codex no limite semanal; Kimi volta 22:18 local; GLM desativado de vez."
