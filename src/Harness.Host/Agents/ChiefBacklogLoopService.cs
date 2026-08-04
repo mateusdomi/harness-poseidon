@@ -4476,8 +4476,8 @@ public sealed partial class ChiefBacklogLoopService(
                 continue;
             }
 
-            var record = availability.Get(candidate.Alias);
-            if (record?.CooldownUntil is { } until && until > now &&
+            var account = accounts.Get(candidate.Alias);
+            if (account?.CooldownUntil is { } until && until > now &&
                 (until < earliest || earliest is null))
             {
                 earliest = until;
