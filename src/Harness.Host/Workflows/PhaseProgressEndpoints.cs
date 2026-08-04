@@ -1,6 +1,7 @@
 using Harness.Host.Profiles;
 using Harness.Modules.Workflows.Application;
 using Harness.Persistence.Abstractions.Identity;
+using Harness.Persistence.Abstractions.WorkChain;
 using Harness.Persistence.Abstractions.Workflows;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
@@ -34,7 +35,9 @@ public static class PhaseProgressEndpoints
         // e a obrigação cancelada sai da conta INTEIRA — numerador e denominador —, de modo que
         // cancelar o que falhou não fabrica 100%. A evidência entra junto para que o registro diga
         // POR QUE saiu, e não apenas que saiu.
-        endpoints.MapPost("/api/v1/phase-obligations/{obligationId}/cancel", CancelAsync)
+        endpoints.MapPost(
+            "/api/v1/workflow-runs/{runId}/phases/{phaseKey}/obligations/{obligationId}/cancel",
+            CancelAsync)
             .WithTags("workflows")
             .Produces<PhaseObligationCancelResult>()
             .ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
@@ -52,14 +55,22 @@ public static class PhaseProgressEndpoints
     public sealed record PhaseObligationCancelRequest(
         string Reason, IReadOnlyList<string>? Evidence = null);
 
-    public sealed record PhaseObligationCancelResult(string ObligationId, string State);
+    /// <param name="CardClosed">
+    /// O card espelho fechou junto. <see langword="false"/> com <paramref name="CardId"/> presente
+    /// significa divergência entre quadro e portão — declarada de propósito, para não sumir.
+    /// </param>
+    public sealed record PhaseObligationCancelResult(
+        string ObligationId, string State, string? CardId = null, bool CardClosed = false);
 
     private static async Task<IResult> CancelAsync(
+        string runId,
+        string phaseKey,
         string obligationId,
         PhaseObligationCancelRequest body,
         HttpRequest request,
         ILocalProfileStore profiles,
         IPhaseObligationStore obligations,
+        IWorkBoardStore board,
         IClock clock,
         CancellationToken token)
     {
@@ -89,9 +100,45 @@ public static class PhaseProgressEndpoints
                 clock.UtcNow),
             token);
 
-        return applied
-            ? Results.Ok(new PhaseObligationCancelResult(obligationId, "cancelled"))
-            : Results.Problem(statusCode: 404, title: "obligation_not_found");
+        if (!applied)
+        {
+            return Results.Problem(statusCode: 404, title: "obligation_not_found");
+        }
+
+        // O CARD PRECISA FECHAR JUNTO, senão o quadro contradiz o portão: a fase avança porque a
+        // obrigação saiu do plano, e o card fica em "precisa de atenção" para sempre, pedindo uma
+        // decisão que já foi tomada. Dois registros do mesmo fato que não conversam custam mais
+        // confiança do que qualquer um deles entrega sozinho.
+        //
+        // Falhar aqui NÃO desfaz o cancelamento: a obrigação é a fonte do portão, e deixá-la
+        // pendente porque o card resistiu seria travar a fase por causa do espelho. O resultado
+        // diz o que aconteceu com cada um, para que a divergência apareça em vez de sumir.
+        var cardClosed = false;
+        var current = await obligations.ListCurrentAsync(profile.TenantId, runId, phaseKey, token);
+        var cardId = current
+            .FirstOrDefault(item => string.Equals(item.ObligationId, obligationId, StringComparison.Ordinal))
+            ?.CardId;
+        if (!string.IsNullOrWhiteSpace(cardId))
+        {
+            try
+            {
+                _ = await board.DismissTaskAsync(
+                    new BoardTaskDismissCommand(
+                        profile.TenantId,
+                        cardId,
+                        $"{BoardTaskDismissalPolicy.ScopeDecisionReasonPrefix} {body.Reason.Trim()}",
+                        "system",
+                        clock.UtcNow),
+                    token);
+                cardClosed = true;
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                // Divergência declarada, nunca silenciosa: o chamador recebe cardClosed=false.
+            }
+        }
+
+        return Results.Ok(new PhaseObligationCancelResult(obligationId, "cancelled", cardId, cardClosed));
     }
 
     private static async Task<IResult> GetAsync(

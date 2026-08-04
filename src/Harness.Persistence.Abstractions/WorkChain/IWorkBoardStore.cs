@@ -222,6 +222,13 @@ public static class BoardTaskDismissalPolicy
 {
     public const string DocumentGateReasonPrefix = "document-gate:";
 
+    /// <summary>
+    /// Razão tipada de encerramento por DECISÃO DE ESCOPO: a obrigação de fase correspondente foi
+    /// cancelada, com motivo, por quem decide escopo. É o mesmo formato do prefixo documental, e
+    /// pela mesma razão — só uma razão tipada distingue "decidimos não fazer" de "não conseguimos".
+    /// </summary>
+    public const string ScopeDecisionReasonPrefix = "scope-decision:";
+
     public static bool MayDismiss(BoardTaskRecord task, BoardTaskDismissCommand command) =>
         task.State is "backlog" or "ready" ||
         (string.Equals(task.InternalState, "approved", StringComparison.Ordinal) &&
@@ -229,7 +236,20 @@ public static class BoardTaskDismissalPolicy
          string.Equals(task.CardType, "documento", StringComparison.Ordinal) &&
          string.Equals(command.ChangedByKind, "system", StringComparison.Ordinal) &&
          command.Reason.TrimStart().StartsWith(
-             DocumentGateReasonPrefix, StringComparison.Ordinal));
+             DocumentGateReasonPrefix, StringComparison.Ordinal)) ||
+        // ENCERRAMENTO POR DECISÃO DE ESCOPO. O card que a fase deixou de exigir precisa poder
+        // fechar, senão o quadro contradiz o portão: a fase avança porque a obrigação foi
+        // cancelada, e o card fica em "precisa de atenção" para sempre, pedindo uma decisão que
+        // já foi tomada. Foi o que aconteceu na fase 5 da prova limpa — quatro cards acusando
+        // impedimento depois de a fase ter fechado.
+        //
+        // Continua estreito de propósito: ator `system` e razão tipada. Quem cancela a obrigação
+        // é quem decide escopo, e é esse ato — não este predicado — que autoriza o encerramento;
+        // aqui só se reconhece que ele aconteceu. Sem o prefixo, um card bloqueado por trabalho
+        // ruim continua exigindo replanejamento, como deve.
+        (string.Equals(command.ChangedByKind, "system", StringComparison.Ordinal) &&
+         command.Reason.TrimStart().StartsWith(
+             ScopeDecisionReasonPrefix, StringComparison.Ordinal));
 }
 
 public sealed record BoardInstructionAppendCommand(
