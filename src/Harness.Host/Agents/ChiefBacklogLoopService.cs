@@ -1349,20 +1349,21 @@ public sealed partial class ChiefBacklogLoopService(
     /// <summary>
     /// D1 — este card é um parecer do Conselho, e por isso não passa por revisão independente.
     ///
-    /// O discriminador é o tipo `revisao`, e ele é exato hoje: em todo o produto existe UM ponto
-    /// que cria card com esse tipo — <c>WorkflowPhaseDriver.CreateCouncilCardAsync</c>. Preferi
-    /// isso a introduzir um tipo novo porque `card_type` é enumerado por CHECK em SQLite e em
-    /// Postgres: um valor a mais custa duas migrations e seis asserções de contagem de cabeça
-    /// espalhadas em cinco arquivos, que já deixaram o develop vermelho para toda a frota uma vez.
-    /// A semântica também sustenta a escolha — um card cujo entregável É uma revisão não se revisa.
+    /// O discriminador é o tipo <c>council</c>. Em 04/08/2026 a auditoria macro exigiu um tipo
+    /// próprio (F-03): o card de revisão genérico <c>revisao</c> não distingue um parecer do
+    /// Conselho de uma revisão técnica comum, e exigir segundo par de olhos no parecer do Conselho
+    /// cria uma regressão infinita que consome o próprio elenco de críticos. O tipo <c>council</c>
+    /// nasce em <c>WorkflowPhaseDriver.CreateCouncilCardAsync</c> e é o único que dispara a
+    /// aprovação direta.
     ///
-    /// Se um dia `revisao` passar a nascer de outro lugar, esta função é o único ponto a mudar, e
-    /// o teste que a acompanha falha antes de o comportamento vazar.
+    /// O tipo <c>revisao</c> continua reconhecido como compatibilidade para cards criados antes da
+    /// migration 0122; cards novos usam <c>council</c>.
     /// </summary>
     internal static bool IsCouncilOpinionCard(BoardTaskRecord task)
     {
         ArgumentNullException.ThrowIfNull(task);
-        return string.Equals(task.CardType, "revisao", StringComparison.Ordinal);
+        return string.Equals(task.CardType, "council", StringComparison.Ordinal)
+            || string.Equals(task.CardType, "revisao", StringComparison.Ordinal);
     }
 
     /// <summary>As três linhas de roteamento no topo de toda instrução, na ordem em que nascem.</summary>
@@ -1686,13 +1687,17 @@ public sealed partial class ChiefBacklogLoopService(
                 // reinício do Host.
                 var usage = await ReadAttemptUsageAsync(
                     tenantId, task.Id, running.Id, snapshot.Execution, invocations, token);
-                var completed = await chain.CompleteAttemptAsync(
-                    new WorkAttemptCompleteCommand(
-                        tenantId, task.BackingSolicitationId, task.Id, running.Id, task.Version,
-                        evidence,
-                        $"chief-loop-complete:{running.Id}", now,
-                        usage),
-                    token);
+                var completeCommand = new WorkAttemptCompleteCommand(
+                    tenantId, task.BackingSolicitationId, task.Id, running.Id, task.Version,
+                    evidence,
+                    $"chief-loop-complete:{running.Id}", now,
+                    usage);
+                // F-03: pareceres do Conselho são isentos de revisão independente — a consolidação
+                // do Conselho já é o controle. Exigir segundo par de olhos cria uma regressão
+                // infinita que consome o próprio elenco de críticos.
+                var completed = string.Equals(task.CardType, "council", StringComparison.OrdinalIgnoreCase)
+                    ? await chain.CompleteAndApproveAttemptAsync(completeCommand, token)
+                    : await chain.CompleteAttemptAsync(completeCommand, token);
                 if (completed.Status is WorkChainMutationStatus.Applied
                     or WorkChainMutationStatus.IdempotentReplay)
                 {
@@ -1888,11 +1893,13 @@ public sealed partial class ChiefBacklogLoopService(
                         UlidValue.New(now.AddTicks(2)).ToString(), $"git-commit:{deliveryCommit}"));
                 }
 
-                var completed = await chain.CompleteAttemptAsync(
-                    new WorkAttemptCompleteCommand(
-                        tenantId, task.BackingSolicitationId, task.Id, running.Id, task.Version,
-                        evidence, $"chief-loop-reconcile-complete:{running.Id}", now, null),
-                    token);
+                var reconcileCommand = new WorkAttemptCompleteCommand(
+                    tenantId, task.BackingSolicitationId, task.Id, running.Id, task.Version,
+                    evidence, $"chief-loop-reconcile-complete:{running.Id}", now, null);
+                // F-03: pareceres do Conselho são isentos de revisão independente.
+                var completed = string.Equals(task.CardType, "council", StringComparison.OrdinalIgnoreCase)
+                    ? await chain.CompleteAndApproveAttemptAsync(reconcileCommand, token)
+                    : await chain.CompleteAttemptAsync(reconcileCommand, token);
                 if (completed.Status is WorkChainMutationStatus.Applied
                     or WorkChainMutationStatus.IdempotentReplay)
                 {

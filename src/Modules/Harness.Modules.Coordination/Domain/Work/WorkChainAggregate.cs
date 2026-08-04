@@ -332,6 +332,40 @@ public sealed class WorkChainAggregate
         return Result.Success();
     }
 
+    /// <summary>
+    /// F-03: completa uma tentativa que NÃO precisa de revisão independente — usada para pareceres
+    /// do Conselho. O parecer é, por construção, uma opinião crítica sobre trabalho de terceiro;
+    /// exigir segundo par de olhos cria uma regressão infinita que consome o próprio elenco de
+    /// críticos. A consolidação do Conselho continua sendo o controle real.
+    /// </summary>
+    public Result CompleteAndApproveAttempt(
+        EntityId<WorkAttemptTag> attemptId,
+        IReadOnlyList<string> evidenceReferences)
+    {
+        ArgumentNullException.ThrowIfNull(evidenceReferences);
+        var attempt = _attempts.SingleOrDefault(candidate => candidate.Id == attemptId);
+        if (attempt is null)
+        {
+            return Result.Failure(WorkChainErrors.AttemptNotFound);
+        }
+
+        if (attempt.State != WorkAttemptState.Running)
+        {
+            return Result.Failure(WorkChainErrors.InvalidAttemptState);
+        }
+
+        if (evidenceReferences.Count == 0 || evidenceReferences.Any(string.IsNullOrWhiteSpace))
+        {
+            return Result.Failure(WorkChainErrors.EvidenceRequired);
+        }
+
+        attempt.EvidenceReferences = evidenceReferences.ToArray();
+        attempt.CompletedAt = _clock.UtcNow;
+        attempt.State = WorkAttemptState.Approved;
+        _tasks.Single(task => task.Id == attempt.TaskId).State = WorkTaskState.Approved;
+        return Result.Success();
+    }
+
     public Result ExpireAttemptLease(EntityId<WorkAttemptTag> attemptId)
     {
         var attempt = _attempts.SingleOrDefault(candidate => candidate.Id == attemptId);

@@ -214,8 +214,15 @@ internal sealed class CardCircuitBreakerService(
 
     private static bool IsInfrastructureReason(string reason)
     {
-        // Reinício / parada do Host.
-        if (IsAny(reason, "attempt.interrupted_by_host_shutdown", "attempt.orphaned_by_host_restart"))
+        // Reinício / parada do Host. Os prefixos `attempt.` são os reason codes canônicos
+        // (F-06); os prefixos `run.` e `executor.` são aliases legados que ainda aparecem em
+        // código e em testes — classificá-los por igualdade preserva a proteção sem reabrir
+        // whack-a-mole de substring.
+        if (IsAny(reason,
+                "attempt.interrupted_by_host_shutdown",
+                "attempt.orphaned_by_host_restart",
+                "run.host_shutdown",
+                "run.host_restart"))
         {
             return true;
         }
@@ -244,6 +251,7 @@ internal sealed class CardCircuitBreakerService(
         // nunca chegou a ser julgado.
         if (IsAny(reason,
                 "run.cancelled",
+                "executor.cancelled",
                 "TaskCanceledException",
                 "OperationCanceledException"))
         {

@@ -1042,9 +1042,11 @@ public sealed class WorkflowPhaseDriver(
     }
 
     /// <summary>
-    /// Cria o card de um assento como `revisao`, o tipo canônico do trabalho. A LENTE e a
+    /// Cria o card de um assento como `council` (F-03). O parecer do Conselho já é, por
+    /// construção, uma opinião crítica sobre trabalho de terceiro; exigir revisão independente
+    /// criaria uma regressão infinita que consome o próprio elenco de críticos. A LENTE e a
     /// especialidade explícita impedem cinco pareceres iguais executados pelo mesmo perfil
-    /// genérico; o gate de despacho já reconhece revisão como trabalho delegável.
+    /// genérico; o gate de despacho reconhece `council` como trabalho delegável.
     /// </summary>
     private async Task CreateCouncilCardAsync(
         string tenantId,
@@ -1071,11 +1073,10 @@ public sealed class WorkflowPhaseDriver(
                 // Este campo é o RISCO do trabalho, não a posição dele na fila — a cadeia grava o
                 // valor em `risk_tier`. Declará-lo "high" para o conselho furar a fila fazia a
                 // política de ferramentas exigir sandbox atestada, e todo parecer era recusado com
-                // `sandbox_required` em milissegundos: o portão que autoriza o desenvolvimento
-                // nunca acontecia. O trabalho de um conselheiro é ler os documentos da fase e
+                // `sandbox_required` em milissegundos: o trabalho de um conselheiro é ler os documentos da fase e
                 // escrever UM parecer sob um claim estreito — risco baixo, e é isso que se declara.
                 "low",
-                null, null, instructionId, instruction, now, phaseName, "revisao"),
+                null, null, instructionId, instruction, now, phaseName, "council"),
             cancellationToken);
 
         _ = await _board.MoveTaskAsync(

@@ -45,6 +45,14 @@ public interface IWorkChainStore
         WorkAttemptCompleteCommand command,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// F-03: completa e aprova uma tentativa que está isenta de revisão independente
+    /// (pareceres do Conselho). A consolidação do Conselho continua sendo o controle real.
+    /// </summary>
+    Task<WorkChainMutationReceipt> CompleteAndApproveAttemptAsync(
+        WorkAttemptCompleteCommand command,
+        CancellationToken cancellationToken = default);
+
     Task<WorkChainMutationReceipt> ExpireAttemptLeaseAsync(
         WorkAttemptLeaseExpiredCommand command,
         CancellationToken cancellationToken = default);

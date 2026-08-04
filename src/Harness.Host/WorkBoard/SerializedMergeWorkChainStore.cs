@@ -68,6 +68,10 @@ public sealed class SerializedMergeWorkChainStore(
         WorkAttemptCompleteCommand command, CancellationToken cancellationToken = default) =>
         _inner.CompleteAttemptAsync(command, cancellationToken);
 
+    public Task<WorkChainMutationReceipt> CompleteAndApproveAttemptAsync(
+        WorkAttemptCompleteCommand command, CancellationToken cancellationToken = default) =>
+        _inner.CompleteAndApproveAttemptAsync(command, cancellationToken);
+
     public Task<WorkChainMutationReceipt> ExpireAttemptLeaseAsync(
         WorkAttemptLeaseExpiredCommand command, CancellationToken cancellationToken = default) =>
         _inner.ExpireAttemptLeaseAsync(command, cancellationToken);

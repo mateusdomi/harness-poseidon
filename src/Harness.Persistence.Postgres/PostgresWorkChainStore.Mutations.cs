@@ -311,6 +311,14 @@ public sealed partial class PostgresWorkChainStore
         return CompleteAttemptCoreAsync(command, cancellationToken);
     }
 
+    public Task<WorkChainMutationReceipt> CompleteAndApproveAttemptAsync(
+        WorkAttemptCompleteCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return CompleteAndApproveAttemptCoreAsync(command, cancellationToken);
+    }
+
     public Task<WorkChainMutationReceipt> ExpireAttemptLeaseAsync(
         WorkAttemptLeaseExpiredCommand command,
         CancellationToken cancellationToken = default)
@@ -805,6 +813,107 @@ public sealed partial class PostgresWorkChainStore
             receipt = new WorkChainMutationReceipt(
                 WorkChainMutationStatus.Applied, command.TaskId, command.AttemptId,
                 nextVersion, "awaiting_review", "awaiting_review");
+        }
+
+        return await FinalizeMutationAsync(
+            connection, transaction, command.TenantId, command.IdempotencyKey, hash,
+            "attempt.completed", command.OccurredAt, receipt, cancellationToken);
+    }
+
+    /// <summary>
+    /// F-03: completa e aprova uma tentativa isenta de revisão independente (parecer do Conselho).
+    /// A consolidação do Conselho continua sendo o controle real; o parecer é, por construção, uma
+    /// opinião crítica sobre trabalho de terceiro.
+    /// </summary>
+    private async Task<WorkChainMutationReceipt> CompleteAndApproveAttemptCoreAsync(
+        WorkAttemptCompleteCommand command,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await LockTaskAsync(connection, transaction, command.TaskId, cancellationToken);
+        var hash = WorkChainMutationValidator.Hash(command);
+        var replay = await ReadMutationInboxAsync(
+            connection, transaction, command.TenantId, command.IdempotencyKey, hash, cancellationToken);
+        if (replay is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return replay with { Status = WorkChainMutationStatus.IdempotentReplay };
+        }
+
+        var row = await ReadTaskAsync(
+            connection, transaction, command.TenantId, command.SolicitationId,
+            command.TaskId, command.AttemptId, cancellationToken);
+        WorkChainMutationReceipt receipt;
+        if (row is null || row.AttemptState is null)
+        {
+            receipt = Rejected(WorkChainMutationStatus.NotFound, command.TaskId, command.AttemptId);
+        }
+        else if (row.Version != command.ExpectedTaskVersion)
+        {
+            receipt = Rejected(WorkChainMutationStatus.VersionConflict, row, command.TaskId, command.AttemptId);
+        }
+        else if (row.TaskState != "running" || row.AttemptState != "running")
+        {
+            receipt = Rejected(WorkChainMutationStatus.InvalidState, row, command.TaskId, command.AttemptId);
+        }
+        else
+        {
+            for (var index = 0; index < command.Evidence.Count; index++)
+            {
+                await ExecuteAsync(
+                    connection, transaction,
+                    """
+                    INSERT INTO harness.work_evidence
+                        (id, tenant_id, project_id, attempt_id, ordinal, reference, created_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7);
+                    """,
+                    cancellationToken,
+                    Text(command.Evidence[index].EvidenceId), Text(command.TenantId), Text(row.ProjectId),
+                    Text(command.AttemptId), Integer(index + 1), Text(command.Evidence[index].Reference),
+                    Timestamp(command.OccurredAt));
+            }
+
+            await ExecuteAsync(
+                connection, transaction,
+                """
+                UPDATE harness.work_attempts SET state = 'approved', completed_at = $1,
+                    operational_state = 'completed',
+                    duration_ms = COALESCE($3, duration_ms),
+                    tokens_input = COALESCE($4, tokens_input),
+                    tokens_output = COALESCE($5, tokens_output),
+                    cost_usd = COALESCE($6, cost_usd)
+                WHERE id = $2 AND state = 'running';
+                """,
+                cancellationToken,
+                Timestamp(command.OccurredAt), Text(command.AttemptId),
+                NullableBigint(command.Usage?.DurationMs),
+                NullableBigint(command.Usage?.TokensInput),
+                NullableBigint(command.Usage?.TokensOutput),
+                NullableNumeric(command.Usage?.CostUsd));
+            await ExecuteAsync(
+                connection, transaction,
+                """
+                INSERT INTO harness.attempt_events (id, tenant_id, project_id, attempt_id, kind, content, occurred_at)
+                VALUES ($1, $2, $3, $4, 'log', 'Council opinion approved without independent review.', $5);
+                """,
+                cancellationToken,
+                Text(UlidValue.New(command.OccurredAt).ToString()), Text(command.TenantId),
+                Text(row.ProjectId), Text(command.AttemptId), Timestamp(command.OccurredAt));
+            var nextVersion = row.Version + 1;
+            await ExecuteAsync(
+                connection, transaction,
+                """
+                UPDATE harness.work_tasks SET state = 'approved', version = $1, updated_at = $2,
+                    board_state = 'review', blocked_reason = NULL
+                WHERE id = $3 AND tenant_id = $4 AND version = $5;
+                """,
+                cancellationToken,
+                Bigint(nextVersion), Timestamp(command.OccurredAt), Text(command.TaskId),
+                Text(command.TenantId), Bigint(command.ExpectedTaskVersion));
+            receipt = new WorkChainMutationReceipt(
+                WorkChainMutationStatus.Applied, command.TaskId, command.AttemptId,
+                nextVersion, "approved", "approved");
         }
 
         return await FinalizeMutationAsync(

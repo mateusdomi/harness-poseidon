@@ -33,7 +33,7 @@ public static class CardReadinessEvaluator
         new HashSet<string>(
             [
                 "agent_task", "spike",
-                "historia", "tarefa", "bug", "adr", "documento", "revisao",
+                "historia", "tarefa", "bug", "adr", "documento", "revisao", "council",
                 "incidente", "chamado",
             ],
             StringComparer.Ordinal);

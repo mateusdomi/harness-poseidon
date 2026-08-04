@@ -327,6 +327,16 @@ public sealed partial class SqliteWorkChainStore
             cancellationToken);
     }
 
+    public Task<WorkChainMutationReceipt> CompleteAndApproveAttemptAsync(
+        WorkAttemptCompleteCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return _dispatcher.ExecuteAsync(
+            (connection, token) => CompleteAndApproveAttemptCoreAsync(connection, command, token),
+            cancellationToken);
+    }
+
     public Task<WorkChainMutationReceipt> ExpireAttemptLeaseAsync(
         WorkAttemptLeaseExpiredCommand command,
         CancellationToken cancellationToken = default)
@@ -834,6 +844,105 @@ public sealed partial class SqliteWorkChainStore
             receipt = new WorkChainMutationReceipt(
                 WorkChainMutationStatus.Applied, command.TaskId, command.AttemptId,
                 nextVersion, "awaiting_review", "awaiting_review");
+        }
+
+        return await FinalizeMutationAsync(
+            connection, transaction, command.TenantId, command.IdempotencyKey, hash,
+            "attempt.completed", command.OccurredAt, receipt, cancellationToken);
+    }
+
+    /// <summary>
+    /// F-03: completa e aprova uma tentativa isenta de revisão independente (parecer do Conselho).
+    /// A consolidação do Conselho continua sendo o controle real; o parecer é, por construção, uma
+    /// opinião crítica sobre trabalho de terceiro.
+    /// </summary>
+    private static async Task<WorkChainMutationReceipt> CompleteAndApproveAttemptCoreAsync(
+        SqliteConnection connection,
+        WorkAttemptCompleteCommand command,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        var hash = WorkChainMutationValidator.Hash(command);
+        var replay = await ReadMutationInboxAsync(
+            connection, transaction, command.TenantId, command.IdempotencyKey, hash, cancellationToken);
+        if (replay is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return replay with { Status = WorkChainMutationStatus.IdempotentReplay };
+        }
+
+        var row = await ReadTaskAsync(
+            connection, transaction, command.TenantId, command.SolicitationId, command.TaskId,
+            command.AttemptId, cancellationToken);
+        WorkChainMutationReceipt receipt;
+        if (row is null || row.AttemptState is null)
+        {
+            receipt = Rejected(WorkChainMutationStatus.NotFound, command.TaskId, command.AttemptId);
+        }
+        else if (row.Version != command.ExpectedTaskVersion)
+        {
+            receipt = Rejected(WorkChainMutationStatus.VersionConflict, row, command.TaskId, command.AttemptId);
+        }
+        else if (row.TaskState != "running" || row.AttemptState != "running")
+        {
+            receipt = Rejected(WorkChainMutationStatus.InvalidState, row, command.TaskId, command.AttemptId);
+        }
+        else
+        {
+            for (var index = 0; index < command.Evidence.Count; index++)
+            {
+                await using var evidence = connection.CreateCommand();
+                evidence.Transaction = transaction;
+                evidence.CommandText =
+                    """
+                    INSERT INTO work_evidence
+                        (id, tenant_id, project_id, attempt_id, ordinal, reference, created_at)
+                    VALUES ($id, $tenantId, $projectId, $attemptId, $ordinal, $reference, $occurredAt);
+                    """;
+                Add(evidence, "$id", command.Evidence[index].EvidenceId);
+                Add(evidence, "$tenantId", command.TenantId);
+                Add(evidence, "$projectId", row.ProjectId);
+                Add(evidence, "$attemptId", command.AttemptId);
+                Add(evidence, "$ordinal", index + 1);
+                Add(evidence, "$reference", command.Evidence[index].Reference);
+                Add(evidence, "$occurredAt", ToStorage(command.OccurredAt));
+                await evidence.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            var nextVersion = row.Version + 1;
+            await using var mutation = connection.CreateCommand();
+            mutation.Transaction = transaction;
+            mutation.CommandText =
+                """
+                UPDATE work_attempts SET state = 'approved', completed_at = $occurredAt,
+                    operational_state = 'completed',
+                    duration_ms = COALESCE($durationMs, duration_ms),
+                    tokens_input = COALESCE($tokensInput, tokens_input),
+                    tokens_output = COALESCE($tokensOutput, tokens_output),
+                    cost_usd = COALESCE($costUsd, cost_usd)
+                WHERE id = $attemptId AND state = 'running';
+                INSERT INTO attempt_events (id,tenant_id,project_id,attempt_id,kind,content,occurred_at)
+                VALUES ($attemptEventId,$tenantId,$projectId,$attemptId,'log','Council opinion approved without independent review.',$occurredAt);
+                UPDATE work_tasks SET state = 'approved', version = $nextVersion,
+                    updated_at = $occurredAt,board_state='review',blocked_reason=NULL
+                WHERE id = $taskId AND tenant_id = $tenantId AND version = $expectedVersion;
+                """;
+            Add(mutation, "$occurredAt", ToStorage(command.OccurredAt));
+            Add(mutation, "$attemptId", command.AttemptId);
+            Add(mutation, "$attemptEventId", UlidValue.New(command.OccurredAt).ToString());
+            Add(mutation, "$projectId", row.ProjectId);
+            Add(mutation, "$nextVersion", nextVersion);
+            Add(mutation, "$taskId", command.TaskId);
+            Add(mutation, "$tenantId", command.TenantId);
+            Add(mutation, "$expectedVersion", command.ExpectedTaskVersion);
+            AddNullable(mutation, "$durationMs", command.Usage?.DurationMs);
+            AddNullable(mutation, "$tokensInput", command.Usage?.TokensInput);
+            AddNullable(mutation, "$tokensOutput", command.Usage?.TokensOutput);
+            AddNullable(mutation, "$costUsd", command.Usage?.CostUsd);
+            await mutation.ExecuteNonQueryAsync(cancellationToken);
+            receipt = new WorkChainMutationReceipt(
+                WorkChainMutationStatus.Applied, command.TaskId, command.AttemptId,
+                nextVersion, "approved", "approved");
         }
 
         return await FinalizeMutationAsync(

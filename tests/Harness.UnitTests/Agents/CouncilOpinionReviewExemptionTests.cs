@@ -31,6 +31,16 @@ public sealed class CouncilOpinionReviewExemptionTests
     [Fact]
     public void OParecerDoConselhoEDispensadoDaRevisaoPorPar()
     {
+        Assert.True(ChiefBacklogLoopService.IsCouncilOpinionCard(Card("council")));
+    }
+
+    /// <summary>
+    /// Compatibilidade com cards de parecer criados antes da migration 0122: eles usavam o tipo
+    /// <c>revisao</c> e continuam isentos de revisão independente.
+    /// </summary>
+    [Fact]
+    public void ParecerLegadoRevisaoContinuaDispensado()
+    {
         Assert.True(ChiefBacklogLoopService.IsCouncilOpinionCard(Card("revisao")));
     }
 
