@@ -42,6 +42,15 @@ say()   { echo "[$(stamp)] $*" >> "$LOG"; }
 # atenção sem entregar informação, e é assim que se ensina alguém a ignorá-lo.
 alert() { echo "[$(stamp)] ALERTA $*" >> "$LOG"; }
 
+# Segundos de vida de um pid. `etime` é independente de idioma; `lstart` não é, e já
+# respondeu "em dia" em pt-BR exatamente quando não estava (OPS-056).
+uptime_seconds() {
+  local etime
+  etime=$(ps -o etime= -p "$1" 2>/dev/null | tr -d ' ')
+  [[ -z "$etime" ]] && { echo 0; return; }
+  awk -F'[-:]' '{ if (NF==4) print (($1*24+$2)*60+$3)*60+$4; else if (NF==3) print (($1*60)+$2)*60+$3; else if (NF==2) print ($1*60)+$2; else print 0 }' <<< "$etime"
+}
+
 say "vigia de pe (pid $$) — projeto $PROJECT, intervalo ${INTERVAL}s, teto de ociosidade ${IDLE_ALERT}min"
 
 # Memória entre voltas: só alerta na TRANSIÇÃO, senão o log vira uma parede de repetição e
@@ -105,9 +114,31 @@ while true; do
       up_s=$(awk -F'[-:]' '{ if (NF==4) print (($1*24+$2)*60+$3)*60+$4; else if (NF==3) print (($1*60)+$2)*60+$3; else if (NF==2) print ($1*60)+$2; else print 0 }' <<< "$etime")
       started=$(( now - ${up_s:-0} ))
       last_src=$(cd "$ROOT" && git log -1 --format=%ct -- src/ 2>/dev/null || echo 0)
-      if [[ "${last_src:-0}" -gt "$started" && "$last_alert_key" != "stale_binary" ]]; then
-        alert "BINARIO DEFASADO — o processo subiu há $etime e há commit em src/ mais novo ($(cd "$ROOT" && git log -1 --format=%h -- src/)). Publicar antes de diagnosticar qualquer coisa."
-        last_alert_key="stale_binary"
+      if [[ "${last_src:-0}" -gt "$started" ]]; then
+        # DEFASADO NÃO É O MESMO QUE DESAMPARADO. Durante uma campanha de correção o binário
+        # fica defasado o tempo todo — é o estado normal entre um commit e a próxima janela
+        # ociosa —, e alertar a cada commit gasta atenção sem pedir nenhuma ação: em duas das
+        # três primeiras vezes já havia publicador armado e a resposta certa era não fazer
+        # nada. O que merece alerta é defasado E ninguém publicando; ou publicador armado
+        # HÁ TEMPO DEMAIS, que é o caso em que ele travou e o silêncio enganaria.
+        publisher_pid=$(pgrep -f "publish-when-idle" | head -1)
+        head_src=$(cd "$ROOT" && git log -1 --format=%h -- src/)
+        if [[ -z "$publisher_pid" ]]; then
+          if [[ "$last_alert_key" != "stale_binary" ]]; then
+            alert "BINARIO DEFASADO E SEM PUBLICADOR — o processo subiu há $etime, há commit em src/ mais novo ($head_src) e ninguém está publicando. Armar tools/operation/publish-when-idle.sh."
+            last_alert_key="stale_binary"
+          fi
+        else
+          publisher_min=$(( $(uptime_seconds "$publisher_pid") / 60 ))
+          if [[ "$publisher_min" -ge "${VIGIL_PUBLISHER_STUCK_MINUTES:-45}" ]]; then
+            if [[ "$last_alert_key" != "publisher_stuck" ]]; then
+              alert "PUBLICADOR TRAVADO — armado há ${publisher_min}min (pid $publisher_pid) e o binário segue defasado ($head_src). Ele espera janela sem tentativa em voo; se a esteira nunca fica ociosa, ninguém publica nunca."
+              last_alert_key="publisher_stuck"
+            fi
+          else
+            say "binario defasado ($head_src) — publicador de pe ha ${publisher_min}min (pid $publisher_pid); nada a fazer"
+          fi
+        fi
       fi
     fi
   fi
