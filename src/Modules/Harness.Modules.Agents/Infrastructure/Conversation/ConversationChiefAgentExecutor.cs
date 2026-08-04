@@ -6,6 +6,7 @@ using Harness.Modules.Agents.Application.Execution.External;
 using Harness.Modules.Agents.Contracts;
 using Harness.Modules.Agents.Infrastructure.Fake;
 using Harness.SharedKernel.Time;
+using Microsoft.Extensions.Logging;
 
 namespace Harness.Modules.Agents.Infrastructure.Conversation;
 
@@ -47,6 +48,26 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
     private readonly IClock _clock;
     private readonly ConversationChiefExecutorOptions _options;
     private readonly Lazy<string> _governanceCore;
+    private readonly Lazy<string> _brunaPersona;
+    private readonly ILogger<ConversationChiefAgentExecutor> _logger;
+
+    private static readonly Action<ILogger, string, Exception?> LogBrunaPersonaReadFailed =
+        LoggerMessage.Define<string>(
+            LogLevel.Warning,
+            new EventId(1, nameof(LogBrunaPersonaReadFailed)),
+            "F-04-B: não foi possível ler a persona da Bruna em {BrunaPersonaPath}; tentando próximo candidato.");
+
+    private static readonly Action<ILogger, string, Exception?> LogBrunaPersonaAccessDenied =
+        LoggerMessage.Define<string>(
+            LogLevel.Warning,
+            new EventId(2, nameof(LogBrunaPersonaAccessDenied)),
+            "F-04-B: acesso negado ao ler a persona da Bruna em {BrunaPersonaPath}; tentando próximo candidato.");
+
+    private static readonly Action<ILogger, string, Exception?> LogBrunaPersonaFallback =
+        LoggerMessage.Define<string>(
+            LogLevel.Warning,
+            new EventId(3, nameof(LogBrunaPersonaFallback)),
+            "F-04-B: docs/agents/bruna.md não encontrado ou vazio em nenhum candidato ({Candidates}); usando persona embutida como fallback.");
 
     public ConversationChiefAgentExecutor(
         AgentAccountRegistry accounts,
@@ -54,7 +75,8 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         AccountProfileProvisioner profiles,
         Func<string, IExternalAgentExecutor> externalExecutorFactory,
         IClock clock,
-        ConversationChiefExecutorOptions options)
+        ConversationChiefExecutorOptions options,
+        ILogger<ConversationChiefAgentExecutor> logger)
     {
         _accounts = accounts ?? throw new ArgumentNullException(nameof(accounts));
         _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
@@ -63,7 +85,9 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
             ?? throw new ArgumentNullException(nameof(externalExecutorFactory));
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _governanceCore = new Lazy<string>(LoadGovernanceCore);
+        _brunaPersona = new Lazy<string>(LoadBrunaPersona);
     }
 
     public async Task<AgentExecutionResult> ExecuteAsync(
@@ -240,7 +264,7 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         AgentExecutionRequest request,
         ChiefCommunicationContext communicationContext) =>
         $"""
-        {ChiefPersona}
+        {_brunaPersona.Value}
 
         {_governanceCore.Value}
 
@@ -669,6 +693,46 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         return GovernanceFallback;
     }
 
+    /// <summary>
+    /// F-04-B: carrega a persona da Bruna de <c>docs/agents/bruna.md</c> (fonte declarada no
+    /// manifesto), com fallback para a persona embutida. A degradação é logada para não ficar
+    /// silenciosa.
+    /// </summary>
+    private string LoadBrunaPersona()
+    {
+        var candidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "docs", "agents", "bruna.md"),
+            Path.Combine(_options.RepositoryRoot, "docs", "agents", "bruna.md"),
+        };
+
+        foreach (var path in candidates)
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    var text = File.ReadAllText(path).Trim();
+                    if (text.Length > 0)
+                    {
+                        return text;
+                    }
+                }
+            }
+            catch (IOException ex)
+            {
+                LogBrunaPersonaReadFailed(_logger, path, ex);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                LogBrunaPersonaAccessDenied(_logger, path, ex);
+            }
+        }
+
+        LogBrunaPersonaFallback(_logger, string.Join("; ", candidates), null);
+        return ChiefPersona;
+    }
+
     private static readonly JsonSerializerOptions StructuredJsonOptions =
         new(JsonSerializerDefaults.Web);
 
@@ -697,8 +761,9 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
 
     /// <summary>
     /// Persona canônica do Chief Orchestrator (fonte: <c>CanonicalAgentDefinitions</c> /
-    /// <c>docs/agents/chief-orchestrator.yaml</c>). Embutida para ser determinística e não
-    /// depender de IO no caminho quente; a governança viva do repositório é anexada por cima.
+    /// <c>docs/agents/chief-orchestrator.yaml</c>). **Fallback** usado quando
+    /// <c>docs/agents/bruna.md</c> não está disponível (F-04-B). A persona viva do repositório é
+    /// carregada de disco e anexada por cima quando presente.
     /// </summary>
     private const string ChiefPersona =
         """

@@ -39,11 +39,24 @@ public sealed class AgentAccountConfigurationTests : IDisposable
             Path.Combine(_directory, "absent.json"));
 
         Assert.All(
-            registry.List(),
+            registry.List().Where(account => account.State != AgentAccountState.Unavailable),
             account => Assert.Equal(AgentAccountState.AuthenticationRequired, account.State));
         Assert.All(
             registry.List(),
             account => Assert.Equal(AgentAccountHealth.Unknown, account.Health));
+    }
+
+    [Fact]
+    public void UnimplementedExecutorIsBornUnavailable()
+    {
+        // F-09: contas cujo executor não tem adapter real devem nascer Unavailable, não
+        // AuthenticationRequired (que faria o scheduler recusá-las silenciosamente a cada
+        // tentativa de despacho).
+        var registry = AgentAccountConfigurationLoader.Load(
+            Path.Combine(_directory, "absent.json"));
+
+        var kimi = registry.Get("worker-kimi-ui")!;
+        Assert.Equal(AgentAccountState.Unavailable, kimi.State);
     }
 
     [Fact]

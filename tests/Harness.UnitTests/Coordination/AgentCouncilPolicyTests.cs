@@ -181,4 +181,22 @@ public sealed class AgentCouncilPolicyTests
         Assert.False(opinion.IsOperational);
         Assert.Contains("modelo de dados", opinion.Summary, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void IncompleteCouncilRationaleIncludesOperationalReasons()
+    {
+        // F-15: council.incomplete descrevia só o sintoma. O veredito deve expor as causas
+        // operacionais para que dono/operador saibam por onde começar.
+        var seat = AgentCouncilPolicy.Seats[0];
+        var operational = AgentCouncilPolicy.FromExecution(
+            seat, attemptSummary: null, blockedReason: "Especialidade sem escopo de escrita.");
+        Assert.NotNull(operational);
+
+        var verdict = AgentCouncilPolicy.Consolidate([operational!]);
+
+        Assert.False(verdict.MayProceed);
+        Assert.Equal("council.incomplete", verdict.ReasonCode);
+        Assert.Contains("Motivo(s) dos assentos não ouvidos", verdict.Rationale, StringComparison.Ordinal);
+        Assert.Contains("escopo de escrita", verdict.Rationale, StringComparison.Ordinal);
+    }
 }

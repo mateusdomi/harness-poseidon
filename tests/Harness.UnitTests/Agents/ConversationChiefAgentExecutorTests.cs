@@ -6,6 +6,7 @@ using Harness.Modules.Agents.Contracts;
 using Harness.Modules.Agents.Infrastructure.Conversation;
 using Harness.Modules.Agents.Infrastructure.Fake;
 using Harness.SharedKernel.Time;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Harness.UnitTests.Agents;
 
@@ -106,6 +107,23 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         var prompt = Assert.Single(fake.Requests).Prompt;
         Assert.Contains("Núcleo de governança do Poseidon", prompt, StringComparison.Ordinal);
         Assert.Contains("Precedência", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ThePromptLoadsBrunaPersonaFromRepositoryDocs()
+    {
+        // F-04-B: docs/agents/bruna.md é declarado como sourceOfTruth no manifesto, mas nunca era
+        // aberto pelo código. O executor busca o arquivo no diretório da distribuição e na raiz do
+        // repositório; verificamos que o conteúdo real (e não a persona embutida) entra no prompt.
+        var fake = new FakeExternalExecutor(ValidChiefJson);
+        var executor = Build(ChiefRegistry(), fake);
+
+        await executor.ExecuteAsync(Request(), CancellationToken.None);
+
+        var prompt = Assert.Single(fake.Requests).Prompt;
+        // A persona embutida não tem esta seção; a persona viva em docs/agents/bruna.md tem.
+        Assert.Contains("## Missão", prompt, StringComparison.Ordinal);
+        Assert.Contains("## O princípio determinístico", prompt, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -436,7 +454,8 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
             new AccountProfileProvisioner(_profilesRoot),
             _ => fake,
             new StubClock(Now),
-            new ConversationChiefExecutorOptions(_repositoryRoot));
+            new ConversationChiefExecutorOptions(_repositoryRoot),
+            NullLogger<ConversationChiefAgentExecutor>.Instance);
 
     private static AgentExecutionRequest Request(
         string instruction = "Continue com segurança",

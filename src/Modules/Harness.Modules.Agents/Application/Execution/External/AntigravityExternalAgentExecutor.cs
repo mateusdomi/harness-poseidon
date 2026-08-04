@@ -109,16 +109,16 @@ public sealed class AntigravityExternalAgentExecutor(
     /// autenticação/negação de permissão, ou resposta vazia — porque o `agy` sai com exit
     /// code 0 mesmo quando não autentica.
     /// </summary>
-    private sealed class AntigravityTextParser : IExternalAgentOutputParser
+    internal sealed class AntigravityTextParser : IExternalAgentOutputParser
     {
         // Sentinelas OBSERVADAS na saída real do `agy` (comparação case-insensitive):
         // "Error: authentication required. Run 'agy' to log in, then retry." e a negação de
         // permissão em modo headless ("no output produced — a tool required the ... permission").
-        private static readonly (string Needle, string Code)[] Sentinels =
+        private static readonly (string Needle, string Code, ExternalFailureKind Kind)[] Sentinels =
         [
-            ("authentication required", "executor.authentication_required"),
-            ("authentication failed", "executor.authentication_required"),
-            ("no output produced", "executor.tool_permission_denied"),
+            ("authentication required", "executor.authentication_required", ExternalFailureKind.AuthenticationRequired),
+            ("authentication failed", "executor.authentication_required", ExternalFailureKind.AuthenticationRequired),
+            ("no output produced", "executor.tool_permission_denied", ExternalFailureKind.Permanent),
         ];
 
         private readonly List<string> _lines = [];
@@ -129,9 +129,11 @@ public sealed class AntigravityExternalAgentExecutor(
 
         public string? FinalMessage { get; private set; }
 
-        public ExternalAgentUsage? Usage => null;
+        public ExternalAgentUsage? Usage { get; private set; }
 
         public string? FailureCode { get; private set; }
+
+        public ExternalFailureKind FailureKind { get; private set; } = ExternalFailureKind.Unknown;
 
         public IEnumerable<ExternalAgentEvent> ParseLine(string line)
         {
@@ -156,11 +158,12 @@ public sealed class AntigravityExternalAgentExecutor(
 
         private string? MatchSentinel(string line)
         {
-            foreach (var (needle, code) in Sentinels)
+            foreach (var (needle, code, kind) in Sentinels)
             {
                 if (line.Contains(needle, StringComparison.OrdinalIgnoreCase))
                 {
                     FailureCode ??= code;
+                    FailureKind = kind;
                     return code;
                 }
             }
@@ -172,6 +175,16 @@ public sealed class AntigravityExternalAgentExecutor(
         {
             var joined = string.Join('\n', _lines).Trim();
             FinalMessage = joined;
+
+            // F-26: a CLI `agy` não reporta uso. Em vez de devolver null (que vira
+            // usage_unknown/output_tokens=0), estimamos os tokens de saída a partir do texto
+            // gerado. A estimativa é conservadora e declarada como aproximada; o custo real
+            // continua dependendo do modelo e do tokenizer do provedor.
+            if (joined.Length > 0)
+            {
+                var estimatedOutputTokens = Math.Max(1, joined.Length / 4);
+                Usage = new ExternalAgentUsage(null, null, estimatedOutputTokens, null, null);
+            }
 
             // Resposta vazia sem sentinela é ainda assim uma NÃO-resposta: fail-closed. O
             // `agy` sai 0 mesmo sem produzir texto (auth em stderr, quota, negação), então a

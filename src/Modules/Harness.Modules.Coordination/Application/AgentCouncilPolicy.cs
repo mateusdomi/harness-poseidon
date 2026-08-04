@@ -231,10 +231,21 @@ public static class AgentCouncilPolicy
         var diversity = MeasureDiversity(opinions);
         if (opinions.Count < MinimumCouncil)
         {
+            // F-15: a mensagem genérica escondia a causa (path scope negado, falta de revisor,
+            // executor indisponível etc.). Listar os motivos operacionais deixa o dono e o
+            // operador sabendo por onde começar.
+            var operational = opinions
+                .Where(opinion => opinion.IsOperational)
+                .Select(opinion => $"- {opinion.Seat}: {opinion.Summary}")
+                .ToArray();
+            var rationale = operational.Length > 0
+                ? $"O conselho reuniu {opinions.Count} parecer(es); o mínimo é {MinimumCouncil}. " +
+                  $"Motivo(s) dos assentos não ouvidos:\n{string.Join("\n", operational)}"
+                : $"O conselho reuniu {opinions.Count} parecer(es); o mínimo é {MinimumCouncil}.";
             return new CouncilVerdict(
                 false,
                 "council.incomplete",
-                $"O conselho reuniu {opinions.Count} parecer(es); o mínimo é {MinimumCouncil}.",
+                rationale,
                 [],
                 diversity);
         }

@@ -590,7 +590,8 @@ public static class HostApplication
                             .Create(executorId),
                         services.GetRequiredService<IClock>(),
                         new ConversationChiefExecutorOptions(
-                            Path.GetFullPath(agentRunSettings.ControlledRoot!)))));
+                            Path.GetFullPath(agentRunSettings.ControlledRoot!)),
+                        services.GetRequiredService<ILogger<ConversationChiefAgentExecutor>>())));
 
             builder.Services.AddSingleton(services => new AgentRunOrchestrator(
                 services.GetRequiredService<IAttemptWorkspaceStore>(),

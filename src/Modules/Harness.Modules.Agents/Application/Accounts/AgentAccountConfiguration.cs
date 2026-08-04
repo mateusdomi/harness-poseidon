@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Harness.Modules.Agents.Application.Execution.External;
 using Harness.Modules.Agents.Contracts;
 
 namespace Harness.Modules.Agents.Application.Accounts;
@@ -206,6 +207,14 @@ public static class AgentAccountConfigurationLoader
             : [.. definition.AllowedRoles
                 .SelectMany(AgentRoles.PathScopesFor)
                 .Distinct(StringComparer.Ordinal)];
+        // F-09: contas cujo executor não tem adapter real não podem fingir elegibilidade.
+        // Nascem Unavailable para ficar visíveis na frota sem consumir tentativas de despacho.
+        var state = !ExternalAgentExecutorFactory.IsImplemented(definition.ExecutorId)
+            ? AgentAccountState.Unavailable
+            : definition.Enabled
+                ? AgentAccountState.AuthenticationRequired
+                : AgentAccountState.Disabled;
+
         return new AgentAccountContract(
             definition.Alias,
             definition.ProviderKind,
@@ -214,9 +223,7 @@ public static class AgentAccountConfigurationLoader
             $"confighome://{definition.Alias}",
             definition.AllowedRoles,
             pathScopes,
-            // Uma conta nunca nasce Available: instalação e autenticação são comprovadas,
-            // nunca presumidas.
-            definition.Enabled ? AgentAccountState.AuthenticationRequired : AgentAccountState.Disabled,
+            state,
             AgentAccountHealth.Unknown,
             Math.Max(1, definition.ConcurrencyLimit),
             ActiveAttempts: 0,

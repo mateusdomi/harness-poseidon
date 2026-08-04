@@ -160,6 +160,61 @@ public sealed class AntigravityExternalAgentExecutorTests : IDisposable
         Assert.Equal("executor.secret_in_prompt", exception.Code);
     }
 
+    [Fact]
+    public void AuthenticationSentinelSetsFailureKindToAuthenticationRequired()
+    {
+        // F-10: sem ExternalFailureKind a falha caía na heurística de substring. O adaptador deve
+        // declarar a causa real para que o escalonador trate a conta corretamente.
+        var parser = new AntigravityExternalAgentExecutor.AntigravityTextParser();
+
+        var failed = Assert.Single(parser.ParseLine(
+            "Error: authentication required. Run 'agy' to log in, then retry.").ToArray());
+
+        Assert.Equal("executor.authentication_required", failed.Code);
+        Assert.Equal(ExternalFailureKind.AuthenticationRequired, parser.FailureKind);
+    }
+
+    [Fact]
+    public void ToolPermissionDeniedSetsFailureKindToPermanent()
+    {
+        var parser = new AntigravityExternalAgentExecutor.AntigravityTextParser();
+
+        var failed = Assert.Single(parser.ParseLine(
+            "no output produced — a tool required the write_permission permission").ToArray());
+
+        Assert.Equal("executor.tool_permission_denied", failed.Code);
+        Assert.Equal(ExternalFailureKind.Permanent, parser.FailureKind);
+    }
+
+    [Fact]
+    public void EmptyOutputWithoutSentinelLeavesFailureKindUnknown()
+    {
+        var parser = new AntigravityExternalAgentExecutor.AntigravityTextParser();
+
+        Assert.Empty(parser.ParseLine("").ToArray());
+        parser.Complete();
+
+        Assert.Equal("executor.no_output", parser.FailureCode);
+        Assert.Equal(ExternalFailureKind.Unknown, parser.FailureKind);
+    }
+
+    [Fact]
+    public void NonEmptyOutputEstimatesUsageFromLength()
+    {
+        // F-26: a CLI não reporta uso; estimamos tokens de saída para não publicar
+        // usage_unknown/output_tokens=0 no ledger.
+        var parser = new AntigravityExternalAgentExecutor.AntigravityTextParser();
+        const string output = "Esta é uma resposta de revisão com vários caracteres.";
+
+        _ = parser.ParseLine(output).ToArray();
+        parser.Complete();
+
+        Assert.NotNull(parser.Usage);
+        Assert.Null(parser.Usage!.InputTokens);
+        Assert.True(parser.Usage.OutputTokens > 0, "output tokens should be estimated");
+        Assert.Equal(Math.Max(1, output.Length / 4), parser.Usage.OutputTokens);
+    }
+
     public void Dispose()
     {
         foreach (var path in new[] { _root, _workspace })
