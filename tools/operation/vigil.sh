@@ -58,19 +58,30 @@ say "vigia de pe (pid $$) — projeto $PROJECT, intervalo ${INTERVAL}s, teto de 
 last_done=-1
 last_alert_key=""
 idle_since=$(date -u +%s)
+down_strikes=0
 
 while true; do
   now=$(date -u +%s)
 
   # 1. O Host está de pé? Sem ele, nada mais importa e nada mais é diagnosticável.
-  http=$(curl -s -m 5 -o /dev/null -w "%{http_code}" "$API/health" 2>/dev/null || echo "000")
+  http=$(curl -s -m 5 -o /dev/null -w "%{http_code}" "$API/health" 2>/dev/null)
+  http="${http:-000}"
   if [[ "$http" != "200" ]]; then
-    if [[ "$last_alert_key" != "host_down" ]]; then
-      alert "HOST FORA DO AR (http=$http). A esteira inteira está parada."
+    # PUBLICAR DERRUBA O HOST DE PROPÓSITO, por cerca de um minuto. Alertar nessa janela é
+    # acusar como incidente exatamente o procedimento que corrige incidentes — e foi o que
+    # aconteceu às 03:02Z. Duas condições evitam isso, e nenhuma delas cega o vigia: com
+    # publicador armado a queda é esperada e vira estado; sem ele, ainda assim se exige a
+    # SEGUNDA leitura falha, porque uma amostra isolada não distingue reinício de morte.
+    down_strikes=$(( down_strikes + 1 ))
+    if pgrep -f "publish-when-idle" >/dev/null 2>&1; then
+      say "host fora do ar (http=$http) durante publicacao — esperado, nada a fazer"
+    elif [[ "$down_strikes" -ge 2 && "$last_alert_key" != "host_down" ]]; then
+      alert "HOST FORA DO AR (http=$http) em duas leituras seguidas e sem publicacao em curso. A esteira inteira está parada."
       last_alert_key="host_down"
     fi
     sleep "$INTERVAL"; continue
   fi
+  down_strikes=0
 
   # 2. Progresso REAL: cards concluídos. É o único número que não mente sobre andar.
   done_now=$(q "select count(*) from work_tasks where project_id='$PROJECT' and board_state='done';")
