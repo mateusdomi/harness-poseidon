@@ -3950,10 +3950,33 @@ public sealed partial class ChiefBacklogLoopService(
         // replanejamento do card por culpa alheia e o deixava escalado para sempre, com o dono
         // como unica saida. Foi o que prendeu os cards de Arquitetura do E2E de emprestimos,
         // cujas tres tentativas morreram todas na mesma conta com a cota estourada.
+        // E "produziu nada" nao e so morrer por infraestrutura. Uma tentativa que RODOU, gastou
+        // token e entregou DIFF VAZIO tambem nunca exerceu a abordagem — nao ha o que evitar
+        // repetir, porque nada foi tentado. Medido em 04/08: os quatro cards de implementacao
+        // entregaram vazio duas vezes cada, por um defeito NOSSO no cabecalho da instrucao
+        // (OPS-069) e pela decisao de arquitetura sem caminho executavel (OPS-072). O orcamento
+        // anti-laco os puniu por uma parede que nao era deles, e o replanejamento — a unica volta
+        // — ja estava gasto quando os consertos entraram no ar.
+        //
+        // A regra continua estreita de proposito: ela vale para a guarda do REPLANEJAMENTO, e nao
+        // para o orcamento de rodadas nem para o limiar do circuito. Quem impede o laco aqui e o
+        // teto de replanejamentos logo abaixo, que agora conta o que diz contar.
         var realAttempts = attempts.Count(attempt =>
-            !CardCircuitBreakerService.IsInfrastructureFailure(attempt.FailureReason));
+            !CardCircuitBreakerService.IsInfrastructureFailure(attempt.FailureReason) &&
+            attempt.TokensOutput > 0 &&
+            attempt.CommitRefs.Count > 0);
+
+        // O TETO CONTA REPLANEJAMENTOS, e nao versoes de instrucao.
+        //
+        // Ele existe para limitar quantas vezes um card volta a fila por causa operacional, e a
+        // contagem de instrucoes era um proxy: cada replanejamento grava uma. Mas a correcao apos
+        // reprovacao tambem grava, e o proxy quebrou — um card com dez versoes corretivas e UM
+        // replanejamento aparecia como orcamento esgotado. Os quatro cards da fase 5 estavam
+        // exatamente assim: acusados de ter gastado quatro rodadas operacionais tendo usado uma.
+        var operationalReplans = instructions.Count(instruction =>
+            instruction.Body.Contains(ReplanMarker, StringComparison.Ordinal));
         if (alreadyReplanned &&
-            (realAttempts > 0 || instructions.Count >= MaximumOperationalReplanRounds))
+            (realAttempts > 0 || operationalReplans >= MaximumOperationalReplanRounds))
         {
             return false;
         }
