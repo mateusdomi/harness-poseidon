@@ -674,6 +674,25 @@ public sealed partial class ChiefBacklogLoopService(
                         dispatchTask.Priority,
                         surfaceMap: surfaceMap);
 
+                    // F-17: a persona declarada carrega escopos que devem restringir o escopo do
+                    // papel. Resolvemos primeiro para saber qual persona foi escolhida, depois
+                    // recalculamos com os AllowedScopes/DeniedScopes dela como restrição adicional.
+                    var dispatchPersona = FindPersona(personas, resolution.PersonaKey)
+                        ?? FindPersona(personas, resolution.InferredPersonaKey);
+                    if (dispatchPersona is { AllowedScopes.Count: > 0 } or { DeniedScopes.Count: > 0 })
+                    {
+                        resolution = ChiefCardResolver.Resolve(
+                            dispatchTask.Title,
+                            dispatchInstruction.Body,
+                            [],
+                            dispatchTask.Priority,
+                            explicitPersonaKey: resolution.PersonaKey,
+                            explicitRole: resolution.Role,
+                            surfaceMap: surfaceMap,
+                            personaAllowedScopes: dispatchPersona.AllowedScopes,
+                            personaDeniedScopes: dispatchPersona.DeniedScopes);
+                    }
+
                     // Um papel SEM escopo de escrita (o crítico, por exemplo) produz claim vazia, e a
                     // política de path rejeitaria a tentativa com `agent_path_scope_empty`. Pular o
                     // card evitava queimar slot — mas pular é a resposta certa uma vez e errada para

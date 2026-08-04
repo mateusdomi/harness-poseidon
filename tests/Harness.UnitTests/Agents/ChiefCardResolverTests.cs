@@ -154,4 +154,79 @@ public sealed class ChiefCardResolverTests
             explicitPersonaKey: ChiefCardResolver.CriticQa);
         Assert.Equal(ChiefCardResolver.CriticQa, r.PersonaKey);
     }
+
+    /// <summary>
+    /// F-17: os escopos declarados pela persona devem restringir o escopo do papel. Um engenheiro
+    /// cujos AllowedScopes não incluem `docs/decisions/**` não deve receber claim naquela área,
+    /// mesmo que o papel backend a permita.
+    /// </summary>
+    [Fact]
+    public void PersonaAllowedScopesRestrictRoleScope()
+    {
+        var r = ChiefCardResolver.Resolve(
+            "Implementar X",
+            "Adicionar geração de chave no store.",
+            ["ok"],
+            "medium",
+            personaAllowedScopes: ["src/**", "tests/**"],
+            personaDeniedScopes: []);
+
+        Assert.Contains("src/**", r.ScopeClaims);
+        Assert.DoesNotContain("docs/decisions/**", r.ScopeClaims);
+        Assert.DoesNotContain("docs/architecture/**", r.ScopeClaims);
+    }
+
+    /// <summary>
+    /// F-17: os DeniedScopes da persona removem claims do papel. Um arquiteto que nega `infra/**`
+    /// não deve ver essa raiz entre seus claims.
+    /// </summary>
+    [Fact]
+    public void PersonaDeniedScopesRemoveRoleClaims()
+    {
+        var r = ChiefCardResolver.Resolve(
+            "Definir fronteira",
+            "Escrever um ADR sobre a decisão técnica.",
+            ["ok"],
+            "medium",
+            personaAllowedScopes: [],
+            personaDeniedScopes: ["infra/**"]);
+
+        Assert.DoesNotContain("infra/**", r.ScopeClaims);
+    }
+
+    /// <summary>
+    /// F-17: a persona pode reduzir o escopo, mas nunca ampliar. Um claim solicitado fora do
+    /// escopo do papel é ignorado, e o planejador continua partindo do teto do papel.
+    /// </summary>
+    [Fact]
+    public void PersonaCannotExpandBeyondRoleScope()
+    {
+        var r = ChiefCardResolver.Resolve(
+            "Ajustar o componente de login",
+            "Corrigir o layout da tela em React.",
+            ["ok"],
+            "medium",
+            explicitRole: AgentRoles.FrontendSpecialist,
+            personaAllowedScopes: ["frontend/**", "src/**"]);
+
+        Assert.Contains("frontend/**", r.ScopeClaims);
+        Assert.DoesNotContain("src/**", r.ScopeClaims);
+    }
+
+    /// <summary>
+    /// F-17: se a persona restringir tudo (configuração inconsistente), voltamos ao escopo do
+    /// papel para que a recusa seja auditável, em vez de produzir um card sem escopo silencioso.
+    /// </summary>
+    [Fact]
+    public void OverlyRestrictivePersonaFallsBackToRoleScope()
+    {
+        var r = ChiefCardResolver.Resolve(
+            "Implementar X",
+            "Adicionar geração de chave no store.",
+            ["ok"],
+            "medium",
+            personaAllowedScopes: ["governance/**"]);
+
+        Assert.Contains("src/**", r.ScopeClaims);
+    }
 }

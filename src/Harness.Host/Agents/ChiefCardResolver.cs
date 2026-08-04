@@ -22,7 +22,9 @@ public static class ChiefCardResolver
     public static ChiefCardResolution Resolve(
         string title, string instructionBody, IReadOnlyList<string> acceptanceCriteria,
         string riskTier, string? explicitPersonaKey = null, string? explicitRole = null,
-        RepositorySurfaceMap? surfaceMap = null)
+        RepositorySurfaceMap? surfaceMap = null,
+        IReadOnlyList<string>? personaAllowedScopes = null,
+        IReadOnlyList<string>? personaDeniedScopes = null)
     {
         // A heurística lê a DEMANDA, não os marcadores de despacho. A linha "Especialidade
         // exigida: architecture-security" carrega a palavra "architecture" — deixá-la no palheiro
@@ -47,9 +49,16 @@ public static class ChiefCardResolver
         // por papéis, e não pelo trabalho. O planejador estreita quando reconhece a superfície
         // real no repositório e devolve o escopo do papel quando não reconhece: claim estreito
         // demais trava o agente no meio, o que é pior do que um claim amplo que só serializa.
+        //
+        // F-17: os escopos declarados pela persona são vinculantes DENTRO do teto do papel.
+        // O papel impõe o máximo que o card pode reivindicar; a persona reduz esse máximo
+        // para as áreas onde aquele profissional de fato trabalha. Sem isso, duas fontes de
+        // escopo coexistiam e só a do papel era aplicada — a persona declarava escopos que
+        // ninguém lia.
         var roleClaims = AgentRoles.PathScopesFor(role);
+        var baseClaims = ApplyPersonaScopeHints(roleClaims, personaAllowedScopes, personaDeniedScopes);
         var plan = CardPathScopePlanner.Plan(
-            roleClaims, surfaceMap ?? RepositorySurfaceMap.Empty, title, instructionBody);
+            baseClaims, surfaceMap ?? RepositorySurfaceMap.Empty, title, instructionBody);
         var claims = plan.Claims;
         var capability = string.Equals(role, AgentRoles.Critic, StringComparison.OrdinalIgnoreCase)
             ? "review"
@@ -188,6 +197,59 @@ public static class ChiefCardResolver
 
     private static bool MentionsAny(string text, params string[] needles) =>
         needles.Any(needle => text.Contains(needle, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Aplica os escopos declarados pela persona como restrição adicional sobre o escopo do papel.
+    /// A persona pode REDUZIR o escopo, nunca ampliar: um claim do papel só permanece se estiver
+    /// dentro de pelo menos um <paramref name="allowedScopes"/>, e é removido se estiver dentro de
+    /// qualquer <paramref name="deniedScopes"/>. Escopos vazios ou ausentes não restringem nada.
+    /// </summary>
+    private static IReadOnlyList<string> ApplyPersonaScopeHints(
+        IReadOnlyList<string> roleClaims,
+        IReadOnlyList<string>? allowedScopes,
+        IReadOnlyList<string>? deniedScopes)
+    {
+        var allowed = allowedScopes ?? [];
+        var denied = deniedScopes ?? [];
+        if (allowed.Count == 0 && denied.Count == 0)
+        {
+            return roleClaims;
+        }
+
+        var filtered = roleClaims
+            .Where(roleClaim =>
+            {
+                if (allowed.Count > 0 && !allowed.Any(personaScope => IsWithin(roleClaim, personaScope)))
+                {
+                    return false;
+                }
+
+                return !denied.Any(deniedScope => IsWithin(roleClaim, deniedScope));
+            })
+            .ToArray();
+
+        // Se a persona restringiu TUDO, é sinal de configuração inconsistente: melhor voltar ao
+        // escopo do papel e deixar a política de path scope recusar de forma auditável, em vez de
+        // produzir um card silenciosamente sem escrito.
+        return filtered.Length > 0 ? filtered : roleClaims;
+    }
+
+    /// <summary>
+    /// O path candidato está contido no escopo raiz? Tolerância para varredura (<c>/**</c>) dos
+    /// dois lados: <c>src/Modules/X/**</c> está dentro de <c>src/**</c>.
+    /// </summary>
+    private static bool IsWithin(string candidate, string root)
+    {
+        var path = candidate.Replace('\\', '/').Trim('/').TrimEnd('*').TrimEnd('/');
+        var rootBase = root.Replace('\\', '/').Trim('/').TrimEnd('*').TrimEnd('/');
+        if (rootBase.Length == 0 || path.Length == 0)
+        {
+            return false;
+        }
+
+        return path.Equals(rootBase, StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith($"{rootBase}/", StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 /// <summary>
