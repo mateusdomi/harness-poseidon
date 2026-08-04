@@ -176,10 +176,14 @@ public sealed class WorkflowPhaseDriver(
         }
 
         // Board inteiro do projeto uma vez só: o casamento card↔objetivo é por título estável.
-        var page = await _board.PageTasksAsync(
-            tenantId,
-            new BoardTaskPageQuery(project.Id, null, null, null, null, null, "active", null, 0, 200),
-            cancellationToken);
+        //
+        // "Uma vez só" era uma página de 200, e o comentário dizia "board inteiro" — a promessa e o
+        // código discordavam em silêncio. A ordenação é por atualização decrescente, então quem cai
+        // fora primeiro é justamente o card antigo e já aceito: o casamento por título falha, a
+        // obrigação deixa de ser observada e o portão perde a prova de um trabalho concluído. Este
+        // projeto de prova já passou de 46 cards e as fases 6 a 9 preveem mais 18 documentos, cada
+        // um capaz de gerar cards de revisão. O teto seria alcançado dentro desta operação.
+        var page = await PageEntireBoardAsync(tenantId, project.Id, cancellationToken);
         var byTitle = new Dictionary<string, BoardTaskRecord>(StringComparer.Ordinal);
         foreach (var task in page.Items)
         {
@@ -568,16 +572,33 @@ public sealed class WorkflowPhaseDriver(
                 _ = byTitle.TryGetValue(CardTitleFor(phaseName, name), out card);
             }
 
-            var next = card is null ? "pending" : StateOf(card);
+            // AUSÊNCIA NÃO É OBSERVAÇÃO. Isto era `card is null ? "pending"`, e o card some do
+            // casamento por dois motivos rotineiros: ele foi arquivado (a consulta pede
+            // `Archive: "active"`) ou caiu fora da página. Nos dois casos uma obrigação já
+            // ACEITA regredia para `pending`, e como a criação de card acima só dispara com o
+            // OBJETIVO ainda pendente — e ele já avançou —, nenhum card nascia para reconquistar
+            // aquele degrau: o portão passava a esperar para sempre um trabalho que já tinha sido
+            // entregue e aceito. Medido no projeto 01KYZHMGZASV0A1G0QM9RB248M, parado na fase 2
+            // com o objetivo `document-2` em `validated` e a obrigação em `pending`, com o card
+            // cancelado e arquivado. As fases 6 a 9 são inteiramente de documento: uma obrigação
+            // regredida ali é a operação inteira.
+            //
+            // Não ver o card não diz nada sobre o trabalho. O que foi observado permanece até que
+            // um card seja observado dizendo outra coisa.
+            if (card is null)
+            {
+                updated.Add(obligation);
+                continue;
+            }
+
+            var next = StateOf(card);
             if (string.Equals(next, obligation.State, StringComparison.Ordinal))
             {
                 updated.Add(obligation);
                 continue;
             }
 
-            var evidence = card is null
-                ? Array.Empty<string>()
-                : new[] { $"card:{card.Id}", $"state:{card.State}" };
+            var evidence = new[] { $"card:{card.Id}", $"state:{card.State}" };
             _ = await _obligations.UpdateStateAsync(
                 new PhaseObligationStateCommand(
                     tenantId, obligation.ObligationId, next, evidence, null, _clock.UtcNow),
@@ -589,13 +610,50 @@ public sealed class WorkflowPhaseDriver(
     }
 
     /// <summary>
+    /// Lê o quadro ATIVO do projeto inteiro, em páginas, até cobrir o total declarado. O teto por
+    /// requisição continua existindo (é do armazenamento); o que deixa de existir é o teto
+    /// silencioso sobre o que a esteira enxerga.
+    /// </summary>
+    private async Task<BoardTaskPageRecord> PageEntireBoardAsync(
+        string tenantId,
+        string projectId,
+        CancellationToken cancellationToken)
+    {
+        const int PageSize = 200;
+        var items = new List<BoardTaskRecord>();
+        var total = 0;
+
+        for (var offset = 0; ; offset += PageSize)
+        {
+            var page = await _board.PageTasksAsync(
+                tenantId,
+                new BoardTaskPageQuery(
+                    projectId, null, null, null, null, null, "active", null, offset, PageSize),
+                cancellationToken);
+            total = page.Total;
+            items.AddRange(page.Items);
+
+            if (page.Items.Count < PageSize || items.Count >= total)
+            {
+                break;
+            }
+        }
+
+        return new BoardTaskPageRecord(items, total);
+    }
+
+    /// <summary>
     /// Mapeia o estado do card para o estado da obrigação. Só `completed` conta como aceito: é o
     /// estado que exige revisão independente aprovada.
+    ///
+    /// `approved` é o card que passou no review e ainda não foi integrado: não é aceito, mas
+    /// tampouco é `pending` — dizer "pendente" de um trabalho revisado e aprovado é a mesma
+    /// mentira, ao contrário, que o portão comete quando chama de limpo o que ninguém verificou.
     /// </summary>
     private static string StateOf(BoardTaskRecord card) => card.InternalState switch
     {
         "completed" => "accepted",
-        "awaiting_review" => "in_review",
+        "awaiting_review" or "approved" => "in_review",
         "running" or "assigned" => "in_progress",
         "blocked" or "escalated" => "blocked",
         _ => "pending",
