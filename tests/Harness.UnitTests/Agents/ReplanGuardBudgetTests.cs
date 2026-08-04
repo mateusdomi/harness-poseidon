@@ -97,8 +97,18 @@ public sealed class ReplanGuardBudgetTests
 
     // ---- O teto conta replanejamentos, não instruções --------------------------------
 
+    private static readonly DateTimeOffset T0 = DateTimeOffset.UnixEpoch;
+
+    // De novo: a contagem vem da produção. Cada corpo entra com o instante em que foi gravado, e
+    // um replanejamento só gasta rodada se alguma tentativa começou DEPOIS dele.
     private static int OperationalReplans(params string[] bodies) =>
-        bodies.Count(b => b.Contains(Replan, StringComparison.Ordinal));
+        OperationalReplans([T0.AddHours(1)], [.. bodies.Select(b => (b, T0))]);
+
+    private static int OperationalReplans(
+        DateTimeOffset[] attemptStarts, params (string Body, DateTimeOffset CreatedAt)[] instructions) =>
+        instructions.Count(i =>
+            i.Body.Contains(Replan, StringComparison.Ordinal) &&
+            ReplanAttemptPolicy.ProducedDispatch(i.CreatedAt, attemptStarts));
 
     /// <summary>
     /// O estado exato dos quatro cards presos: dez versões de instrução e UM replanejamento.
@@ -139,5 +149,31 @@ public sealed class ReplanGuardBudgetTests
     {
         Assert.Equal(0, OperationalReplans("o revisor mencionou replanejamento em prosa"));
         Assert.Equal(1, OperationalReplans($"x\n\n{Replan}\ny"));
+    }
+
+    /// <summary>
+    /// O laço medido em 04/08: a devolução aplicava, o orçamento de rodadas reescalava o card no
+    /// mesmo ciclo, e a volta seguinte gravava outra instrução. Três em dez minutos, nenhuma
+    /// despachada. Se essas voltas contassem, o teto se esgotaria por um defeito do sistema — a
+    /// terceira vez que o mesmo card seria punido por uma parede que não é dele.
+    /// </summary>
+    [Fact]
+    public void ReplanejamentoQueNaoProduziuDespachoNaoGastaRodada()
+    {
+        var churn = Enumerable.Repeat(($"corpo\n\n{Replan}\ntexto", T0.AddHours(2)), 3).ToArray();
+
+        Assert.Equal(0, OperationalReplans([T0.AddHours(1)], churn));
+    }
+
+    /// <summary>
+    /// E o simétrico, sem o qual a regra acima viraria a saída fácil: o replanejamento que
+    /// DESPACHOU continua gastando a rodada.
+    /// </summary>
+    [Fact]
+    public void ReplanejamentoQueDespachouContinuaGastandoRodada()
+    {
+        Assert.Equal(
+            1,
+            OperationalReplans([T0.AddHours(3)], ($"corpo\n\n{Replan}\ntexto", T0.AddHours(2))));
     }
 }

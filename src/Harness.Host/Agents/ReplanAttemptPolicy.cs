@@ -29,4 +29,19 @@ public static class ReplanAttemptPolicy
         !CardCircuitBreakerService.IsInfrastructureFailure(failureReason) &&
         tokensOutput > 0 &&
         introducedChanges != false;
+
+    /// <summary>
+    /// O replanejamento PRODUZIU despacho? Uma volta à fila que não gerou tentativa nenhuma não
+    /// devolveu o card a lugar nenhum, e não pode consumir o teto de rodadas operacionais.
+    ///
+    /// O caso medido: a devolução aplicava, o orçamento de rodadas reescalava o card no mesmo
+    /// ciclo e a volta seguinte gravava outra versão de instrução — três em dez minutos, nenhuma
+    /// despachada. Contá-las esgotaria o teto por um laço do sistema em vez de por trabalho.
+    /// </summary>
+    public static bool ProducedDispatch(
+        DateTimeOffset instructionCreatedAt, IEnumerable<DateTimeOffset> attemptStarts)
+    {
+        ArgumentNullException.ThrowIfNull(attemptStarts);
+        return attemptStarts.Any(start => start > instructionCreatedAt);
+    }
 }

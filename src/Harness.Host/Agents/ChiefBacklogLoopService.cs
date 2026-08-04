@@ -605,6 +605,22 @@ public sealed partial class ChiefBacklogLoopService(
                     var spentRounds = CountSpentRounds(attemptHistory);
                     if (budget is not null && spentRounds >= budget.MaxRounds)
                     {
+                        // A MESMA pergunta do replanejamento, feita ao orçamento: uma rodada é
+                        // gasta quando uma ABORDAGEM foi exercida. Sem isto o replanejamento
+                        // aprovado virava um laço — ele devolvia o card a `ready` e o orçamento o
+                        // reescalava no mesmo ciclo, gravando uma versão de instrução por volta e
+                        // sem nunca despachar nada. Duas contagens da mesma coisa não podem
+                        // discordar; a que ficasse com o proxy quebrado anularia a outra.
+                        //
+                        // O refinamento só roda NA FRONTEIRA, quando o corte cru já disse
+                        // "esgotou": ler o diff de toda tentativa a cada tique custaria git por
+                        // card por dez segundos, e a resposta só muda quando o card ia escalar.
+                        spentRounds = await CountExercisedRoundsAsync(
+                            project, projectControlledRoot, attemptHistory, token);
+                    }
+
+                    if (budget is not null && spentRounds >= budget.MaxRounds)
+                    {
                         await EscalateBudgetExhaustionAsync(
                             profile.TenantId, project.Id, task, chain, budget, spentRounds, token);
                         continue;
@@ -4006,8 +4022,17 @@ public sealed partial class ChiefBacklogLoopService(
         // reprovacao tambem grava, e o proxy quebrou — um card com dez versoes corretivas e UM
         // replanejamento aparecia como orcamento esgotado. Os quatro cards da fase 5 estavam
         // exatamente assim: acusados de ter gastado quatro rodadas operacionais tendo usado uma.
+        // E uma rodada operacional só é gasta quando o replanejamento PRODUZIU despacho. Um
+        // replanejamento aplicado que não gerou tentativa nenhuma não devolveu o card a lugar
+        // nenhum — foi exatamente o que aconteceu quando a devolução esbarrou no orçamento de
+        // rodadas e o card voltou a escalar no mesmo ciclo: três versões de instrução gravadas em
+        // dez minutos, nenhuma delas despachada, e o teto consumido por um laço em vez de por
+        // trabalho. Contar essas voltas puniria o card por um defeito do sistema pela terceira vez
+        // — que é o defeito que este bloco inteiro existe para não repetir.
+        var attemptStarts = attempts.Select(attempt => attempt.StartedAt).ToArray();
         var operationalReplans = instructions.Count(instruction =>
-            instruction.Body.Contains(ReplanMarker, StringComparison.Ordinal));
+            instruction.Body.Contains(ReplanMarker, StringComparison.Ordinal) &&
+            ReplanAttemptPolicy.ProducedDispatch(instruction.CreatedAt, attemptStarts));
         if (alreadyReplanned &&
             (realAttempts > 0 || operationalReplans >= MaximumOperationalReplanRounds))
         {
@@ -4484,6 +4509,44 @@ public sealed partial class ChiefBacklogLoopService(
     /// os restos na branch da tentativa e remove a worktree. Nunca destrói trabalho; falha aqui é
     /// logada e não impede a colheita da cadeia (o diff apenas refletirá o que está na branch).
     /// </summary>
+    /// <summary>
+    /// Quantas rodadas o card de fato gastou: as tentativas que EXERCERAM a abordagem. Custa uma
+    /// leitura de git por tentativa candidata, então só deve ser chamado quando a contagem crua
+    /// já apontou esgotamento — o refinamento nunca aumenta o número.
+    /// </summary>
+    private async Task<int> CountExercisedRoundsAsync(
+        ProjectRecord project,
+        string controlledRoot,
+        IReadOnlyList<BoardAttemptRecord> attempts,
+        CancellationToken token)
+    {
+        var exercised = 0;
+        foreach (var attempt in attempts)
+        {
+            if (string.Equals(attempt.State, "queued", StringComparison.Ordinal) ||
+                string.Equals(attempt.State, "cancelled", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!ReplanAttemptPolicy.ExercisedApproach(
+                    attempt.FailureReason, attempt.TokensOutput, null))
+            {
+                continue;
+            }
+
+            if (ReplanAttemptPolicy.ExercisedApproach(
+                    attempt.FailureReason,
+                    attempt.TokensOutput,
+                    await AttemptIntroducedChangesAsync(project, controlledRoot, attempt.Id, token)))
+            {
+                exercised++;
+            }
+        }
+
+        return exercised;
+    }
+
     /// <summary>
     /// A tentativa introduziu mudança na branch dela? <c>null</c> quando não deu para apurar —
     /// quem chama decide o que fazer com a dúvida, em vez de recebê-la disfarçada de "não".
