@@ -2269,8 +2269,12 @@ public sealed partial class AgentRunOrchestrator(
                 : RiskTier.Medium;
             var plan = WorktreeHookPolicy.Generate(
                 risk,
-                // A linguagem sai do que o card declara tocar; sem declaração, o hook genérico vale.
-                command.ScopeClaims.Any(scope => scope.Contains("frontend", StringComparison.OrdinalIgnoreCase))
+                // F-06: a linguagem sai do que o card declara tocar, verificando prefixo canônico
+                // do escopo frontend em vez de Contains sobre texto livre.
+                command.ScopeClaims.Any(scope =>
+                    scope.StartsWith("frontend/", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(scope, "frontend", StringComparison.OrdinalIgnoreCase) ||
+                    scope.StartsWith("frontend/**", StringComparison.OrdinalIgnoreCase))
                     ? "typescript"
                     : "csharp",
                 command.ScopeClaims,
@@ -2406,25 +2410,29 @@ public sealed partial class AgentRunOrchestrator(
             ExternalAgentRedaction.Redact(combined));
     }
 
-    private async Task ClassifyFailureModeAsync(
-        StartAgentRunCommand command,
-        ExternalAgentRunResult execution,
-        CancellationToken cancellationToken)
-    {
-        var code = execution.FailureCode ?? string.Empty;
-        var mode = code switch
+    /// <summary>
+    /// F-06: mapeia o reason code da execução para o modo de falha MAST usando codes canônicos.
+    /// Não usa <c>Contains("scope")</c> ou <c>Contains("tool")</c> porque substring casa com
+    /// mensagens de erro legítimas e classifica mal o modo de falha.
+    /// </summary>
+    internal static string ClassifyFailureMode(string? failureCode) =>
+        (failureCode ?? string.Empty) switch
         {
             // Escopo negado: o agente tentou agir fora do papel que recebeu.
-            var value when value.Contains("scope", StringComparison.OrdinalIgnoreCase)
-                => MastTaxonomy.DisobeyRoleSpecification,
+            "agent_path_scope_denied" => MastTaxonomy.DisobeyRoleSpecification,
             // Ferramenta recusada: agiu fora do que a tarefa autorizava.
-            var value when value.Contains("tool", StringComparison.OrdinalIgnoreCase)
-                => MastTaxonomy.DisobeyTaskSpecification,
+            "executor.tool_permission_denied" => MastTaxonomy.DisobeyTaskSpecification,
             // Encerrou sem entregar — inclui timeout, cota e autenticação. O modo é o mesmo do
             // ponto de vista do trabalho: parou antes de terminar. A causa fica na evidência.
             _ => MastTaxonomy.PrematureTermination,
         };
 
+    private async Task ClassifyFailureModeAsync(
+        StartAgentRunCommand command,
+        ExternalAgentRunResult execution,
+        CancellationToken cancellationToken)
+    {
+        var mode = ClassifyFailureMode(execution.FailureCode);
         var descriptor = MastTaxonomy.Find(mode);
         if (descriptor is null)
         {

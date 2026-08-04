@@ -204,39 +204,79 @@ internal sealed class CardCircuitBreakerService(
     /// Público porque é a mesma pergunta em três lugares — circuito do card, orçamento de rodadas
     /// e teto de replanejamento. Uma pergunta, uma resposta: uma tentativa morta por reinício do
     /// Host ou por conta sem cota nunca chegou a julgar o enunciado do card.
+    ///
+    /// F-06: a classificação é feita por igualdade com reason codes canônicos, não por
+    /// <c>Contains</c> sobre texto livre. Substring casa com mensagem de erro legítima e
+    /// transforma falha do trabalho em infraestrutura.
     /// </summary>
     public static bool IsInfrastructureFailure(string? reason) =>
         !string.IsNullOrWhiteSpace(reason) && IsInfrastructureReason(reason);
 
-    private static bool IsInfrastructureReason(string reason) =>
-        reason.Contains("host_shutdown", StringComparison.OrdinalIgnoreCase) ||
-        reason.Contains("host_restart", StringComparison.OrdinalIgnoreCase) ||
+    private static bool IsInfrastructureReason(string reason)
+    {
+        // Reinício / parada do Host.
+        if (IsAny(reason, "attempt.interrupted_by_host_shutdown", "attempt.orphaned_by_host_restart"))
+        {
+            return true;
+        }
+
         // Falha da CONTA, não do card: cota esgotada, login exigido ou plano que não serve o
         // modelo dizem que o provedor não atendeu — o enunciado do card nunca chegou a ser
         // julgado. Observado no E2E de empréstimos: a mesma conta com cota estourada foi
         // reeleita três vezes, cada run morreu sem produzir um token, e o card saudável
         // escalou por culpa alheia.
-        reason.Contains("quota", StringComparison.OrdinalIgnoreCase) ||
-        reason.Contains("authentication_required", StringComparison.OrdinalIgnoreCase) ||
-        reason.Contains("account_model_unsupported", StringComparison.OrdinalIgnoreCase) ||
+        if (IsAny(reason,
+                "run.quota_exhausted",
+                "executor.quota_exhausted",
+                "run.authentication_required",
+                "executor.authentication_required",
+                "run.account_model_unsupported",
+                "executor.account_model_unsupported"))
+        {
+            return true;
+        }
+
         // CANCELAMENTO é "nós paramos", não "o card é ruim". Uma parada do Host no meio de um
         // run chega aqui como `TaskCanceledException`/`OperationCanceledException` — o nome do
         // tipo sanitizado, sem nenhuma pista de que a causa foi infraestrutura. Observado na
         // prova limpa: um card de Arquitetura abriu o circuito com três falhas, DUAS delas
         // cancelamentos provocados por reinícios da própria sessão de auditoria. O trabalho
         // nunca chegou a ser julgado.
-        reason.Contains("Canceled", StringComparison.OrdinalIgnoreCase) ||
-        reason.Contains("Cancelled", StringComparison.OrdinalIgnoreCase) ||
-        reason.Contains("run.cancelled", StringComparison.OrdinalIgnoreCase) ||
+        if (IsAny(reason,
+                "run.cancelled",
+                "TaskCanceledException",
+                "OperationCanceledException"))
+        {
+            return true;
+        }
+
         // RECUSA DE DESPACHO: o orquestrador não aceitou o run (perfil ocupado, claim em
         // conflito, adaptador ausente). A tentativa morre em milissegundos sem ler o enunciado.
         // A guarda de duração acima já a descartaria; a classificação entra aqui porque agora o
         // motivo é GRAVADO — e o handoff avisa que tornar a causa visível já introduziu, uma vez,
         // exatamente esta regressão: reinícios do Host passaram a abrir circuito de card
         // saudável. Escrever o motivo sem classificá-lo seria repetir o mesmo erro.
-        reason.Contains("chief.dispatch_rejected", StringComparison.OrdinalIgnoreCase) ||
-        reason.Contains("profile.locked", StringComparison.OrdinalIgnoreCase) ||
-        reason.Contains("profile.concurrency_exhausted", StringComparison.OrdinalIgnoreCase);
+        if (reason.StartsWith("chief.dispatch_rejected", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Contenção de perfil local: outro processo segura o slot.
+        return IsAny(reason, "profile.locked", "profile.concurrency_exhausted");
+    }
+
+    private static bool IsAny(string reason, params ReadOnlySpan<string> candidates)
+    {
+        foreach (var candidate in candidates)
+        {
+            if (string.Equals(reason, candidate, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private static bool IsSuccess(string state) =>
         string.Equals(state, "completed", StringComparison.Ordinal) ||
