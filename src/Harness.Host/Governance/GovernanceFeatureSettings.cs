@@ -5,12 +5,14 @@ public sealed record GovernanceFeatureSettings
     public bool ContextBundlesEnabled { get; init; } = true;
 
     /// <summary>
-    /// Orçamento do bundle documental. Subiu de 12.000 quando a seleção passou a usar o
-    /// vocabulário real do trabalho: o conjunto correto de documentos é maior que o conjunto
-    /// que a incompatibilidade de vocabulário deixava passar. A política de faixas garante que o
-    /// obrigatório nunca caia; o orçamento maior evita que o opcional caia por engano.
+    /// Orçamento do bundle documental do turno da chefe. Subiu de 12.000 para o teto que o
+    /// próprio manifesto declara (`tokenBudget: 24000`) quando a seleção passou a usar o
+    /// vocabulário real: o conjunto correto de documentos é maior que o conjunto que a
+    /// incompatibilidade de vocabulário deixava passar, e medido em 16.547 para um turno num
+    /// projeto na fase 5. A política de faixas garante que o obrigatório nunca caia; o
+    /// orçamento maior evita que a memória recuperada para o turno caia por engano.
     /// </summary>
-    public int ContextTokenBudget { get; init; } = 16000;
+    public int ContextTokenBudget { get; init; } = 24000;
 
     public bool HashlinePatchesEnabled { get; init; } = true;
 
