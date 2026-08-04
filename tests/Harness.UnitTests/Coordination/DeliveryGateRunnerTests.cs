@@ -77,7 +77,7 @@ public sealed class DeliveryGateRunnerTests : IDisposable
         });
 
         var plan = DeliveryGateExecutionPolicy.Plan(
-            ["test", "build"], DeliveryGateRunner.CollectManifests(_root));
+            ["test", "build"], DeliveryGateRunner.CollectDeclarations(_root));
         var outcomes = await DeliveryGateRunner.RunAsync(plan, _root, CancellationToken.None);
         var report = DeliveryGateExecutionPolicy.Consolidate(plan, outcomes);
 
@@ -86,6 +86,38 @@ public sealed class DeliveryGateRunnerTests : IDisposable
         Assert.Contains("12 pass", outcomes[0].Output, StringComparison.Ordinal);
         Assert.False(outcomes[1].Passed);
         Assert.Equal(3, outcomes[1].ExitCode);
+        Assert.Equal(DeliveryGateExecutionPolicy.ReasonFailed, report.ReasonCode);
+    }
+
+    [Fact]
+    public async Task TheConventionalShellGateOfTheRealDeliveryRuns()
+    {
+        // Reproduz a forma da PRIMEIRA entrega de código aprovada nesta operação: Python sem
+        // dependência de terceiro, gates em tools/backend/*.sh. Antes disto o executor só sabia
+        // npm, e a única entrega aprovada teria sido reportada como "não declara como executar".
+        var tools = Path.Combine(_root, "tools", "backend");
+        Directory.CreateDirectory(tools);
+        File.WriteAllText(
+            Path.Combine(tools, "test.sh"),
+            "#!/usr/bin/env bash\nset -euo pipefail\necho \"==> tests: OK\"\n");
+        File.WriteAllText(
+            Path.Combine(tools, "build.sh"),
+            "#!/usr/bin/env bash\nset -euo pipefail\necho quebrou >&2\nexit 2\n");
+
+        var declarations = DeliveryGateRunner.CollectDeclarations(_root);
+        Assert.Equal(2, declarations.Count);
+        Assert.All(declarations, d => Assert.Equal(DeliveryGateKind.ShellScript, d.Kind));
+
+        var plan = DeliveryGateExecutionPolicy.Plan(["test", "build"], declarations);
+        var outcomes = await DeliveryGateRunner.RunAsync(plan, _root, CancellationToken.None);
+        var report = DeliveryGateExecutionPolicy.Consolidate(plan, outcomes);
+
+        Assert.Equal(2, outcomes.Count);
+        Assert.True(outcomes[0].Passed);
+        Assert.Contains("tests: OK", outcomes[0].Output, StringComparison.Ordinal);
+        Assert.False(outcomes[1].Passed);
+        Assert.Equal(2, outcomes[1].ExitCode);
+        Assert.Contains("quebrou", outcomes[1].Output, StringComparison.Ordinal);
         Assert.Equal(DeliveryGateExecutionPolicy.ReasonFailed, report.ReasonCode);
     }
 
@@ -108,7 +140,7 @@ public sealed class DeliveryGateRunnerTests : IDisposable
             });
 
             var plan = DeliveryGateExecutionPolicy.Plan(
-                ["test"], DeliveryGateRunner.CollectManifests(_root));
+                ["test"], DeliveryGateRunner.CollectDeclarations(_root));
             var outcomes = await DeliveryGateRunner.RunAsync(plan, _root, CancellationToken.None);
 
             Assert.Single(outcomes);

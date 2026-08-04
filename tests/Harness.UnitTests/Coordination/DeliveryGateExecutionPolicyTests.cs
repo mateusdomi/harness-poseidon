@@ -44,6 +44,9 @@ public sealed class DeliveryGateExecutionPolicyTests
         Assert.Empty(DeliveryGateExecutionPolicy.ParseRequiredGates("Gates: a11y, performance\n"));
     }
 
+    private static IReadOnlyList<DeliveryGateCommand> Declared(params DeliveryManifest[] manifests) =>
+        [.. manifests.SelectMany(DeliveryGateExecutionPolicy.DeclarationsFromManifest)];
+
     [Fact]
     public void CardWithoutGatesIsNotApplicableAndLeavesTheLayerUntouched()
     {
@@ -61,7 +64,7 @@ public sealed class DeliveryGateExecutionPolicyTests
     {
         var plan = DeliveryGateExecutionPolicy.Plan(
             ["build", "test"],
-            [new DeliveryManifest("frontend", ZeroDependencyManifest)]);
+            Declared(new DeliveryManifest("frontend", ZeroDependencyManifest)));
 
         Assert.Equal(DeliveryGateExecutionPolicy.ReasonPassed, plan.ReasonCode);
         Assert.Collection(
@@ -69,14 +72,49 @@ public sealed class DeliveryGateExecutionPolicyTests
             command =>
             {
                 Assert.Equal("build", command.Gate);
-                Assert.Equal("build", command.Script);
+                Assert.Equal("build", command.Target);
                 Assert.Equal("frontend", command.RelativeDirectory);
             },
             command =>
             {
                 Assert.Equal("test", command.Gate);
-                Assert.Equal("test", command.Script);
+                Assert.Equal("test", command.Target);
             });
+    }
+
+    [Fact]
+    public void TheConventionalScriptPathIsAlsoADeclaration()
+    {
+        // A primeira entrega de codigo aprovada nesta operacao declarou os gates assim: Python
+        // sem dependencia de terceiro e tools/backend/{build,test}.sh, espelhando a convencao do
+        // repositorio que o proprio ator estava lendo. Reconhecer so package.json teria tornado a
+        // unica entrega aprovada impossivel de verificar.
+        Assert.Equal("build", DeliveryGateExecutionPolicy.GateForScriptPath("tools/backend/build.sh"));
+        Assert.Equal("test", DeliveryGateExecutionPolicy.GateForScriptPath("tools/backend/test.sh"));
+        Assert.Equal("lint", DeliveryGateExecutionPolicy.GateForScriptPath("tools/lint.sh"));
+
+        // Conjunto FECHADO: um .sh qualquer da entrega não vira comando.
+        Assert.Null(DeliveryGateExecutionPolicy.GateForScriptPath("tools/backend/deploy.sh"));
+        Assert.Null(DeliveryGateExecutionPolicy.GateForScriptPath("scripts/test.sh"));
+        Assert.Null(DeliveryGateExecutionPolicy.GateForScriptPath("tools/a/b/test.sh"));
+        Assert.Null(DeliveryGateExecutionPolicy.GateForScriptPath("tools/backend/test.py"));
+    }
+
+    [Fact]
+    public void BothSlicesOfAGateRunBecauseVerifyingOneAndSayingBuildPassedIsAHalfTruth()
+    {
+        var declarations = new List<DeliveryGateCommand>
+        {
+            new("test", DeliveryGateKind.ShellScript, "tools/backend/test.sh", string.Empty, false),
+            new("test", DeliveryGateKind.NpmScript, "test", "frontend", false),
+        };
+
+        var plan = DeliveryGateExecutionPolicy.Plan(["test"], declarations);
+
+        Assert.Equal(DeliveryGateExecutionPolicy.ReasonPassed, plan.ReasonCode);
+        Assert.Equal(2, plan.Commands.Count);
+        Assert.Equal("bash tools/backend/test.sh", plan.Commands[0].Display);
+        Assert.Equal("frontend$ npm run test", plan.Commands[1].Display);
     }
 
     [Fact]
@@ -93,7 +131,7 @@ public sealed class DeliveryGateExecutionPolicyTests
     {
         var plan = DeliveryGateExecutionPolicy.Plan(
             ["build", "lint"],
-            [new DeliveryManifest(string.Empty, """{ "scripts": { "build": "node b.mjs" } }""")]);
+            Declared(new DeliveryManifest(string.Empty, """{ "scripts": { "build": "node b.mjs" } }""")));
 
         Assert.Equal(DeliveryGateExecutionPolicy.ReasonScriptMissing, plan.ReasonCode);
         Assert.Contains("lint", plan.Detail, StringComparison.Ordinal);
@@ -106,9 +144,9 @@ public sealed class DeliveryGateExecutionPolicyTests
         // bloqueia, e bloquear é o contrato do OPS-064.
         var plan = DeliveryGateExecutionPolicy.Plan(
             ["test"],
-            [new DeliveryManifest(
+            Declared(new DeliveryManifest(
                 string.Empty,
-                """{ "scripts": { "test": "vitest run" }, "devDependencies": { "vitest": "^2" } }""")]);
+                """{ "scripts": { "test": "vitest run" }, "devDependencies": { "vitest": "^2" } }""")));
 
         Assert.Equal(DeliveryGateExecutionPolicy.ReasonDependenciesUnavailable, plan.ReasonCode);
 
@@ -123,7 +161,7 @@ public sealed class DeliveryGateExecutionPolicyTests
     public void PlannedButNotExecutedIsNotRunNotPass()
     {
         var plan = DeliveryGateExecutionPolicy.Plan(
-            ["build", "test"], [new DeliveryManifest(string.Empty, ZeroDependencyManifest)]);
+            ["build", "test"], Declared(new DeliveryManifest(string.Empty, ZeroDependencyManifest)));
 
         // Só um dos dois chegou a rodar — o executor parou no meio (teto total, runtime ausente).
         var report = DeliveryGateExecutionPolicy.Consolidate(
@@ -141,7 +179,7 @@ public sealed class DeliveryGateExecutionPolicyTests
     public void AllGatesGreenApprovesTheLayerAndSaysWhy()
     {
         var plan = DeliveryGateExecutionPolicy.Plan(
-            ["build", "test"], [new DeliveryManifest(string.Empty, ZeroDependencyManifest)]);
+            ["build", "test"], Declared(new DeliveryManifest(string.Empty, ZeroDependencyManifest)));
         var report = DeliveryGateExecutionPolicy.Consolidate(
             plan,
             [
@@ -161,7 +199,7 @@ public sealed class DeliveryGateExecutionPolicyTests
     public void ARedGateIsAnObjectiveRejection()
     {
         var plan = DeliveryGateExecutionPolicy.Plan(
-            ["test"], [new DeliveryManifest(string.Empty, ZeroDependencyManifest)]);
+            ["test"], Declared(new DeliveryManifest(string.Empty, ZeroDependencyManifest)));
         var report = DeliveryGateExecutionPolicy.Consolidate(
             plan,
             [new DeliveryGateOutcome("test", "npm run test", false, 1, false, "1 failing")]);
@@ -184,7 +222,7 @@ public sealed class DeliveryGateExecutionPolicyTests
             "aws-access-key-id em src/a.ts");
 
         var plan = DeliveryGateExecutionPolicy.Plan(
-            ["test"], [new DeliveryManifest(string.Empty, ZeroDependencyManifest)]);
+            ["test"], Declared(new DeliveryManifest(string.Empty, ZeroDependencyManifest)));
         var report = DeliveryGateExecutionPolicy.Consolidate(
             plan,
             [new DeliveryGateOutcome("test", "npm run test", false, 1, false, "1 failing")]);
@@ -199,7 +237,7 @@ public sealed class DeliveryGateExecutionPolicyTests
     public void TheEvidenceTellsTheReviewerWhoExecutedAndWhatCameOut()
     {
         var plan = DeliveryGateExecutionPolicy.Plan(
-            ["test"], [new DeliveryManifest(string.Empty, ZeroDependencyManifest)]);
+            ["test"], Declared(new DeliveryManifest(string.Empty, ZeroDependencyManifest)));
         var report = DeliveryGateExecutionPolicy.Consolidate(
             plan,
             [new DeliveryGateOutcome("test", "npm run test", true, 0, false, "# pass 12")]);

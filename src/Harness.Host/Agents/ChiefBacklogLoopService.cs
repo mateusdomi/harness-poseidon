@@ -2425,7 +2425,7 @@ public sealed partial class ChiefBacklogLoopService(
                     if (requiredGates.Count > 0)
                     {
                         var plan = DeliveryGateExecutionPolicy.Plan(
-                            requiredGates, DeliveryGateRunner.CollectManifests(inspectionPath));
+                            requiredGates, DeliveryGateRunner.CollectDeclarations(inspectionPath));
                         var outcomes = await DeliveryGateRunner.RunAsync(plan, inspectionPath, token);
                         gateReport = DeliveryGateExecutionPolicy.Consolidate(plan, outcomes);
                         LogDeliveryGatesRan(

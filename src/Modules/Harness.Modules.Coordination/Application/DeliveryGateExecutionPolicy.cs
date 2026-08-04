@@ -8,16 +8,39 @@ namespace Harness.Modules.Coordination.Application;
 /// <param name="Content">Conteúdo cru do <c>package.json</c>.</param>
 public sealed record DeliveryManifest(string RelativeDirectory, string Content);
 
-/// <summary>Um comando de gate planejado — nome do script vindo do manifesto, nunca de texto livre.</summary>
+/// <summary>
+/// COMO a entrega declara o gate. A plataforma reconhece as duas formas que uma entrega honesta
+/// usa para dizer "é assim que se roda isto", e nenhuma outra.
+/// </summary>
+public enum DeliveryGateKind
+{
+    /// <summary>Script da seção <c>scripts</c> de um <c>package.json</c> entregue.</summary>
+    NpmScript = 1,
+
+    /// <summary>Script executável em <c>tools/&lt;área&gt;/&lt;gate&gt;.sh</c>, a convenção deste repositório.</summary>
+    ShellScript = 2
+}
+
+/// <summary>
+/// Um gate que a ENTREGA declara saber executar. Não é texto livre do agente: ou é um nome de
+/// script dentro do manifesto, ou é um arquivo no caminho convencionado — nos dois casos, um
+/// artefato versionado que o revisor vê no diff.
+/// </summary>
+/// <param name="Target">Nome do script (npm) ou caminho relativo do arquivo (shell).</param>
 public sealed record DeliveryGateCommand(
     string Gate,
-    string Script,
+    DeliveryGateKind Kind,
+    string Target,
     string RelativeDirectory,
     bool RequiresExternalDependencies)
 {
-    public string Display => string.IsNullOrEmpty(RelativeDirectory)
-        ? $"npm run {Script}"
-        : $"{RelativeDirectory}$ npm run {Script}";
+    public string Display => Kind switch
+    {
+        DeliveryGateKind.NpmScript => string.IsNullOrEmpty(RelativeDirectory)
+            ? $"npm run {Target}"
+            : $"{RelativeDirectory}$ npm run {Target}",
+        _ => $"bash {Target}"
+    };
 }
 
 /// <summary>O que a plataforma vai executar, ou por que não vai.</summary>
@@ -108,6 +131,9 @@ public static class DeliveryGateExecutionPolicy
     /// <summary>Não há runtime no host para executar o gate declarado.</summary>
     public const string ReasonRuntimeUnavailable = "delivery_gates.runtime_unavailable";
 
+    /// <summary>Teto de comandos por gate — um repositório com servidor e interface declara dois.</summary>
+    private const int MaxCommandsPerGate = 3;
+
     /// <summary>Gates que a plataforma sabe executar, e os nomes de script que os satisfazem.</summary>
     private static readonly (string Gate, string[] Scripts)[] KnownGates =
     [
@@ -168,56 +194,105 @@ public static class DeliveryGateExecutionPolicy
     }
 
     /// <summary>
-    /// Planeja o que rodar. Nunca devolve comando que não esteja declarado no manifesto entregue.
+    /// Traduz um <c>package.json</c> entregue nas declarações de gate que ele contém. Puro: quem
+    /// lê disco é o executor.
+    /// </summary>
+    public static IReadOnlyList<DeliveryGateCommand> DeclarationsFromManifest(
+        DeliveryManifest manifest)
+    {
+        ArgumentNullException.ThrowIfNull(manifest);
+        var parsed = ParseManifest(manifest.Content);
+        if (parsed is null)
+        {
+            return [];
+        }
+
+        return
+        [
+            .. KnownGates.SelectMany(known => known.Scripts
+                .Where(script => parsed.Scripts.Contains(script))
+                .Take(1)
+                .Select(script => new DeliveryGateCommand(
+                    known.Gate,
+                    DeliveryGateKind.NpmScript,
+                    script,
+                    manifest.RelativeDirectory,
+                    parsed.HasExternalDependencies)))
+        ];
+    }
+
+    /// <summary>
+    /// O gate que um caminho de script convencionado declara, ou <see langword="null"/>.
+    /// Aceita <c>tools/&lt;área&gt;/&lt;gate&gt;.sh</c> e <c>tools/&lt;gate&gt;.sh</c> — e nada
+    /// mais: o conjunto fechado é o que impede um arquivo qualquer da entrega de virar comando.
+    /// </summary>
+    public static string? GateForScriptPath(string relativePath)
+    {
+        ArgumentNullException.ThrowIfNull(relativePath);
+        var parts = relativePath.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length is < 2 or > 3 ||
+            !string.Equals(parts[0], "tools", StringComparison.OrdinalIgnoreCase) ||
+            !parts[^1].EndsWith(".sh", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var name = parts[^1][..^3];
+        return GateAliases.TryGetValue(name, out var gate) ? gate : null;
+    }
+
+    /// <summary>
+    /// Planeja o que rodar. Nunca devolve comando que a ENTREGA não tenha declarado — seja como
+    /// script no manifesto, seja como arquivo no caminho convencionado.
+    ///
+    /// As duas formas existem porque a primeira entrega real desta operação usou a segunda: o ator
+    /// de backend escolheu Python sem dependência de terceiro e declarou os gates em
+    /// <c>tools/backend/{build,test}.sh</c>, espelhando a convenção do próprio repositório que ele
+    /// estava lendo. Reconhecer só <c>package.json</c> teria tornado essa entrega — a única
+    /// aprovada até aqui — impossível de verificar, que é exatamente o defeito que este gate
+    /// existe para corrigir, só que do outro lado.
     /// </summary>
     public static DeliveryGatePlan Plan(
         IReadOnlyList<string> requiredGates,
-        IReadOnlyList<DeliveryManifest> manifests)
+        IReadOnlyList<DeliveryGateCommand> declarations)
     {
         ArgumentNullException.ThrowIfNull(requiredGates);
-        ArgumentNullException.ThrowIfNull(manifests);
+        ArgumentNullException.ThrowIfNull(declarations);
 
         if (requiredGates.Count == 0)
         {
             return new DeliveryGatePlan([], ReasonNotRequired, "o card não exige gate executável");
         }
 
-        var parsed = manifests
-            .Select(manifest => (manifest.RelativeDirectory, Parsed: ParseManifest(manifest.Content)))
-            .Where(entry => entry.Parsed is not null)
-            .Select(entry => (entry.RelativeDirectory, Manifest: entry.Parsed!))
-            .ToList();
-
-        if (parsed.Count == 0)
+        if (declarations.Count == 0)
         {
             return new DeliveryGatePlan(
                 [],
                 ReasonManifestMissing,
-                $"a entrega exige {string.Join(", ", requiredGates)} e não traz manifesto " +
-                "(package.json com a seção scripts) que declare como executá-los");
+                $"a entrega exige {string.Join(", ", requiredGates)} e não declara como executá-los " +
+                "(nem `scripts` num package.json entregue, nem tools/<área>/<gate>.sh)");
         }
 
         var commands = new List<DeliveryGateCommand>();
         var missing = new List<string>();
         foreach (var gate in requiredGates)
         {
-            var scripts = KnownGates.First(known =>
-                string.Equals(known.Gate, gate, StringComparison.Ordinal)).Scripts;
+            // TODAS as declarações do gate são executadas, não a primeira: num repositório com
+            // servidor e interface, verificar só uma das fatias e chamar isso de "build passou"
+            // seria a mesma meia-verdade que o `Pass` fabricado do OPS-064. O teto de tempo total
+            // é quem limita.
+            var matches = declarations
+                .Where(declaration => string.Equals(declaration.Gate, gate, StringComparison.Ordinal))
+                .Take(MaxCommandsPerGate)
+                .ToList();
 
-            var match = parsed
-                .SelectMany(entry => scripts
-                    .Where(script => entry.Manifest.Scripts.Contains(script))
-                    .Select(script => new DeliveryGateCommand(
-                        gate, script, entry.RelativeDirectory, entry.Manifest.HasExternalDependencies)))
-                .FirstOrDefault();
-
-            if (match is null)
+            if (matches.Count == 0)
             {
                 missing.Add(gate);
                 continue;
             }
 
-            commands.Add(match);
+            commands.AddRange(matches);
         }
 
         if (missing.Count > 0)
@@ -225,7 +300,7 @@ public static class DeliveryGateExecutionPolicy
             return new DeliveryGatePlan(
                 commands,
                 ReasonScriptMissing,
-                $"o manifesto entregue não declara script para: {string.Join(", ", missing)}");
+                $"a entrega não declara como executar: {string.Join(", ", missing)}");
         }
 
         var withDependencies = commands.Where(command => command.RequiresExternalDependencies).ToList();

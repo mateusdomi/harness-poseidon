@@ -44,6 +44,56 @@ internal static class DeliveryGateRunner
     ];
 
     /// <summary>
+    /// Tudo o que a entrega DECLARA saber executar: os scripts do manifesto e os scripts do
+    /// caminho convencionado. As duas formas juntas porque as duas apareceram de verdade — a
+    /// entrega de frontend trouxe <c>package.json</c>, a de backend trouxe
+    /// <c>tools/backend/{build,test}.sh</c>.
+    /// </summary>
+    internal static IReadOnlyList<DeliveryGateCommand> CollectDeclarations(string worktreePath)
+    {
+        var declarations = new List<DeliveryGateCommand>();
+        foreach (var manifest in CollectManifests(worktreePath))
+        {
+            declarations.AddRange(DeliveryGateExecutionPolicy.DeclarationsFromManifest(manifest));
+        }
+
+        declarations.AddRange(CollectShellScripts(worktreePath));
+        return declarations;
+    }
+
+    private static IEnumerable<DeliveryGateCommand> CollectShellScripts(string worktreePath)
+    {
+        var tools = Path.Combine(worktreePath, "tools");
+        if (!Directory.Exists(tools))
+        {
+            yield break;
+        }
+
+        IEnumerable<string> files;
+        try
+        {
+            // Profundidade 2 a partir de `tools/` é exatamente o que a convenção permite; varrer
+            // mais fundo transformaria qualquer .sh da entrega em candidato a comando.
+            files = Directory.EnumerateFiles(tools, "*.sh", SearchOption.AllDirectories);
+        }
+        catch (IOException)
+        {
+            yield break;
+        }
+
+        foreach (var file in files.Order(StringComparer.Ordinal))
+        {
+            var relative = Path.GetRelativePath(worktreePath, file).Replace('\\', '/');
+            if (DeliveryGateExecutionPolicy.GateForScriptPath(relative) is { } gate)
+            {
+                yield return new DeliveryGateCommand(
+                    gate, DeliveryGateKind.ShellScript, relative, string.Empty,
+                    RequiresExternalDependencies: false);
+            }
+        }
+    }
+
+    /// <summary>
     /// Coleta os manifestos da worktree. Profundidade limitada e <c>node_modules</c> fora: um
     /// manifesto de dependência de terceiro não é declaração da entrega.
     /// </summary>
@@ -126,18 +176,19 @@ internal static class DeliveryGateRunner
             return outcomes;
         }
 
-        var npm = ResolveExecutable("npm");
-        if (npm is null)
-        {
-            return outcomes;
-        }
-
         using var total = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         total.CancelAfter(TotalTimeout);
 
         foreach (var command in plan.Commands)
         {
             if (total.IsCancellationRequested)
+            {
+                break;
+            }
+
+            var executable = ResolveExecutable(
+                command.Kind == DeliveryGateKind.NpmScript ? "npm" : "bash");
+            if (executable is null)
             {
                 break;
             }
@@ -150,7 +201,7 @@ internal static class DeliveryGateRunner
                 break;
             }
 
-            var outcome = await RunOneAsync(npm, command, workingDirectory, total.Token);
+            var outcome = await RunOneAsync(executable, command, workingDirectory, total.Token);
             if (outcome is null)
             {
                 break;
@@ -163,24 +214,35 @@ internal static class DeliveryGateRunner
     }
 
     private static async Task<DeliveryGateOutcome?> RunOneAsync(
-        string npm,
+        string executable,
         DeliveryGateCommand command,
         string workingDirectory,
         CancellationToken cancellationToken)
     {
         var info = new ProcessStartInfo
         {
-            FileName = npm,
+            FileName = executable,
             WorkingDirectory = workingDirectory,
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             RedirectStandardInput = true,
         };
-        info.ArgumentList.Add("run");
-        info.ArgumentList.Add(command.Script);
-        info.ArgumentList.Add("--silent");
-        ApplyMinimalEnvironment(info, npm);
+        if (command.Kind == DeliveryGateKind.NpmScript)
+        {
+            info.ArgumentList.Add("run");
+            info.ArgumentList.Add(command.Target);
+            info.ArgumentList.Add("--silent");
+        }
+        else
+        {
+            // Executado COMO ARGUMENTO de `bash`, nunca por shell interpretando uma linha
+            // montada: o caminho vem do conjunto fechado de nomes convencionados e não pode
+            // carregar metacaractere para fora do argumento.
+            info.ArgumentList.Add(command.Target);
+        }
+
+        ApplyMinimalEnvironment(info, executable);
 
         using var process = new Process { StartInfo = info };
         var output = new StringBuilder();
@@ -272,11 +334,11 @@ internal static class DeliveryGateRunner
     /// O ambiente do filho é CONSTRUÍDO, não herdado. Herdar traria as variáveis de credencial que
     /// o Host carrega — e o processo do outro lado é código recém-escrito por um agente.
     /// </summary>
-    private static void ApplyMinimalEnvironment(ProcessStartInfo info, string npm)
+    private static void ApplyMinimalEnvironment(ProcessStartInfo info, string executable)
     {
         info.Environment.Clear();
 
-        var binDirectory = Path.GetDirectoryName(npm);
+        var binDirectory = Path.GetDirectoryName(executable);
         var path = string.Join(
             ':',
             new[] { binDirectory }
