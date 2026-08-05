@@ -467,6 +467,21 @@ public sealed class WorkflowPhaseDriver(
                         $"{finding.Kind.ToString().ToLowerInvariant()}:" +
                         $"{finding.Gap.ToString().ToLowerInvariant()}");
                 }
+
+                // A trava de quota, quando a fábrica está batendo na mesma parede. Ela NÃO para o
+                // trabalho: publica que repetir do mesmo jeito está proibido, e é o card corretivo
+                // abaixo — com contexto novo — que passa a ser o caminho.
+                if (outcome.NoProgress is { BlindRetryForbidden: true } stalled)
+                {
+                    _failures.Add($"phase:{phase.Key}:{NoProgressVerdict.ReasonCode}:{stalled.ConsecutiveStalledAttempts}");
+                }
+
+                // LACUNA VIRA TRABALHO. Este é o elo que faltou em 2026-08-04: o portão sabia que
+                // não havia interface, e alguém precisou ler isso e criar o card à mão.
+                created += await EnsureCorrectiveCardsAsync(
+                    tenantId, project, phase.Name, outcome.Corrections ?? [], page.Items,
+                    demands.FirstOrDefault(demand => !demand.Internal)?.Id,
+                    actorProfileId, cancellationToken);
             }
         }
 
@@ -1135,6 +1150,91 @@ public sealed class WorkflowPhaseDriver(
     /// especialidade explícita impedem cinco pareceres iguais executados pelo mesmo perfil
     /// genérico; o gate de despacho reconhece `council` como trabalho delegável.
     /// </summary>
+    /// <summary>
+    /// Garante que cada lacuna do portão tenha um card ATIVO cuidando dela.
+    ///
+    /// Três regras que este método existe para impor, e as três saem do run de 2026-08-04:
+    ///
+    /// 1. <b>Idempotência por natureza.</b> O título carrega a impressão digital do par
+    ///    tipo+lacuna. A mesma falta de interface na avaliação 3 e na 11 encontra o mesmo card e
+    ///    não cria um segundo — sem isso o mecanismo viraria um gerador de lixo;
+    /// 2. <b>Cancelado não cobre.</b> Um card cancelado, arquivado ou substituído NÃO conta como
+    ///    dono do requisito. Foi exatamente o que aconteceu: os dois cards de interface foram
+    ///    cancelados como "substituídos" e a lacuna ficou sem ninguém. Quando o card anterior não
+    ///    está mais vivo, a lacuna produz um card novo;
+    /// 3. <b>Concluído sem a lacuna fechada também não cobre.</b> Se o card corretivo foi dado como
+    ///    pronto e a evidência continua faltando, ele não resolveu — e a próxima avaliação abre
+    ///    outro, porque quem decide se acabou é o portão, não o estado do quadro.
+    /// </summary>
+    private async Task<int> EnsureCorrectiveCardsAsync(
+        string tenantId,
+        ProjectRecord project,
+        string phaseName,
+        IReadOnlyList<ProductGapCorrection> corrections,
+        IReadOnlyList<BoardTaskRecord> board,
+        string? demandId,
+        string actorProfileId,
+        CancellationToken cancellationToken)
+    {
+        if (corrections.Count == 0)
+        {
+            return 0;
+        }
+
+        var created = 0;
+        foreach (var correction in corrections)
+        {
+            var existing = board.FirstOrDefault(task =>
+                task.Title.StartsWith(
+                    $"{ProductGapCorrections.TitlePrefix} {correction.Fingerprint}",
+                    StringComparison.Ordinal));
+
+            if (existing is not null && IsActive(existing))
+            {
+                continue;
+            }
+
+            var suffix = existing is null
+                ? string.Empty
+                : $" (rodada {board.Count(task => task.Title.StartsWith($"{ProductGapCorrections.TitlePrefix} {correction.Fingerprint}", StringComparison.Ordinal)) + 1})";
+
+            var now = _clock.UtcNow;
+            var taskId = UlidValue.New(now).ToString();
+            _ = await _board.CreateTaskAsync(
+                new BoardTaskCreateCommand(
+                    tenantId, taskId, project.Id, demandId,
+                    UlidValue.New(now.AddMilliseconds(1)).ToString(),
+                    UlidValue.New(now.AddMilliseconds(2)).ToString(),
+                    actorProfileId, correction.Title + suffix,
+                    "medium", null, null,
+                    UlidValue.New(now.AddMilliseconds(3)).ToString(),
+                    correction.Instruction, now, phaseName, "agent_task"),
+                cancellationToken);
+
+            _ = await _board.MoveTaskAsync(
+                new BoardTaskMoveCommand(
+                    tenantId, taskId, "ready", $"correcao-dod:{correction.Kind}", "agent",
+                    now.AddMilliseconds(4)),
+                cancellationToken);
+
+            created++;
+        }
+
+        return created;
+    }
+
+    /// <summary>
+    /// Um card só cobre a lacuna enquanto está VIVO e ainda não foi dado como pronto. Arquivado,
+    /// cancelado e concluído são todos "não está mais cuidando disto" — e a diferença entre eles é
+    /// irrelevante para quem está perguntando se alguém cuida do requisito.
+    /// </summary>
+    private static bool IsActive(BoardTaskRecord task) =>
+        task.ArchivedAt is null &&
+        !string.Equals(task.InternalState, "cancelled", StringComparison.Ordinal) &&
+        !string.Equals(task.InternalState, "completed", StringComparison.Ordinal) &&
+        !string.Equals(task.State, "done", StringComparison.Ordinal) &&
+        !string.Equals(task.State, "cancelled", StringComparison.Ordinal);
+
     private async Task CreateCouncilCardAsync(
         string tenantId,
         ProjectRecord project,

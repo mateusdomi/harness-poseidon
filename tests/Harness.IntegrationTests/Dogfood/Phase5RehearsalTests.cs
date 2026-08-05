@@ -40,6 +40,10 @@ public sealed class Phase5RehearsalTests : IDisposable
     private const string Commit = "dddd000011112222333344445555666677778888";
     private const string Pedido = "Crie somente uma API de empréstimos de livros.";
 
+    /// <summary>O mesmo pedido do run real: produto Web, operado por pessoa, e portanto com tela.</summary>
+    private const string PedidoWeb =
+        "Sistema web simples para controlar empréstimos de equipamentos, usado pela equipe.";
+
     private readonly string _root = Path.Combine(
         Path.GetTempPath(), $"poseidon-ensaio-{Guid.NewGuid():N}");
 
@@ -190,6 +194,65 @@ public sealed class Phase5RehearsalTests : IDisposable
         Assert.Equal(0, corrigida.Progress.Repeated);
         Assert.Equal(0, corrigida.Progress.New);
         Assert.True(corrigida.Progress.Score > 0, corrigida.Progress.Summary());
+    }
+
+    /// <summary>
+    /// O LOOP CORRETIVO fechado, de ponta a ponta e sem pessoa nenhuma no meio.
+    ///
+    /// Pedido Web, entrega sem interface — exatamente o estado de 2026-08-04T13:18. O portão
+    /// reprova, e a reprovação já sai como trabalho derivado, com impressão digital estável e
+    /// critério de aceite. Foi este elo que faltou naquele dia: alguém teve de ler o diagnóstico e
+    /// criar os cards à mão.
+    /// </summary>
+    [Fact]
+    public async Task EntregaWebSemInterfaceReprovaEJaProduzOTrabalhoCorretivo()
+    {
+        EscreverEntregaCompleta();
+        await using var ambiente = await Ambiente.CriarAsync(_root);
+
+        var outcome = await ambiente.Evaluator.EvaluateAsync(
+            Tenant, Project, _root, Commit, ProductDeliveryEvaluator.DevelopmentPhaseOrder,
+            CancellationToken.None, PedidoWeb, Attempt, Card);
+
+        Assert.False(outcome.Verdict?.Satisfied);
+        Assert.NotNull(outcome.Corrections);
+        Assert.NotEmpty(outcome.Corrections);
+
+        var interfaceFaltando = outcome.Corrections.Single(
+            correcao => correcao.Kind == ProductEvidenceKind.FrontendPresent);
+        Assert.Contains("não tem interface", interfaceFaltando.Title, StringComparison.Ordinal);
+        Assert.Contains("Critério de aceite", interfaceFaltando.Instruction, StringComparison.Ordinal);
+
+        // A jornada e a integração também viram trabalho: a fábrica não fica sabendo só do óbvio.
+        Assert.Contains(outcome.Corrections, c => c.Kind == ProductEvidenceKind.E2EJourneyPassed);
+    }
+
+    /// <summary>
+    /// A proteção de quota, derivada do LEDGER — e por isso imune a reinício do Host. Três
+    /// avaliações do mesmo estado batendo nas mesmas lacunas: a repetição cega passa a ser proibida.
+    ///
+    /// Cada avaliação usa um avaliador NOVO, que é o que aconteceria se o Host tivesse caído entre
+    /// elas. Um contador em memória teria zerado; este não zera, porque não existe.
+    /// </summary>
+    [Fact]
+    public async Task TresAvaliacoesNaMesmaParedeProibemARepeticaoCegaMesmoAposReiniciar()
+    {
+        EscreverEntregaCompleta();
+        await using var ambiente = await Ambiente.CriarAsync(_root);
+
+        NoProgressVerdict? ultima = null;
+        for (var rodada = 0; rodada < 3; rodada++)
+        {
+            var outcome = await ambiente.NovoAvaliador().EvaluateAsync(
+                Tenant, Project, _root, Commit, ProductDeliveryEvaluator.DevelopmentPhaseOrder,
+                CancellationToken.None, PedidoWeb, Attempt, Card);
+            ultima = outcome.NoProgress;
+        }
+
+        Assert.NotNull(ultima);
+        Assert.True(ultima.BlindRetryForbidden, ultima.Reason);
+        Assert.NotEmpty(ultima.DominantGaps);
+        Assert.Contains("gastaria cota", ultima.Reason, StringComparison.Ordinal);
     }
 
     private static string Diagnostico(ProductDeliveryEvaluator.Outcome outcome) =>

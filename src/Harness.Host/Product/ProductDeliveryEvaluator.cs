@@ -72,7 +72,19 @@ public sealed class ProductDeliveryEvaluator(
         /// a política de "sem progresso" precisa ser desenhada sobre comportamento real observado,
         /// não sobre a intuição de quem escreveu o medidor.
         /// </summary>
-        ProgressDelta? Progress = null);
+        ProgressDelta? Progress = null,
+
+        /// <summary>
+        /// A decisão da proteção de quota sobre repetir esta tentativa. Derivada do ledger, e por
+        /// isso imune a reinício do Host.
+        /// </summary>
+        NoProgressVerdict? NoProgress = null,
+
+        /// <summary>
+        /// O trabalho corretivo que as lacunas deste veredito exigem, já derivado e com impressão
+        /// digital estável. Vazio quando o portão passou.
+        /// </summary>
+        IReadOnlyList<ProductGapCorrection>? Corrections = null);
 
     public async Task<Outcome> EvaluateAsync(
         string tenantId,
@@ -190,8 +202,13 @@ public sealed class ProductDeliveryEvaluator(
         // passa, apagando o que a fábrica precisa para aprender.
         // TELEMETRIA DE PROGRESSO, medida antes de gravar esta avaliação — a comparação é com a
         // ANTERIOR, e gravar primeiro faria o conjunto novo comparar-se consigo mesmo.
-        var progress = await MeasureProgressAsync(tenantId, projectId, verdict, cancellationToken);
+        var (progress, noProgress) = await MeasureProgressAsync(
+            tenantId, projectId, verdict, cancellationToken);
         LogProgress(logger, projectId, progress.Summary());
+        if (noProgress.BlindRetryForbidden)
+        {
+            LogBlindRetryForbidden(logger, projectId, noProgress.Reason);
+        }
 
         var evidenceSetId = await PersistEvidenceAsync(
             tenantId, projectId, record, plan, evidence, verdict, commitSha, attemptId, cardId,
@@ -211,7 +228,9 @@ public sealed class ProductDeliveryEvaluator(
             evidence,
             plan,
             evidenceSetId,
-            progress);
+            progress,
+            noProgress,
+            ProductGapCorrections.From(verdict, profile));
     }
 
     private static readonly System.Text.Json.JsonSerializerOptions TelemetryJson =
@@ -228,7 +247,7 @@ public sealed class ProductDeliveryEvaluator(
     /// Falha de leitura devolve a linha de base em vez de derrubar a avaliação: perder uma medição
     /// é ruim, travar o portão por causa de um medidor é inaceitável.
     /// </summary>
-    private async Task<ProgressDelta> MeasureProgressAsync(
+    private async Task<(ProgressDelta Progress, NoProgressVerdict NoProgress)> MeasureProgressAsync(
         string tenantId,
         string projectId,
         ProductDeliveryVerdict verdict,
@@ -236,24 +255,52 @@ public sealed class ProductDeliveryEvaluator(
     {
         if (evidenceSets is null)
         {
-            return ProgressTelemetry.Compare(null, verdict.Findings);
+            return (
+                ProgressTelemetry.Compare(null, verdict.Findings),
+                NoProgressVerdict.Allowed("Sem ledger de evidência: não há histórico para comparar."));
         }
 
         try
         {
-            var previous = await evidenceSets.ListAsync(tenantId, projectId, 1, cancellationToken);
-            var findings = previous.Count == 0
-                ? null
-                : System.Text.Json.JsonSerializer.Deserialize<ProductEvidenceFinding[]>(
-                    previous[0].FindingsJson, TelemetryJson);
-            return ProgressTelemetry.Compare(findings, verdict.Findings);
+            // As últimas avaliações DESTE projeto, do ledger. É de propósito que o histórico venha
+            // do banco e não de memória: um contador em RAM zeraria no reinício do Host, e a
+            // proteção de quota deixaria de valer justamente depois de uma queda — que é quando a
+            // fábrica mais tende a repetir trabalho.
+            var previous = await evidenceSets.ListAsync(tenantId, projectId, 4, cancellationToken);
+            var history = new List<IReadOnlyList<ProductEvidenceFinding>> { verdict.Findings };
+            foreach (var record in previous)
+            {
+                history.Add(
+                    System.Text.Json.JsonSerializer.Deserialize<ProductEvidenceFinding[]>(
+                        record.FindingsJson, TelemetryJson) ?? []);
+            }
+
+            return (
+                ProgressTelemetry.Compare(history.Count > 1 ? history[1] : null, verdict.Findings),
+                NoProgressGuard.Evaluate(history));
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             LogProgressUnavailable(logger, projectId, exception);
-            return ProgressTelemetry.Compare(null, verdict.Findings);
+            return (
+                ProgressTelemetry.Compare(null, verdict.Findings),
+                NoProgressVerdict.Allowed("O histórico não pôde ser lido; a proteção não decide no escuro."));
         }
     }
+
+    private static void LogBlindRetryForbidden(ILogger? logger, string projectId, string reason)
+    {
+        if (logger is not null)
+        {
+            BlindRetryForbidden(logger, projectId, reason, null);
+        }
+    }
+
+    private static readonly Action<ILogger, string, string, Exception?> BlindRetryForbidden =
+        LoggerMessage.Define<string, string>(
+            LogLevel.Warning,
+            new EventId(9, nameof(BlindRetryForbidden)),
+            "Projeto {ProjectId}: repetir a tentativa do mesmo jeito está proibido — {Reason}");
 
     private static void LogProgress(ILogger? logger, string projectId, string summary)
     {
