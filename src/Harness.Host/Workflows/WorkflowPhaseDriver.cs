@@ -485,6 +485,38 @@ public sealed class WorkflowPhaseDriver(
             }
         }
 
+        // COBERTURA DE REQUISITO. A cadeia requisito → card → implementação → evidência, lida das
+        // fontes que já estão carregadas aqui: as demandas do usuário e o quadro inteiro do projeto.
+        //
+        // Foi o elo que faltou em 2026-08-04. Havia o requisito ("uma pessoa consegue operar o
+        // sistema"), havia dois cards de interface, e nada ligava um ao outro de forma verificável.
+        // Quando os cards foram cancelados, o requisito ficou órfão e a fase fechou.
+        if (phase.Order >= ActivePhaseResolver.DevelopmentPhaseOrder)
+        {
+            var coverage = RequirementCoverageAnalyzer.Analyze(
+                [.. demands.Where(demand => !demand.Internal)
+                    .Select(demand => (
+                        demand.Id,
+                        demand.Title,
+                        Superseded: string.Equals(demand.State, "superseded", StringComparison.OrdinalIgnoreCase)))],
+                page.Items
+                    .Where(task => task.DemandId is { Length: > 0 })
+                    .GroupBy(task => task.DemandId!)
+                    .ToDictionary(
+                        group => group.Key,
+                        group => (IReadOnlyList<RequirementCard>)[.. group.Select(task =>
+                            new RequirementCard(
+                                task.Id, task.Title, task.InternalState, task.ArchivedAt is not null))]),
+                productVerdict?.Satisfied ?? false);
+
+            foreach (var uncovered in RequirementCoverageAnalyzer.Blocking(coverage))
+            {
+                _failures.Add(
+                    $"phase:{phase.Key}:{RequirementCoverageAnalyzer.UncoveredReasonCode}:" +
+                    $"{uncovered.Status.ToString().ToLowerInvariant()}:{uncovered.RequirementId}");
+            }
+        }
+
         var evidence = new PhaseGateEvidence(
             HasGate: gate is not null,
             AllRequiredObligationsAccepted: progress.TechnicallyComplete,
