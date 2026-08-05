@@ -1,5 +1,5 @@
 manifestVersion: 2.0.0
-lastGeneratedAt: 2026-08-05T01:54:36.8738590+00:00
+lastGeneratedAt: 2026-08-05T02:19:06.5293480+00:00
 tokenBudget: 24000
 knownOwners:
 - Platform Governance
@@ -22,6 +22,10 @@ markdownAllowlist:
   reason: Especificação operacional da Operação Final (objetivo, regras R1/R2 e CompletionGate); rege a operação, não o produto — não é norma canônica do repositório.
 - path: coordination/final-operation/ORDEM-ORIGINAL.md
   reason: Ordem original do proprietário que abriu a Operação Final; registro de proveniência, não norma canônica.
+- path: docs/architecture/preflight/prisma-readiness.md
+  reason: Análise de prontidão do runtime para o projeto Prisma, com data fechada. Registra o estado observado do Poseidon em 2026-08-04 e os riscos declarados; não constitui norma canônica.
+- path: docs/architecture/preflight/prisma-especificacao-mvp-v3.0.md
+  reason: Especificação do produto Prisma fornecida pelo cliente, preservada como evidência da análise de prontidão. É fonte da verdade do PRODUTO, não norma do repositório.
 - path: RELATORIO-VALIDACAO-POSEIDON.md
   reason: Relatório de auditoria das 17 fases da campanha v6, solicitado pelo dono na raiz do repositório. É registro de validação com data fechada, não norma — por isso fica no allowlist e não entre os documentos canônicos.
 - path: docs/architecture/audits/bruna/AUDITORIA-ARQUITETURAL-BRUNA-FINAL.md
