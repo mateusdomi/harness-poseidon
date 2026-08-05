@@ -59,6 +59,54 @@ public sealed class SolicitationAttachmentStorage(string rootPath)
     }
 }
 
+/// <summary>
+/// Os papéis que um anexo pode declarar, e a inferência conservadora quando ninguém declara.
+///
+/// Conjunto fechado, igual ao CHECK da migration 0127. `provided_frontend` é a proveniência que
+/// separa "um ZIP qualquer" de "o frontend que o usuário forneceu como referência oficial" — e é o
+/// que o canon `provided-artifacts` exige que o executor preserve, complete e integre.
+/// </summary>
+public static class AttachmentRoles
+{
+    public const string RequirementsSource = "requirements_source";
+    public const string ProvidedFrontend = "provided_frontend";
+    public const string DesignReference = "design_reference";
+    public const string SupportingDocument = "supporting_document";
+    public const string Other = "other";
+
+    private static readonly HashSet<string> Known = new(StringComparer.Ordinal)
+    {
+        RequirementsSource, ProvidedFrontend, DesignReference, SupportingDocument, Other,
+    };
+
+    public static string Normalize(string? declared, string fileName)
+    {
+        var value = declared?.Trim().ToLowerInvariant();
+        if (value is { Length: > 0 } && Known.Contains(value))
+        {
+            return value;
+        }
+
+        // Inferência pela FORMA, deliberadamente estreita: um ZIP é o formato em que protótipos de
+        // interface chegam (Lovable, v0, export de builder). Um `.md`/`.pdf` chamado
+        // "requisitos"/"especificacao" é fonte de requisitos. Tudo o mais é `other` — inferir
+        // demais transformaria proveniência em adivinhação.
+        var name = fileName.ToLowerInvariant();
+        if (name.EndsWith(".zip", StringComparison.Ordinal))
+        {
+            return ProvidedFrontend;
+        }
+
+        return (name.EndsWith(".md", StringComparison.Ordinal) || name.EndsWith(".pdf", StringComparison.Ordinal)) &&
+            (name.Contains("requisito", StringComparison.Ordinal) ||
+             name.Contains("requirement", StringComparison.Ordinal) ||
+             name.Contains("especifica", StringComparison.Ordinal) ||
+             name.Contains("spec", StringComparison.Ordinal))
+            ? RequirementsSource
+            : Other;
+    }
+}
+
 public static class SolicitationAttachmentEndpoints
 {
     public static IEndpointRouteBuilder MapSolicitationAttachments(this IEndpointRouteBuilder endpoints)
@@ -153,6 +201,12 @@ public static class SolicitationAttachmentEndpoints
             return Problem(400, "single_file_required", "Exactly one attachment file is required per upload.");
         }
 
+        // O PAPEL do artefato. Vem do formulário quando o chamador o declara; sem declaração, é
+        // INFERIDO da forma — um ZIP contendo um projeto de interface é o caso que importa: o card
+        // de frontend precisa saber que a interface EXISTE e deve ser evoluída, não reconstruída.
+        // Papel desconhecido cai em `other`, nunca em erro: proveniência é metadado, não gate.
+        var role = AttachmentRoles.Normalize(form["role"], file.FileName);
+
         if (file.Length > AttachmentIngestPolicy.MaximumSizeBytes)
         {
             return await RejectAsync(
@@ -224,7 +278,8 @@ public static class SolicitationAttachmentEndpoints
                     content.Length,
                     sha256,
                     storagePath,
-                    occurredAt),
+                    occurredAt,
+                    role),
                 token);
         }
         catch (SqliteException exception) when (exception.SqliteErrorCode == 19)
@@ -330,7 +385,8 @@ public static class SolicitationAttachmentEndpoints
         value.SizeBytes,
         value.Sha256,
         value.State,
-        value.CreatedAt);
+        value.CreatedAt,
+        value.Role);
 
     private static IResult Problem(int status, string title, string detail) =>
         Results.Problem(statusCode: status, title: title, detail: detail);
@@ -344,7 +400,8 @@ public sealed record SolicitationAttachmentContract(
     long SizeBytes,
     string Sha256,
     string State,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    string Role = "other");
 
 public sealed record SolicitationAttachmentPage(
     IReadOnlyList<SolicitationAttachmentContract> Items,

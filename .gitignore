@@ -47,3 +47,4 @@ coordination/final-operation/LEASE.json
 coordination/final-operation/supervisor.log
 coordination/final-operation/INTEGRATOR.json
 .tooling/
+.claude/nightshift/

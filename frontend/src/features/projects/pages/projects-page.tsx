@@ -277,7 +277,14 @@ export default function ProjectsPage() {
           projects={projectsQuery.data ?? []}
           organizations={organizations}
           operationalByProject={operationalByProject}
-          onSelect={(project) => setView({ kind: 'edit', project })}
+          onSelect={(project) => {
+            // Abrir um projeto É selecioná-lo. Sem isto, clicar em "Prisma" abria a edição mas o
+            // contexto global continuava no projeto anterior — e o Chat, o Quadro e os anexos
+            // seguiam falando com o projeto errado. Foi observado ao vivo: selecionar o Prisma e
+            // abrir o chat caía na conversa do Poseidon.
+            if (profileId) selectProject(profileId, project.id);
+            setView({ kind: 'edit', project });
+          }}
           onCreateNew={() => setView({ kind: 'create' })}
         />
       )}

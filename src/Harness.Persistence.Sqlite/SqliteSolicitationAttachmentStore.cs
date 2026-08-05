@@ -22,9 +22,9 @@ public sealed class SqliteSolicitationAttachmentStore(SqliteWriteDispatcher disp
                 """
                 INSERT INTO solicitation_attachments
                     (tenant_id,id,solicitation_id,file_name,content_type,size_bytes,sha256,
-                     state,storage_path,created_at)
+                     state,storage_path,created_at,role)
                 VALUES ($tenant,$id,$solicitation,$fileName,$contentType,$size,$sha256,
-                        'accepted',$storagePath,$at);
+                        'accepted',$storagePath,$at,$role);
                 """;
             insert.Parameters.AddWithValue("$tenant", command.TenantId);
             insert.Parameters.AddWithValue("$id", command.Id);
@@ -34,6 +34,7 @@ public sealed class SqliteSolicitationAttachmentStore(SqliteWriteDispatcher disp
             insert.Parameters.AddWithValue("$size", command.SizeBytes);
             insert.Parameters.AddWithValue("$sha256", command.Sha256);
             insert.Parameters.AddWithValue("$storagePath", command.StoragePath);
+            insert.Parameters.AddWithValue("$role", command.Role);
             insert.Parameters.AddWithValue(
                 "$at",
                 command.OccurredAt.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
@@ -48,7 +49,8 @@ public sealed class SqliteSolicitationAttachmentStore(SqliteWriteDispatcher disp
                 command.Sha256,
                 "accepted",
                 command.StoragePath,
-                command.OccurredAt);
+                command.OccurredAt,
+                command.Role);
         }, cancellationToken);
     }
 
@@ -63,7 +65,7 @@ public sealed class SqliteSolicitationAttachmentStore(SqliteWriteDispatcher disp
                 await using var query = connection.CreateCommand();
                 query.CommandText =
                     "SELECT tenant_id,id,solicitation_id,file_name,content_type,size_bytes,sha256," +
-                    "state,storage_path,created_at FROM solicitation_attachments " +
+                    "state,storage_path,created_at,role FROM solicitation_attachments " +
                     "WHERE tenant_id=$tenant AND solicitation_id=$solicitation ORDER BY id;";
                 query.Parameters.AddWithValue("$tenant", tenantId);
                 query.Parameters.AddWithValue("$solicitation", solicitationId);
@@ -83,7 +85,8 @@ public sealed class SqliteSolicitationAttachmentStore(SqliteWriteDispatcher disp
                         DateTimeOffset.Parse(
                             reader.GetString(9),
                             CultureInfo.InvariantCulture,
-                            DateTimeStyles.RoundtripKind)));
+                            DateTimeStyles.RoundtripKind),
+                        reader.GetString(10)));
                 }
 
                 return values;

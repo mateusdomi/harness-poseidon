@@ -25,7 +25,7 @@ public sealed class PostgresSolicitationAttachmentStore(NpgsqlDataSource dataSou
         var values = new List<SolicitationAttachmentRecord>();
         await using var query = _dataSource.CreateCommand(
             "SELECT tenant_id,id,solicitation_id,file_name,content_type,size_bytes,sha256," +
-            "state,storage_path,created_at FROM harness.solicitation_attachments " +
+            "state,storage_path,created_at,role FROM harness.solicitation_attachments " +
             "WHERE tenant_id=$1 AND solicitation_id=$2 ORDER BY id;");
         query.Parameters.Add(Text(tenantId));
         query.Parameters.Add(Text(solicitationId));
@@ -42,7 +42,8 @@ public sealed class PostgresSolicitationAttachmentStore(NpgsqlDataSource dataSou
                 reader.GetString(6).TrimEnd(),
                 reader.GetString(7),
                 reader.GetString(8),
-                reader.GetFieldValue<DateTimeOffset>(9)));
+                reader.GetFieldValue<DateTimeOffset>(9),
+                reader.GetString(10)));
         }
 
         return values;
@@ -56,8 +57,8 @@ public sealed class PostgresSolicitationAttachmentStore(NpgsqlDataSource dataSou
             """
             INSERT INTO harness.solicitation_attachments
                 (tenant_id,id,solicitation_id,file_name,content_type,size_bytes,sha256,
-                 state,storage_path,created_at)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,'accepted',$8,$9);
+                 state,storage_path,created_at,role)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,'accepted',$8,$9,$10);
             """);
         insert.Parameters.Add(Text(command.TenantId));
         insert.Parameters.Add(Text(command.Id));
@@ -68,6 +69,7 @@ public sealed class PostgresSolicitationAttachmentStore(NpgsqlDataSource dataSou
         insert.Parameters.Add(Text(command.Sha256));
         insert.Parameters.Add(Text(command.StoragePath));
         insert.Parameters.Add(Timestamp(command.OccurredAt));
+        insert.Parameters.Add(Text(command.Role));
         await insert.ExecuteNonQueryAsync(cancellationToken);
         return new SolicitationAttachmentRecord(
             command.TenantId,
@@ -79,7 +81,8 @@ public sealed class PostgresSolicitationAttachmentStore(NpgsqlDataSource dataSou
             command.Sha256,
             "accepted",
             command.StoragePath,
-            command.OccurredAt);
+            command.OccurredAt,
+            command.Role);
     }
 
     private static NpgsqlParameter<string> Text(string value) => new() { TypedValue = value };

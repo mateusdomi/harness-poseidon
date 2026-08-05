@@ -22,7 +22,14 @@ public sealed record SolicitationAttachmentRecord(
     string Sha256,
     string State,
     string StoragePath,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+
+    /// <summary>
+    /// O PAPEL do artefato: por que ele foi fornecido. `provided_frontend` é a proveniência que um
+    /// card de frontend referencia para saber que a interface EXISTE e deve ser evoluída, não
+    /// reconstruída. Default `other` preserva anexos anteriores ao campo.
+    /// </summary>
+    string Role = "other");
 
 public sealed record SolicitationAttachmentCreateCommand(
     string TenantId,
@@ -33,4 +40,5 @@ public sealed record SolicitationAttachmentCreateCommand(
     long SizeBytes,
     string Sha256,
     string StoragePath,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset OccurredAt,
+    string Role = "other");
