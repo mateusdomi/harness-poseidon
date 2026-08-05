@@ -330,6 +330,23 @@ public static class HostApplication
             .GetSection("Harness:Channels:Telegram")
             .Get<TelegramChannelOptions>() ?? new TelegramChannelOptions());
         builder.Services.AddHostedService<TelegramChannelBackgroundService>();
+        // Human Attention Monitor: a escadinha determinística de notificação (T+0 in-app,
+        // T+1m Telegram, T+15m/T+60m lembretes, depois silêncio). O chat de ATENÇÃO vem de env
+        // ou do arquivo local do operador — nunca do repositório.
+        builder.Services.AddSingleton(services => new Notifications.HumanAttentionMonitorOptions(
+            builder.Configuration["Harness:Channels:Telegram:AttentionChatId"]
+                ?? TryReadLocalAttentionChatId(),
+            Harness.Modules.Workflows.Product.AttentionEscalationOptions.Default));
+        builder.Services.AddSingleton(services => new Notifications.HumanAttentionMonitor(
+            services.GetService<Harness.Persistence.Abstractions.Attention.IHumanAttentionStore>(),
+            services.GetRequiredService<Harness.Persistence.Abstractions.Notifications.INotificationStore>(),
+            services.GetRequiredService<Harness.Persistence.Abstractions.Identity.ILocalProfileStore>(),
+            services.GetRequiredService<TelegramChannelOptions>(),
+            services.GetRequiredService<Notifications.HumanAttentionMonitorOptions>(),
+            services.GetRequiredService<IClock>(),
+            services.GetRequiredService<ILogger<Notifications.HumanAttentionMonitor>>()));
+        builder.Services.AddHostedService(services =>
+            services.GetRequiredService<Notifications.HumanAttentionMonitor>());
         builder.Services.AddSingleton(builder.Configuration
             .GetSection("Harness:Channels:Teams")
             .Get<TeamsChannelOptions>() ?? new TeamsChannelOptions());
@@ -704,6 +721,7 @@ public static class HostApplication
             builder.Services.AddSingleton<ISolicitationAttachmentStore, SqliteSolicitationAttachmentStore>();
             builder.Services.AddSingleton<Harness.Persistence.Abstractions.Coordination.IChiefLoopStateStore, SqliteChiefLoopStateStore>();
             builder.Services.AddSingleton<Harness.Persistence.Abstractions.Graph.IProjectGraphStore, SqliteProjectGraphStore>();
+            builder.Services.AddSingleton<Harness.Persistence.Abstractions.Attention.IHumanAttentionStore, SqliteHumanAttentionStore>();
             builder.Services.AddSingleton<IVisualReferenceAssetStore, SqliteVisualReferenceAssetStore>();
             builder.Services.AddSingleton(services => new LocalOperationsService(
                 services.GetRequiredService<SqliteWriteDispatcher>(), databasePath, documentCatalogPath));
@@ -1045,6 +1063,8 @@ public static class HostApplication
         app.MapSolicitationAttachments();
         Graph.ProjectGraphEndpoints.MapProjectGraph(app);
         Graph.PortfolioEndpoints.MapPortfolio(app);
+        Notifications.HumanAttentionEndpoints.MapHumanAttention(app);
+        WorkBoard.IntakeStatusEndpoints.MapIntakeStatus(app);
         app.MapWorkflowCatalog();
         app.MapWorkflowConsistency();
         app.MapDocumentCatalog();
@@ -1197,6 +1217,26 @@ public static class HostApplication
     }
 
     private sealed record HealthResponse(string Status);
+
+    /// <summary>
+    /// O chat de atenção do operador, do arquivo local <c>~/.harness/telegram-chat-id</c> —
+    /// identificador (não segredo), fora do repositório, gravado uma vez pelo dono.
+    /// </summary>
+    private static string? TryReadLocalAttentionChatId()
+    {
+        try
+        {
+            var path = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".harness", "telegram-chat-id");
+            return File.Exists(path) ? File.ReadAllText(path).Trim() : null;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+    }
+
 }
 
 public sealed record HarnessServerOptions(bool Multiuser, int RateLimitPermitsPerMinute);

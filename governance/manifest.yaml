@@ -22,6 +22,8 @@ markdownAllowlist:
   reason: Especificação operacional da Operação Final (objetivo, regras R1/R2 e CompletionGate); rege a operação, não o produto — não é norma canônica do repositório.
 - path: coordination/final-operation/ORDEM-ORIGINAL.md
   reason: Ordem original do proprietário que abriu a Operação Final; registro de proveniência, não norma canônica.
+- path: docs/operations/trensrj-evaluation-window.md
+  reason: Janela oficial da avaliação empresarial TrensRJ (05/08–20/08/2026), com data fechada; registro operacional do baseline e do recorte de métricas, não norma canônica.
 - path: docs/operations/indicadores-mvp-lock.md
   reason: MVP lock e normalização do levantamento do projeto Indicadores TrensRJ (2026-08-05), com data fechada; registro de escopo derivado de teste executável, não norma canônica.
 - path: docs/operations/prisma-launch-gate.md
@@ -2524,7 +2526,7 @@ documents:
   related:
   - product-frontend-standards
   enforcedBy: []
-  checksum: sha256:5b5c18346c18c6340df77fcaaffdc16037acf086a13cec088a197a99fc7f8c7b
+  checksum: sha256:4de24a3229ba47d548d7743ce738a8b264e3cee5d2385572a3ba4b2fd5828ad8
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/product/provided-artifacts.md

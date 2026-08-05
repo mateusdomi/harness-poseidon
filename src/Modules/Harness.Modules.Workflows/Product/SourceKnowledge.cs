@@ -110,7 +110,10 @@ public static class SourceKnowledgeClassifier
         @"utilizar|imprescind[ií]vel|precisa(m|r[aá])?|somente|apenas|n[aã]o\s+pode(m)?|" +
         // Proibição é requisito NEGATIVO: "Não criar gráficos fixos" restringe a solução tanto
         // quanto "utilizar Oracle" — o levantamento real de Indicadores usa exatamente essa forma.
-        @"n[aã]o\s+(criar|utilizar|usar|armazenar|permitir|deixar|gravar|apresentar|omitir))\b",
+        @"n[aã]o\s+(criar|utilizar|usar|armazenar|permitir|deixar|gravar|apresentar|omitir)|" +
+        // Conflito DECLARADO entre regras é o caso arquetípico de ASK: não existe default seguro
+        // para uma contradição — só autoridade humana resolve.
+        @"contradit[oó]ri\w*|divergen\w*|conflitant\w*)\b",
         RegexOptions.CultureInvariant | RegexOptions.Compiled, TimeSpan.FromSeconds(1));
 
     private static readonly (Regex Pattern, KnowledgeCategory Category)[] CategoryPatterns =

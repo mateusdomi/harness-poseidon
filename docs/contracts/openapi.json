@@ -987,6 +987,55 @@
                 }
             }
         },
+        "/api/v1/solicitations/{solicitationId}/intake-status": {
+            "get": {
+                "tags": [
+                    "po-assistant"
+                ],
+                "parameters": [
+                    {
+                        "name": "solicitationId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IntakeStatusContract"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/projects/{id}/workflow": {
             "post": {
                 "tags": [
@@ -17101,6 +17150,119 @@
                 }
             }
         },
+        "/api/v1/attention": {
+            "get": {
+                "tags": [
+                    "human-attention"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HumanAttentionListContract"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/attention/{id}/acknowledge": {
+            "post": {
+                "tags": [
+                    "human-attention"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/attention/{id}/answer": {
+            "post": {
+                "tags": [
+                    "human-attention"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/HumanAttentionAnswerContract"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/workflow-templates": {
             "get": {
                 "tags": [
@@ -28869,6 +29031,107 @@
                     }
                 }
             },
+            "HumanAttentionAnswerContract": {
+                "required": [
+                    "answer"
+                ],
+                "type": "object",
+                "properties": {
+                    "answer": {
+                        "type": "string"
+                    }
+                }
+            },
+            "HumanAttentionContract": {
+                "required": [
+                    "id",
+                    "projectId",
+                    "question",
+                    "reason",
+                    "severity",
+                    "blockingScope",
+                    "status",
+                    "cardId",
+                    "graphNodeId",
+                    "createdAt",
+                    "reminderCount",
+                    "channelStatus",
+                    "ageMinutes"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "question": {
+                        "type": "string"
+                    },
+                    "reason": {
+                        "type": "string"
+                    },
+                    "severity": {
+                        "type": "string"
+                    },
+                    "blockingScope": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "cardId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "graphNodeId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "reminderCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "channelStatus": {
+                        "type": "string"
+                    },
+                    "ageMinutes": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+                        "type": [
+                            "number",
+                            "string"
+                        ],
+                        "format": "double"
+                    }
+                }
+            },
+            "HumanAttentionListContract": {
+                "required": [
+                    "requests"
+                ],
+                "type": "object",
+                "properties": {
+                    "requests": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/HumanAttentionContract"
+                        }
+                    }
+                }
+            },
             "IFormFile": {
                 "type": "string",
                 "format": "binary"
@@ -28891,6 +29154,52 @@
                             "null",
                             "string"
                         ]
+                    }
+                }
+            },
+            "IntakeStatusContract": {
+                "required": [
+                    "state",
+                    "acceptedArtifacts",
+                    "acceptanceCriteria",
+                    "blockingQuestions",
+                    "canLeave",
+                    "message"
+                ],
+                "type": "object",
+                "properties": {
+                    "state": {
+                        "type": "string"
+                    },
+                    "acceptedArtifacts": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "acceptanceCriteria": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "blockingQuestions": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "canLeave": {
+                        "type": "boolean"
+                    },
+                    "message": {
+                        "type": "string"
                     }
                 }
             },
@@ -37173,6 +37482,9 @@
             "name": "portfolio"
         },
         {
+            "name": "po-assistant"
+        },
+        {
             "name": "workflow-runs"
         },
         {
@@ -37266,10 +37578,10 @@
             "name": "architecture"
         },
         {
-            "name": "po-assistant"
+            "name": "project-graph"
         },
         {
-            "name": "project-graph"
+            "name": "human-attention"
         },
         {
             "name": "workflow-templates"

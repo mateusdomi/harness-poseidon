@@ -3526,6 +3526,34 @@ public sealed partial class ChiefBacklogLoopService(
             return 0;
         }
 
+        // HUMAN ATTENTION LOOP: escalação que sobreviveu ao replanejamento é um ASK genuíno —
+        // vira pedido de atenção PERSISTIDO (idempotente por correlação; o loop re-observa o
+        // mesmo card a cada ciclo sem duplicar nem reiniciar lembretes). A partir daqui a
+        // escadinha de notificação é do monitor determinístico, nunca da memória da Bruna.
+        var attentionStore = scope.ServiceProvider
+            .GetService<Harness.Persistence.Abstractions.Attention.IHumanAttentionStore>();
+        if (attentionStore is not null)
+        {
+            foreach (var task in escalated)
+            {
+                await attentionStore.CreateAsync(
+                    new Harness.Persistence.Abstractions.Attention.HumanAttentionCreateCommand(
+                        tenantId,
+                        UlidValue.New(clock.UtcNow).ToString(),
+                        project.Id,
+                        $"O card \"{task.Title}\" esgotou as tentativas e o replanejamento automático; precisa da sua decisão (aprovar outra abordagem, reduzir escopo ou descartar).",
+                        task.BlockedReason ?? "Escalado após ciclos de revisão sem aprovação.",
+                        "high",
+                        $"card:{task.Id}",
+                        "chief-backlog-loop",
+                        $"card-escalated:{task.Id}",
+                        clock.UtcNow,
+                        CardId: task.Id,
+                        GraphNodeId: $"card:{task.Id}"),
+                    token);
+            }
+        }
+
         var conversations = scope.ServiceProvider.GetRequiredService<IConversationStore>();
         var open = await conversations.ListConversationsAsync(tenantId, project.Id, null, 1, token);
 

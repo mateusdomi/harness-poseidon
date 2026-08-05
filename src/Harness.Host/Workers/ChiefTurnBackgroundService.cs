@@ -818,6 +818,22 @@ public sealed partial class ChiefTurnBackgroundService(
                     cancellationToken);
 
                 LogCardActionApplied(logger, task.Id, receipt.Status);
+
+                // A decisão do dono FECHA o pedido de atenção correspondente: o SLA registra a
+                // resposta e o tempo — a métrica que a prova empresarial exibe dia 20.
+                var attentionStore = scope.ServiceProvider
+                    .GetService<Harness.Persistence.Abstractions.Attention.IHumanAttentionStore>();
+                if (attentionStore is not null)
+                {
+                    var attention = await attentionStore.GetByCorrelationAsync(
+                        lease.Turn.TenantId, $"card-escalated:{task.Id}", cancellationToken);
+                    if (attention is not null)
+                    {
+                        await attentionStore.AnswerAsync(
+                            lease.Turn.TenantId, attention.Id, action.Instruction, now,
+                            cancellationToken);
+                    }
+                }
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {

@@ -6,6 +6,25 @@
 > baseline decide o que fazer quando **não existe** decisão; este documento decide o que fazer
 > quando **já existe artefato**.
 
+## 0. FLOW 2 — Engineering Accelerator: a experiência ponta a ponta
+
+Quando o projeto chega com fontes prontas (requisitos escritos, protótipo, referências), a
+jornada oficial do usuário é:
+
+```
+Fornecer insumos → Validação do intake → READY → execução autônoma
+      → atenção humana SOMENTE quando necessária (notificação determinística)
+      → retomada automática após a resposta
+```
+
+- **READY é computado, nunca declarado**: fontes processadas, requisitos conhecidos, perfil
+  resolvível, zero dúvida bloqueante (`intake-status`). Com READY, o usuário PODE sair da tela.
+- **Dúvida tem rota fechada**: CLOSED resolve por precedência; INFER decide pelo baseline e
+  registra a premissa; DEFER registra a lacuna para o momento certo; **só ASK interrompe uma
+  pessoa** — e vira pedido persistido com escadinha determinística de notificação (in-app →
+  Telegram → lembretes → silêncio), escopo de bloqueio declarado e SLA medido.
+- **Timeout nunca vira resposta**: o subgrafo dependente espera; o trabalho independente segue.
+
 ## 1. A regra
 
 **Artefato fornecido pelo usuário é fonte da verdade, não sugestão.**
