@@ -617,10 +617,16 @@ public static class HostApplication
                         new ConversationChiefExecutorOptions(
                             Path.GetFullPath(agentRunSettings.ControlledRoot!)),
                         services.GetRequiredService<ILogger<ConversationChiefAgentExecutor>>(),
-                        // Onda 0.7: anexos navegáveis por seção no turno da chefe.
-                        new WorkBoard.SolicitationAttachmentNavigator(
-                            services.GetRequiredService<IWorkBoardStore>(),
-                            services.GetRequiredService<ISolicitationAttachmentStore>()))));
+                        // Onda 0.7 + 3.2: anexos navegáveis por seção E o grafo do projeto como
+                        // "arquivo" virtual consultável — a chefe consulta, nunca recebe bruto.
+                        new Graph.CompositeChiefNavigator([
+                            new WorkBoard.SolicitationAttachmentNavigator(
+                                services.GetRequiredService<IWorkBoardStore>(),
+                                services.GetRequiredService<ISolicitationAttachmentStore>()),
+                            new Graph.ChiefGraphNavigator(
+                                services.GetRequiredService<Graph.ProjectGraphProjectionService>(),
+                                services.GetService<Harness.Persistence.Abstractions.Graph.IProjectGraphStore>()),
+                        ]))));
 
             builder.Services.AddSingleton(services => new AgentRunOrchestrator(
                 services.GetRequiredService<IAttemptWorkspaceStore>(),

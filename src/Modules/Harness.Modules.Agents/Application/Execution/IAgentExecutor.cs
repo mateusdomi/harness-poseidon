@@ -20,7 +20,14 @@ public sealed record AgentExecutionRequest(
     string? Effort = null,
     string? CommunicationInstructions = null,
     IReadOnlyList<AgentSpecialistOption>? Specialists = null,
-    ChiefCommunicationContext? CommunicationContext = null);
+    ChiefCommunicationContext? CommunicationContext = null,
+
+    /// <summary>
+    /// Onda 3.1 — o ProjectImpactDigest do grafo (compacto, determinístico, 1–3k tokens),
+    /// preenchido pelo worker SOMENTE com `graph.projection.enabled` ligada. Nulo = sem grafo,
+    /// prompt idêntico ao anterior.
+    /// </summary>
+    string? ImpactDigest = null);
 
 /// <summary>
 /// Uma opção do catálogo de especialistas apresentada ao Chefe para que ele possa DELEGAR a quem

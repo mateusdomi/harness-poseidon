@@ -49,7 +49,9 @@ public sealed partial class ChiefTurnBackgroundService(
     ILicenseStore licenses,
     ChiefTeamManager teamManager,
     IServiceScopeFactory scopes,
-    ILogger<ChiefTurnBackgroundService> logger) : BackgroundService
+    ILogger<ChiefTurnBackgroundService> logger,
+    Graph.ProjectGraphProjectionService? graphProjection = null,
+    Harness.Persistence.Abstractions.Graph.IProjectGraphStore? graphStore = null) : BackgroundService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -397,6 +399,18 @@ public sealed partial class ChiefTurnBackgroundService(
             var communicationInstructions =
                 (await leadershipProfile.ReadAsync(cancellationToken)).CommunicationInstructions;
             var specialists = await ReadSpecialistCatalogAsync(lease.Turn.TenantId, cancellationToken);
+            // Onda 3.1 — o digest de impacto do grafo entra no turno SOMENTE com a flag ligada.
+            // A janela do delta é as últimas 24h (aproximação anotada no ADR-0009: o ancoramento
+            // exato no turno anterior entra quando o mailbox expuser essa leitura).
+            string? impactDigest = null;
+            if (graphProjection is { Enabled: true } && graphStore is not null)
+            {
+                var graph = await graphStore.GetAsync(
+                    lease.Turn.TenantId, lease.Turn.ProjectId, cancellationToken);
+                impactDigest = Harness.Modules.Workflows.Product.Graph.ProjectImpactDigests.Build(
+                    graph.Version, graph.Nodes, graph.Edges, clock.UtcNow.AddHours(-24));
+            }
+
             communicationContext = await ResolveCommunicationContextAsync(lease, cancellationToken);
             AgentExecutionResult execution;
             using (var invocationActivity = PoseidonTelemetry.StartChiefInvocation(
@@ -426,7 +440,8 @@ public sealed partial class ChiefTurnBackgroundService(
                             lease.Turn.Selection?.ProviderEffortValue,
                             communicationInstructions,
                             specialists,
-                            communicationContext),
+                            communicationContext,
+                            impactDigest),
                         // Perder o lease ABORTA a inferência: seguir gastando cota para um turno
                         // que já pertence a outro dono é o custo duplicado que BR-005 descreve.
                         leaseLost.Token);
