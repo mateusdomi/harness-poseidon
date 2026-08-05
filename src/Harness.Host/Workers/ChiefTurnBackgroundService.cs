@@ -904,31 +904,43 @@ public sealed partial class ChiefTurnBackgroundService(
         ChiefTurnLease lease,
         CancellationToken cancellationToken)
     {
+        // O REGISTRO da conversa é resolvido da mensagem do próprio usuário, fora do modelo. Um
+        // brief de engenharia que fala ".NET" e "Oracle" recebe resposta no mesmo registro — foi a
+        // falha real do intake do Prisma (2026-08-05): a chefe respondeu no vocabulário do brief e
+        // o turno caiu por "detalhe técnico não autorizado". Detalhe INTERNO (provider, conta, ID,
+        // log) continua exigindo o pedido explícito + autorização abaixo.
+        var userSpokeTechnically = ChiefCommunicationPolicy.SpeaksTechnically(lease.Instruction);
         var requested = ChiefCommunicationPolicy.RequestsTechnicalDetails(lease.Instruction);
         if (!requested)
         {
-            return ChiefCommunicationPolicy.Business;
+            return ChiefCommunicationPolicy.Business with
+            {
+                UserSpokeTechnically = userSpokeTechnically,
+            };
         }
 
         var userMessage = await conversations.GetMessageAsync(
             lease.Turn.TenantId, lease.Turn.UserMessageId, cancellationToken);
         if (userMessage?.AuthorProfileId is not { Length: > 0 } profileId)
         {
-            return new ChiefCommunicationContext(TechnicalDetailsRequested: true);
+            return new ChiefCommunicationContext(
+                TechnicalDetailsRequested: true, UserSpokeTechnically: userSpokeTechnically);
         }
 
         var profile = await localProfiles.GetAsync(profileId, cancellationToken);
         if (profile is null ||
             !string.Equals(profile.TenantId, lease.Turn.TenantId, StringComparison.Ordinal))
         {
-            return new ChiefCommunicationContext(TechnicalDetailsRequested: true);
+            return new ChiefCommunicationContext(
+                TechnicalDetailsRequested: true, UserSpokeTechnically: userSpokeTechnically);
         }
 
         if (profile.Role == LocalProfileRole.Admin)
         {
             return new ChiefCommunicationContext(
                 TechnicalDetailsRequested: true,
-                TechnicalDetailsAuthorized: true);
+                TechnicalDetailsAuthorized: true,
+                UserSpokeTechnically: userSpokeTechnically);
         }
 
         var entitlements = await licenses.ListEntitlementsAsync(
@@ -941,7 +953,8 @@ public sealed partial class ChiefTurnBackgroundService(
                 StringComparison.Ordinal));
         return new ChiefCommunicationContext(
             TechnicalDetailsRequested: true,
-            TechnicalDetailsAuthorized: authorized);
+            TechnicalDetailsAuthorized: authorized,
+            UserSpokeTechnically: userSpokeTechnically);
     }
 
     /// <summary>

@@ -177,4 +177,55 @@ public sealed class AttachmentIngestPolicyTests
 
         return stream.ToArray();
     }
+
+    /// <summary>
+    /// A regressão do intake do Prisma (2026-08-05): o ZIP do protótipo React caiu no
+    /// `eslint.config.js`, porque a blocklist de anexo direto era aplicada a conteúdo de ZIP.
+    /// Código-fonte é o payload LEGÍTIMO de um projeto fornecido; o que continua bloqueado dentro
+    /// do ZIP é binário nativo e ZIP aninhado.
+    /// </summary>
+    [Fact]
+    public void ZipDeProjetoComCodigoFonteEAceito()
+    {
+        using var buffer = new MemoryStream();
+        using (var archive = new System.IO.Compression.ZipArchive(
+            buffer, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+        {
+            void Add(string name, string content)
+            {
+                var entry = archive.CreateEntry(name);
+                using var writer = new StreamWriter(entry.Open());
+                writer.Write(content);
+            }
+
+            Add("app/eslint.config.js", "export default [];");
+            Add("app/vite.config.mjs", "export default {};");
+            Add("app/src/App.tsx", "export default function App() { return null; }");
+            Add("app/tools/build.sh", "#!/bin/sh\necho build");
+        }
+
+        var decision = AttachmentIngestPolicy.Evaluate(new AttachmentIngestRequest(
+            "prototipo.zip", "application/zip", buffer.ToArray()));
+
+        Assert.True(decision.Accepted, decision.Detail);
+    }
+
+    [Fact]
+    public void BinarioNativoDentroDoZipContinuaBloqueado()
+    {
+        using var buffer = new MemoryStream();
+        using (var archive = new System.IO.Compression.ZipArchive(
+            buffer, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+        {
+            var entry = archive.CreateEntry("bin/ferramenta.dll");
+            using var writer = entry.Open();
+            writer.Write("nao importa o conteudo"u8);
+        }
+
+        var decision = AttachmentIngestPolicy.Evaluate(new AttachmentIngestRequest(
+            "prototipo.zip", "application/zip", buffer.ToArray()));
+
+        Assert.False(decision.Accepted);
+        Assert.Equal("zip_blocked_entry", decision.Code);
+    }
 }

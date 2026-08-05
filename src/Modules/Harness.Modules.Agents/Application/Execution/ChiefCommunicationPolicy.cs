@@ -8,10 +8,23 @@ namespace Harness.Modules.Agents.Application.Execution;
 /// </summary>
 public sealed record ChiefCommunicationContext(
     bool TechnicalDetailsRequested = false,
-    bool TechnicalDetailsAuthorized = false)
+    bool TechnicalDetailsAuthorized = false,
+
+    /// <summary>
+    /// O USUÁRIO falou no registro técnico do PRODUTO — resolvido fora do modelo, da própria
+    /// mensagem dele. Libera espelhar esse registro (backend, banco, arquitetura, API), e é o
+    /// caso inteiro do FLOW 2: um brief de engenharia que menciona ".NET" e "Oracle" não pode
+    /// receber de volta uma resposta proibida de dizer "backend". NÃO libera detalhe operacional
+    /// interno — provider, conta, ID, log continuam atrás da autorização, porque o registro da
+    /// conversa é do usuário e a operação da plataforma não é.
+    /// </summary>
+    bool UserSpokeTechnically = false)
 {
     public bool CanExposeTechnicalDetails =>
         TechnicalDetailsRequested && TechnicalDetailsAuthorized;
+
+    /// <summary>Pode usar vocabulário técnico de produto na resposta.</summary>
+    public bool MayMirrorTechnicalRegister => CanExposeTechnicalDetails || UserSpokeTechnically;
 }
 
 /// <summary>
@@ -43,13 +56,30 @@ public static partial class ChiefCommunicationPolicy
         return TechnicalRequestPattern().IsMatch(instruction);
     }
 
+    /// <summary>
+    /// A mensagem do usuário está no registro técnico de produto? Usa o MESMO padrão que a
+    /// validação aplica à resposta — se o padrão reprovaria a resposta por uma palavra que o
+    /// próprio usuário escreveu, a conversa é tecnicamente registrada por definição dele.
+    /// </summary>
+    public static bool SpeaksTechnically(string instruction) =>
+        !string.IsNullOrWhiteSpace(instruction) &&
+        TechnicalVocabularyPattern().IsMatch(instruction);
+
     public static string BuildInstructions(
         ChiefCommunicationContext context,
         string? userPreferences = null)
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        var projection = context.CanExposeTechnicalDetails
+        var projection = !context.CanExposeTechnicalDetails && context.UserSpokeTechnically
+            ? """
+              O usuário escreveu no registro técnico de produto, e você responde no MESMO registro:
+              backend, frontend, banco, arquitetura, API e termos equivalentes são a língua desta
+              conversa. O que continua PROIBIDO é detalhe interno da operação da plataforma:
+              provider, modelo, executor, conta, IDs internos, logs e códigos de erro — esses só
+              com autorização explícita. Nunca exponha segredo ou credencial.
+              """
+            : context.CanExposeTechnicalDetails
             ? """
               O usuário pediu detalhes técnicos e o servidor confirmou a autorização deste perfil.
               Você pode apresentar provider, modelo, executor, conta, estados internos, IDs e
@@ -219,26 +249,39 @@ public static partial class ChiefCommunicationPolicy
         referenceSafeSurface = FileReferencePattern().Replace(referenceSafeSurface, string.Empty);
         var reasonCodeSurface =
             BarePublicDomainPattern().Replace(referenceSafeSurface, string.Empty);
-        if (!context.CanExposeTechnicalDetails &&
-            (TechnicalVocabularyPattern().IsMatch(response) ||
-             InternalIdentifierPattern().IsMatch(response) ||
-             RecognizableReasonCodePattern().IsMatch(referenceSafeSurface) ||
-             RawReasonCodePattern().IsMatch(reasonCodeSurface)))
+        // Dois níveis, de propósito. O VOCABULÁRIO DE PRODUTO (backend, banco, arquitetura) é
+        // liberado quando o usuário fala nesse registro: falha real de 2026-08-05 — o brief do
+        // Prisma dizia ".NET 8" e "Oracle", a chefe respondeu no mesmo registro e o turno caiu
+        // por "detalhe técnico não autorizado". Os DETALHES INTERNOS (identificador, reason code)
+        // continuam exigindo a autorização explícita: o registro da conversa é do usuário; a
+        // operação da plataforma não é.
+        if (!context.MayMirrorTechnicalRegister && TechnicalVocabularyPattern().IsMatch(response))
         {
             // O TERMO entra na mensagem. Sem ele, "detalhe técnico não autorizado" obrigava a
             // adivinhar qual palavra derrubou o turno — e cada palpite custava um reinício do
             // Host. O trecho citado é o que a própria chefe escreveu; não expõe segredo nem dado
             // do usuário, e é justamente o que precisa ser corrigido no prompt dela.
-            var offending =
-                TechnicalVocabularyPattern().Match(response) is { Success: true } vocabulary
-                    ? vocabulary.Value
-                    : InternalIdentifierPattern().Match(response) is { Success: true } identifier
-                        ? identifier.Value
-                        : RecognizableReasonCodePattern().Match(referenceSafeSurface) is { Success: true } code
-                            ? code.Value
-                            : RawReasonCodePattern().Match(reasonCodeSurface).Value;
             violation =
                 "A resposta contém detalhe técnico não autorizado para a experiência de negócio: " +
+                $"\"{TechnicalVocabularyPattern().Match(response).Value}\".";
+            return false;
+        }
+
+        // DETALHE INTERNO DA OPERAÇÃO: identificador, reason code. Sempre atrás da autorização
+        // explícita — o usuário falar "backend" não o autoriza a receber ULID de tentativa.
+        if (!context.CanExposeTechnicalDetails &&
+            (InternalIdentifierPattern().IsMatch(response) ||
+             RecognizableReasonCodePattern().IsMatch(referenceSafeSurface) ||
+             RawReasonCodePattern().IsMatch(reasonCodeSurface)))
+        {
+            var offending =
+                InternalIdentifierPattern().Match(response) is { Success: true } identifier
+                    ? identifier.Value
+                    : RecognizableReasonCodePattern().Match(referenceSafeSurface) is { Success: true } code
+                        ? code.Value
+                        : RawReasonCodePattern().Match(reasonCodeSurface).Value;
+            violation =
+                "A resposta expõe detalhe interno da operação sem autorização: " +
                 $"\"{offending}\".";
             return false;
         }

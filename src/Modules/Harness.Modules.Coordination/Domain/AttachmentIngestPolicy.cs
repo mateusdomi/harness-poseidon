@@ -33,6 +33,20 @@ public static class AttachmentIngestPolicy
          ".mp3", ".wav", ".ogg", ".m4a"],
         StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// O que é bloqueado DENTRO de um ZIP: binário nativo e ZIP aninhado — e nada mais.
+    ///
+    /// A lista é deliberadamente MENOR que a de anexo direto. Um ZIP de projeto fornecido (o caso
+    /// FLOW 2: protótipo React exportado de um builder) contém `.js`, `.sh`, `.mjs` legítimos por
+    /// definição — são código-fonte, que é exatamente o que o artefato existe para carregar.
+    /// Bloqueá-los tornava TODO protótipo real inanexável: medido em 2026-08-05, o ZIP do Lovable
+    /// caiu no `eslint.config.js`. O que continua perigoso num ZIP é executável NATIVO (também
+    /// pego por assinatura de bytes, defesa que independe do nome) e ZIP dentro de ZIP.
+    /// </summary>
+    private static readonly HashSet<string> BlockedZipEntryExtensions = new(
+        [".exe", ".dll", ".so", ".dylib", ".msi", ".com", ".scr", ".app"],
+        StringComparer.OrdinalIgnoreCase);
+
     private static readonly HashSet<string> BlockedExtensions = new(
         [".exe", ".dll", ".so", ".dylib", ".sh", ".bat", ".cmd", ".ps1", ".app",
          ".msi", ".com", ".scr", ".jar", ".vbs", ".js", ".mjs", ".wasm"],
@@ -125,21 +139,30 @@ public static class AttachmentIngestPolicy
         return AttachmentIngestDecision.Permit();
     }
 
-    private static bool HasExecutableSignature(ReadOnlySpan<byte> content)
+    private static bool HasExecutableSignature(ReadOnlySpan<byte> content) =>
+        HasNativeExecutableSignature(content) ||
+        (content.Length >= 2 && content[0] == (byte)'#' && content[1] == (byte)'!');
+
+    /// <summary>
+    /// Assinaturas de executável NATIVO: MZ (PE), ELF, Mach-O (32/64, ambas as ordens) e binário
+    /// universal. O shebang fica FORA de propósito: dentro de um ZIP de projeto fornecido, um
+    /// `tools/build.sh` com `#!/bin/sh` é código-fonte legítimo — foi exatamente a forma da
+    /// entrega real de empréstimos — e nada aqui o executa. Para anexo DIRETO o shebang continua
+    /// bloqueado (junto com a extensão), porque um script solto não é documento de intake.
+    /// </summary>
+    private static bool HasNativeExecutableSignature(ReadOnlySpan<byte> content)
     {
         if (content.Length < 4)
         {
             return false;
         }
 
-        // MZ (PE), ELF, Mach-O (32/64, ambas as ordens), universal binary e shebang.
         return (content[0] == 0x4D && content[1] == 0x5A) ||
             (content[0] == 0x7F && content[1] == 0x45 && content[2] == 0x4C && content[3] == 0x46) ||
             (content[0] == 0xFE && content[1] == 0xED && content[2] == 0xFA) ||
             (content[0] == 0xCF && content[1] == 0xFA && content[2] == 0xED && content[3] == 0xFE) ||
             (content[0] == 0xCE && content[1] == 0xFA && content[2] == 0xED && content[3] == 0xFE) ||
-            (content[0] == 0xCA && content[1] == 0xFE && content[2] == 0xBA && content[3] == 0xBE) ||
-            (content[0] == (byte)'#' && content[1] == (byte)'!');
+            (content[0] == 0xCA && content[1] == 0xFE && content[2] == 0xBA && content[3] == 0xBE);
     }
 
     private static bool HasExpectedSignature(string extension, ReadOnlySpan<byte> content) =>
@@ -194,7 +217,7 @@ public static class AttachmentIngestPolicy
                 }
 
                 var entryExtension = Path.GetExtension(entry.Name);
-                if (BlockedExtensions.Contains(entryExtension) ||
+                if (BlockedZipEntryExtensions.Contains(entryExtension) ||
                     string.Equals(entryExtension, ".zip", StringComparison.OrdinalIgnoreCase))
                 {
                     return AttachmentIngestDecision.Deny(
@@ -220,7 +243,7 @@ public static class AttachmentIngestPolicy
 
                 using var entryStream = entry.Open();
                 var read = entryStream.ReadAtLeast(head, 4, throwOnEndOfStream: false);
-                if (HasExecutableSignature(head.AsSpan(0, read)))
+                if (HasNativeExecutableSignature(head.AsSpan(0, read)))
                 {
                     return AttachmentIngestDecision.Deny(
                         "zip_executable_entry",

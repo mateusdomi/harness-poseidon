@@ -239,7 +239,9 @@ public sealed class ChiefCommunicationPolicyTests
             response,
             ChiefCommunicationPolicy.Business,
             out var violation));
-        Assert.Contains("detalhe técnico", violation, StringComparison.OrdinalIgnoreCase);
+        // Reason code é DETALHE INTERNO da operação — a mensagem distingue os dois níveis desde
+        // 2026-08-05, quando o vocabulário de produto passou a poder ser espelhado.
+        Assert.Contains("detalhe interno", violation, StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]
@@ -379,5 +381,63 @@ public sealed class ChiefCommunicationPolicyTests
 
         Assert.Contains("não podem remover", instructions, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Não exponha provider", instructions, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A regressão do intake do Prisma (2026-08-05): o brief do usuário dizia ".NET 8", "Oracle" e
+    /// "backend"; a chefe respondeu no mesmo registro e o turno caiu por "detalhe técnico não
+    /// autorizado" — três minutos de modelo jogados fora e a mensagem genérica no chat. O registro
+    /// da conversa é do USUÁRIO: quando ele fala técnico de produto, a resposta pode espelhar.
+    /// </summary>
+    [Fact]
+    public void UsuarioQueFalaTecnicoDeProdutoRecebeRespostaNoMesmoRegistro()
+    {
+        Assert.True(ChiefCommunicationPolicy.SpeaksTechnically(
+            "O backend deve ser .NET 8 e o banco Oracle; a arquitetura segue a especificação."));
+
+        var contexto = ChiefCommunicationPolicy.Business with { UserSpokeTechnically = true };
+        var ok = ChiefCommunicationPolicy.TryValidateResponse(
+            "Perfeito. Vou organizar o plano: o backend em .NET, o banco Oracle e a arquitetura " +
+            "em camadas ficam registrados como decisões fechadas. A interface fornecida será " +
+            "evoluída, não reconstruída.",
+            contexto,
+            out var violation);
+
+        Assert.True(ok, violation);
+    }
+
+    /// <summary>
+    /// O espelho tem limite: vocabulário de produto sim, DETALHE INTERNO não. Falar "backend" não
+    /// autoriza receber ULID de tentativa nem reason code — isso continua atrás do pedido
+    /// explícito com autorização.
+    /// </summary>
+    [Fact]
+    public void RegistroTecnicoDoUsuarioNaoLiberaDetalheInternoDaOperacao()
+    {
+        var contexto = ChiefCommunicationPolicy.Business with { UserSpokeTechnically = true };
+
+        var ok = ChiefCommunicationPolicy.TryValidateResponse(
+            "A tentativa 01KZ8RCCTE9G011XD1ZNH5HEK0 falhou no executor.",
+            contexto,
+            out var violation);
+
+        Assert.False(ok);
+        Assert.Contains("detalhe interno", violation!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Usuário leigo continua protegido: sem registro técnico dele, a regra antiga vale intacta.</summary>
+    [Fact]
+    public void UsuarioLeigoContinuaSemReceberVocabularioTecnico()
+    {
+        Assert.False(ChiefCommunicationPolicy.SpeaksTechnically(
+            "Quero um sistema simples para controlar empréstimos de equipamentos."));
+
+        var ok = ChiefCommunicationPolicy.TryValidateResponse(
+            "Já configurei o backend e o provider do modelo.",
+            ChiefCommunicationPolicy.Business,
+            out var violation);
+
+        Assert.False(ok);
+        Assert.Contains("detalhe técnico não autorizado", violation!, StringComparison.Ordinal);
     }
 }
