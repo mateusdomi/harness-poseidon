@@ -448,6 +448,25 @@ public sealed class WorkflowPhaseDriver(
                 !string.Equals(productFailure, ProductDeliveryFailures.LegacyProjectExempt, StringComparison.Ordinal))
             {
                 _failures.Add($"phase:{phase.Key}:{productFailure}");
+
+                // CADA LACUNA COM NOME PRÓPRIO.
+                //
+                // O veredito já sabia exatamente o que faltou — `FrontendPresent:Missing`,
+                // `E2EJourneyPassed:Missing` — e tudo isso morria achatado num único
+                // `product:definition_of_done_failed`. Quem lesse a falha da fase via "a entrega não
+                // atende", que é verdadeiro e inútil: não dá para abrir trabalho corretivo a partir
+                // dele, e foi por isso que, no run de 2026-08-04, a ausência de interface precisou
+                // de uma pessoa para virar card.
+                //
+                // Isto NÃO cria card sozinho e não decide nada: transforma um código opaco em uma
+                // lista de lacunas nomeadas, que é o insumo mínimo para que a chefe possa decidir.
+                foreach (var finding in productVerdict?.Findings ?? [])
+                {
+                    _failures.Add(
+                        $"phase:{phase.Key}:product_gap:" +
+                        $"{finding.Kind.ToString().ToLowerInvariant()}:" +
+                        $"{finding.Gap.ToString().ToLowerInvariant()}");
+                }
             }
         }
 
