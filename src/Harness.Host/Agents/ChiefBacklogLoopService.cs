@@ -1030,6 +1030,16 @@ public sealed partial class ChiefBacklogLoopService(
                         caps.EffortValues.Contains(e, StringComparer.OrdinalIgnoreCase)
                         ? e
                         : null;
+                    // Onda 0.4: um esforço pedido que o executor não aceita era descartado em
+                    // SILÊNCIO — a rota dizia "high" e ninguém sabia que o agente rodou no
+                    // default. O descarte agora é declarado no log e auditável no ledger
+                    // (requested_effort ≠ resolved_effort).
+                    if (route?.Effort is { Length: > 0 } requestedEffortValue && effort is null)
+                    {
+                        LogEffortDropped(
+                            logger, entry.Task.Id, requestedEffortValue,
+                            account?.ExecutorId ?? "(sem executor)");
+                    }
 
                     var routing = await providerRouting.RouteAndAuditAsync(
                         profile.TenantId,
@@ -1040,7 +1050,8 @@ public sealed partial class ChiefBacklogLoopService(
                         token);
                     if (await LaunchAsync(
                             profile.TenantId, profile.Id, project, entry.Resolution, decision.AccountAlias,
-                            routing.SelectedModel, effort, entry.Task, entry.InstructionVersionId, personas,
+                            routing.SelectedModel, effort, route?.ModelId, route?.Effort,
+                            entry.Task, entry.InstructionVersionId, personas,
                             catalog, projectControlledRoot,
                             string.Equals(
                                 decision.ReasonCode, "chief.reinforcement_dispatched", StringComparison.Ordinal),
@@ -4766,6 +4777,10 @@ public sealed partial class ChiefBacklogLoopService(
     private static partial void LogCardProfileBusyDeferred(
         ILogger logger, string taskId, string accountAlias);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Onda 0.4: card {TaskId} — esforço pedido '{RequestedEffort}' não é aceito pelo executor {ExecutorId}; a tentativa roda no default do provedor e a divergência fica auditável no ledger (requested_effort ≠ resolved_effort).")]
+    private static partial void LogEffortDropped(
+        ILogger logger, string taskId, string requestedEffort, string executorId);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Chief: esteira do projeto {ProjectId} — {Created} card(s) de artefato criado(s), {Advanced} objetivo(s) de fase concluído(s).")]
     private static partial void LogPhaseDriven(ILogger logger, string projectId, int created, int advanced);
 
@@ -4789,6 +4804,8 @@ public sealed partial class ChiefBacklogLoopService(
         string accountAlias,
         string? model,
         string? effort,
+        string? requestedModel,
+        string? requestedEffort,
         BoardTaskRecord task,
         string instructionVersionId,
         IReadOnlyList<AgentDefinitionRecord> personas,
@@ -4929,6 +4946,8 @@ public sealed partial class ChiefBacklogLoopService(
                 Access = ExternalAgentAccess.Workspace,
                 Model = model,
                 Effort = effort,
+                RequestedModel = requestedModel,
+                RequestedEffort = requestedEffort,
                 RiskTier = resolution.Card.RiskTier,
                 // As três dimensões semânticas do trabalho, que a seleção de contexto precisa e
                 // que o card já carrega. Papel continua sendo papel: quem executa.

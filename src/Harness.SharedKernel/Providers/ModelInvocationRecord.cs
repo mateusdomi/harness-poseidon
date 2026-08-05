@@ -17,4 +17,19 @@ public sealed record ModelInvocationRecord(
     decimal EstimatedCostUsd,
     long DurationMs,
     string Outcome,
-    DateTimeOffset InvokedAt);
+    DateTimeOffset InvokedAt,
+
+    /// <summary>O modelo que a ROTA pediu (Onda 0.4). Vazio = rota sem preferência.</summary>
+    string RequestedModel = "",
+
+    /// <summary>O esforço que a rota pediu. Vazio = rota sem preferência.</summary>
+    string RequestedEffort = "",
+
+    /// <summary>O modelo que a CLI efetivamente recebeu. Vazio = default do provedor.</summary>
+    string ResolvedModel = "",
+
+    /// <summary>
+    /// O esforço que a CLI efetivamente recebeu. Pedido ≠ recebido é FATO auditável aqui —
+    /// era um drop silencioso no despacho.
+    /// </summary>
+    string ResolvedEffort = "");

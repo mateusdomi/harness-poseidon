@@ -155,9 +155,10 @@ public sealed class ExternalAgentExecutorTests : IDisposable
         var handle = Provision(provisioner, "worker-codex-frontend", ExecutorCatalog.Codex);
         var executor = CodexExternalAgentExecutor.Create(provisioner);
 
-        // O Codex CLI não expõe `--effort`; passar um valor seria inventar flag.
+        // "turbo" não existe em nenhum nível aceito pela CLI instalada — recusa fail-closed,
+        // nunca um argv inventado nem um descarte silencioso.
         var exception = await Assert.ThrowsAsync<ExternalAgentException>(
-            () => executor.StartAsync(Request(handle, effort: "high")));
+            () => executor.StartAsync(Request(handle, effort: "turbo")));
         Assert.Equal("executor.effort_unsupported", exception.Code);
     }
 

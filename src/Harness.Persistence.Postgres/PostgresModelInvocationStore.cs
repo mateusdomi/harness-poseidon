@@ -19,11 +19,13 @@ public sealed class PostgresModelInvocationStore(NpgsqlDataSource dataSource) : 
             INSERT INTO model_invocations (
                 id, tenant_id, project_id, work_task_id, attempt_id,
                 provider, model, account_alias, input_tokens, output_tokens,
-                estimated_cost_usd, duration_ms, outcome, invoked_at
+                estimated_cost_usd, duration_ms, outcome, invoked_at,
+                requested_model, requested_effort, resolved_model, resolved_effort
             ) VALUES (
                 @id, @tenantId, @projectId, @workTaskId, @attemptId,
                 @provider, @model, @accountAlias, @inputTokens, @outputTokens,
-                @estimatedCostUsd, @durationMs, @outcome, @invokedAt
+                @estimatedCostUsd, @durationMs, @outcome, @invokedAt,
+                @requestedModel, @requestedEffort, @resolvedModel, @resolvedEffort
             );
             """);
 
@@ -41,6 +43,10 @@ public sealed class PostgresModelInvocationStore(NpgsqlDataSource dataSource) : 
         command.Parameters.AddWithValue("@durationMs", record.DurationMs);
         command.Parameters.AddWithValue("@outcome", record.Outcome);
         command.Parameters.AddWithValue("@invokedAt", record.InvokedAt);
+        command.Parameters.AddWithValue("@requestedModel", record.RequestedModel);
+        command.Parameters.AddWithValue("@requestedEffort", record.RequestedEffort);
+        command.Parameters.AddWithValue("@resolvedModel", record.ResolvedModel);
+        command.Parameters.AddWithValue("@resolvedEffort", record.ResolvedEffort);
 
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -54,7 +60,8 @@ public sealed class PostgresModelInvocationStore(NpgsqlDataSource dataSource) : 
         await using var command = _dataSource.CreateCommand("""
             SELECT id, tenant_id, project_id, work_task_id, attempt_id,
                    provider, model, account_alias, input_tokens, output_tokens,
-                   estimated_cost_usd, duration_ms, outcome, invoked_at
+                   estimated_cost_usd, duration_ms, outcome, invoked_at,
+                   requested_model, requested_effort, resolved_model, resolved_effort
             FROM model_invocations
             WHERE tenant_id = @tenantId AND work_task_id = @workTaskId
             ORDER BY invoked_at ASC;
@@ -84,7 +91,8 @@ public sealed class PostgresModelInvocationStore(NpgsqlDataSource dataSource) : 
         await using var command = _dataSource.CreateCommand("""
             SELECT id, tenant_id, project_id, work_task_id, attempt_id,
                    provider, model, account_alias, input_tokens, output_tokens,
-                   estimated_cost_usd, duration_ms, outcome, invoked_at
+                   estimated_cost_usd, duration_ms, outcome, invoked_at,
+                   requested_model, requested_effort, resolved_model, resolved_effort
             FROM model_invocations
             WHERE tenant_id = @tenantId AND project_id = @projectId
             ORDER BY invoked_at DESC
@@ -144,5 +152,9 @@ public sealed class PostgresModelInvocationStore(NpgsqlDataSource dataSource) : 
         EstimatedCostUsd: reader.GetDecimal(10),
         DurationMs: reader.GetInt64(11),
         Outcome: reader.GetString(12),
-        InvokedAt: reader.GetFieldValue<DateTimeOffset>(13));
+        InvokedAt: reader.GetFieldValue<DateTimeOffset>(13),
+        RequestedModel: reader.GetString(14),
+        RequestedEffort: reader.GetString(15),
+        ResolvedModel: reader.GetString(16),
+        ResolvedEffort: reader.GetString(17));
 }

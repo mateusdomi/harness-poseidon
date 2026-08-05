@@ -1969,7 +1969,14 @@ public sealed partial class AgentRunOrchestrator(
                 usage?.CostUsd ?? 0m,
                 execution?.DurationMs ?? 0,
                 usage is null ? $"{kind}|usage_unknown" : kind,
-                now),
+                now,
+                // Onda 0.4 — pedido vs. recebido, por tentativa. `resolved_*` é o que a CLI
+                // efetivamente recebeu no argv (o adapter RECUSA valor não suportado em vez de
+                // descartar, então o pass-through é provado); vazio = default do provedor.
+                RequestedModel: command.RequestedModel ?? command.Model ?? string.Empty,
+                RequestedEffort: command.RequestedEffort ?? command.Effort ?? string.Empty,
+                ResolvedModel: command.Model ?? string.Empty,
+                ResolvedEffort: command.Effort ?? string.Empty),
             cancellationToken);
     }
 
@@ -2012,7 +2019,9 @@ public sealed partial class AgentRunOrchestrator(
                     usage?.CostUsd ?? 0m,
                     execution?.DurationMs ?? 0,
                     usage is null ? $"review:{kind}|usage_unknown" : $"review:{kind}",
-                    now),
+                    now,
+                    RequestedModel: command.Model ?? string.Empty,
+                    ResolvedModel: command.Model ?? string.Empty),
                 cancellationToken);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)

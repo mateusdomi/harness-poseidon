@@ -200,6 +200,18 @@ public sealed record StartAgentRunCommand
 
     public string? Effort { get; init; }
 
+    /// <summary>
+    /// Onda 0.4: o modelo que a ROTA pediu (model id do agente), antes de resolver para o nome
+    /// do provedor. Vai ao ledger por tentativa; divergência de <see cref="Model"/> é auditável.
+    /// </summary>
+    public string? RequestedModel { get; init; }
+
+    /// <summary>
+    /// Onda 0.4: o esforço que a rota pediu, ANTES da validação contra o executor. Quando o
+    /// executor não o aceita, <see cref="Effort"/> fica nulo — e este campo prova o que se pediu.
+    /// </summary>
+    public string? RequestedEffort { get; init; }
+
     public string? ResumeSessionId { get; init; }
 
     public string RiskTier { get; init; } = "medium";

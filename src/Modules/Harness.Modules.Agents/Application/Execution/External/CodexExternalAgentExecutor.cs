@@ -48,6 +48,16 @@ public sealed class CodexExternalAgentExecutor(
             arguments.AddRange(["-m", model]);
         }
 
+        if (request.Effort is { Length: > 0 } effort)
+        {
+            // Onda 0.4: o Codex não tem `--effort`, mas expõe o mesmo controle como override de
+            // config (`-c chave=valor`, documentado no `codex exec --help`); a chave
+            // `model_reasoning_effort` é a usada no config.toml REAL desta máquina (CLI 0.146.0)
+            // — flag observada, nunca inventada. Antes disto, o esforço pedido pela rota era
+            // recusado (fail-closed) e o Codex rodava sempre no default.
+            arguments.AddRange(["-c", $"model_reasoning_effort=\"{effort}\""]);
+        }
+
         foreach (var directory in request.AdditionalDirectories)
         {
             arguments.AddRange(["--add-dir", directory]);

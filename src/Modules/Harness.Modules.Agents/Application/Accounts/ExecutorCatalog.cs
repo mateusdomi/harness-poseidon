@@ -56,7 +56,9 @@ public static class ExecutorCatalog
             ["PATH", "HOME", "LANG", "USER", "CODEX_HOME"],
             new CapabilitySet(
                 ["chat", "code", "review"], SupportsStreaming: true, SupportsResume: true,
-                SupportsEffort: false, [], MaxContextTokens: null),
+                // Onda 0.4: o controle existe como override de config (`-c
+                // model_reasoning_effort=…`), com os níveis do config.toml/docs da CLI 0.146.0.
+                SupportsEffort: true, ["minimal", "low", "medium", "high"], MaxContextTokens: null),
             DetectedVersion: null),
 
         new ExecutorProfile(

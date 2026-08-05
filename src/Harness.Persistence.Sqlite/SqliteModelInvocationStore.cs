@@ -21,11 +21,13 @@ public sealed class SqliteModelInvocationStore(SqliteWriteDispatcher dispatcher)
                 INSERT INTO model_invocations (
                     id, tenant_id, project_id, work_task_id, attempt_id,
                     provider, model, account_alias, input_tokens, output_tokens,
-                    estimated_cost_usd, duration_ms, outcome, invoked_at
+                    estimated_cost_usd, duration_ms, outcome, invoked_at,
+                    requested_model, requested_effort, resolved_model, resolved_effort
                 ) VALUES (
                     $id, $tenantId, $projectId, $workTaskId, $attemptId,
                     $provider, $model, $accountAlias, $inputTokens, $outputTokens,
-                    $estimatedCostUsd, $durationMs, $outcome, $invokedAt
+                    $estimatedCostUsd, $durationMs, $outcome, $invokedAt,
+                    $requestedModel, $requestedEffort, $resolvedModel, $resolvedEffort
                 );
                 """;
             command.Parameters.AddWithValue("$id", record.Id);
@@ -42,6 +44,10 @@ public sealed class SqliteModelInvocationStore(SqliteWriteDispatcher dispatcher)
             command.Parameters.AddWithValue("$durationMs", record.DurationMs);
             command.Parameters.AddWithValue("$outcome", record.Outcome);
             command.Parameters.AddWithValue("$invokedAt", record.InvokedAt.ToString("O", CultureInfo.InvariantCulture));
+            command.Parameters.AddWithValue("$requestedModel", record.RequestedModel);
+            command.Parameters.AddWithValue("$requestedEffort", record.RequestedEffort);
+            command.Parameters.AddWithValue("$resolvedModel", record.ResolvedModel);
+            command.Parameters.AddWithValue("$resolvedEffort", record.ResolvedEffort);
 
             await command.ExecuteNonQueryAsync(token);
         }, cancellationToken);
@@ -59,7 +65,8 @@ public sealed class SqliteModelInvocationStore(SqliteWriteDispatcher dispatcher)
             command.CommandText = """
                 SELECT id, tenant_id, project_id, work_task_id, attempt_id,
                        provider, model, account_alias, input_tokens, output_tokens,
-                       estimated_cost_usd, duration_ms, outcome, invoked_at
+                       estimated_cost_usd, duration_ms, outcome, invoked_at,
+                       requested_model, requested_effort, resolved_model, resolved_effort
                 FROM model_invocations
                 WHERE tenant_id = $tenantId AND work_task_id = $workTaskId
                 ORDER BY invoked_at ASC;
@@ -92,7 +99,8 @@ public sealed class SqliteModelInvocationStore(SqliteWriteDispatcher dispatcher)
             command.CommandText = """
                 SELECT id, tenant_id, project_id, work_task_id, attempt_id,
                        provider, model, account_alias, input_tokens, output_tokens,
-                       estimated_cost_usd, duration_ms, outcome, invoked_at
+                       estimated_cost_usd, duration_ms, outcome, invoked_at,
+                       requested_model, requested_effort, resolved_model, resolved_effort
                 FROM model_invocations
                 WHERE tenant_id = $tenantId AND project_id = $projectId
                 ORDER BY invoked_at DESC
@@ -152,5 +160,9 @@ public sealed class SqliteModelInvocationStore(SqliteWriteDispatcher dispatcher)
         EstimatedCostUsd: Convert.ToDecimal(reader.GetDouble(10), CultureInfo.InvariantCulture),
         DurationMs: reader.GetInt64(11),
         Outcome: reader.GetString(12),
-        InvokedAt: DateTimeOffset.Parse(reader.GetString(13), CultureInfo.InvariantCulture));
+        InvokedAt: DateTimeOffset.Parse(reader.GetString(13), CultureInfo.InvariantCulture),
+        RequestedModel: reader.GetString(14),
+        RequestedEffort: reader.GetString(15),
+        ResolvedModel: reader.GetString(16),
+        ResolvedEffort: reader.GetString(17));
 }
