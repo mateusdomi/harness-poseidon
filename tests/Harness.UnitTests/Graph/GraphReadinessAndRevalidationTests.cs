@@ -59,7 +59,8 @@ public sealed class GraphReadinessAndRevalidationTests
         {
             ["artifact:plano-de-testes"] = cause with
             {
-                Id = "artifact:plano-de-testes", Type = GraphNodeType.Artifact,
+                Id = "artifact:plano-de-testes",
+                Type = GraphNodeType.Artifact,
                 Title = "Plano de testes",
             },
         };

@@ -142,7 +142,11 @@ public sealed class ContextSelectionByDimensionTests : IDisposable
     {
         var narrow = Request() with
         {
-            Workflow = "x", Phase = "y", TaskType = "z", AgentRole = "w", Paths = ["nowhere/**"],
+            Workflow = "x",
+            Phase = "y",
+            TaskType = "z",
+            AgentRole = "w",
+            Paths = ["nowhere/**"],
         };
 
         Assert.Contains("mandatory-core", Ids(narrow));

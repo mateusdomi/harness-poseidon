@@ -119,35 +119,35 @@ public static class ProjectGraphProjector
         switch (sourceEvent)
         {
             case GraphItemUpserted upserted:
-            {
-                var key = GraphNode.DeterministicId(upserted.Item.Type, upserted.Item.SourceId);
-                var items = snapshot.Items
-                    .Where(item => !string.Equals(
-                        GraphNode.DeterministicId(item.Type, item.SourceId), key, StringComparison.Ordinal))
-                    .Append(upserted.Item)
-                    .ToArray();
-                var links = snapshot.Links
-                    .Where(link => !(link.FromType == upserted.Item.Type &&
-                        string.Equals(link.FromSourceId, upserted.Item.SourceId, StringComparison.Ordinal)))
-                    .Concat(upserted.OutgoingLinks)
-                    .ToArray();
-                return snapshot with { Items = items, Links = links };
-            }
+                {
+                    var key = GraphNode.DeterministicId(upserted.Item.Type, upserted.Item.SourceId);
+                    var items = snapshot.Items
+                        .Where(item => !string.Equals(
+                            GraphNode.DeterministicId(item.Type, item.SourceId), key, StringComparison.Ordinal))
+                        .Append(upserted.Item)
+                        .ToArray();
+                    var links = snapshot.Links
+                        .Where(link => !(link.FromType == upserted.Item.Type &&
+                            string.Equals(link.FromSourceId, upserted.Item.SourceId, StringComparison.Ordinal)))
+                        .Concat(upserted.OutgoingLinks)
+                        .ToArray();
+                    return snapshot with { Items = items, Links = links };
+                }
 
             case GraphItemRetired retired:
-            {
-                // Aposentar NÃO apaga: o nó fica Retired e as arestas dele permanecem — a
-                // história de por que algo dependia de algo é exatamente o que a perícia do run
-                // de empréstimos não tinha. Remoção física só existe no rebuild de uma fonte
-                // que não declara mais o item.
-                var items = snapshot.Items
-                    .Select(item => item.Type == retired.Type &&
-                        string.Equals(item.SourceId, retired.SourceId, StringComparison.Ordinal)
-                        ? item with { Retired = true }
-                        : item)
-                    .ToArray();
-                return snapshot with { Items = items };
-            }
+                {
+                    // Aposentar NÃO apaga: o nó fica Retired e as arestas dele permanecem — a
+                    // história de por que algo dependia de algo é exatamente o que a perícia do run
+                    // de empréstimos não tinha. Remoção física só existe no rebuild de uma fonte
+                    // que não declara mais o item.
+                    var items = snapshot.Items
+                        .Select(item => item.Type == retired.Type &&
+                            string.Equals(item.SourceId, retired.SourceId, StringComparison.Ordinal)
+                            ? item with { Retired = true }
+                            : item)
+                        .ToArray();
+                    return snapshot with { Items = items };
+                }
 
             default:
                 throw new ArgumentOutOfRangeException(nameof(sourceEvent));
