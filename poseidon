@@ -28,7 +28,7 @@ rotate_host_log() {
 }
 
 usage() {
-  echo "Uso: ./poseidon {start|status|stop|restart|doctor|logs|check-update|update|agent|release-candidate} [opções]"
+  echo "Uso: ./poseidon {start|status|stop|restart|doctor|logs|check-update|update|agent|graph|release-candidate} [opções]"
   echo "  start [--no-browser] [--port PORT] [--demo]"
   echo "  check-update [--source <dir-do-pacote-novo>]"
   echo "  update [--source <dir-do-pacote-novo>]"
@@ -432,6 +432,20 @@ print(json.dumps(body))
   agent_request POST "api/v1/agent-runs/${attempt}/review" "${payload}"
 }
 
+graph_poseidon() {
+  local verb="${1:-}"
+  [[ $# -eq 0 ]] || shift
+  case "${verb}" in
+    rebuild)
+      [[ -n "${1:-}" ]] || { echo "Uso: ./poseidon graph rebuild <projectId>" >&2; return 2; }
+      agent_request POST "api/v1/projects/$1/graph/rebuild" ;;
+    show)
+      [[ -n "${1:-}" ]] || { echo "Uso: ./poseidon graph show <projectId>" >&2; return 2; }
+      agent_request GET "api/v1/projects/$1/graph" ;;
+    *) echo "Uso: ./poseidon graph {rebuild|show} <projectId>" >&2; return 2 ;;
+  esac
+}
+
 agent_poseidon() {
   local verb="${1:-}"
   [[ $# -eq 0 ]] || shift
@@ -537,6 +551,7 @@ case "${1:-}" in
   update) shift; update_poseidon "$@" ;;
   doctor) doctor_poseidon ;;
   agent) shift; agent_poseidon "$@" ;;
+  graph) shift; graph_poseidon "$@" ;;
   logs) mkdir -p "${POSEIDON_LOG_DIR}"; [[ "${2:-}" == "--follow" ]] && exec tail -f "${POSEIDON_HOST_LOG}" || { echo "Logs: ${POSEIDON_LOG_DIR}"; tail -n 200 "${POSEIDON_HOST_LOG}" 2>/dev/null || true; } ;;
   release-candidate) [[ -x "${POSEIDON_ROOT}/tools/backend/verify-release-candidate.sh" ]] || { echo "Comando disponível apenas no checkout de desenvolvimento." >&2; exit 2; }; exec "${POSEIDON_ROOT}/tools/backend/verify-release-candidate.sh" ;;
   *) usage; exit 2 ;;

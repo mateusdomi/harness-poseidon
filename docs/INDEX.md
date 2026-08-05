@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=2.0.0 checksum=sha256:2f470fe4e78efe85204d9689e5e2d840329aed93a3e8fca4353e8d7c671ae4dd -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=2.0.0 checksum=sha256:5b05eaa8a31139b2a94c58503b7a0f888d5caca85f50d5336211c629d650c123 -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -6,7 +6,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 ## By authority
 
 - `Adapter`: 2
-- `Canonical`: 55
+- `Canonical`: 56
 - `Generated`: 1
 
 ## By domain
@@ -16,7 +16,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `architecture`: 1
 - `backend`: 4
 - `contract`: 7
-- `decision`: 8
+- `decision`: 9
 - `entrypoint`: 1
 - `governance`: 1
 - `index`: 1
@@ -29,7 +29,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 ## By phase
 
 - `*`: 45
-- `architecture`: 7
+- `architecture`: 8
 - `development`: 1
 - `homologation`: 1
 - `planning`: 2
@@ -38,12 +38,12 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By status
 
-- `Active`: 58
+- `Active`: 59
 
 ## By owner
 
 - `Operations`: 7
-- `Platform Engineering`: 24
+- `Platform Engineering`: 25
 - `Platform Governance`: 14
 - `Product Security`: 8
 - `Quality Engineering`: 5
@@ -52,7 +52,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 - `Always`: 4
 - `Bundle`: 33
-- `OnDemand`: 21
+- `OnDemand`: 22
 
 ## Documents by authority and domain
 
@@ -103,6 +103,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [ADR-0006 — Baseline de engenharia do produto entregue](decisions/ADR-0006-baseline-de-engenharia-do-produto-entregue.md) | architecture | Active | Platform Engineering | OnDemand | 1932 |
 | [ADR-0007 — Escopo de path vazio na seleção de contexto](decisions/ADR-0007-escopo-de-path-vazio-na-selecao-de-contexto.md) | architecture | Active | Platform Engineering | OnDemand | 1155 |
 | [ADR-0008 — Semântica do Conselho e o fim da recursão de crítico](decisions/ADR-0008-semantica-do-conselho-e-o-fim-da-recursao-de-critico.md) | planning | Active | Platform Engineering | OnDemand | 1562 |
+| [ADR-0009 — ProjectGraphProjection: um grafo que é projeção, nunca fonte da verdade](decisions/ADR-0009-project-graph-projection.md) | architecture | Active | Platform Engineering | OnDemand | 1290 |
 
 #### entrypoint
 

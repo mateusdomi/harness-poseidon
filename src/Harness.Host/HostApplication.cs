@@ -696,10 +696,26 @@ public static class HostApplication
         {
             builder.Services.AddSingleton<ISolicitationAttachmentStore, SqliteSolicitationAttachmentStore>();
             builder.Services.AddSingleton<Harness.Persistence.Abstractions.Coordination.IChiefLoopStateStore, SqliteChiefLoopStateStore>();
+            builder.Services.AddSingleton<Harness.Persistence.Abstractions.Graph.IProjectGraphStore, SqliteProjectGraphStore>();
             builder.Services.AddSingleton<IVisualReferenceAssetStore, SqliteVisualReferenceAssetStore>();
             builder.Services.AddSingleton(services => new LocalOperationsService(
                 services.GetRequiredService<SqliteWriteDispatcher>(), databasePath, documentCatalogPath));
         }
+
+        // Onda 1 — ProjectGraphProjection, atrás da flag `graph.projection.enabled` (default
+        // OFF até a Onda 4 aprovar as provas de replay). Sem store no provider ativo, o serviço
+        // se declara desligado em vez de fingir projeção.
+        builder.Services.AddSingleton(services => new Graph.ProjectGraphProjectionService(
+            services.GetRequiredService<IWorkBoardStore>(),
+            services.GetService<Harness.Persistence.Abstractions.Graph.IProjectGraphStore>(),
+            services.GetRequiredService<IClock>(),
+            new Graph.ProjectGraphOptions(
+                string.Equals(
+                    builder.Configuration["Harness:Graph:ProjectionEnabled"]
+                        ?? builder.Configuration["graph.projection.enabled"]
+                        ?? "false",
+                    "true",
+                    StringComparison.OrdinalIgnoreCase))));
         builder.Services.AddSingleton<OutboxRealtimeStreamResolver>();
         builder.Services.AddSingleton<IRealtimeEventBroadcaster, SignalRRealtimeEventBroadcaster>();
         // A outbox carrega DOIS tipos de mensagem: eventos de tempo real e comandos internos
@@ -1012,6 +1028,7 @@ public static class HostApplication
         app.MapArchitecture();
         app.MapArchitectureHub();
         app.MapSolicitationAttachments();
+        Graph.ProjectGraphEndpoints.MapProjectGraph(app);
         app.MapWorkflowCatalog();
         app.MapWorkflowConsistency();
         app.MapDocumentCatalog();

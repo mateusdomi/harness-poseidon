@@ -907,7 +907,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:7905fe46c9ff2147f58452ec8f4f196a4c638edb202dad33936b34310270e1b8
+  checksum: sha256:368378b66320e1f8553aa035e84de7e00f9cd20b14c093566e0ac1ff3f38b816
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -3013,3 +3013,49 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/decisions/ADR-0008-semantica-do-conselho-e-o-fim-da-recursao-de-critico.md
+- id: adr-0009-project-graph-projection
+  path: docs/decisions/ADR-0009-project-graph-projection.md
+  title: "ADR-0009 — ProjectGraphProjection: um grafo que é projeção, nunca fonte da verdade"
+  category: decision
+  topic: project-graph
+  authority: canonical
+  scope: repo
+  audience:
+  - human
+  - agent
+  providers:
+  - '*'
+  agents:
+  - '*'
+  roles: []
+  workflows:
+  - '*'
+  phases:
+  - architecture
+  taskTypes:
+  - adr
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: on-demand
+  priority: 700
+  tokenCost: 1290
+  owner: Platform Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-08-05T00:00:00-03:00
+  reviewDueAt: 2027-02-05T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - backend-context
+  enforcedBy: []
+  checksum: sha256:aa38024919e2b8979d08b7fc598ea7daa10200865b784263b64f62314eb51395
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/decisions/ADR-0009-project-graph-projection.md
