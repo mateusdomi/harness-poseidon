@@ -460,6 +460,29 @@ public sealed class ProductDeliveryEvaluator(
         var profile = EffectiveProfileResolver.Resolve(
             new EffectiveProfileInputs(projectId, demandText, directives, activeAdrs));
 
+        // INTEGRIDADE DE ESCOPO. Antes de gravar uma versão nova do perfil, compara-se o que ela
+        // passaria a exigir com o que a versão vigente exige. Capacidade que sai da lista é
+        // capacidade que ninguém mais vai cobrar — e tirar capacidade do produto não é decisão de
+        // arquitetura.
+        //
+        // Foi assim que a interface saiu do produto em 2026-08-04: uma decisão tecnicamente bem
+        // argumentada removeu a metade que o usuário ia usar, e nada confrontou a decisão com o
+        // pedido. Aqui a versão nova simplesmente NÃO É GRAVADA, e a vigente continua valendo.
+        var vigente = await profiles.GetCurrentAsync(tenantId, projectId, cancellationToken);
+        if (vigente is not null &&
+            ProjectEffectiveProfile.FromJson(vigente.ProfileJson) is { } anterior)
+        {
+            var autoridade = directives.Count == 0
+                ? ProfileAuthority.Baseline
+                : directives.Max(directive => directive.Authority);
+            var integridade = ScopeIntegrityGuard.Evaluate(anterior, profile, autoridade, resolvedBy);
+            if (!integridade.Allowed)
+            {
+                LogScopeRemovalBlocked(logger, projectId, integridade.Reason);
+                return new ProjectEffectiveProfileSaveResult(vigente, false);
+            }
+        }
+
         return await profiles.SaveAsync(
             new ProjectEffectiveProfileSaveCommand(
                 tenantId,
@@ -472,6 +495,21 @@ public sealed class ProductDeliveryEvaluator(
                 resolvedBy),
             cancellationToken);
     }
+
+    private static void LogScopeRemovalBlocked(ILogger? logger, string projectId, string reason)
+    {
+        if (logger is not null)
+        {
+            ScopeRemovalBlocked(logger, projectId, reason, null);
+        }
+    }
+
+    private static readonly Action<ILogger, string, string, Exception?> ScopeRemovalBlocked =
+        LoggerMessage.Define<string, string>(
+            LogLevel.Error,
+            new EventId(10, nameof(ScopeRemovalBlocked)),
+            "Projeto {ProjectId}: uma decisão tentou remover capacidade do produto e foi recusada " +
+            "— {Reason}");
 
     private static void LogLegacyProjectExempt(ILogger? logger, string projectId)
     {

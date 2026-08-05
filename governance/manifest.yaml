@@ -1,5 +1,5 @@
 manifestVersion: 2.0.0
-lastGeneratedAt: 2026-08-05T01:22:28.6896330+00:00
+lastGeneratedAt: 2026-08-05T01:54:36.8738590+00:00
 tokenBudget: 24000
 knownOwners:
 - Platform Governance
@@ -886,7 +886,7 @@ documents:
   - '**'
   load: always
   priority: 800
-  tokenCost: 2001
+  tokenCost: 2063
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -901,7 +901,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:1c104f22cfc6daf5759dd98eaa492e74f03a629be372e6ee35f46fb9448e2e44
+  checksum: sha256:5d85bf524447d0eacd8114085470345cf78f906f64c672d240be22c711a12b3f
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -2464,6 +2464,110 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/product/authentication-standards.md
+- id: product-provided-artifacts
+  path: docs/product/provided-artifacts.md
+  title: Artefatos fornecidos pelo usuário — protótipo, documento e código existente
+  category: product-standard
+  topic: product-provided-artifacts
+  authority: canonical
+  scope: product
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  roles: []
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - backend-specialist
+  - frontend-specialist
+  - historia
+  - tarefa
+  - bug
+  - adr
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: on-demand
+  priority: 880
+  tokenCost: 936
+  owner: Platform Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-08-04T00:00:00-03:00
+  reviewDueAt: 2027-02-04T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - product-frontend-standards
+  enforcedBy: []
+  checksum: sha256:7658907982ffdc941eb192d9fe95cae2c6b89a0625b7033e84fba7b04b95c998
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/product/provided-artifacts.md
+- id: product-full-stack-integration
+  path: docs/product/full-stack-integration.md
+  title: Integração full-stack do produto entregue
+  category: product-standard
+  topic: product-full-stack-integration
+  authority: canonical
+  scope: product
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  roles: []
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - backend-specialist
+  - frontend-specialist
+  - historia
+  - tarefa
+  - bug
+  - adr
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: on-demand
+  priority: 875
+  tokenCost: 747
+  owner: Platform Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-08-04T00:00:00-03:00
+  reviewDueAt: 2027-02-04T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - product-definition-of-done
+  enforcedBy: []
+  checksum: sha256:7c026d08ba850134d88faba4329751c3db35c5578a11e4e7e3cd6b4ad136f6da
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/product/full-stack-integration.md
 - id: product-security-operability
   path: docs/product/security-and-operability.md
   title: Segurança e operabilidade do produto entregue
