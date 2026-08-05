@@ -104,6 +104,14 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
             "Onda 0.7: falha ao navegar anexos da solicitação; o turno segue sem o índice/seção " +
             "— degradado ao comportamento anterior, nunca derrubado.");
 
+    private static readonly Action<ILogger, string, string, string, Exception?> LogChiefFailover =
+        LoggerMessage.Define<string, string, string>(
+            LogLevel.Warning,
+            new EventId(9, nameof(LogChiefFailover)),
+            "Onda 0.3: a conta titular do Chefe ({Titular}) falhou por causa da CONTA " +
+            "({FailureCode}); failover automático para a secundária ({Secundaria}) no mesmo " +
+            "turno. Uma Chefe ativa por vez — o fencing do turno continua com este dono.");
+
     private static readonly Action<ILogger, string, Exception?> LogSectionRoundDiscarded =
         LoggerMessage.Define<string>(
             LogLevel.Warning,
@@ -141,40 +149,92 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var account = ResolveChiefAccount()
-            ?? throw new AgentExecutorUnavailableException(
-                "Nenhuma conta do Chefe (papel chief-orchestrator) está configurada e habilitada.");
-
-        var executorProfile = ExecutorCatalog.Find(account.ExecutorId)
-            ?? throw new AgentExecutorUnavailableException(
-                "O executor da conta do Chefe é desconhecido no catálogo.");
-
-        if (!ExternalAgentExecutorFactory.IsImplemented(account.ExecutorId))
+        // Onda 0.3 — a Chefe deixa de ser SPOF. O scheduler devolve a candidata vencedora E a
+        // ordem de fallback (mesma elegibilidade, decisão determinística: prioridade, depois
+        // alias — nunca duas vencedoras). Se a PRIMEIRA invocação da titular falha por causa da
+        // CONTA (cota esgotada, login caído, plano sem o modelo), o turno faz failover automático
+        // para a secundária, uma única vez. Não há corrida entre duas Chefs: o fencing do turno
+        // (lease + token no ChiefTurnStore) garante um dono por turno, e este laço roda inteiro
+        // dentro desse dono.
+        var candidates = ResolveChiefAccounts();
+        if (candidates.Count == 0)
         {
-            // Sem adapter real não há como conversar de verdade: falha honesta, nunca texto
-            // fabricado.
             throw new AgentExecutorUnavailableException(
-                "O executor da conta do Chefe não tem adapter real implementado.");
+                "Nenhuma conta do Chefe (papel chief-orchestrator) está configurada e habilitada.");
         }
 
-        var now = _clock.UtcNow;
         var started = Stopwatch.GetTimestamp();
-
-        // Perfil isolado da conta (idempotente): garante o config home próprio com a
-        // autenticação já persistida da assinatura Claude Code. NÃO adquirimos o lock de
-        // fencing do caminho pesado — o turno de chat é serializado pelo worker e é a única
-        // coisa que usa a conta do Chefe.
-        var handle = _profiles.Ensure(account, executorProfile, now);
-
         var communicationContext = request.CommunicationContext ?? ChiefCommunicationPolicy.Business;
         var outlines = await LoadAttachmentOutlinesAsync(request, cancellationToken);
         var prompt = BuildPrompt(request, communicationContext, outlines);
+        var attempts = Math.Min(candidates.Count, 2);
 
-        var externalExecutor = _externalExecutorFactory(account.ExecutorId);
+        for (var index = 0; index < attempts; index++)
+        {
+            var account = candidates[index];
+            var executorProfile = ExecutorCatalog.Find(account.ExecutorId)
+                ?? throw new AgentExecutorUnavailableException(
+                    "O executor da conta do Chefe é desconhecido no catálogo.");
 
-        var result = await RunAsync(
-            externalExecutor, account, handle, prompt, request, cancellationToken);
+            if (!ExternalAgentExecutorFactory.IsImplemented(account.ExecutorId))
+            {
+                // Sem adapter real não há como conversar de verdade: falha honesta, nunca texto
+                // fabricado.
+                throw new AgentExecutorUnavailableException(
+                    "O executor da conta do Chefe não tem adapter real implementado.");
+            }
 
+            // Perfil isolado da conta (idempotente): garante o config home próprio com a
+            // autenticação já persistida da assinatura Claude Code. NÃO adquirimos o lock de
+            // fencing do caminho pesado — o turno de chat é serializado pelo worker e é a única
+            // coisa que usa a conta do Chefe.
+            var handle = _profiles.Ensure(account, executorProfile, _clock.UtcNow);
+            var externalExecutor = _externalExecutorFactory(account.ExecutorId);
+
+            var firstRun = await RunCollectAsync(
+                externalExecutor, account, handle, prompt, request, cancellationToken);
+            if (!firstRun.Succeeded)
+            {
+                if (IsAccountLevelFailure(firstRun.FailureKind) && index + 1 < attempts)
+                {
+                    LogChiefFailover(
+                        _logger,
+                        account.Alias,
+                        firstRun.FailureCode ?? "(sem código)",
+                        candidates[index + 1].Alias,
+                        null);
+                    continue;
+                }
+
+                // Falha do executor externo (cota sem secundária, timeout, transiente): propaga
+                // o CÓDIGO tipado, nunca segredo. O worker classifica e decide retry.
+                throw new ExternalAgentException(firstRun.FailureCode ?? "executor.conversation_failed");
+            }
+
+            return await CompleteTurnAsync(
+                externalExecutor, account, handle, request, communicationContext,
+                firstRun, started, cancellationToken);
+        }
+
+        // Inalcançável: o laço ou retorna ou lança. O compilador não sabe disso.
+        throw new AgentExecutorUnavailableException(
+            "Nenhuma conta do Chefe conseguiu executar o turno.");
+    }
+
+    /// <summary>
+    /// O turno a partir da primeira resposta bem-sucedida: parse, reparo, rodada de seções e
+    /// serialização — tudo na MESMA conta que venceu a seleção (ou recebeu o failover).
+    /// </summary>
+    private async Task<AgentExecutionResult> CompleteTurnAsync(
+        IExternalAgentExecutor externalExecutor,
+        AgentAccountContract account,
+        AccountProfileHandle handle,
+        AgentExecutionRequest request,
+        ChiefCommunicationContext communicationContext,
+        ExternalAgentRunResult result,
+        long started,
+        CancellationToken cancellationToken)
+    {
         // Uma primeira resposta que não respeita o schema recebe UMA tentativa de reparo,
         // retomando a mesma sessão. Persistir num loop seria queimar cota sem ganho.
         ChiefTurnOutput? validated = TryParse(
@@ -280,6 +340,31 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         AgentExecutionRequest request,
         CancellationToken cancellationToken)
     {
+        var run = await RunCollectAsync(
+            externalExecutor, account, handle, prompt, request, cancellationToken);
+        if (run.Status != ExternalAgentRunStatus.Completed)
+        {
+            // Falha do executor externo (cota, login, timeout): propaga o CÓDIGO tipado,
+            // nunca segredo. O worker classifica e decide retry.
+            throw new ExternalAgentException(run.FailureCode ?? "executor.conversation_failed");
+        }
+
+        return run;
+    }
+
+    /// <summary>
+    /// Executa e devolve o resultado SEM lançar em falha — é o que permite ao laço de failover
+    /// da Onda 0.3 examinar o <see cref="ExternalAgentRunResult.FailureKind"/> e decidir se a
+    /// próxima candidata assume, em vez de tratar toda falha como fim do turno.
+    /// </summary>
+    private async Task<ExternalAgentRunResult> RunCollectAsync(
+        IExternalAgentExecutor externalExecutor,
+        AgentAccountContract account,
+        AccountProfileHandle handle,
+        string prompt,
+        AgentExecutionRequest request,
+        CancellationToken cancellationToken)
+    {
         var runRequest = new ExternalAgentRunRequest
         {
             Alias = account.Alias,
@@ -297,17 +382,9 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         };
 
         await using var session = await externalExecutor.StartAsync(runRequest, cancellationToken);
-        var run = await session.CollectAsync(cancellationToken);
         try
         {
-            if (run.Status != ExternalAgentRunStatus.Completed)
-            {
-                // Falha do executor externo (cota, login, timeout): propaga o CÓDIGO tipado,
-                // nunca segredo. O worker classifica e decide retry.
-                throw new ExternalAgentException(run.FailureCode ?? "executor.conversation_failed");
-            }
-
-            return run;
+            return await session.CollectAsync(cancellationToken);
         }
         finally
         {
@@ -316,13 +393,24 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
     }
 
     /// <summary>
-    /// Resolve a conta do Chefe pelo PAPEL <c>chief-orchestrator</c> via scheduler.
-    /// Uma conta desabilitada, sem capacidade de chat ou com cota esgotada é descartada
-    /// (equivale a ausência): o executor então se comporta como indisponível.
-    /// Havendo mais de uma candidata, o scheduler escolhe a de maior prioridade e, no
-    /// empate, o alias canônico — decisão determinística, nunca aleatória.
+    /// Falha que pertence à CONTA — e não ao turno: cota esgotada, credencial caída, plano sem o
+    /// modelo. Só estas justificam failover: repetir a mesma pergunta numa conta saudável tem
+    /// chance real; repetir depois de um timeout só dobraria o custo do mesmo problema.
     /// </summary>
-    private AgentAccountContract? ResolveChiefAccount()
+    private static bool IsAccountLevelFailure(ExternalFailureKind kind) =>
+        kind is ExternalFailureKind.QuotaExhausted
+            or ExternalFailureKind.AuthenticationRequired
+            or ExternalFailureKind.AccountModelUnsupported;
+
+    /// <summary>
+    /// Resolve as contas do Chefe pelo PAPEL <c>chief-orchestrator</c> via scheduler — o MESMO
+    /// caminho de seleção do despacho e do critic (Onda 0.3), nunca uma heurística própria.
+    /// Uma conta desabilitada, sem capacidade de chat ou com cota esgotada é descartada
+    /// (equivale a ausência). Havendo mais de uma candidata, o scheduler escolhe UMA vencedora
+    /// (prioridade; no empate, alias canônico — decisão determinística, nunca aleatória) e
+    /// devolve as demais elegíveis na ordem: é a fila de failover.
+    /// </summary>
+    private List<AgentAccountContract> ResolveChiefAccounts()
     {
         var decision = _scheduler.Select(
             _accounts,
@@ -338,11 +426,21 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
 
         if (decision.SelectedAlias is null)
         {
-            return null;
+            return [];
         }
 
-        return _accounts.List().FirstOrDefault(account =>
-            string.Equals(account.Alias, decision.SelectedAlias, StringComparison.OrdinalIgnoreCase));
+        var byAlias = _accounts.List().ToDictionary(
+            account => account.Alias, StringComparer.OrdinalIgnoreCase);
+        var ordered = new List<AgentAccountContract>();
+        foreach (var alias in (string[])[decision.SelectedAlias, .. decision.FallbackAliases])
+        {
+            if (byAlias.TryGetValue(alias, out var account))
+            {
+                ordered.Add(account);
+            }
+        }
+
+        return ordered;
     }
 
     /// <summary>

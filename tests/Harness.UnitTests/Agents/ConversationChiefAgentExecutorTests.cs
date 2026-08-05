@@ -500,6 +500,112 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         Assert.Contains("tenho o resumo do anexo por enquanto", result.StructuredOutput, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Onda 0.3 — "duas candidatas a Chief, uma vence": com duas contas ELEGÍVEIS o scheduler
+    /// escolhe exatamente uma, por prioridade (empate: alias canônico), independentemente da
+    /// ordem de registro. Nunca duas Chefs ativas: um turno = uma conta.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task WithTwoCandidatesExactlyOneChiefWinsDeterministically(bool reverseRegistration)
+    {
+        var registry = new AgentAccountRegistry();
+        var primary = ChiefAccount(AgentAccountState.Available, alias: "chief-claude-primary", priority: 2);
+        var secondary = ChiefAccount(AgentAccountState.Available, alias: "chief-claude-secondary", priority: 1);
+        foreach (var account in reverseRegistration ? [secondary, primary] : new[] { primary, secondary })
+        {
+            registry.Register(account);
+        }
+
+        var fake = new FakeExternalExecutor(ValidChiefJson);
+        var executor = Build(registry, fake);
+
+        await executor.ExecuteAsync(Request(), CancellationToken.None);
+
+        var captured = Assert.Single(fake.Requests);
+        Assert.Equal("chief-claude-primary", captured.Alias);
+    }
+
+    /// <summary>
+    /// Onda 0.3 — o failover da Chefe: a titular morre por causa da CONTA (cota esgotada) e a
+    /// secundária assume o MESMO turno, automaticamente. O dono recebe a resposta; a troca fica
+    /// no log, não na cara dele.
+    /// </summary>
+    [Fact]
+    public async Task WhenThePrimaryDiesForAccountReasonsTheSecondaryTakesTheSameTurn()
+    {
+        var registry = new AgentAccountRegistry();
+        registry.Register(ChiefAccount(AgentAccountState.Available, alias: "chief-claude-primary", priority: 2));
+        registry.Register(ChiefAccount(AgentAccountState.Available, alias: "chief-claude-secondary", priority: 1));
+        var fake = new FailingByAliasExecutor(
+            ValidChiefJson, "chief-claude-primary",
+            "executor.quota_exhausted", ExternalFailureKind.QuotaExhausted);
+        var executor = Build(registry, fake);
+
+        var result = await executor.ExecuteAsync(Request(), CancellationToken.None);
+
+        Assert.Equal(2, fake.Requests.Count);
+        Assert.Equal("chief-claude-primary", fake.Requests[0].Alias);
+        Assert.Equal("chief-claude-secondary", fake.Requests[1].Alias);
+        Assert.Contains("Plano definido", result.StructuredOutput, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Failover é para falha DA CONTA. Timeout/transiente na titular não justifica dobrar o
+    /// custo do mesmo problema noutra conta: propaga o código tipado e o worker decide o retry.
+    /// </summary>
+    [Fact]
+    public async Task ATransientFailureDoesNotTriggerFailover()
+    {
+        var registry = new AgentAccountRegistry();
+        registry.Register(ChiefAccount(AgentAccountState.Available, alias: "chief-claude-primary", priority: 2));
+        registry.Register(ChiefAccount(AgentAccountState.Available, alias: "chief-claude-secondary", priority: 1));
+        var fake = new FailingByAliasExecutor(
+            ValidChiefJson, "chief-claude-primary",
+            "executor.timeout", ExternalFailureKind.Timeout);
+        var executor = Build(registry, fake);
+
+        var exception = await Assert.ThrowsAsync<ExternalAgentException>(
+            () => executor.ExecuteAsync(Request(), CancellationToken.None));
+
+        Assert.Equal("executor.timeout", exception.Code);
+        var captured = Assert.Single(fake.Requests);
+        Assert.Equal("chief-claude-primary", captured.Alias);
+    }
+
+    /// <summary>Duble que falha SOMENTE para um alias, com tipo de falha declarado.</summary>
+    private sealed class FailingByAliasExecutor(
+        string message, string failingAlias, string failureCode, ExternalFailureKind failureKind)
+        : IExternalAgentExecutor
+    {
+        public List<ExternalAgentRunRequest> Requests { get; } = [];
+
+        public string ExecutorId => ExecutorCatalog.ClaudeCode;
+
+        public ExecutorProfile Profile => ExecutorCatalog.Find(ExecutorCatalog.ClaudeCode)!;
+
+        public Task<ExecutorProbeResult> ProbeAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ExecutorProbeResult(
+                ExecutorId, true, "2.1.216", AgentAccountState.Available, "ok"));
+
+        public Task<IExternalAgentSession> StartAsync(
+            ExternalAgentRunRequest request, CancellationToken cancellationToken = default)
+        {
+            Requests.Add(request);
+            var fails = string.Equals(request.Alias, failingAlias, StringComparison.Ordinal);
+            var result = new ExternalAgentRunResult(
+                ExecutorId, request.Alias, "session-fake",
+                fails ? ExternalAgentRunStatus.Failed : ExternalAgentRunStatus.Completed,
+                fails ? string.Empty : message,
+                [], null, fails ? 1 : 0, fails ? failureCode : null, 5)
+            {
+                FailureKind = fails ? failureKind : ExternalFailureKind.Unknown,
+            };
+            return Task.FromResult<IExternalAgentSession>(new FakeSession(result));
+        }
+    }
+
     private sealed class FakeNavigator : IChiefAttachmentNavigator
     {
         public Task<IReadOnlyList<ChiefAttachmentOutline>> ListOutlinesAsync(
@@ -519,7 +625,7 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
 
     private ConversationChiefAgentExecutor Build(
         AgentAccountRegistry registry,
-        FakeExternalExecutor fake,
+        IExternalAgentExecutor fake,
         IChiefAttachmentNavigator? navigator = null) =>
         new(
             registry,
@@ -558,12 +664,15 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
     }
 
     private static AgentAccountContract ChiefAccount(
-        AgentAccountState state, DateTimeOffset? cooldownUntil = null) =>
+        AgentAccountState state,
+        DateTimeOffset? cooldownUntil = null,
+        string alias = "chief-claude-primary",
+        int priority = 1) =>
         new(
-            "chief-claude-primary", "anthropic", ExecutorCatalog.ClaudeCode,
-            "keychain://poseidon/chief-claude-primary", "confighome://chief-claude-primary",
+            alias, "anthropic", ExecutorCatalog.ClaudeCode,
+            $"keychain://poseidon/{alias}", $"confighome://{alias}",
             [AgentRoles.ChiefOrchestrator], [],
-            state, AgentAccountHealth.Unknown, 1, 0, null, null, cooldownUntil, null, null, 100);
+            state, AgentAccountHealth.Unknown, priority, 0, null, null, cooldownUntil, null, null, 100);
 
     public void Dispose()
     {
