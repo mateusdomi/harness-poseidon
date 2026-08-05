@@ -5060,12 +5060,13 @@ public sealed partial class ChiefBacklogLoopService(
     private static bool IsWordCharacter(char value) => char.IsLetterOrDigit(value) || value == '_';
 
     /// <summary>
-    /// Só projeto ATIVO entra no ciclo autônomo. `paused` é decisão explícita do dono (endpoint
-    /// `chief/pause`) e `archived` é fim de vida: nenhum dos dois pode consumir cota, slot de
-    /// despacho ou disparar review.
+    /// Só projeto ATIVO entra no ciclo autônomo. A regra vive em
+    /// <see cref="StartupWorkEligibility"/> porque o inventário de arranque precisa responder "o
+    /// que o Poseidon vai executar se subir agora?" com EXATAMENTE este predicado — duas cópias da
+    /// mesma regra divergem no dia em que alguém mexe numa delas.
     /// </summary>
     private static bool IsDispatchable(ProjectRecord project) =>
-        string.Equals(project.State, "active", StringComparison.Ordinal);
+        StartupWorkEligibility.ProjectIsRunnable(project);
 
     /// <summary>
     /// O projeto está num repositório que a fábrica pode tocar?
