@@ -6,7 +6,23 @@ namespace Harness.Modules.Coordination.Application;
 /// existe ao menos uma versão de instrução; <see cref="IsBlocked"/> reflete board_state 'blocked' ou
 /// um blocked_reason presente.
 /// </summary>
-public sealed record CardReadinessFacts(string CardType, bool HasInstruction, bool IsBlocked);
+/// <param name="StaleUpstream">
+/// Onda 2.3 — nós predecessores (via depends_on/blocked_by/derives_from, transitivo) marcados
+/// STALE na ProjectGraphProjection. Preenchido pelo Host SOMENTE com a flag
+/// `graph.projection.enabled` ligada; nulo/vazio quando desligada — o avaliador continua puro e
+/// o comportamento sem grafo é idêntico ao anterior.
+/// </param>
+/// <param name="IncompleteUpstream">
+/// Predecessores (mesma travessia) cujo card de origem ainda não está concluído. Um card cujo
+/// insumo não existe é despachado para falhar — foi o "review fora de ordem" do run de
+/// empréstimos.
+/// </param>
+public sealed record CardReadinessFacts(
+    string CardType,
+    bool HasInstruction,
+    bool IsBlocked,
+    IReadOnlyList<string>? StaleUpstream = null,
+    IReadOnlyList<string>? IncompleteUpstream = null);
 
 /// <summary>
 /// Veredito de prontidão-para-despacho (Definition of Ready) de um card. Somente leitura.
@@ -42,6 +58,12 @@ public static class CardReadinessEvaluator
     public const string InstructionMissing = "dor.instruction.missing";
     public const string Blocked = "dor.blocked";
 
+    /// <summary>Onda 2.3: predecessor STALE no grafo — despachar seria construir sobre premissa invalidada.</summary>
+    public const string UpstreamStale = "dor.graph.upstream_stale";
+
+    /// <summary>Onda 2.3: predecessor incompleto — o insumo do card ainda não existe.</summary>
+    public const string UpstreamIncomplete = "dor.graph.upstream_incomplete";
+
     public static CardReadinessSnapshot Evaluate(CardReadinessFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
@@ -60,6 +82,18 @@ public static class CardReadinessEvaluator
         if (facts.IsBlocked)
         {
             blockers.Add(Blocked);
+        }
+
+        // Fail-closed com razão ENUNCIÁVEL: o bloqueador carrega o nó exato que segura o card,
+        // para que "não despachou" nunca mais seja um mistério de log.
+        foreach (var node in facts.StaleUpstream ?? [])
+        {
+            blockers.Add($"{UpstreamStale}:{node}");
+        }
+
+        foreach (var node in facts.IncompleteUpstream ?? [])
+        {
+            blockers.Add($"{UpstreamIncomplete}:{node}");
         }
 
         return new CardReadinessSnapshot(blockers.Count == 0, blockers);

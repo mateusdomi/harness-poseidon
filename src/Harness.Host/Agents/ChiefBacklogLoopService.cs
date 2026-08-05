@@ -56,7 +56,8 @@ public sealed partial class ChiefBacklogLoopService(
     IProviderCatalogStore providerCatalog,
     ILogger<ChiefBacklogLoopService> logger,
     Harness.Persistence.Abstractions.Coordination.IChiefLoopStateStore? loopStateStore = null,
-    ILoggerFactory? loggerFactory = null) : BackgroundService
+    ILoggerFactory? loggerFactory = null,
+    Graph.ProjectGraphImpactService? graphImpact = null) : BackgroundService
 {
     /// <summary>Despachante em escala (Fase 10) — puro e determinístico, um por processo.</summary>
     private static readonly ScaleDispatcher ScaleGate = new();
@@ -538,11 +539,26 @@ public sealed partial class ChiefBacklogLoopService(
                     // humanas ('feature', 'human_gate', 'gate', 'decision') são pulados com bloqueador
                     // tipado; documentos, revisões e pesquisas são trabalho real e seguem para o
                     // profissional apropriado.
+                    // Onda 2.3 — fatos de grafo no DoR, SOMENTE com graph.projection.enabled:
+                    // predecessor STALE ou incompleto (depends_on/blocked_by/derives_from,
+                    // transitivo) segura o despacho com o nó exato na razão. Foi o "review
+                    // despachado fora de ordem" do run de empréstimos. Flag off = fatos vazios,
+                    // comportamento idêntico ao anterior.
+                    IReadOnlyList<string> staleUpstream = [];
+                    IReadOnlyList<string> incompleteUpstream = [];
+                    if (graphImpact is { Enabled: true })
+                    {
+                        (staleUpstream, incompleteUpstream) = await graphImpact.InspectUpstreamAsync(
+                            profile.TenantId, project.Id, task.Id, token);
+                    }
+
                     var readiness = CardReadinessEvaluator.Evaluate(new CardReadinessFacts(
                         task.CardType,
                         instructions.Count >= 1,
                         string.Equals(task.State, "blocked", StringComparison.Ordinal) ||
-                            !string.IsNullOrWhiteSpace(task.BlockedReason)));
+                            !string.IsNullOrWhiteSpace(task.BlockedReason),
+                        staleUpstream,
+                        incompleteUpstream));
                     if (!readiness.IsDispatchable)
                     {
                         LogCardNotDispatchable(

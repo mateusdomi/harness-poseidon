@@ -716,6 +716,12 @@ public static class HostApplication
                         ?? "false",
                     "true",
                     StringComparison.OrdinalIgnoreCase))));
+        builder.Services.AddSingleton(services => new Graph.ProjectGraphImpactService(
+            services.GetRequiredService<Graph.ProjectGraphProjectionService>(),
+            services.GetService<Harness.Persistence.Abstractions.Graph.IProjectGraphStore>(),
+            services.GetRequiredService<IWorkBoardStore>(),
+            services.GetRequiredService<IClock>(),
+            services.GetRequiredService<ILogger<Graph.ProjectGraphImpactService>>()));
         builder.Services.AddSingleton<OutboxRealtimeStreamResolver>();
         builder.Services.AddSingleton<IRealtimeEventBroadcaster, SignalRRealtimeEventBroadcaster>();
         // A outbox carrega DOIS tipos de mensagem: eventos de tempo real e comandos internos
