@@ -8,7 +8,11 @@ export default defineConfig({
   testIgnore: ['**/http-real.spec.ts', '**/package-clean.spec.ts'],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  // 2026-08-05: mesmo com os tetos alongados abaixo, a suíte cheia derrubou UM teste por rodada
+  // — um diferente a cada vez, todos verdes isolados. É contenção de carga, não produto. UMA
+  // retentativa local absorve exatamente esse padrão: falha real reprova duas vezes seguidas e
+  // ainda entrega o trace (`on-first-retry`); flake de milissegundos deixa de pintar o gate.
+  retries: process.env.CI ? 2 : 1,
   reporter: 'list',
   // Os padrões do Playwright (30 s por teste, 5 s por expect) foram medidos com a suíte quieta.
   // Com 132 testes em workers paralelos — e, numa máquina de trabalho, o Host e os agentes

@@ -24,6 +24,8 @@ markdownAllowlist:
   reason: Ordem original do proprietário que abriu a Operação Final; registro de proveniência, não norma canônica.
 - path: docs/operations/pre-prisma-start-checklist.md
   reason: Runbook operacional de uso único para o início do projeto Prisma; procedimento datado, não norma canônica do repositório.
+- path: docs/architecture/preflight/prisma-graph-dry-run.md
+  reason: Relatório do dry-run da ProjectGraphProjection sobre a spec do Prisma (Onda 4.3), com data fechada; evidência derivada de teste executável, não norma canônica.
 - path: docs/architecture/preflight/prisma-readiness.md
   reason: Análise de prontidão do runtime para o projeto Prisma, com data fechada. Registra o estado observado do Poseidon em 2026-08-04 e os riscos declarados; não constitui norma canônica.
 - path: docs/architecture/preflight/prisma-especificacao-mvp-v3.0.md
