@@ -30,7 +30,12 @@ public static class AttachmentIngestPolicy
 
     private static readonly HashSet<string> AllowedExtensions = new(
         [".md", ".txt", ".pdf", ".png", ".jpg", ".jpeg", ".csv", ".xlsx", ".docx", ".zip",
-         ".mp3", ".wav", ".ogg", ".m4a"],
+         ".mp3", ".wav", ".ogg", ".m4a",
+         // Dual Project Gate (2026-08-05): dashboard HTML AUTOCONTIDO é o formato natural de
+         // referência visual/funcional (caso real: BPMN e Licenças ERP da TrensRJ). O host
+         // armazena e LÊ como texto — nunca serve nem executa; a leitura para contexto passa
+         // pela sanitização de design_reference quando o papel o declara.
+         ".html", ".htm"],
         StringComparer.OrdinalIgnoreCase);
 
     /// <summary>

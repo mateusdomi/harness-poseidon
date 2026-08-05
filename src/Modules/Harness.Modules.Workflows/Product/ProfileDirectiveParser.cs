@@ -63,6 +63,18 @@ public static class ProfileDirectiveParser
         @"\b(nao|jamais|nunca|descartad|rejeitad|evitar|sem)\b",
         RegexOptions.CultureInvariant | RegexOptions.Compiled, TimeSpan.FromSeconds(1));
 
+    /// <summary>
+    /// Sinais de NÃO-AUTORIDADE (Dual Project Gate, Parte C): sugestão, opção, alternativa,
+    /// "avaliar", futuro/evolução e exemplo. Uma frase assim INFORMA — não decide. Sem esta
+    /// guarda, "Sugestão de stack: utilizar React, Vite ou Next.js" viraria ProjectRequirement
+    /// dos três ao mesmo tempo, e "Kubernetes como evolução futura" viraria hosting de MVP.
+    /// </summary>
+    private static readonly Regex NonAuthority = new(
+        @"\b(sugest[ao]o|sugerimos|sugere(m)?|recomenda(cao|mos|do|da)?|opc[ao]o|opcoes|" +
+        @"alternativ[ao]s?|avaliar|considerar|opcional(mente)?|futur[ao]s?|evolucao|roadmap|" +
+        @"exemplo|podendo\s+ser|possibilidades?|desejavel)\b",
+        RegexOptions.CultureInvariant | RegexOptions.Compiled, TimeSpan.FromSeconds(1));
+
     public static IReadOnlyList<ProfileDirective> Parse(
         string? text,
         ProfileAuthority authority,
@@ -83,7 +95,8 @@ public static class ProfileDirectiveParser
         foreach (var sentence in Split(text))
         {
             var normalized = Normalize(sentence);
-            if (!DecisionVerb.IsMatch(normalized) || Negation.IsMatch(normalized))
+            if (!DecisionVerb.IsMatch(normalized) || Negation.IsMatch(normalized) ||
+                NonAuthority.IsMatch(normalized))
             {
                 continue;
             }

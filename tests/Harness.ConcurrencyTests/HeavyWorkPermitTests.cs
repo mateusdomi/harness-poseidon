@@ -165,6 +165,47 @@ public sealed class HeavyWorkPermitTests
     }
 
     /// <summary>
+    /// Dual Project Gate, Parte Q: DOIS projetos disparando trabalho pesado ao mesmo tempo
+    /// dividem o MESMO teto do host — 10 builds do Prisma + 4 do Indicadores com limite 2 nunca
+    /// passam de 2 simultâneos, TODOS concluem, e a fila visível mostra os dois projetos (nenhum
+    /// deles some num await anônimo enquanto o outro ocupa a máquina).
+    /// </summary>
+    [Fact]
+    public async Task DoisProjetosDividemOMesmoTetoSemDerrubarOHostESemPerderTrabalho()
+    {
+        using var permit = new HeavyWorkPermit(maxConcurrent: 2);
+        var concluidos = 0;
+        var picoSimultaneo = 0;
+        var ativos = 0;
+        var sync = new object();
+
+        var trabalhos = Enumerable.Range(1, 10).Select(n => ("prisma", n))
+            .Concat(Enumerable.Range(1, 4).Select(n => ("indicadores", n)))
+            .Select(async item =>
+            {
+                using var lease = await permit.AcquireAsync(
+                    CancellationToken.None, priority: 0, label: $"{item.Item1}-build-{item.n}");
+                lock (sync) { ativos++; picoSimultaneo = Math.Max(picoSimultaneo, ativos); }
+                await Task.Delay(15);
+                lock (sync) { ativos--; concluidos++; }
+            }).ToArray();
+
+        await Task.Delay(20);
+        var (running, queued) = permit.Snapshot();
+        Assert.True(running.Count <= 2);
+        // A fila enxerga os DOIS projetos pelo rótulo — visibilidade por projeto, não só total.
+        Assert.Contains(
+            running.Concat(queued),
+            label => label.StartsWith("indicadores-", StringComparison.Ordinal));
+
+        await Task.WhenAll(trabalhos);
+
+        Assert.Equal(14, concluidos);
+        Assert.True(picoSimultaneo <= 2, $"pico foi {picoSimultaneo}; o limite é 2.");
+        Assert.Equal(0, permit.InFlight);
+    }
+
+    /// <summary>
     /// Prioridade fura a fila quando abre vaga; dentro da mesma prioridade vale a chegada —
     /// inanição do card barato é o defeito clássico que ninguém vê até ele esperar a noite.
     /// </summary>

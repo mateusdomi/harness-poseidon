@@ -49,13 +49,60 @@ public sealed record ChiefAttachmentSectionRef(string Id, string Title);
 public static class AttachmentSectionizer
 {
     /// <summary>
-    /// Corta por títulos de nível 2 (<c>## </c>) — a granularidade das especificações reais
-    /// ("## 5. Metodologia…"). O que vem antes do primeiro título vira o preâmbulo. Documento sem
-    /// títulos é uma seção única: navegável do mesmo jeito, sem caso especial para o chamador.
+    /// Corta por títulos de nível 2 (<c>## </c>) — a granularidade das especificações em
+    /// markdown ("## 5. Metodologia…"). O que vem antes do primeiro título vira o preâmbulo.
+    ///
+    /// TEMPLATE NÃO É CONTRATO DE ENTRADA (Dual Project Gate, Parte A): quando o documento não é
+    /// markdown — um TXT colado, um levantamento com "1. OBJETIVO" ou "REQUISITOS FUNCIONAIS" em
+    /// caixa alta — a divisão cai para títulos NUMERADOS ou EM CAIXA ALTA. Documento sem título
+    /// nenhum é uma seção única: navegável do mesmo jeito, sem caso especial para o chamador.
+    /// A propriedade de completude vale em todos os modos: a concatenação reproduz o original.
     /// </summary>
     public static IReadOnlyList<AttachmentSection> Split(string text)
     {
         ArgumentNullException.ThrowIfNull(text);
+        var markdown = SplitBy(text, line => line.StartsWith("## ", StringComparison.Ordinal)
+            ? line[3..].Trim()
+            : null);
+        if (markdown.Count > 1)
+        {
+            return markdown;
+        }
+
+        // Fallback agnóstico: "12. TÍTULO" / "12) Título" / "TÍTULO EM CAIXA ALTA".
+        var fallback = SplitBy(text, PlainHeading);
+        return fallback.Count > 1 ? fallback : markdown;
+    }
+
+    /// <summary>
+    /// Título de documento SEM markdown: linha numerada ("27. ENTREGA DO MVP", "3) Escopo") ou
+    /// linha curta em caixa alta. Estreito de propósito — promover linha comum a título espalha
+    /// o documento em seções falsas.
+    /// </summary>
+    private static string? PlainHeading(string line)
+    {
+        var trimmed = line.Trim();
+        if (trimmed.Length is < 4 or > 120)
+        {
+            return null;
+        }
+
+        if (System.Text.RegularExpressions.Regex.IsMatch(
+                trimmed, @"^\d{1,3}(\.\d+)*[.)—-]\s+\S.{2,}$"))
+        {
+            return trimmed;
+        }
+
+        var letters = trimmed.Where(char.IsLetter).ToArray();
+        return letters.Length >= 6 && letters.All(char.IsUpper) &&
+            !trimmed.EndsWith('.') && !trimmed.Contains(':')
+            ? trimmed
+            : null;
+    }
+
+    private static List<AttachmentSection> SplitBy(
+        string text, Func<string, string?> headingOf)
+    {
         var sections = new List<AttachmentSection>();
         var lines = text.Split('\n');
         var buffer = new List<string>();
@@ -64,17 +111,17 @@ public static class AttachmentSectionizer
 
         foreach (var line in lines)
         {
-            // Um "## " dentro de cerca de código é conteúdo, não título — a spec do Prisma tem
+            // Um título dentro de cerca de código é conteúdo, não título — a spec do Prisma tem
             // pseudocódigo com comentários `#` que não podem virar seções fantasmas.
             if (line.TrimStart().StartsWith("```", StringComparison.Ordinal))
             {
                 fenced = !fenced;
             }
 
-            if (!fenced && line.StartsWith("## ", StringComparison.Ordinal))
+            if (!fenced && headingOf(line) is { } title)
             {
                 Flush(sections, currentTitle, buffer);
-                currentTitle = line[3..].Trim();
+                currentTitle = title;
                 buffer.Clear();
             }
 

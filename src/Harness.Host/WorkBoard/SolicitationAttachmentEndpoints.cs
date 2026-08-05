@@ -97,6 +97,15 @@ public static class AttachmentRoles
             return ProvidedFrontend;
         }
 
+        // Dashboard/página HTML autocontida é REFERÊNCIA visual/funcional — nunca frontend
+        // fornecido (o frontend fornecido chega como projeto, em ZIP) e nunca fonte de
+        // requisitos. Caso real: os dashboards BPMN e Licenças ERP da TrensRJ.
+        if (name.EndsWith(".html", StringComparison.Ordinal) ||
+            name.EndsWith(".htm", StringComparison.Ordinal))
+        {
+            return DesignReference;
+        }
+
         return (name.EndsWith(".md", StringComparison.Ordinal) || name.EndsWith(".pdf", StringComparison.Ordinal)) &&
             (name.Contains("requisito", StringComparison.Ordinal) ||
              name.Contains("requirement", StringComparison.Ordinal) ||
@@ -295,8 +304,15 @@ public static class SolicitationAttachmentEndpoints
         // aceito entra no índice vetorial derivado (embedding local determinístico), com
         // proveniência completa nos metadados. O índice NUNCA é fonte da verdade — o registro
         // durável acima é — e pode ser reconstruído a qualquer momento.
+        // Parte I do Dual Project Gate: referência de DESIGN vai para contexto de modelo
+        // SANITIZADA — o arquivo original permanece intacto no storage, com hash preservado;
+        // o que importa numa referência visual é layout/métrica/comportamento, nunca a
+        // identidade das pessoas que apareciam na massa de dados.
+        var contextPreview = string.Equals(role, AttachmentRoles.DesignReference, StringComparison.Ordinal)
+            ? Harness.Modules.Coordination.Application.DesignReferenceSanitizer.Sanitize(processed.PreviewSnippet)
+            : processed.PreviewSnippet;
         var memoryContent = SecretTextProtector.Redact(
-            $"{file.FileName}: {processed.PreviewSnippet}");
+            $"{file.FileName}: {contextPreview}");
         await vectors.IndexAsync(
             new VectorDocumentRecord(
                 attachmentId,
@@ -328,7 +344,7 @@ public static class SolicitationAttachmentEndpoints
                 SecretTextProtector.Redact(
                     $"{file.FileName} ({content.Length} bytes, sha256 {sha256}); " +
                     $"scan={processed.SecurityScanStatus}; extraction={processed.ExtractionStatus}; " +
-                    $"preview={processed.PreviewSnippet}"),
+                    $"preview={contextPreview}"),
                 occurredAt),
             token);
         _ = await DesignSystemBundleEndpoints.TryPromoteIntakeBundleAsync(

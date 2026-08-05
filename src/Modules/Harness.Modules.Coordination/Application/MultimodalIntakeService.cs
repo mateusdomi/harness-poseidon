@@ -82,6 +82,9 @@ public sealed class MultimodalIntakeService(IArtifactContentExtractor? extractor
         // .docx, .zip). O binário genérico entra porque a assinatura executável já é bloqueada
         // pela política de ingestão; o que este scanner nega é mime DECLARADO como perigoso.
         "text/csv", "application/zip", "application/x-zip-compressed",
+        // Dashboard HTML autocontido como referência de design (Dual Project Gate): lido como
+        // TEXTO, nunca servido nem executado; a leitura para contexto passa pela sanitização.
+        "text/html",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/octet-stream",

@@ -134,7 +134,14 @@ public sealed class SolicitationAttachmentNavigator(
                 return null;
             }
 
-            return System.Text.Encoding.UTF8.GetString(bytes);
+            var text = System.Text.Encoding.UTF8.GetString(bytes);
+
+            // Parte I do Dual Project Gate: referência de design chega ao contexto da chefe
+            // SANITIZADA (pessoas viram massa sintética determinística); o arquivo original no
+            // disco permanece intacto, com hash e proveniência preservados.
+            return string.Equals(record.Role, "design_reference", StringComparison.Ordinal)
+                ? Harness.Modules.Coordination.Application.DesignReferenceSanitizer.Sanitize(text)
+                : text;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

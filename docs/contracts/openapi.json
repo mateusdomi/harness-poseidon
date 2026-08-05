@@ -958,6 +958,35 @@
                 }
             }
         },
+        "/api/v1/portfolio/situation": {
+            "get": {
+                "tags": [
+                    "portfolio"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PortfolioSituationContract"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/projects/{id}/workflow": {
             "post": {
                 "tags": [
@@ -31764,6 +31793,113 @@
                     }
                 }
             },
+            "PortfolioGraphContract": {
+                "required": [
+                    "graphVersion",
+                    "requirements",
+                    "coveredRequirements",
+                    "staleNodes"
+                ],
+                "type": "object",
+                "properties": {
+                    "graphVersion": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "requirements": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "coveredRequirements": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "staleNodes": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            },
+            "PortfolioProjectContract": {
+                "required": [
+                    "projectId",
+                    "name",
+                    "state",
+                    "criticality",
+                    "deadline",
+                    "phase",
+                    "runnableCards",
+                    "blockedCards",
+                    "graph"
+                ],
+                "type": "object",
+                "properties": {
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "criticality": {
+                        "type": "string"
+                    },
+                    "deadline": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    },
+                    "phase": {
+                        "type": "string"
+                    },
+                    "runnableCards": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "blockedCards": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "graph": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/components/schemas/PortfolioGraphContract"
+                            }
+                        ]
+                    }
+                }
+            },
             "PortfolioReuseCandidateContract": {
                 "required": [
                     "systemId",
@@ -31830,6 +31966,20 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/PortfolioReuseCandidateContract"
+                        }
+                    }
+                }
+            },
+            "PortfolioSituationContract": {
+                "required": [
+                    "projects"
+                ],
+                "type": "object",
+                "properties": {
+                    "projects": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PortfolioProjectContract"
                         }
                     }
                 }
@@ -37018,6 +37168,9 @@
         },
         {
             "name": "workflows"
+        },
+        {
+            "name": "portfolio"
         },
         {
             "name": "workflow-runs"

@@ -1044,6 +1044,7 @@ public static class HostApplication
         app.MapArchitectureHub();
         app.MapSolicitationAttachments();
         Graph.ProjectGraphEndpoints.MapProjectGraph(app);
+        Graph.PortfolioEndpoints.MapPortfolio(app);
         app.MapWorkflowCatalog();
         app.MapWorkflowConsistency();
         app.MapDocumentCatalog();
