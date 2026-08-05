@@ -16974,6 +16974,104 @@
                 }
             }
         },
+        "/api/v1/projects/{projectId}/graph": {
+            "get": {
+                "tags": [
+                    "project-graph"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProjectGraphSummaryContract"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/projects/{projectId}/graph/rebuild": {
+            "post": {
+                "tags": [
+                    "project-graph"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProjectGraphRebuildContract"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/workflow-templates": {
             "get": {
                 "tags": [
@@ -32039,6 +32137,113 @@
                     }
                 }
             },
+            "ProjectGraphRebuildContract": {
+                "required": [
+                    "version",
+                    "nodeCount",
+                    "edgeCount"
+                ],
+                "type": "object",
+                "properties": {
+                    "version": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "nodeCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "edgeCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            },
+            "ProjectGraphStaleNodeContract": {
+                "required": [
+                    "nodeId",
+                    "title",
+                    "causeNodeId",
+                    "causeVersion"
+                ],
+                "type": "object",
+                "properties": {
+                    "nodeId": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "causeNodeId": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "causeVersion": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "null",
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    }
+                }
+            },
+            "ProjectGraphSummaryContract": {
+                "required": [
+                    "version",
+                    "nodeCount",
+                    "edgeCount",
+                    "staleNodes"
+                ],
+                "type": "object",
+                "properties": {
+                    "version": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int64"
+                    },
+                    "nodeCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "edgeCount": {
+                        "pattern": "^-?(?:0|[1-9]\\d*)$",
+                        "type": [
+                            "integer",
+                            "string"
+                        ],
+                        "format": "int32"
+                    },
+                    "staleNodes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ProjectGraphStaleNodeContract"
+                        }
+                    }
+                }
+            },
             "ProjectPage": {
                 "required": [
                     "items",
@@ -36909,6 +37114,9 @@
         },
         {
             "name": "po-assistant"
+        },
+        {
+            "name": "project-graph"
         },
         {
             "name": "workflow-templates"

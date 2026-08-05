@@ -56,6 +56,19 @@ public sealed class ProjectGraphProjectionService(
         return new ProjectGraphRebuildResult(version, projection.Nodes.Count, projection.Edges.Count);
     }
 
+    /// <summary>A projeção persistida do projeto. Exige a flag ligada (chamador checa Enabled).</summary>
+    public Task<Harness.Persistence.Abstractions.Graph.ProjectGraphStoreSnapshot> GetSnapshotAsync(
+        string tenantId, string projectId, CancellationToken cancellationToken = default)
+    {
+        if (!Enabled)
+        {
+            throw new InvalidOperationException(
+                "A projeção de grafo está desligada (graph.projection.enabled=false).");
+        }
+
+        return _store!.GetAsync(tenantId, projectId, cancellationToken);
+    }
+
     /// <summary>
     /// O estado das fontes canônicas do projeto, normalizado para o projetor. Determinístico:
     /// a mesma base produz o mesmo snapshot, na mesma ordem.

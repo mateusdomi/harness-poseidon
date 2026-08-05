@@ -245,7 +245,10 @@ public sealed class AgentRunContinuationTests : IDisposable
             new WorkAttemptReviewCommand(
                 tenantId, backingSolicitationId, taskId, attemptId, NewId(), "chief-claude-primary",
                 "rejected", "Nove achados P0-P3; suíte vermelha.", completed.TaskVersion!.Value,
-                $"pilot:review:{attemptId}", now.AddSeconds(2)),
+                $"pilot:review:{attemptId}", now.AddSeconds(2))
+            {
+                RejectionCause = "acceptanceNotMet",
+            },
             token);
         Assert.Equal(WorkChainMutationStatus.Applied, rejected.Status);
 

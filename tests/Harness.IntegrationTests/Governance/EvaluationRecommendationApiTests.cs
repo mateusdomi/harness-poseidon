@@ -252,7 +252,11 @@ public sealed class EvaluationRecommendationApiTests
                 $"Veredito {decision} do gate objetivo.",
                 completed.TaskVersion!.Value,
                 $"eval-recommendations:review:{attemptId}",
-                now.AddMilliseconds(2)),
+                now.AddMilliseconds(2))
+            {
+                // Onda 0.9: reprovação exige causa TIPADA — "reprovado sem porquê" não existe mais.
+                RejectionCause = decision == "rejected" ? "acceptanceNotMet" : "none",
+            },
             token);
         Assert.Equal(WorkChainMutationStatus.Applied, reviewed.Status);
         return (taskId, attemptId);

@@ -1,5 +1,4 @@
 using Harness.Host.Profiles;
-using Harness.Persistence.Abstractions.Graph;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.SharedKernel.Graph;
 
@@ -32,7 +31,6 @@ public static class ProjectGraphEndpoints
         HttpRequest request,
         ILocalProfileStore profiles,
         ProjectGraphProjectionService projection,
-        IProjectGraphStore store,
         CancellationToken token)
     {
         var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
@@ -48,7 +46,7 @@ public static class ProjectGraphEndpoints
                 "A projeção de grafo está desligada (graph.projection.enabled=false).");
         }
 
-        var snapshot = await store.GetAsync(profile.TenantId, projectId, token);
+        var snapshot = await projection.GetSnapshotAsync(profile.TenantId, projectId, token);
         return Results.Ok(new ProjectGraphSummaryContract(
             snapshot.Version,
             snapshot.Nodes.Count,

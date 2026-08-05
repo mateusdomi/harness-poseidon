@@ -216,7 +216,10 @@ public sealed class WorkBoardApiTests
                         localProfile.TenantId, persistedTask.BackingSolicitationId, taskId,
                         firstAttemptId, UlidValue.New(at.AddMilliseconds(2)).ToString(), "reviewer-agent",
                         "rejected", "Gate funcional falhou.", completed.TaskVersion!.Value,
-                        $"api-test:review:{firstAttemptId}", at.AddSeconds(2)), timeout.Token);
+                        $"api-test:review:{firstAttemptId}", at.AddSeconds(2))
+                    {
+                        RejectionCause = "acceptanceNotMet",
+                    }, timeout.Token);
                     Assert.Equal(WorkChainMutationStatus.Applied, rejected.Status);
 
                     TaskInstructionContract correction;

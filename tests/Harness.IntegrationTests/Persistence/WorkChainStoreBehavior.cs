@@ -294,7 +294,10 @@ internal static class WorkChainStoreBehavior
                     $"Objective gate failed in review cycle {cycle}.",
                     taskVersion,
                     $"work-chain:attempt:review:cycle:{cycle}",
-                    cycleAt.AddMinutes(2)),
+                    cycleAt.AddMinutes(2))
+                {
+                    RejectionCause = "acceptanceNotMet",
+                },
                 cancellationToken);
             Assert.Equal(WorkChainMutationStatus.Applied, reviewed.Status);
             taskVersion++;
@@ -984,6 +987,7 @@ internal static class WorkChainStoreBehavior
             Rationale = "The first evidence exposes a failed gate.",
             IdempotencyKey = "work-chain:attempt:review:critic",
             OccurredAt = chain.OccurredAt.AddMinutes(4),
+            RejectionCause = "acceptanceNotMet",
         };
         var reviewed = await store.ReviewAttemptAsync(review, cancellationToken);
         Assert.Equal(WorkChainMutationStatus.Applied, reviewed.Status);
