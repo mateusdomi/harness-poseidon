@@ -127,4 +127,73 @@ public sealed class HeavyWorkPermitTests
         Assert.Equal(1, permit.Available);
         Assert.Equal(0, permit.InFlight);
     }
+
+    /// <summary>
+    /// A prova da Onda 0.5: SETE builds solicitados com limite DOIS. Nunca mais de dois rodando,
+    /// os demais em fila VISÍVEL (com rótulo, não num await anônimo), e todos concluem.
+    /// </summary>
+    [Fact]
+    public async Task SeteBuildsComLimiteDoisRodamNoMaximoDoisPorVezESemPerderNenhum()
+    {
+        using var permit = new HeavyWorkPermit(maxConcurrent: 2);
+        var concluidos = 0;
+        var picoSimultaneo = 0;
+        var ativos = 0;
+        var sync = new object();
+
+        var builds = Enumerable.Range(1, 7).Select(async n =>
+        {
+            using var lease = await permit.AcquireAsync(
+                CancellationToken.None, priority: 0, label: $"build-{n}");
+            lock (sync) { ativos++; picoSimultaneo = Math.Max(picoSimultaneo, ativos); }
+            await Task.Delay(30);
+            lock (sync) { ativos--; concluidos++; }
+        }).ToArray();
+
+        // Enquanto roda, a fila é visível com rótulos.
+        await Task.Delay(15);
+        var (running, queued) = permit.Snapshot();
+        Assert.True(running.Count <= 2, $"rodando: {running.Count}");
+        Assert.All(running, label => Assert.StartsWith("build-", label, StringComparison.Ordinal));
+
+        await Task.WhenAll(builds);
+
+        Assert.Equal(7, concluidos);
+        Assert.True(picoSimultaneo <= 2, $"pico foi {picoSimultaneo}; o limite é 2.");
+        Assert.Equal(0, permit.Waiting);
+        Assert.Equal(0, permit.InFlight);
+    }
+
+    /// <summary>
+    /// Prioridade fura a fila quando abre vaga; dentro da mesma prioridade vale a chegada —
+    /// inanição do card barato é o defeito clássico que ninguém vê até ele esperar a noite.
+    /// </summary>
+    [Fact]
+    public async Task PrioridadeMaiorEntraPrimeiroQuandoAbreVaga()
+    {
+        using var permit = new HeavyWorkPermit(maxConcurrent: 1);
+        var ordem = new List<string>();
+        var sync = new object();
+
+        var ocupante = await permit.AcquireAsync(CancellationToken.None, 0, "ocupante");
+
+        var baixa = Task.Run(async () =>
+        {
+            using var lease = await permit.AcquireAsync(CancellationToken.None, 0, "baixa");
+            lock (sync) ordem.Add("baixa");
+        });
+        await Task.Delay(30);
+        var alta = Task.Run(async () =>
+        {
+            using var lease = await permit.AcquireAsync(CancellationToken.None, 10, "alta");
+            lock (sync) ordem.Add("alta");
+        });
+        await Task.Delay(30);
+
+        Assert.Equal(2, permit.Waiting);
+        ocupante.Dispose();
+        await Task.WhenAll(baixa, alta);
+
+        Assert.Equal(["alta", "baixa"], ordem);
+    }
 }

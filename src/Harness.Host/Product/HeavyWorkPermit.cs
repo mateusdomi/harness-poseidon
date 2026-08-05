@@ -20,6 +20,10 @@ namespace Harness.Host.Product;
 public sealed class HeavyWorkPermit : IDisposable
 {
     private readonly SemaphoreSlim _gate;
+    private readonly object _sync = new();
+    private readonly List<(long Sequence, int Priority, TaskCompletionSource<bool> Waiter, string Label)> _queue = [];
+    private readonly Dictionary<long, string> _inFlight = [];
+    private long _sequence;
     private int _held;
 
     public HeavyWorkPermit(int maxConcurrent = 1)
@@ -39,26 +43,103 @@ public sealed class HeavyWorkPermit : IDisposable
     /// <summary>Quantas licenças ainda podem ser tomadas sem esperar.</summary>
     public int Available => _gate.CurrentCount;
 
-    /// <summary>
-    /// Toma a licença, esperando se preciso. O descarte devolve — e devolve SEMPRE, inclusive
-    /// quando a operação explode ou estoura o tempo: uma licença presa por exceção pararia toda
-    /// verificação seguinte, e o sintoma seria indistinguível de uma fila legítima.
-    /// </summary>
-    public async Task<Lease> AcquireAsync(CancellationToken cancellationToken)
+    /// <summary>Quantas operações estão na FILA, aguardando recurso. Espera é estado, não erro.</summary>
+    public int Waiting
     {
-        await _gate.WaitAsync(cancellationToken);
-        Interlocked.Increment(ref _held);
-        return new Lease(this);
+        get { lock (_sync) { return _queue.Count; } }
     }
 
-    private void Release()
+    /// <summary>
+    /// A fotografia da fila e do que está rodando — o "estado visível" da Onda 0.5. Um card
+    /// aguardando recurso aparece AQUI com o rótulo dele, em vez de sumir num await anônimo.
+    /// </summary>
+    public (IReadOnlyList<string> Running, IReadOnlyList<string> Queued) Snapshot()
     {
-        Interlocked.Decrement(ref _held);
-        _gate.Release();
+        lock (_sync)
+        {
+            return (
+                [.. _inFlight.Values],
+                [.. _queue.OrderByDescending(item => item.Priority).ThenBy(item => item.Sequence)
+                    .Select(item => item.Label)]);
+        }
+    }
+
+    /// <summary>
+    /// Toma a licença, esperando se preciso. <paramref name="priority"/> maior fura a fila —
+    /// prioridade decide QUEM entra quando abre vaga; dentro da mesma prioridade vale a ordem de
+    /// chegada, porque inanição de quem chegou primeiro é o defeito clássico de fila por
+    /// prioridade e ninguém o percebe até o card barato esperar uma noite inteira.
+    /// O descarte devolve — SEMPRE, inclusive quando a operação explode ou estoura o tempo.
+    /// </summary>
+    public async Task<Lease> AcquireAsync(
+        CancellationToken cancellationToken, int priority = 0, string label = "(sem rótulo)")
+    {
+        TaskCompletionSource<bool>? waiter = null;
+        long ticket;
+        lock (_sync)
+        {
+            ticket = ++_sequence;
+
+            // Vaga livre e ninguém com prioridade maior esperando: entra direto.
+            if (_gate.CurrentCount > 0 && _queue.Count == 0)
+            {
+                // consumo síncrono garantido: CurrentCount > 0 dentro do lock e todo consumo passa
+                // por aqui ou pelo Release abaixo, ambos sob o mesmo lock.
+                _gate.Wait(0);
+                _held++;
+                _inFlight[ticket] = label;
+                return new Lease(this, ticket);
+            }
+
+            waiter = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _queue.Add((ticket, priority, waiter, label));
+        }
+
+        using var registration = cancellationToken.Register(() =>
+        {
+            lock (_sync)
+            {
+                var index = _queue.FindIndex(item => item.Sequence == ticket);
+                if (index >= 0)
+                {
+                    _queue.RemoveAt(index);
+                    waiter.TrySetCanceled(cancellationToken);
+                }
+            }
+        });
+
+        await waiter.Task;
+        return new Lease(this, ticket);
+    }
+
+    private void Release(long ticket)
+    {
+        lock (_sync)
+        {
+            _inFlight.Remove(ticket);
+
+            // Há fila: a vaga vai DIRETO para o próximo por prioridade (maior primeiro, FIFO no
+            // empate), sem passar pelo semáforo — entregar via semáforo deixaria a ordem por
+            // conta do acaso do agendador.
+            if (_queue.Count > 0)
+            {
+                var next = _queue
+                    .OrderByDescending(item => item.Priority)
+                    .ThenBy(item => item.Sequence)
+                    .First();
+                _queue.RemoveAll(item => item.Sequence == next.Sequence);
+                _inFlight[next.Sequence] = next.Label;
+                next.Waiter.TrySetResult(true);
+                return;
+            }
+
+            _held--;
+            _gate.Release();
+        }
     }
 
     /// <summary>A licença tomada. Descartar é devolver; descartar duas vezes é inócuo.</summary>
-    public sealed class Lease(HeavyWorkPermit permit) : IDisposable
+    public sealed class Lease(HeavyWorkPermit permit, long ticket) : IDisposable
     {
         private bool _returned;
 
@@ -70,7 +151,7 @@ public sealed class HeavyWorkPermit : IDisposable
             }
 
             _returned = true;
-            permit.Release();
+            permit.Release(ticket);
         }
     }
 
