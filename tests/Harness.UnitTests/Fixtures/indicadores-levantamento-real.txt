@@ -1,0 +1,1194 @@
+PROMPT PARA DESENVOLVIMENTO DE SISTEMA WEB DE GESTÃO DE INDICADORES E DASHBOARDS
+Atue como uma equipe completa de desenvolvimento de software, composta por:
+Arquiteto de Soluções;
+Product Owner;
+Analista de Requisitos;
+UX/UI Designer;
+Desenvolvedor Front-end;
+Desenvolvedor Back-end;
+Especialista em Banco de Dados Oracle;
+Especialista em Segurança da Informação;
+Analista de Qualidade;
+Especialista em DevOps;
+Redator Técnico.
+Sua missão é projetar, desenvolver, testar, documentar e preparar para publicação um sistema web corporativo para gestão, visualização e atualização de indicadores.
+O projeto deve ser entregue de forma funcional, utilizável e preparado para implantação em ambiente corporativo.
+1. OBJETIVO DO SISTEMA
+Criar um sistema web responsivo para computadores, tablets e celulares, destinado à gestão e visualização de dashboards de indicadores corporativos.
+O sistema deverá permitir:
+Organizar indicadores em páginas, áreas, temas ou grupos;
+Apresentar indicadores por meio de cards, gráficos, tabelas, rankings, metas e comparativos;
+Atualizar os dados dos indicadores por meio de importação manual de arquivos;
+Permitir que cada indicador possua seu próprio modelo de arquivo de importação;
+Identificar automaticamente o indicador relacionado ao arquivo importado;
+Validar o conteúdo do arquivo antes da gravação;
+Exibir erros encontrados na importação;
+Manter histórico das cargas realizadas;
+Controlar usuários, perfis e permissões;
+Permitir a inclusão futura de novos indicadores sem grandes alterações no código;
+Utilizar banco de dados Oracle;
+Possuir arquitetura segura, escalável, modular e preparada para crescimento.
+2. ESCOPO FUNCIONAL
+2.1 Autenticação
+Criar uma tela de login contendo:
+E-mail ou nome de usuário;
+Senha;
+Opção de recuperação de senha;
+Controle de tentativas de login;
+Bloqueio temporário após sucessivas tentativas inválidas;
+Expiração de sessão;
+Logout;
+Registro de data e hora do último acesso.
+Preparar a arquitetura para futura integração com:
+Microsoft Entra ID;
+Active Directory;
+LDAP;
+Single Sign-On;
+Autenticação multifator.
+A primeira versão poderá utilizar autenticação local segura.
+2.2 Gestão de usuários
+Criar funcionalidades para:
+Cadastrar usuário;
+Editar usuário;
+Ativar e inativar usuário;
+Redefinir senha;
+Associar usuário a um ou mais perfis;
+Associar usuário a áreas, páginas ou grupos de indicadores;
+Consultar histórico de acessos;
+Consultar ações realizadas pelo usuário.
+Campos mínimos:
+Nome completo;
+E-mail;
+Login;
+Área;
+Cargo;
+Status;
+Perfis de acesso;
+Data de criação;
+Último acesso;
+Usuário responsável pelo cadastro.
+2.3 Gestão de perfis e permissões
+Implementar controle de acesso baseado em papéis, utilizando RBAC.
+Criar inicialmente os seguintes perfis:
+Administrador
+Pode:
+Gerenciar usuários;
+Gerenciar perfis;
+Gerenciar permissões;
+Criar páginas;
+Criar grupos;
+Criar indicadores;
+Configurar modelos de importação;
+Realizar cargas;
+Consultar logs;
+Alterar configurações do sistema.
+Gestor de Indicadores
+Pode:
+Visualizar indicadores autorizados;
+Realizar importações;
+Consultar histórico de cargas;
+Corrigir cargas;
+Consultar inconsistências;
+Gerenciar indicadores sob sua responsabilidade.
+Operador de Carga
+Pode:
+Baixar modelos de importação;
+Importar arquivos;
+Consultar resultado das cargas realizadas;
+Corrigir e reenviar arquivos.
+Consulta
+Pode:
+Visualizar apenas os dashboards e indicadores autorizados;
+Aplicar filtros;
+Exportar informações permitidas.
+As permissões deverão ser configuráveis por:
+Página;
+Grupo de indicadores;
+Indicador;
+Funcionalidade;
+Ação, como visualizar, incluir, editar, importar, excluir, aprovar ou exportar.
+3. ORGANIZAÇÃO DOS INDICADORES
+O sistema deverá permitir a seguinte estrutura hierárquica:
+Área;
+Página;
+Seção;
+Grupo de indicadores;
+Indicador;
+Componentes visuais do indicador.
+Exemplo:
+Área: Tecnologia da Informação;
+Página: Sustentação de Sistemas;
+Seção: Atendimento;
+Grupo: Indicadores de Chamados;
+Indicadores:
+Chamados abertos;
+Chamados encerrados;
+SLA;
+Backlog;
+Tempo médio de atendimento;
+Recorrência de chamados.
+O administrador deve conseguir:
+Criar uma nova área;
+Criar uma nova página;
+Ordenar páginas;
+Criar seções;
+Criar grupos;
+Vincular indicadores;
+Definir visibilidade;
+Configurar ícones;
+Inserir descrição;
+Inserir instruções de uso;
+Inserir responsáveis;
+Inserir periodicidade;
+Definir filtros disponíveis;
+Definir layout dos cards;
+Publicar ou despublicar uma página.
+4. CADASTRO DE INDICADORES
+Criar um cadastro configurável de indicadores.
+Cada indicador deverá possuir, no mínimo:
+Código interno;
+Nome;
+Nome resumido;
+Descrição;
+Objetivo;
+Regra de cálculo;
+Fórmula;
+Unidade de medida;
+Periodicidade;
+Fonte dos dados;
+Área responsável;
+Responsável pelo indicador;
+Meta;
+Limite de tolerância;
+Sentido do resultado;
+Forma de apresentação;
+Página relacionada;
+Grupo relacionado;
+Status;
+Data de criação;
+Data de alteração;
+Versão;
+Instruções de atualização;
+Modelo de arquivo de importação;
+Campos obrigatórios;
+Campos opcionais;
+Tipo de dado de cada campo;
+Regras de validação;
+Chaves de identificação;
+Regras para atualização ou inclusão de registros.
+O campo “sentido do resultado” deverá permitir:
+Quanto maior, melhor;
+Quanto menor, melhor;
+Meta exata;
+Faixa desejável;
+Apenas informativo.
+5. TIPOS DE VISUALIZAÇÃO
+Disponibilizar componentes reutilizáveis para apresentação dos indicadores.
+Tipos iniciais:
+Card numérico;
+Card percentual;
+Card com meta;
+Card com tendência;
+Gráfico de barras;
+Gráfico de barras empilhadas;
+Gráfico de linhas;
+Gráfico de área;
+Gráfico de pizza ou rosca;
+Gráfico de gauge;
+Gráfico de dispersão;
+Gráfico de evolução;
+Ranking;
+Tabela;
+Tabela com agrupamento;
+Semáforo;
+Comparativo entre períodos;
+Comparativo entre realizado e meta;
+Indicador acumulado;
+Indicador mensal;
+Indicador anual;
+Heatmap;
+Linha do tempo.
+Cada componente deverá aceitar configurações como:
+Título;
+Subtítulo;
+Fonte;
+Campos utilizados;
+Agrupamento;
+Ordenação;
+Meta;
+Faixas de cores;
+Legenda;
+Casas decimais;
+Formato de data;
+Formato monetário;
+Unidade;
+Filtros;
+Drill-down;
+Tooltip;
+Exportação.
+Não criar gráficos fixos diretamente no código para cada indicador. Desenvolver uma estrutura genérica e configurável.
+6. DASHBOARD
+A tela principal deverá apresentar:
+Menu lateral;
+Cabeçalho;
+Nome da área;
+Nome da página;
+Data da última atualização;
+Filtros globais;
+Cards;
+Gráficos;
+Tabelas;
+Alertas;
+Metas;
+Comparativos;
+Indicadores em atraso;
+Botão de atualização;
+Opção de tela cheia;
+Exportação em PDF, imagem ou planilha, conforme permissão.
+Filtros iniciais:
+Período;
+Ano;
+Mês;
+Área;
+Unidade;
+Gerência;
+Responsável;
+Categoria;
+Status;
+Indicador.
+O sistema deverá ser responsivo, garantindo boa visualização em:
+Desktop;
+Notebook;
+Tablet;
+Smartphone.
+No celular:
+Os cards devem ser reorganizados verticalmente;
+O menu deve ser recolhível;
+Os gráficos devem se adaptar ao tamanho da tela;
+As tabelas devem permitir rolagem controlada;
+Os filtros devem ser apresentados de forma simplificada;
+Os botões devem possuir tamanho apropriado para toque.
+7. IMPORTAÇÃO DE DADOS
+Criar uma tela exclusiva para importação de dados.
+Fluxo esperado:
+Usuário acessa a tela de importação;
+Seleciona o indicador ou envia diretamente o arquivo;
+O sistema identifica o indicador pelo código presente no arquivo, nome padronizado ou configuração do modelo;
+O sistema identifica a versão do layout;
+O sistema lê o arquivo;
+O sistema valida estrutura, colunas e tipos;
+O sistema apresenta uma prévia dos dados;
+O sistema aponta erros;
+O usuário confirma a importação;
+O sistema registra os dados;
+O sistema atualiza os dashboards;
+O sistema grava o histórico da carga;
+O sistema registra logs e auditoria.
+Formatos iniciais suportados:
+XLSX;
+CSV.
+Preparar a arquitetura para suportar futuramente:
+XLS;
+JSON;
+XML;
+Integrações via API;
+Leitura de banco de dados;
+Arquivos em SFTP;
+Processamento automático agendado.
+8. IDENTIFICAÇÃO AUTOMÁTICA DO INDICADOR
+Implementar mais de uma possibilidade de identificação:
+Opção 1 — Código no arquivo
+O arquivo deverá possuir uma aba ou campo de controle contendo:
+Código do indicador;
+Versão do layout;
+Competência;
+Data da geração;
+Origem;
+Responsável.
+Opção 2 — Nome padronizado
+Exemplo:
+IND_SLA_TI_V001_202608.xlsx
+Estrutura:
+Código do indicador;
+Versão;
+Competência.
+Opção 3 — Seleção manual
+O usuário poderá selecionar previamente o indicador e anexar o arquivo.
+O sistema deverá validar se o arquivo corresponde ao indicador selecionado.
+9. MODELOS DE IMPORTAÇÃO
+Cada indicador poderá possuir um ou mais modelos de importação versionados.
+O administrador deverá conseguir definir:
+Nome da coluna;
+Nome técnico;
+Tipo de dado;
+Tamanho máximo;
+Obrigatoriedade;
+Formato;
+Valor padrão;
+Regra de validação;
+Lista de valores permitidos;
+Chave do registro;
+Campo de agrupamento;
+Campo de filtro;
+Campo calculado;
+Campo ignorado;
+Ordem da coluna;
+Descrição;
+Exemplo;
+Mensagem de erro;
+Tratamento de registros duplicados.
+O sistema deverá permitir:
+Gerar automaticamente o arquivo modelo em XLSX;
+Baixar o modelo;
+Consultar instruções;
+Visualizar exemplos;
+Criar nova versão;
+Manter versões antigas;
+Definir data de vigência;
+Inativar um modelo;
+Consultar quais cargas utilizaram determinada versão.
+10. VALIDAÇÃO DAS CARGAS
+Executar validações antes da gravação.
+Validar:
+Extensão do arquivo;
+Tamanho do arquivo;
+Nome do arquivo;
+Código do indicador;
+Versão do layout;
+Colunas obrigatórias;
+Colunas desconhecidas;
+Ordem das colunas, quando necessária;
+Tipos de dados;
+Datas;
+Valores numéricos;
+Percentuais;
+Valores monetários;
+Campos vazios;
+Tamanho dos campos;
+Valores duplicados;
+Chaves repetidas;
+Registros já existentes;
+Valores fora de faixa;
+Competência;
+Dados futuros;
+Dados anteriores ao período permitido;
+Relacionamentos com cadastros auxiliares;
+Permissão do usuário;
+Status do indicador;
+Modelo ativo.
+O resultado deverá separar:
+Registros válidos;
+Registros com alerta;
+Registros inválidos;
+Registros duplicados;
+Registros atualizados;
+Registros incluídos;
+Registros ignorados.
+Permitir o download de um relatório de erros contendo:
+Linha;
+Coluna;
+Valor informado;
+Regra violada;
+Mensagem de correção.
+11. ESTRATÉGIA DE GRAVAÇÃO
+A carga não deve gravar diretamente nas tabelas finais.
+Utilizar o seguinte processo:
+Upload do arquivo;
+Armazenamento temporário seguro;
+Registro da carga;
+Leitura;
+Gravação em área de staging;
+Validação;
+Prévia;
+Confirmação;
+Processamento;
+Gravação nas tabelas definitivas;
+Atualização dos agregados;
+Atualização de cache;
+Registro de auditoria;
+Finalização da carga.
+Implementar controle transacional.
+Em caso de falha:
+Realizar rollback;
+Não deixar registros parcialmente gravados;
+Registrar erro técnico;
+Exibir mensagem amigável;
+Manter o arquivo e os logs para análise, conforme política de retenção.
+12. HISTÓRICO DE CARGAS
+Criar uma tela com:
+Código da carga;
+Indicador;
+Arquivo;
+Usuário;
+Data e hora;
+Competência;
+Versão do modelo;
+Quantidade total;
+Quantidade válida;
+Quantidade inválida;
+Quantidade incluída;
+Quantidade atualizada;
+Quantidade ignorada;
+Status;
+Tempo de processamento;
+Mensagem de erro;
+Hash do arquivo;
+Usuário aprovador, quando aplicável.
+Status possíveis:
+Arquivo recebido;
+Em validação;
+Aguardando confirmação;
+Em processamento;
+Processada;
+Processada com alertas;
+Rejeitada;
+Cancelada;
+Erro técnico;
+Revertida.
+Permitir:
+Consultar detalhes;
+Baixar arquivo original;
+Baixar relatório de erros;
+Reprocessar;
+Cancelar;
+Reverter uma carga;
+Comparar cargas;
+Consultar dados antes e depois da atualização.
+A reversão deverá depender de permissão específica.
+13. AUDITORIA
+Registrar as principais ações realizadas no sistema.
+Auditar:
+Login;
+Logout;
+Tentativas de acesso;
+Cadastro;
+Alteração;
+Exclusão lógica;
+Ativação;
+Inativação;
+Importação;
+Confirmação;
+Rejeição;
+Reprocessamento;
+Reversão;
+Exportação;
+Alteração de permissão;
+Consulta a dados sensíveis;
+Alteração de configuração.
+Cada log deverá registrar:
+Usuário;
+Data e hora;
+Endereço IP;
+Sessão;
+Ação;
+Funcionalidade;
+Registro afetado;
+Dados anteriores;
+Dados posteriores;
+Resultado;
+Detalhes técnicos;
+Identificador de correlação.
+Não armazenar senhas, tokens ou dados sigilosos nos logs.
+14. ADMINISTRAÇÃO DE PÁGINAS E LAYOUTS
+Criar uma interface administrativa para permitir que novos indicadores sejam incluídos sem necessidade de alterar diversas partes do sistema.
+O administrador deverá conseguir:
+Criar página;
+Definir rota;
+Definir nome;
+Definir ícone;
+Definir descrição;
+Definir ordem;
+Associar grupos;
+Associar indicadores;
+Escolher componente visual;
+Definir posição;
+Definir largura;
+Definir altura;
+Configurar filtros;
+Configurar fonte de dados;
+Configurar regra de cálculo;
+Visualizar prévia;
+Salvar como rascunho;
+Publicar;
+Duplicar uma página existente;
+Versionar alterações;
+Restaurar versão anterior.
+Avaliar a criação de um editor de dashboard baseado em grade, com movimentação e redimensionamento dos componentes.
+15. DOCUMENTAÇÃO DO INDICADOR
+Cada indicador deverá possuir uma página de documentação contendo:
+Nome;
+Código;
+Objetivo;
+Descrição;
+Fórmula;
+Regra de negócio;
+Unidade;
+Periodicidade;
+Meta;
+Faixas;
+Fonte;
+Responsável;
+Área;
+Data da última atualização;
+Histórico de alterações;
+Modelo de carga;
+Instruções de preenchimento;
+Exemplo;
+Perguntas frequentes;
+Dependências;
+Observações;
+Glossário.
+Permitir que essa documentação seja:
+Visualizada no sistema;
+Exportada em PDF;
+Atualizada por usuários autorizados;
+Versionada.
+16. ARQUITETURA TÉCNICA
+Utilizar uma arquitetura moderna, modular e escalável.
+Sugestão de stack:
+Front-end
+React;
+TypeScript;
+Vite ou Next.js;
+Material UI, Ant Design ou biblioteca equivalente;
+React Query;
+React Hook Form;
+Zod;
+Biblioteca de gráficos como Apache ECharts, Recharts ou Chart.js.
+Back-end
+Escolher uma das opções:
+Java com Spring Boot;
+C# com ASP.NET Core;
+Node.js com NestJS.
+Dar preferência para Java com Spring Boot ou C# com ASP.NET Core em ambiente corporativo integrado ao Oracle.
+O back-end deverá conter:
+API REST;
+Documentação OpenAPI/Swagger;
+Validação de entrada;
+Autenticação;
+Autorização;
+Tratamento padronizado de erros;
+Logs estruturados;
+Auditoria;
+Controle transacional;
+Versionamento de API;
+Paginação;
+Filtros;
+Ordenação;
+Cache;
+Health checks;
+Métricas.
+Banco de dados
+Oracle Database;
+Scripts SQL versionados;
+Migrations;
+Índices;
+Constraints;
+Sequences ou Identity Columns;
+Views;
+Materialized Views, quando necessário;
+Procedures e Functions apenas quando justificadas;
+Particionamento para tabelas volumosas;
+Estratégia de retenção;
+Estratégia de arquivamento;
+Plano de backup e restauração.
+Infraestrutura
+Preparar para:
+Docker;
+Docker Compose para desenvolvimento;
+Kubernetes como evolução;
+Proxy reverso;
+Balanceamento de carga;
+Pipeline CI/CD;
+Ambientes de desenvolvimento, homologação e produção;
+Variáveis de ambiente;
+Gestão segura de segredos;
+Monitoramento;
+Logs centralizados.
+17. ESTRUTURA DO BANCO ORACLE
+Criar os scripts completos para criação do banco.
+A estrutura deverá contemplar, no mínimo, as seguintes entidades:
+Segurança e acesso
+USUARIO;
+PERFIL;
+PERMISSAO;
+USUARIO_PERFIL;
+PERFIL_PERMISSAO;
+SESSAO_USUARIO;
+TENTATIVA_LOGIN;
+RECUPERACAO_SENHA.
+Organização
+AREA;
+PAGINA;
+PAGINA_VERSAO;
+SECAO;
+GRUPO_INDICADOR;
+PAGINA_GRUPO;
+PAGINA_PERFIL;
+INDICADOR_PERFIL.
+Indicadores
+INDICADOR;
+INDICADOR_VERSAO;
+INDICADOR_META;
+INDICADOR_FAIXA;
+INDICADOR_RESPONSAVEL;
+INDICADOR_DOCUMENTACAO;
+INDICADOR_FILTRO;
+INDICADOR_COMPONENTE;
+INDICADOR_CONFIGURACAO_VISUAL.
+Modelos de carga
+MODELO_IMPORTACAO;
+MODELO_IMPORTACAO_VERSAO;
+MODELO_IMPORTACAO_CAMPO;
+MODELO_REGRA_VALIDACAO;
+MODELO_VALOR_PERMITIDO.
+Cargas
+CARGA;
+CARGA_ARQUIVO;
+CARGA_REGISTRO;
+CARGA_ERRO;
+CARGA_ETAPA;
+CARGA_HISTORICO;
+CARGA_REVERSAO.
+Dados
+Criar uma estratégia híbrida.
+Dados comuns
+Criar estruturas genéricas para indicadores simples:
+INDICADOR_DADO;
+INDICADOR_DADO_VALOR;
+INDICADOR_DADO_DIMENSAO;
+INDICADOR_DADO_HISTORICO.
+Dados específicos
+Permitir tabelas próprias para indicadores que possuam grande volume ou regras específicas.
+O sistema deve permitir configurar qual tabela, view ou consulta alimenta cada componente.
+Auditoria e operação
+LOG_AUDITORIA;
+LOG_APLICACAO;
+NOTIFICACAO;
+CONFIGURACAO_SISTEMA;
+PARAMETRO_SISTEMA;
+JOB_PROCESSAMENTO;
+JOB_EXECUCAO.
+Para todas as tabelas, definir:
+Chave primária;
+Chaves estrangeiras;
+Índices;
+Constraints;
+Campos de auditoria;
+Status;
+Datas de criação e alteração;
+Usuário de criação e alteração;
+Exclusão lógica quando aplicável.
+18. SEGURANÇA
+Aplicar boas práticas de segurança baseadas no OWASP.
+Implementar:
+Hash seguro de senha com Argon2 ou BCrypt;
+Política de senha;
+Expiração de senha configurável;
+Proteção contra força bruta;
+Bloqueio de usuário;
+Tokens com expiração curta;
+Refresh tokens seguros;
+Revogação de sessão;
+Controle RBAC;
+Validação no front-end e back-end;
+Proteção contra SQL Injection;
+Proteção contra XSS;
+Proteção contra CSRF, quando aplicável;
+Proteção contra upload malicioso;
+Validação de MIME type;
+Validação de extensão;
+Limite de tamanho;
+Renomeação interna do arquivo;
+Armazenamento fora da pasta pública;
+Antivírus ou integração prevista;
+Content Security Policy;
+CORS restritivo;
+Cabeçalhos de segurança;
+HTTPS obrigatório;
+Mascaramento de dados sensíveis;
+Gestão de segredos;
+Logs seguros;
+Rate limiting;
+Controle de acesso por recurso;
+Trilha de auditoria;
+Sessão invalidada após troca de senha;
+Separação de ambientes;
+Usuário de banco com privilégios mínimos.
+Não utilizar concatenação de SQL.
+Utilizar:
+Prepared statements;
+ORM de forma controlada;
+Queries parametrizadas;
+Validação de todos os parâmetros.
+19. TESTES DE SEGURANÇA
+Executar e documentar testes para:
+SQL Injection;
+XSS;
+CSRF;
+Quebra de autenticação;
+Elevação de privilégio;
+Acesso horizontal indevido;
+Acesso vertical indevido;
+Upload de arquivo malicioso;
+Manipulação do nome do arquivo;
+Arquivo excessivamente grande;
+Colunas inesperadas;
+Fórmulas maliciosas em planilhas;
+CSV Injection;
+Tentativas de path traversal;
+Tokens expirados;
+Reutilização de token;
+Sessões simultâneas;
+Força bruta;
+Exposição de logs;
+Exposição de stack trace;
+Consulta direta a registros não autorizados.
+Gerar relatório contendo:
+Teste;
+Risco;
+Procedimento;
+Resultado;
+Evidência;
+Severidade;
+Correção aplicada;
+Status final.
+20. TESTES FUNCIONAIS
+Criar testes automatizados e manuais.
+Cobrir:
+Login válido;
+Login inválido;
+Bloqueio;
+Recuperação de senha;
+Cadastro de usuário;
+Permissões;
+Criação de área;
+Criação de página;
+Criação de indicador;
+Configuração de modelo;
+Geração de planilha modelo;
+Importação válida;
+Importação inválida;
+Arquivo incorreto;
+Versão incorreta;
+Dados duplicados;
+Reprocessamento;
+Reversão;
+Atualização dos dashboards;
+Filtros;
+Exportação;
+Responsividade;
+Auditoria.
+Criar:
+Testes unitários;
+Testes de integração;
+Testes de API;
+Testes de interface;
+Testes end-to-end;
+Testes de carga;
+Testes de concorrência;
+Testes de regressão.
+Definir cobertura mínima recomendada de 80% para os serviços críticos.
+21. DESEMPENHO E ESCALABILIDADE
+O sistema deverá ser preparado para:
+Crescimento do número de indicadores;
+Crescimento do número de usuários;
+Aumento do volume de dados;
+Execução simultânea de cargas;
+Dashboards com grande número de componentes;
+Múltiplas áreas da empresa;
+Múltiplos ambientes.
+Implementar:
+Paginação;
+Carregamento sob demanda;
+Lazy loading;
+Processamento assíncrono para cargas pesadas;
+Filas de processamento;
+Cache;
+Índices adequados;
+Consultas otimizadas;
+Agregações pré-calculadas;
+Materialized Views, quando justificadas;
+Compressão;
+Pool de conexões;
+Timeout;
+Circuit breaker para integrações futuras;
+Limite de concorrência;
+Monitoramento de consultas lentas.
+Definir testes com diferentes volumes:
+10 mil registros;
+100 mil registros;
+1 milhão de registros.
+Apresentar os resultados dos testes.
+22. EXPERIÊNCIA DO USUÁRIO
+Criar uma interface:
+Moderna;
+Corporativa;
+Clara;
+Responsiva;
+Acessível;
+Fácil de aprender;
+Com navegação consistente.
+Aplicar:
+Feedback visual;
+Mensagens de sucesso;
+Mensagens de erro compreensíveis;
+Skeleton loading;
+Indicadores de processamento;
+Confirmação para ações críticas;
+Breadcrumb;
+Tooltips;
+Ajuda contextual;
+Busca;
+Favoritos;
+Últimas páginas acessadas;
+Tema claro;
+Preparação para tema escuro;
+Acessibilidade baseada em WCAG.
+23. NOTIFICAÇÕES
+Criar uma central de notificações.
+Eventos:
+Carga finalizada;
+Carga rejeitada;
+Carga com erro;
+Indicador sem atualização;
+Modelo próximo da expiração;
+Falha de processamento;
+Alteração de permissão;
+Publicação de página;
+Meta não atingida;
+Indicador crítico.
+Preparar para integração futura com:
+E-mail;
+Microsoft Teams;
+WhatsApp corporativo;
+Webhook.
+24. MONITORAMENTO
+Implementar:
+Health check;
+Métricas de aplicação;
+Métricas de banco;
+Tempo de resposta;
+Taxa de erro;
+Quantidade de cargas;
+Tempo médio das cargas;
+Uso de memória;
+Uso de CPU;
+Pool de conexões;
+Filas;
+Jobs;
+Consultas lentas.
+Preparar integração com ferramentas como:
+Prometheus;
+Grafana;
+Elastic Stack;
+OpenTelemetry;
+Application Insights;
+ferramentas corporativas equivalentes.
+25. DEVOPS E PUBLICAÇÃO
+Criar:
+Dockerfile do front-end;
+Dockerfile do back-end;
+Docker Compose;
+Arquivo de variáveis de ambiente de exemplo;
+Pipeline de build;
+Pipeline de testes;
+Pipeline de análise de segurança;
+Pipeline de publicação;
+Scripts de banco;
+Scripts de rollback;
+Documentação de implantação;
+Documentação de atualização;
+Documentação de restauração.
+Separar os ambientes:
+Desenvolvimento;
+Teste;
+Homologação;
+Produção.
+Não armazenar credenciais no repositório.
+26. DADOS DE DEMONSTRAÇÃO
+Criar dados fictícios para demonstrar o sistema.
+Criar ao menos três páginas:
+Página 1 — Visão Executiva de TI
+Indicadores:
+Disponibilidade dos sistemas;
+SLA;
+Backlog;
+Projetos em andamento;
+Incidentes críticos;
+Satisfação interna.
+Página 2 — Sustentação de Sistemas
+Indicadores:
+Chamados abertos;
+Chamados encerrados;
+Tempo médio de atendimento;
+Chamados por sistema;
+Chamados por categoria;
+Recorrência;
+Evolução mensal.
+Página 3 — Projetos
+Indicadores:
+Projetos por status;
+Percentual concluído;
+Marcos em atraso;
+Orçamento previsto;
+Orçamento realizado;
+Riscos;
+Próximas entregas.
+Criar modelos de planilha diferentes para cada grupo de indicadores.
+27. ENTREGA DO MVP
+A primeira entrega deverá conter um MVP funcional com:
+Login;
+Gestão de usuários;
+Gestão de perfis;
+Gestão de permissões;
+Cadastro de áreas;
+Cadastro de páginas;
+Cadastro de indicadores;
+Configuração de modelos;
+Download de planilha modelo;
+Importação XLSX e CSV;
+Validação;
+Prévia;
+Confirmação;
+Histórico de cargas;
+Dashboard;
+Filtros;
+Auditoria;
+Responsividade;
+Banco Oracle;
+Dados de demonstração;
+Docker;
+Documentação de instalação.
+O MVP deve ser executável para validação.
+28. ENTREGA FINAL
+Após a validação do MVP, preparar a versão final contendo:
+Correções;
+Melhorias;
+Testes completos;
+Segurança revisada;
+Scripts de produção;
+Documentação;
+Pipeline;
+Backup;
+Rollback;
+Monitoramento;
+Manual do administrador;
+Manual do usuário;
+Manual técnico;
+Dicionário de dados;
+Catálogo de APIs;
+Evidências de testes;
+Relatório de segurança;
+Guia de publicação.
+29. ARTEFATOS OBRIGATÓRIOS
+Entregar:
+Documento de visão do produto;
+Documento de requisitos funcionais;
+Documento de requisitos não funcionais;
+Arquitetura da solução;
+Diagrama de componentes;
+Diagrama de implantação;
+Modelo lógico do banco;
+Modelo físico do banco;
+Dicionário de dados;
+Scripts Oracle;
+Código-fonte do front-end;
+Código-fonte do back-end;
+Testes automatizados;
+Coleção de testes de API;
+Documentação OpenAPI;
+Protótipos das telas;
+Manual de instalação;
+Manual de publicação;
+Manual do administrador;
+Manual do usuário;
+Plano de testes;
+Evidências de testes;
+Relatório de segurança;
+Plano de backup;
+Plano de rollback;
+Arquivos Docker;
+Pipeline CI/CD;
+Arquivos de exemplo;
+Massa de dados fictícia;
+Registro das decisões arquiteturais.
+30. ESTRUTURA DO REPOSITÓRIO
+Organizar o projeto, preferencialmente, da seguinte forma:
+indicadores-platform/
+├── frontend/
+├── backend/
+├── database/
+│   ├── ddl/
+│   ├── dml/
+│   ├── migrations/
+│   ├── rollback/
+│   ├── views/
+│   ├── procedures/
+│   └── sample-data/
+├── infrastructure/
+│   ├── docker/
+│   ├── kubernetes/
+│   ├── pipelines/
+│   └── monitoring/
+├── docs/
+│   ├── architecture/
+│   ├── requirements/
+│   ├── database/
+│   ├── api/
+│   ├── security/
+│   ├── tests/
+│   ├── deployment/
+│   └── manuals/
+├── test-files/
+│   ├── valid/
+│   ├── invalid/
+│   └── security/
+├── scripts/
+├── docker-compose.yml
+├── README.md
+└── CHANGELOG.md
+31. PADRÕES DE DESENVOLVIMENTO
+Aplicar:
+Clean Architecture;
+SOLID;
+Clean Code;
+Separation of Concerns;
+Design Patterns quando necessários;
+DTOs;
+Validação centralizada;
+Tratamento global de erros;
+Logs estruturados;
+Versionamento semântico;
+Conventional Commits;
+Code review;
+Lint;
+Formatação automática;
+Análise estática;
+Documentação de decisões.
+Evitar:
+Código duplicado;
+Regras de negócio no front-end;
+Consultas SQL concatenadas;
+Credenciais no código;
+Componentes excessivamente acoplados;
+Indicadores configurados diretamente no código;
+Exclusão física sem justificativa;
+Logs com dados sensíveis.
+32. CRITÉRIOS DE ACEITE
+O projeto será considerado aceito quando:
+For possível instalar o sistema por meio da documentação;
+O sistema se conectar ao Oracle;
+O login funcionar;
+Os perfis limitarem corretamente os acessos;
+Um administrador conseguir criar uma página;
+Um administrador conseguir cadastrar um indicador;
+Um administrador conseguir configurar um modelo de importação;
+O sistema gerar um arquivo modelo;
+Um usuário conseguir importar uma planilha;
+O sistema validar a planilha;
+O sistema apresentar erros por linha e coluna;
+Uma carga válida atualizar o dashboard;
+O histórico da carga ficar disponível;
+A auditoria registrar as ações;
+Os dashboards funcionarem no celular;
+As APIs estiverem documentadas;
+Os testes automatizados forem executados;
+Os testes de segurança críticos forem aprovados;
+O sistema puder ser executado com Docker;
+Os scripts do Oracle estiverem completos;
+A documentação de publicação estiver disponível;
+For possível incluir um novo indicador utilizando a estrutura configurável.
+33. FORMA DE EXECUÇÃO DO TRABALHO
+Não tente gerar todo o sistema em uma única resposta sem organização.
+Execute o desenvolvimento por fases.
+Fase 1 — Descoberta e requisitos
+Entregar:
+Visão do produto;
+Escopo;
+Requisitos;
+Personas;
+Casos de uso;
+Fluxos;
+Critérios de aceite;
+Backlog inicial.
+Fase 2 — Arquitetura
+Entregar:
+Stack escolhida;
+Justificativas;
+Diagramas;
+Modelo de segurança;
+Estratégia de escalabilidade;
+Estratégia de importação;
+Estratégia de dados.
+Fase 3 — Banco Oracle
+Entregar:
+Modelo lógico;
+Modelo físico;
+Dicionário;
+Scripts DDL;
+Scripts DML;
+Índices;
+Constraints;
+Dados de exemplo.
+Fase 4 — Back-end
+Entregar:
+Projeto base;
+Autenticação;
+RBAC;
+Cadastros;
+API de indicadores;
+API de dashboards;
+API de cargas;
+Auditoria;
+Testes.
+Fase 5 — Front-end
+Entregar:
+Layout;
+Login;
+Administração;
+Dashboards;
+Importação;
+Histórico;
+Responsividade;
+Testes.
+Fase 6 — Integração e qualidade
+Entregar:
+Integração completa;
+Testes;
+Correções;
+Testes de carga;
+Testes de segurança;
+Evidências.
+Fase 7 — Publicação
+Entregar:
+Docker;
+Pipeline;
+Configurações;
+Scripts;
+Manuais;
+Checklist de produção.
+Ao final de cada fase:
+Apresente o que foi criado;
+Informe os arquivos;
+Informe como executar;
+Informe os testes realizados;
+Liste pendências;
+Aguarde a validação antes de mudanças estruturais críticas.
+34. INSTRUÇÃO FINAL
+Inicie apresentando:
+A interpretação do problema;
+As principais decisões arquiteturais;
+A stack recomendada;
+A estrutura geral da solução;
+O modelo inicial do banco Oracle;
+O backlog do MVP;
+O plano de desenvolvimento por fases;
+Os riscos técnicos;
+As premissas adotadas;
+As informações que ainda precisarão ser confirmadas.
+Depois, inicie a geração dos artefatos e do código da Fase 1.
+Todo código entregue deve ser completo, executável, comentado apenas quando necessário e acompanhado das instruções para execução.
+Não apresente códigos meramente ilustrativos quando o objetivo for a entrega funcional.
+Não utilize banco de dados diferente do Oracle como banco principal.
+Não omita os testes, os controles de segurança, os scripts de implantação, a documentação ou os arquivos necessários para execução do sistema.

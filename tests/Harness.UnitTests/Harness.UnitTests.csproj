@@ -28,6 +28,7 @@
     <None Update="Governance/Fixtures/negative-cases.json" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Fixtures/replay-emprestimos-qa-prova-limpa.json" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Fixtures/prisma-solicitacao-real.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures/indicadores-levantamento-real.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

@@ -181,7 +181,7 @@ public sealed class SqliteProjectGraphStore(SqliteWriteDispatcher dispatcher) : 
                          stale_cause_version,created_at,updated_at)
                     VALUES ($tenant,$id,$project,$type,$sourceId,$sourceKind,$version,$state,
                             $provenance,$confidence,$title,NULL,NULL,$at,$at)
-                    ON CONFLICT(tenant_id,id) DO UPDATE SET
+                    ON CONFLICT(tenant_id,project_id,id) DO UPDATE SET
                         version=excluded.version,
                         state=CASE WHEN $keepStale THEN project_graph_nodes.state ELSE excluded.state END,
                         stale_cause_node_id=CASE WHEN $keepStale

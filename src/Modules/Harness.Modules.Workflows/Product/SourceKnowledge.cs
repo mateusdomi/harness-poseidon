@@ -107,7 +107,10 @@ public static class SourceKnowledgeClassifier
 
     private static readonly Regex RequiredPattern = new(
         @"\b(deve(r[aá]|m|r[aã]o)?|obrigat[oó]ri[ao]s?|requisito|exigid[ao]|necess[aá]ri[ao]s?|" +
-        @"utilizar|imprescind[ií]vel|precisa(m|r[aá])?|somente|apenas|n[aã]o\s+pode(m)?)\b",
+        @"utilizar|imprescind[ií]vel|precisa(m|r[aá])?|somente|apenas|n[aã]o\s+pode(m)?|" +
+        // Proibição é requisito NEGATIVO: "Não criar gráficos fixos" restringe a solução tanto
+        // quanto "utilizar Oracle" — o levantamento real de Indicadores usa exatamente essa forma.
+        @"n[aã]o\s+(criar|utilizar|usar|armazenar|permitir|deixar|gravar|apresentar|omitir))\b",
         RegexOptions.CultureInvariant | RegexOptions.Compiled, TimeSpan.FromSeconds(1));
 
     private static readonly (Regex Pattern, KnowledgeCategory Category)[] CategoryPatterns =

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using System.Text;
 
 namespace Harness.Modules.Workflows.Product;
@@ -78,6 +79,18 @@ public static class ProductModalityInference
         if (ContainsAny(text, ApiOnlyTerms) || ApiOnlyPhrase.IsMatch(text))
         {
             return ProductModality.ApiOnly;
+        }
+
+        // Declaração EXPLÍCITA de produto web vence menção incidental de componente: o
+        // levantamento real de Indicadores diz "sistema web responsivo" e também "biblioteca
+        // de gráficos" — e virava Library. O produto é o que o documento DECLARA construir,
+        // não a primeira palavra de categoria que aparece numa lista de dependências.
+        if (Regex.IsMatch(
+                text,
+                @"\b(sistema|aplicacao|aplicativo|portal|plataforma)\s+web\b|\bweb\s+responsiv",
+                RegexOptions.CultureInvariant))
+        {
+            return ProductModality.Web;
         }
 
         if (ContainsAny(text, LibraryTerms))

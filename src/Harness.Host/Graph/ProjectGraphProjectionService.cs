@@ -219,18 +219,28 @@ public sealed class ProjectGraphProjectionService(
                     continue;
                 }
 
-                foreach (System.Text.RegularExpressions.Match match in
-                    System.Text.RegularExpressions.Regex.Matches(text, @"- \*\*T(\d+)\*\*\s*(.+)"))
+                // Extração AGNÓSTICA de template (Dual Project Gate): a seção de aceite é
+                // achada pelo título semântico e cada cláusula vira Requirement com id estável
+                // — "- **T14** …" do Prisma e "O sistema se conectar ao Oracle;" dos
+                // Indicadores alimentam o MESMO modelo.
+                // O fato do ambiente também pode vir DENTRO do documento de requisitos
+                // ("Utilizar banco de dados Oracle"), não só do corpo da solicitação.
+                if (text.Contains("Oracle", StringComparison.OrdinalIgnoreCase))
                 {
-                    var number = int.Parse(
-                        match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
-                    var sourceId = $"criterio-t{number}";
                     items.Add(new GraphSourceItem(
-                        GraphNodeType.Requirement, sourceId, "acceptance_criterion", 1,
-                        $"T{number} — {match.Groups[2].Value.Trim()}"));
+                        GraphNodeType.HumanFact, "banco-oracle-19c", "solicitation_declaration", 1,
+                        "O banco corporativo exigido é Oracle Database 19c"));
+                }
+
+                foreach (var criterion in
+                    Harness.Modules.Workflows.Product.AcceptanceCriteriaExtractor.Extract(text))
+                {
+                    items.Add(new GraphSourceItem(
+                        GraphNodeType.Requirement, criterion.Id, "acceptance_criterion", 1,
+                        criterion.Text.Length > 180 ? criterion.Text[..180] : criterion.Text));
                     links.Add(new GraphSourceLink(
                         GraphRelationType.DerivesFrom,
-                        GraphNodeType.Requirement, sourceId,
+                        GraphNodeType.Requirement, criterion.Id,
                         GraphNodeType.Artifact, solicitation.Id));
                 }
             }

@@ -22,6 +22,8 @@ markdownAllowlist:
   reason: Especificação operacional da Operação Final (objetivo, regras R1/R2 e CompletionGate); rege a operação, não o produto — não é norma canônica do repositório.
 - path: coordination/final-operation/ORDEM-ORIGINAL.md
   reason: Ordem original do proprietário que abriu a Operação Final; registro de proveniência, não norma canônica.
+- path: docs/operations/indicadores-mvp-lock.md
+  reason: MVP lock e normalização do levantamento do projeto Indicadores TrensRJ (2026-08-05), com data fechada; registro de escopo derivado de teste executável, não norma canônica.
 - path: docs/operations/prisma-launch-gate.md
   reason: Relatório do Prisma Launch Gate (2026-08-05), com data fechada; evidência operacional de prontidão, não norma canônica.
 - path: docs/operations/pre-prisma-start-checklist.md

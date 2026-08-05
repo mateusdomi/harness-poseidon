@@ -107,13 +107,30 @@ public static class AcceptanceCriteriaExtractor
         Regex.IsMatch(line, @"^(#{3,4}\s+)?\d{1,3}\.\d+", RegexOptions.CultureInvariant);
 
     /// <summary>
-    /// Um item de critério tem forma de exigência verificável — marcador, seta de resultado ou
-    /// verbo modal. Linha de prosa introdutória ("Formato Given/When/Then") fica fora.
+    /// Um item de critério tem forma de exigência verificável. O formato NÃO é contrato: o
+    /// Prisma escreve "- **T14** ..."; o levantamento de Indicadores escreve cláusulas puras
+    /// terminadas em ponto e vírgula ("O sistema se conectar ao Oracle;"). Aceita-se: marcador
+    /// explícito, cláusula terminada em ';', a forma "For possível …", ou verbo de exigência.
+    /// Linha introdutória (termina em ':') e prosa de formato ficam fora.
     /// </summary>
-    private static bool LooksLikeCriterion(string line) =>
-        Regex.IsMatch(
-            line,
+    private static bool LooksLikeCriterion(string line)
+    {
+        var trimmed = line.Trim();
+        if (trimmed.EndsWith(':') ||
+            trimmed.StartsWith("Formato", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (trimmed.EndsWith(';') ||
+            trimmed.StartsWith("For possível", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return Regex.IsMatch(
+            trimmed,
             @"(\*\*[A-Z]{1,3}-?\d{1,4}\*\*|\b[A-Z]{2,3}-\d{1,4}\b|→|->|\bdeve\b|\bnegad|\bbloquead|\bconta\b|\bgera\b|\bpermite\b|\bexibe\b|\bvalida\b|\bimporta\b)",
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant) &&
-        !line.TrimStart().StartsWith("Formato", StringComparison.OrdinalIgnoreCase);
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    }
 }
