@@ -2522,7 +2522,7 @@ documents:
   related:
   - product-frontend-standards
   enforcedBy: []
-  checksum: sha256:7658907982ffdc941eb192d9fe95cae2c6b89a0625b7033e84fba7b04b95c998
+  checksum: sha256:5b5c18346c18c6340df77fcaaffdc16037acf086a13cec088a197a99fc7f8c7b
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/product/provided-artifacts.md

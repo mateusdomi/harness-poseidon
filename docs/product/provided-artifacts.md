@@ -47,6 +47,14 @@ fornecido**, e o executor tem quatro verbos permitidos e um proibido:
 Reutilize os componentes que existem em vez de criar equivalentes. Dois componentes fazendo a mesma
 coisa é o começo de uma interface que ninguém consegue manter.
 
+**Referência de design NÃO é frontend fornecido.** Um dashboard HTML autocontido (papel
+`design_reference`) mostra COMO um caso real deve se parecer e se comportar — ele é EXEMPLO a
+ser representado, nunca a solução. Quando o produto em construção é um motor configurável, cada
+dashboard de referência precisa ser reproduzível pela CONFIGURAÇÃO genérica do motor
+(página → componentes de indicador → configuração → dataset); criar um componente hardcoded por
+referência ("BpmnDashboard", "LicenseDashboard") contraria o próprio requisito que a referência
+ilustra e exige exceção aprovada com registro.
+
 **Mudança visual relevante exige decisão registrada**, com o motivo. "Ficaria melhor assim" não é
 motivo; "o componente atual não atende ao critério de acessibilidade X" é.
 
