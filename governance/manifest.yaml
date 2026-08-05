@@ -1,5 +1,5 @@
 manifestVersion: 2.0.0
-lastGeneratedAt: 2026-08-05T02:39:30.0978370+00:00
+lastGeneratedAt: 2026-08-05T04:27:24.4003080+00:00
 tokenBudget: 24000
 knownOwners:
 - Platform Governance
@@ -892,7 +892,7 @@ documents:
   - '**'
   load: always
   priority: 800
-  tokenCost: 2063
+  tokenCost: 2088
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -907,7 +907,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:5d85bf524447d0eacd8114085470345cf78f906f64c672d240be22c711a12b3f
+  checksum: sha256:7905fe46c9ff2147f58452ec8f4f196a4c638edb202dad33936b34310270e1b8
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -2295,7 +2295,7 @@ documents:
   - '**'
   load: on-demand
   priority: 870
-  tokenCost: 714
+  tokenCost: 1008
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -2310,7 +2310,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:15b1559d99f28a90a361e957849b43c90c683045f1002a61266118ddaf99b872
+  checksum: sha256:3a106f1d126801410ce59850c44812e52d0a0626643ae210949ba70daf642520
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/product/frontend-standards.md
@@ -2574,6 +2574,58 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/product/full-stack-integration.md
+- id: product-qa-standards
+  path: docs/product/qa-standards.md
+  title: QA do produto entregue
+  category: product-standard
+  topic: product-qa-standards
+  authority: canonical
+  scope: product
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  roles: []
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - backend-specialist
+  - frontend-specialist
+  - historia
+  - tarefa
+  - bug
+  - adr
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: on-demand
+  priority: 872
+  tokenCost: 1109
+  owner: Platform Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-08-05T00:00:00-03:00
+  reviewDueAt: 2027-02-05T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - product-definition-of-done
+  enforcedBy: []
+  checksum: sha256:70712896f32cfd1a3793a188293ce48e9b463291187e39f491fa3c3bcd2ae9a1
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/product/qa-standards.md
 - id: product-security-operability
   path: docs/product/security-and-operability.md
   title: Segurança e operabilidade do produto entregue

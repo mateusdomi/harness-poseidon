@@ -72,7 +72,8 @@ public sealed class WorkflowPhaseDriver(
     IModelInvocationStore? invocations = null,
     AgentAccountRegistry? accounts = null,
     ProductDeliveryEvaluator? productDelivery = null,
-    IAttemptWorkspaceStore? workspaces = null)
+    IAttemptWorkspaceStore? workspaces = null,
+    Harness.Persistence.Abstractions.Coordination.ISolicitationAttachmentStore? attachments = null)
 {
     /// <summary>
     /// O SHA que a última tentativa entregue desta fase produziu. É o estado que a verificação
@@ -1444,9 +1445,10 @@ public sealed class WorkflowPhaseDriver(
 
         var personaKey = PersonaForObjective(phaseName, objectiveName);
         var template = MatchTemplate(templates, phaseName, objectiveName);
+        var intake = await AssessIntakeAsync(tenantId, project, solicitations, cancellationToken);
         var instruction = ComposeObjectiveInstruction(
             project, phaseName, objectiveName, personaKey, template, humanMessages,
-            solicitations, demands);
+            solicitations, demands, intake);
         if (!string.IsNullOrWhiteSpace(revisionSourceMessageId))
         {
             instruction += $"""
@@ -1553,6 +1555,37 @@ public sealed class WorkflowPhaseDriver(
     /// Pacote efetivo do card de documento. Referências substituem o despejo indiscriminado do
     /// repositório, mas fatos do usuário, decisões, lacunas, DoD e evidências permanecem no card.
     /// </summary>
+    /// <summary>
+    /// Classifica a ENTRADA do projeto (crua × rica) a partir dos anexos com papel tipado e do
+    /// texto das solicitações humanas. Sem store de anexos, degrada para o texto — e a degradação
+    /// é só perder sinal, nunca inventar um.
+    /// </summary>
+    private async Task<IntakeAssessment> AssessIntakeAsync(
+        string tenantId,
+        ProjectRecord project,
+        IReadOnlyList<BoardSolicitationRecord> solicitations,
+        CancellationToken cancellationToken)
+    {
+        var roles = new List<(string Role, string FileName)>();
+        if (attachments is not null)
+        {
+            foreach (var solicitation in solicitations.Where(item => !item.Internal).TakeLast(20))
+            {
+                foreach (var attachment in await attachments.ListAsync(
+                    tenantId, solicitation.Id, cancellationToken))
+                {
+                    roles.Add((attachment.Role, attachment.FileName));
+                }
+            }
+        }
+
+        var text = string.Join(
+            '\n',
+            solicitations.Where(item => !item.Internal).Select(item => $"{item.Title}\n{item.Body}")
+                .Append(project.Description));
+        return RichIntakeAnalyzer.Analyze(text, roles, project.TargetDeadline is not null);
+    }
+
     public static string ComposeObjectiveInstruction(
         ProjectRecord project,
         string phaseName,
@@ -1561,7 +1594,8 @@ public sealed class WorkflowPhaseDriver(
         WorkflowDocumentTemplateRecord? template,
         IReadOnlyList<MessageRecord> humanMessages,
         IReadOnlyList<BoardSolicitationRecord> solicitations,
-        IReadOnlyList<BoardDemandRecord> demands)
+        IReadOnlyList<BoardDemandRecord> demands,
+        IntakeAssessment? intake = null)
     {
         ArgumentNullException.ThrowIfNull(project);
         var builder = new StringBuilder();
@@ -1671,6 +1705,14 @@ public sealed class WorkflowPhaseDriver(
                 .Append("- Cada campo obrigatório vira uma seção própria, NA ORDEM ACIMA, com a chave do campo escrita como código no título (por exemplo `## Cobertura OWASP (`owasp_2025`)`). Reordenar ou omitir a chave faz o gate recusar a entrega.\n")
                 .Append("- Formatos de métricas: `").Append(template.MetricFormatsJson).Append("`\n")
                 .Append("- O que precisa provar: ").Append(Clean(template.Guidance, 2_000)).Append('\n');
+        }
+
+        // ENTRADA RICA (FLOW 2): quando o projeto chegou com fonte de conteúdo — requisitos
+        // escritos, protótipo fornecido — o modo de trabalho muda, e é o RUNTIME que o injeta.
+        // Norma que depende de o agente lembrar falha no card mais caro.
+        if (intake is not null)
+        {
+            builder.Append(RichIntakeAnalyzer.ComposeWorkOrder(intake));
         }
 
         builder.Append("\n# Escopo, não escopo e dependências\n")

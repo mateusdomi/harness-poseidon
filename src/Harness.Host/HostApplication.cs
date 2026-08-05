@@ -585,7 +585,9 @@ public static class HostApplication
                 services.GetRequiredService<IWorkBoardStore>(),
                 services.GetService<Harness.Persistence.Abstractions.Documents.IDocumentCatalogStore>(),
                 services.GetService<AgentRunSettings>()?.ControlledRoot,
-                services.GetService<ILogger<Product.ProfileDirectiveExtractor>>()));
+                services.GetService<ILogger<Product.ProfileDirectiveExtractor>>(),
+                services.GetService<Harness.Persistence.Abstractions.Organizations.IOrganizationStore>(),
+                services.GetService<Harness.Persistence.Abstractions.Projects.IProjectStore>()));
             builder.Services.AddScoped<Product.ProductDeliveryEvaluator>();
             builder.Services.AddScoped<Workflows.WorkflowPhaseDriver>();
             builder.Services.AddHostedService<ChiefBacklogLoopService>();

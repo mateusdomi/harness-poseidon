@@ -85,6 +85,29 @@ componentes, feedback de interação e estados vazios úteis.
 
 "Funciona no endpoint" não é critério de conclusão de experiência do usuário.
 
+## Refinamento de UX não é expansão de escopo
+
+A distinção que evita os dois erros — a tela pobre "porque ninguém pediu", e a feature inventada
+"porque ficaria melhor":
+
+**REFINAMENTO** — aplicável sem requisito novo, porque é qualidade da tela que já existe:
+mostrar/ocultar senha, estados de carregamento/erro/sucesso/vazio, desabilitar duplo envio, foco e
+teclado, labels, responsividade, mensagens compreensíveis, validação de formulário, consistência
+visual, acessibilidade. Nada disso muda o que o produto FAZ; muda se uma pessoa consegue usá-lo.
+
+**FEATURE NOVA** — não se inventa sem requisito: recuperação de senha, cadastro público, SSO,
+login social, upload de avatar, e qualquer capacidade de negócio ausente do pedido. "Seria útil"
+é proposta para o funil de requisito, nunca implementação espontânea.
+
+Quando existe **design/protótipo fornecido** ([`provided-artifacts.md`](provided-artifacts.md)):
+preserva-se a linguagem visual, o layout, os componentes e a arquitetura de informação; melhora-se
+acessibilidade, responsividade, feedback, validação, integração e defeitos de usabilidade.
+Reconstruir do zero exige decisão registrada.
+
+**Contas de demonstração** existem só em desenvolvimento e teste. Credencial de demonstração
+visível em produção é vazamento com interface — a tela que as lista precisa estar condicionada ao
+ambiente, e a verificação de segurança trata credencial demo em build de produção como falha.
+
 ## Relacionado
 
 - [`baseline.md`](baseline.md) · [`definition-of-done.md`](definition-of-done.md) · [`backend-standards.md`](backend-standards.md)

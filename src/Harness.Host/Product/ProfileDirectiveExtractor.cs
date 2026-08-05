@@ -12,16 +12,24 @@ namespace Harness.Host.Product;
 /// `project_overrides` ao lado disso produziria duas verdades sobre a mesma coisa — exatamente o
 /// defeito que `governance/core.md` chama de "duas fontes canônicas para o mesmo tema".
 ///
-/// O que NÃO existe hoje como fonte persistida e fica registrado como lacuna: constraint de
-/// organização/tenant e restrição regulatória. As duas autoridades continuam suportadas pelo
-/// resolvedor; simplesmente não há de onde lê-las ainda.
+/// A CONSTRAINT DE ORGANIZAÇÃO passou a ter fonte real: as políticas da organização
+/// (`organizations.policies_json`), que já existiam persistidas e nunca chegavam ao resolvedor.
+/// Uma política habilitada cujo chave siga `engineering:<área>=<valor>` vira diretiva com
+/// autoridade `OrganizationConstraint` — abaixo do requisito do usuário e do ADR, acima do
+/// baseline, que é exatamente onde um padrão corporativo deve morar. O que continua sem fonte
+/// persistida, e registrado como lacuna: restrição regulatória.
 /// </summary>
 public sealed class ProfileDirectiveExtractor(
     IWorkBoardStore board,
     IDocumentCatalogStore? documents = null,
     string? repositoryRoot = null,
-    ILogger<ProfileDirectiveExtractor>? logger = null)
+    ILogger<ProfileDirectiveExtractor>? logger = null,
+    Harness.Persistence.Abstractions.Organizations.IOrganizationStore? organizations = null,
+    Harness.Persistence.Abstractions.Projects.IProjectStore? projects = null)
 {
+    /// <summary>Prefixo das políticas de engenharia da organização. `engineering:database=SQL Server`.</summary>
+    private const string EngineeringPolicyPrefix = "engineering:";
+
     /// <summary>Tipos de documento que carregam decisão arquitetural aprovada.</summary>
     private static readonly string[] DecisionKinds = ["adr", "decision", "decisao", "decisão"];
 
@@ -74,8 +82,65 @@ public sealed class ProfileDirectiveExtractor(
             directives.AddRange(await ExtractDecisionsAsync(tenantId, projectId, adrs, cancellationToken));
         }
 
+        // 3. CONSTRAINT DA ORGANIZAÇÃO — as políticas de engenharia persistidas na organização do
+        //    projeto. É a tese "o desenvolvedor não repete standards em todo projeto": o padrão
+        //    corporativo entra sozinho, e o requisito do projeto continua podendo sobrescrevê-lo,
+        //    porque a precedência do resolvedor já decide isso.
+        directives.AddRange(await ExtractOrganizationConstraintsAsync(
+            tenantId, projectId, cancellationToken));
+
         LogExtracted(logger, projectId, directives.Count, adrs.Count);
         return new Extraction(Deduplicate(directives), adrs, demandText.ToString());
+    }
+
+    private async Task<IReadOnlyList<ProfileDirective>> ExtractOrganizationConstraintsAsync(
+        string tenantId,
+        string projectId,
+        CancellationToken cancellationToken)
+    {
+        if (organizations is null || projects is null)
+        {
+            return [];
+        }
+
+        var project = await projects.GetAsync(tenantId, projectId, cancellationToken);
+        if (project is null)
+        {
+            return [];
+        }
+
+        var organization = await organizations.GetAsync(
+            tenantId, project.OrganizationId, cancellationToken);
+        if (organization is null)
+        {
+            return [];
+        }
+
+        var directives = new List<ProfileDirective>();
+        foreach (var policy in organization.Policies.Where(item => item.Enabled))
+        {
+            // Forma fechada `engineering:<área>=<valor>`. Política que não segue a forma não é
+            // erro — é política de outro assunto (billing, acesso), e este extrator não opina.
+            if (!policy.Key.StartsWith(EngineeringPolicyPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var body = policy.Key[EngineeringPolicyPrefix.Length..];
+            var separator = body.IndexOf('=', StringComparison.Ordinal);
+            if (separator <= 0 || separator == body.Length - 1)
+            {
+                continue;
+            }
+
+            directives.Add(new ProfileDirective(
+                ProfileAuthority.OrganizationConstraint,
+                body[..separator].Trim().ToLowerInvariant(),
+                body[(separator + 1)..].Trim(),
+                $"Política da organização {organization.Name}: {policy.Description}"));
+        }
+
+        return directives;
     }
 
     private async Task<IReadOnlyList<ProfileDirective>> ExtractDecisionsAsync(
