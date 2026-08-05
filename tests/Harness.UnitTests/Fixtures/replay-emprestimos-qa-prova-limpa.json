@@ -1,0 +1,3931 @@
+{
+ "projeto": {
+  "id": "01KZ24JCFRHN2RGP8NHGP75JMK",
+  "tenant_id": "01KY36ED34GHB0NGGX718NSVK3",
+  "organization_id": "01KY36JQ7P73ZKYCF5B9BTDPZ7",
+  "name": "QA-PROVA-LIMPA-20260802-EMPRESTIMOS",
+  "version": 127,
+  "created_at": "2026-08-02T21:02:39.0964470+00:00",
+  "project_key": "QA-PROVA-LIMPA-20260802-EMPRES",
+  "description": "Sistema simples para controlar emprestimos de equipamentos: quem pegou cada equipamento, quando precisa devolver e quando esta atrasado.",
+  "state": "paused",
+  "criticality": "low",
+  "repository_url": "/Users/mateus/.harness-poseidon/repositories/01KY36ED34GHB0NGGX718NSVK3/qa-prova-limpa-20260802-empres",
+  "repository_provider": "local",
+  "default_branch": "main",
+  "technologies_json": "[]",
+  "logo_url": null,
+  "primary_color": null,
+  "secondary_color": null,
+  "typography": null,
+  "member_profile_ids_json": "[\"01KY36ED3433WVJVJQYC754VK9\"]",
+  "config_version": 1,
+  "chief_agent_id": "01KZ24JCFR7TGXMFE4RG2X96HM",
+  "operation_mode": "autonomous",
+  "last_activity_at": "2026-08-04T16:57:38.6065750+00:00",
+  "deleted_at": null,
+  "prototyping_mode": "autonomousGeneration",
+  "prototyping_waiver_reason": null,
+  "prototyping_waiver_granted_at": null,
+  "target_deadline": null
+ },
+ "fases": [
+  {
+   "id": "01KZ24JCJVG0JKGAZTNQ4CYRR7",
+   "tenant_id": "01KY36ED34GHB0NGGX718NSVK3",
+   "project_id": "01KZ24JCFRHN2RGP8NHGP75JMK",
+   "workflow_run_id": "01KZ24JCJVJC9CQ4FJK1ZS00WV",
+   "phase_definition_id": "01KYGJ59DQXAJXGCFHKHQWFHA7",
+   "phase_order": 1,
+   "state": "completed",
+   "version": 3,
+   "activated_at": "2026-08-02T21:02:39.1950341+00:00",
+   "completed_at": "2026-08-02T21:15:18.9658900+00:00"
+  },
+  {
+   "id": "01KZ24JCJVY51P2E1P0VHTM5RF",
+   "tenant_id": "01KY36ED34GHB0NGGX718NSVK3",
+   "project_id": "01KZ24JCFRHN2RGP8NHGP75JMK",
+   "workflow_run_id": "01KZ24JCJVJC9CQ4FJK1ZS00WV",
+   "phase_definition_id": "01KYGJ59DQ3XWMDTS784NA2P25",
+   "phase_order": 2,
+   "state": "completed",
+   "version": 3,
+   "activated_at": "2026-08-02T21:15:18.9658900+00:00",
+   "completed_at": "2026-08-02T21:43:18.3991000+00:00"
+  },
+  {
+   "id": "01KZ24JCJV5AYDNG1XE23K20BF",
+   "tenant_id": "01KY36ED34GHB0NGGX718NSVK3",
+   "project_id": "01KZ24JCFRHN2RGP8NHGP75JMK",
+   "workflow_run_id": "01KZ24JCJVJC9CQ4FJK1ZS00WV",
+   "phase_definition_id": "01KYGJ59DQZ4N2ENE3ZJHDVBF4",
+   "phase_order": 3,
+   "state": "completed",
+   "version": 3,
+   "activated_at": "2026-08-02T21:43:18.3991000+00:00",
+   "completed_at": "2026-08-03T16:16:08.2022520+00:00"
+  },
+  {
+   "id": "01KZ24JCJVXP30P44130JEF407",
+   "tenant_id": "01KY36ED34GHB0NGGX718NSVK3",
+   "project_id": "01KZ24JCFRHN2RGP8NHGP75JMK",
+   "workflow_run_id": "01KZ24JCJVJC9CQ4FJK1ZS00WV",
+   "phase_definition_id": "01KYGJ59DQNAH6KJ89GX07AZBE",
+   "phase_order": 4,
+   "state": "completed",
+   "version": 3,
+   "activated_at": "2026-08-03T16:16:08.2022520+00:00",
+   "completed_at": "2026-08-03T23:32:05.7020150+00:00"
+  },
+  {
+   "id": "01KZ24JCJVYTVV9768FPG2GV79",
+   "tenant_id": "01KY36ED34GHB0NGGX718NSVK3",
+   "project_id": "01KZ24JCFRHN2RGP8NHGP75JMK",
+   "workflow_run_id": "01KZ24JCJVJC9CQ4FJK1ZS00WV",
+   "phase_definition_id": "01KYGJ59DQHFWS29Z42FBE6YSF",
+   "phase_order": 5,
+   "state": "completed",
+   "version": 3,
+   "activated_at": "2026-08-03T23:32:05.7020150+00:00",
+   "completed_at": "2026-08-04T13:18:19.7057990+00:00"
+  },
+  {
+   "id": "01KZ24JCJV95ANEF8ZFCD784RB",
+   "tenant_id": "01KY36ED34GHB0NGGX718NSVK3",
+   "project_id": "01KZ24JCFRHN2RGP8NHGP75JMK",
+   "workflow_run_id": "01KZ24JCJVJC9CQ4FJK1ZS00WV",
+   "phase_definition_id": "01KYGJ59DQ0HPQFRW9FZW45Q06",
+   "phase_order": 6,
+   "state": "active",
+   "version": 2,
+   "activated_at": "2026-08-04T13:18:19.7057990+00:00",
+   "completed_at": null
+  },
+  {
+   "id": "01KZ24JCJVX4BTP86VRA4KJZX7",
+   "tenant_id": "01KY36ED34GHB0NGGX718NSVK3",
+   "project_id": "01KZ24JCFRHN2RGP8NHGP75JMK",
+   "workflow_run_id": "01KZ24JCJVJC9CQ4FJK1ZS00WV",
+   "phase_definition_id": "01KYGJ59DQ19044HNDT22SQGVE",
+   "phase_order": 7,
+   "state": "pending",
+   "version": 1,
+   "activated_at": null,
+   "completed_at": null
+  },
+  {
+   "id": "01KZ24JCJVQBTC4SSE4ERKBMNP",
+   "tenant_id": "01KY36ED34GHB0NGGX718NSVK3",
+   "project_id": "01KZ24JCFRHN2RGP8NHGP75JMK",
+   "workflow_run_id": "01KZ24JCJVJC9CQ4FJK1ZS00WV",
+   "phase_definition_id": "01KYGJ59DQ0FY9R0BQPA98RFBB",
+   "phase_order": 8,
+   "state": "pending",
+   "version": 1,
+   "activated_at": null,
+   "completed_at": null
+  },
+  {
+   "id": "01KZ24JCJVH5HN5496BGP1B9QX",
+   "tenant_id": "01KY36ED34GHB0NGGX718NSVK3",
+   "project_id": "01KZ24JCFRHN2RGP8NHGP75JMK",
+   "workflow_run_id": "01KZ24JCJVJC9CQ4FJK1ZS00WV",
+   "phase_definition_id": "01KYGJ59DQ3XCKGFTPAB565XX6",
+   "phase_order": 9,
+   "state": "pending",
+   "version": 1,
+   "activated_at": null,
+   "completed_at": null
+  }
+ ],
+ "solicitacoes": [
+  {
+   "id": "01KZ24JY7JRXRPQ9MJ7Z9378EM",
+   "title": "1-Triagem — Ficha de Demanda Qualificada",
+   "state": "open",
+   "created_at": "2026-08-02T21:02:57.2631730+00:00",
+   "supersedes_id": null,
+   "kind": "request"
+  },
+  {
+   "id": "01KZ24KFDWEQ6VRKGH56JBPTDD",
+   "title": "Controle de empréstimo e devolução de equipamentos",
+   "state": "open",
+   "created_at": "2026-08-02T21:03:14.8660210+00:00",
+   "supersedes_id": null,
+   "kind": "request"
+  },
+  {
+   "id": "01KZ256JQ0T5E9VMEQXSC9YM06",
+   "title": "Uso compartilhado do controle de empréstimos pela equipe",
+   "state": "open",
+   "created_at": "2026-08-02T21:13:40.8221310+00:00",
+   "supersedes_id": null,
+   "kind": "request"
+  },
+  {
+   "id": "01KZ28Z4EHRCVV1YEPV2FXV8FG",
+   "title": "Registro simples de eventos de empréstimo no próprio sistema",
+   "state": "open",
+   "created_at": "2026-08-02T22:19:31.1431380+00:00",
+   "supersedes_id": null,
+   "kind": "request"
+  },
+  {
+   "id": "01KZ65YZFDJEQMZ2VKNA8A3FWK",
+   "title": "ADR: decisão de stack e estrutura do servidor de empréstimos",
+   "state": "open",
+   "created_at": "2026-08-04T10:43:58.0584610+00:00",
+   "supersedes_id": null,
+   "kind": "request"
+  },
+  {
+   "id": "01KZ67TXGEGPMAGGWZBHMVP269",
+   "title": "ADR de stack do servidor de empréstimos (ratificação)",
+   "state": "open",
+   "created_at": "2026-08-04T11:16:42.1231780+00:00",
+   "supersedes_id": null,
+   "kind": "request"
+  },
+  {
+   "id": "01KZ687310YH1Y671CFWNGZ2G9",
+   "title": "FEAT/T01 Backend: registro e devolução de empréstimo com controle de atraso",
+   "state": "open",
+   "created_at": "2026-08-04T11:23:20.9893490+00:00",
+   "supersedes_id": null,
+   "kind": "request"
+  },
+  {
+   "id": "01KZ690KDQY4R5HPZ0NRTH0MFA",
+   "title": "ADR de fronteira do piloto: entrega backend-only",
+   "state": "open",
+   "created_at": "2026-08-04T11:37:16.9807710+00:00",
+   "supersedes_id": null,
+   "kind": "request"
+  },
+  {
+   "id": "01KZ6FT2WCAMCRN5W4X0T1PQJZ",
+   "title": "ADR de stack da interface de empréstimos",
+   "state": "open",
+   "created_at": "2026-08-04T13:36:03.4654300+00:00",
+   "supersedes_id": null,
+   "kind": "request"
+  },
+  {
+   "id": "01KZ6G86RWCX9QJ34N9BW8NBEY",
+   "title": "FEAT/T02 Interface: tela de controle de empréstimos",
+   "state": "open",
+   "created_at": "2026-08-04T13:43:46.2015210+00:00",
+   "supersedes_id": null,
+   "kind": "request"
+  }
+ ],
+ "demandas": [
+  {
+   "id": "01KZ24JY7H6PQ1ADMWPYM6VEPK",
+   "solicitation_id": "01KZ24JY7JRXRPQ9MJ7Z9378EM",
+   "title": "1-Triagem — Ficha de Demanda Qualificada",
+   "state": "open",
+   "created_at": "2026-08-02T21:02:57.2631730+00:00",
+   "phase_name": "1-Triagem"
+  },
+  {
+   "id": "01KZ24KFDV7D20K1EY1X053J26",
+   "solicitation_id": "01KZ24KFDWEQ6VRKGH56JBPTDD",
+   "title": "Controle de empréstimo e devolução de equipamentos",
+   "state": "open",
+   "created_at": "2026-08-02T21:03:14.8660210+00:00",
+   "phase_name": null
+  },
+  {
+   "id": "01KZ256JPZRYMKACH3KA1WW9K7",
+   "solicitation_id": "01KZ256JQ0T5E9VMEQXSC9YM06",
+   "title": "Uso compartilhado do controle de empréstimos pela equipe",
+   "state": "open",
+   "created_at": "2026-08-02T21:13:40.8221310+00:00",
+   "phase_name": null
+  },
+  {
+   "id": "01KZ28Z4EGKVZ1B7AS1QETDWMP",
+   "solicitation_id": "01KZ28Z4EHRCVV1YEPV2FXV8FG",
+   "title": "Registro simples de eventos de empréstimo no próprio sistema",
+   "state": "open",
+   "created_at": "2026-08-02T22:19:31.1431380+00:00",
+   "phase_name": null
+  },
+  {
+   "id": "01KZ65YZFCPTF7EZJJJER1AHMS",
+   "solicitation_id": "01KZ65YZFDJEQMZ2VKNA8A3FWK",
+   "title": "ADR: decisão de stack e estrutura do servidor de empréstimos",
+   "state": "open",
+   "created_at": "2026-08-04T10:43:58.0584610+00:00",
+   "phase_name": "5-Desenvolvimento"
+  },
+  {
+   "id": "01KZ67TXGDAX3R2D4A7WXZPK36",
+   "solicitation_id": "01KZ67TXGEGPMAGGWZBHMVP269",
+   "title": "ADR de stack do servidor de empréstimos (ratificação)",
+   "state": "open",
+   "created_at": "2026-08-04T11:16:42.1231780+00:00",
+   "phase_name": "5-Desenvolvimento"
+  },
+  {
+   "id": "01KZ68730ZA2DZA7MXQJM1Q0JJ",
+   "solicitation_id": "01KZ687310YH1Y671CFWNGZ2G9",
+   "title": "FEAT/T01 Backend: registro e devolução de empréstimo com controle de atraso",
+   "state": "open",
+   "created_at": "2026-08-04T11:23:20.9893490+00:00",
+   "phase_name": "5-Desenvolvimento"
+  },
+  {
+   "id": "01KZ690KDPCM9JWRC90J3H2R6A",
+   "solicitation_id": "01KZ690KDQY4R5HPZ0NRTH0MFA",
+   "title": "ADR de fronteira do piloto: entrega backend-only",
+   "state": "open",
+   "created_at": "2026-08-04T11:37:16.9807710+00:00",
+   "phase_name": "5-Desenvolvimento"
+  },
+  {
+   "id": "01KZ6FT2WBQ280DFA46HM3WH6H",
+   "solicitation_id": "01KZ6FT2WCAMCRN5W4X0T1PQJZ",
+   "title": "ADR de stack da interface de empréstimos",
+   "state": "open",
+   "created_at": "2026-08-04T13:36:03.4654300+00:00",
+   "phase_name": "5-Desenvolvimento"
+  },
+  {
+   "id": "01KZ6G86RVBY9NDA582PBPG94H",
+   "solicitation_id": "01KZ6G86RWCX9QJ34N9BW8NBEY",
+   "title": "FEAT/T02 Interface: tela de controle de empréstimos",
+   "state": "open",
+   "created_at": "2026-08-04T13:43:46.2015210+00:00",
+   "phase_name": "5-Desenvolvimento"
+  }
+ ],
+ "cards": [
+  {
+   "id": "01KZ24JY7F406ZY50XSXKSVTNW",
+   "demand_id": "01KZ24JY7H6PQ1ADMWPYM6VEPK",
+   "title": "1-Triagem — Ficha de Demanda Qualificada",
+   "state": "completed",
+   "version": 20,
+   "created_at": "2026-08-02T21:02:57.2631730+00:00",
+   "updated_at": "2026-08-02T21:15:08.4607970+00:00",
+   "board_state": "done",
+   "phase_name": "1-Triagem",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ25989J10TF1EJ1RPT1HQQB",
+   "demand_id": "01KZ256JPZRYMKACH3KA1WW9K7",
+   "title": "1-Triagem — Ficha de Demanda Qualificada — atualização 01KZ256111Q8A37VQEQ6NJMW8R",
+   "state": "completed",
+   "version": 14,
+   "created_at": "2026-08-02T21:15:08.4668940+00:00",
+   "updated_at": "2026-08-02T21:26:02.0447640+00:00",
+   "board_state": "done",
+   "phase_name": "1-Triagem",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ259WPH3JRA2H2AB2X0Y108",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "2-Descoberta — PRD",
+   "state": "completed",
+   "version": 10,
+   "created_at": "2026-08-02T21:15:29.3618670+00:00",
+   "updated_at": "2026-08-02T21:22:21.5296500+00:00",
+   "board_state": "done",
+   "phase_name": "2-Descoberta",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ259WPJRZ1PRWS5N9Q5F36Y",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "2-Descoberta — Story Map",
+   "state": "completed",
+   "version": 24,
+   "created_at": "2026-08-02T21:15:29.3623920+00:00",
+   "updated_at": "2026-08-02T21:43:08.0106260+00:00",
+   "board_state": "done",
+   "phase_name": "2-Descoberta",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ259WPJEERCZDQ9V1RRKAC4",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "2-Descoberta — NFRs preliminares",
+   "state": "completed",
+   "version": 19,
+   "created_at": "2026-08-02T21:15:29.3628180+00:00",
+   "updated_at": "2026-08-02T21:31:12.3381660+00:00",
+   "board_state": "done",
+   "phase_name": "2-Descoberta",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "3-Arquitetura — SAD Ideal e Restrito",
+   "state": "completed",
+   "version": 267,
+   "created_at": "2026-08-02T21:43:28.7869010+00:00",
+   "updated_at": "2026-08-03T11:14:25.3110610+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ26X4RKH4MMJ4AC5GYAGD2Q",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "3-Arquitetura — ADRs",
+   "state": "completed",
+   "version": 39,
+   "created_at": "2026-08-02T21:43:28.7876700+00:00",
+   "updated_at": "2026-08-02T23:16:16.4064040+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ26X4RMK99AMT114ZM2H7XH",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "3-Arquitetura — C4 (Contexto e Contêiner)",
+   "state": "completed",
+   "version": 21,
+   "created_at": "2026-08-02T21:43:28.7880560+00:00",
+   "updated_at": "2026-08-02T23:10:11.3297110+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ26X4RMW78PPSWB7W5JZQ5F",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "3-Arquitetura — DER",
+   "state": "completed",
+   "version": 45,
+   "created_at": "2026-08-02T21:43:28.7884680+00:00",
+   "updated_at": "2026-08-03T00:18:40.8914040+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ26X4RMGGNVJ4N6P3E0ZHPH",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "3-Arquitetura — Comparativo de trade-off",
+   "state": "completed",
+   "version": 10,
+   "created_at": "2026-08-02T21:43:28.7889090+00:00",
+   "updated_at": "2026-08-02T22:56:02.0408740+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "3-Arquitetura — Threat Model STRIDE",
+   "state": "completed",
+   "version": 151,
+   "created_at": "2026-08-02T21:43:28.7895390+00:00",
+   "updated_at": "2026-08-03T16:15:57.9341500+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "3-Arquitetura — Plano de Observabilidade",
+   "state": "completed",
+   "version": 247,
+   "created_at": "2026-08-02T21:43:28.7898630+00:00",
+   "updated_at": "2026-08-03T10:11:06.0645480+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ2B20023PM7T98QXWFJ1XYX",
+   "demand_id": "01KZ28Z4EGKVZ1B7AS1QETDWMP",
+   "title": "3-Arquitetura — Comparativo de trade-off — atualização 01KZ2AVSGCT35BRX39Y4JVA4WF",
+   "state": "completed",
+   "version": 15,
+   "created_at": "2026-08-02T22:56:02.0507490+00:00",
+   "updated_at": "2026-08-02T23:27:47.0030180+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "demand_id": "01KZ28Z4EGKVZ1B7AS1QETDWMP",
+   "title": "3-Arquitetura — C4 (Contexto e Contêiner) — atualização 01KZ2BC16QWJ49EADW2AWBX2XN",
+   "state": "completed",
+   "version": 210,
+   "created_at": "2026-08-02T23:10:11.3398140+00:00",
+   "updated_at": "2026-08-03T10:26:17.7286570+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ2C71WYF9ZERVRK9FXR9C7Z",
+   "demand_id": "01KZ28Z4EGKVZ1B7AS1QETDWMP",
+   "title": "3-Arquitetura — ADRs — atualização 01KZ2BC16QWJ49EADW2AWBX2XN",
+   "state": "completed",
+   "version": 75,
+   "created_at": "2026-08-02T23:16:16.4148430+00:00",
+   "updated_at": "2026-08-03T10:45:21.0535410+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ2CW4AEZQ69XS6R9NVBXYPK",
+   "demand_id": "01KZ28Z4EGKVZ1B7AS1QETDWMP",
+   "title": "3-Arquitetura — Comparativo de trade-off — atualização 01KZ2BC16QWJ49EADW2AWBX2XN",
+   "state": "completed",
+   "version": 14,
+   "created_at": "2026-08-02T23:27:47.0225330+00:00",
+   "updated_at": "2026-08-02T23:38:09.5662410+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ2DF491MZRCRKM8KQX76Q2T",
+   "demand_id": "01KZ28Z4EGKVZ1B7AS1QETDWMP",
+   "title": "3-Arquitetura — Comparativo de trade-off — atualização 01KZ2D824WQ0WQSQYN5XMFNWSW",
+   "state": "completed",
+   "version": 14,
+   "created_at": "2026-08-02T23:38:09.5699940+00:00",
+   "updated_at": "2026-08-02T23:51:37.8119240+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ2E7SJXQ0FTGFRA7NSKTEV0",
+   "demand_id": "01KZ28Z4EGKVZ1B7AS1QETDWMP",
+   "title": "3-Arquitetura — Comparativo de trade-off — atualização 01KZ2DPE46DQJSXG2HT37ZME5H",
+   "state": "completed",
+   "version": 10,
+   "created_at": "2026-08-02T23:51:37.8214190+00:00",
+   "updated_at": "2026-08-02T23:58:16.7302610+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "demand_id": "01KZ28Z4EGKVZ1B7AS1QETDWMP",
+   "title": "3-Arquitetura — Comparativo de trade-off — atualização 01KZ2E8Y4EFTXGXKTD2Z0076WN",
+   "state": "completed",
+   "version": 99,
+   "created_at": "2026-08-02T23:58:16.7377700+00:00",
+   "updated_at": "2026-08-03T13:55:55.7714320+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "demand_id": "01KZ28Z4EGKVZ1B7AS1QETDWMP",
+   "title": "3-Arquitetura — DER — atualização 01KZ2E8Y4EFTXGXKTD2Z0076WN",
+   "state": "completed",
+   "version": 108,
+   "created_at": "2026-08-03T00:18:40.9031100+00:00",
+   "updated_at": "2026-08-03T13:29:32.7683200+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ3HP2PTMXBYGTJDTVQE105Q",
+   "demand_id": "01KZ28Z4EGKVZ1B7AS1QETDWMP",
+   "title": "3-Arquitetura — Plano de Observabilidade — atualização 01KZ2JD9D5R99RF2S61VHYJA08",
+   "state": "completed",
+   "version": 14,
+   "created_at": "2026-08-03T10:11:06.0749810+00:00",
+   "updated_at": "2026-08-03T10:21:46.8043210+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ3JHX054VYQXA0W9AFB1DK2",
+   "demand_id": "01KZ28Z4EGKVZ1B7AS1QETDWMP",
+   "title": "3-Arquitetura — C4 (Contexto e Contêiner) — atualização 01KZ2JD9D5R99RF2S61VHYJA08",
+   "state": "completed",
+   "version": 13,
+   "created_at": "2026-08-03T10:26:17.7336360+00:00",
+   "updated_at": "2026-08-03T10:38:16.1914970+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ3KMSH0QP612VCE2C962GPB",
+   "demand_id": "01KZ28Z4EGKVZ1B7AS1QETDWMP",
+   "title": "3-Arquitetura — ADRs — atualização 01KZ2JD9D5R99RF2S61VHYJA08",
+   "state": "completed",
+   "version": 18,
+   "created_at": "2026-08-03T10:45:21.0567850+00:00",
+   "updated_at": "2026-08-03T11:09:19.7140800+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ3NA0XEKGC1E7ZMR2CSR7PW",
+   "demand_id": "01KZ28Z4EGKVZ1B7AS1QETDWMP",
+   "title": "3-Arquitetura — SAD Ideal e Restrito — atualização 01KZ2JD9D5R99RF2S61VHYJA08",
+   "state": "completed",
+   "version": 18,
+   "created_at": "2026-08-03T11:14:25.3260890+00:00",
+   "updated_at": "2026-08-03T13:41:56.4334250+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ3X1EB7VD97ZBXQNG25Q4Q2",
+   "demand_id": "01KZ28Z4EGKVZ1B7AS1QETDWMP",
+   "title": "3-Arquitetura — DER — atualização 01KZ2JD9D5R99RF2S61VHYJA08",
+   "state": "completed",
+   "version": 16,
+   "created_at": "2026-08-03T13:29:32.7758800+00:00",
+   "updated_at": "2026-08-03T16:25:18.2879420+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ3YHR7ZJN0X9EVG8FD2NG66",
+   "demand_id": "01KZ28Z4EGKVZ1B7AS1QETDWMP",
+   "title": "3-Arquitetura — Comparativo de trade-off — atualização 01KZ2JD9D5R99RF2S61VHYJA08",
+   "state": "completed",
+   "version": 12,
+   "created_at": "2026-08-03T13:55:55.7758380+00:00",
+   "updated_at": "2026-08-03T16:36:04.3929440+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ46J5FX4JHBEJ7G6SCHYTJT",
+   "demand_id": "01KZ28Z4EGKVZ1B7AS1QETDWMP",
+   "title": "3-Arquitetura — Threat Model STRIDE — atualização 01KZ2JD9D5R99RF2S61VHYJA08",
+   "state": "completed",
+   "version": 12,
+   "created_at": "2026-08-03T16:15:57.9491950+00:00",
+   "updated_at": "2026-08-03T16:47:35.2087540+00:00",
+   "board_state": "done",
+   "phase_name": "3-Arquitetura",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ46JSF40MQDPG04ZN8M4DB4",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "4-Planejamento — DoR e DoD",
+   "state": "completed",
+   "version": 20,
+   "created_at": "2026-08-03T16:16:18.4047170+00:00",
+   "updated_at": "2026-08-03T17:08:10.8056240+00:00",
+   "board_state": "done",
+   "phase_name": "4-Planejamento",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ46JSF6RCCS80W2MKCHM5K2",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "4-Planejamento — Cronograma de releases",
+   "state": "completed",
+   "version": 14,
+   "created_at": "2026-08-03T16:16:18.4061660+00:00",
+   "updated_at": "2026-08-03T17:20:59.6292210+00:00",
+   "board_state": "done",
+   "phase_name": "4-Planejamento",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ46JSF6PVC2KA3P6NCJGRRZ",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "4-Planejamento — Mapa de riscos e dependências",
+   "state": "completed",
+   "version": 15,
+   "created_at": "2026-08-03T16:16:18.4068810+00:00",
+   "updated_at": "2026-08-03T17:37:34.2799720+00:00",
+   "board_state": "done",
+   "phase_name": "4-Planejamento",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ4B7K34KMCSYNH0T36GF5NN",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "4-Planejamento — Conselho: parecer de playbook-po — ciclo 1",
+   "state": "completed",
+   "version": 30,
+   "created_at": "2026-08-03T17:37:34.3084930+00:00",
+   "updated_at": "2026-08-03T23:27:49.1334900+00:00",
+   "board_state": "done",
+   "phase_name": "4-Planejamento",
+   "card_type": "revisao"
+  },
+  {
+   "id": "01KZ4B7K3AB3NRXWJTYSZR8XHF",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "4-Planejamento — Conselho: parecer de playbook-arquiteto — ciclo 1",
+   "state": "completed",
+   "version": 23,
+   "created_at": "2026-08-03T17:37:34.3144930+00:00",
+   "updated_at": "2026-08-03T23:27:48.5039340+00:00",
+   "board_state": "done",
+   "phase_name": "4-Planejamento",
+   "card_type": "revisao"
+  },
+  {
+   "id": "01KZ4B7K3GWWKX3JD9F5TYJCZ1",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "4-Planejamento — Conselho: parecer de playbook-tech-lead — ciclo 1",
+   "state": "completed",
+   "version": 23,
+   "created_at": "2026-08-03T17:37:34.3204930+00:00",
+   "updated_at": "2026-08-03T23:27:48.6356230+00:00",
+   "board_state": "done",
+   "phase_name": "4-Planejamento",
+   "card_type": "revisao"
+  },
+  {
+   "id": "01KZ4B7K3P5BQTGASVA0R45486",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "4-Planejamento — Conselho: parecer de playbook-security — ciclo 1",
+   "state": "completed",
+   "version": 23,
+   "created_at": "2026-08-03T17:37:34.3264930+00:00",
+   "updated_at": "2026-08-03T23:27:48.7570930+00:00",
+   "board_state": "done",
+   "phase_name": "4-Planejamento",
+   "card_type": "revisao"
+  },
+  {
+   "id": "01KZ4B7K3W2SA9FQC27QGTBAHC",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "4-Planejamento — Conselho: parecer de playbook-dba-dados — ciclo 1",
+   "state": "completed",
+   "version": 23,
+   "created_at": "2026-08-03T17:37:34.3324930+00:00",
+   "updated_at": "2026-08-03T23:27:48.8800720+00:00",
+   "board_state": "done",
+   "phase_name": "4-Planejamento",
+   "card_type": "revisao"
+  },
+  {
+   "id": "01KZ4B7K42QRGDEZTM8GVEG6W8",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "4-Planejamento — Conselho: parecer de playbook-qa — ciclo 1",
+   "state": "completed",
+   "version": 23,
+   "created_at": "2026-08-03T17:37:34.3384930+00:00",
+   "updated_at": "2026-08-03T23:27:49.0086500+00:00",
+   "board_state": "done",
+   "phase_name": "4-Planejamento",
+   "card_type": "revisao"
+  },
+  {
+   "id": "01KZ4YA2BBK17G5Z4VERR13V6D",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "4-Planejamento — Conselho: parecer de playbook-product-owner — ciclo 1",
+   "state": "completed",
+   "version": 10,
+   "created_at": "2026-08-03T23:10:58.4117000+00:00",
+   "updated_at": "2026-08-03T23:27:49.2474410+00:00",
+   "board_state": "done",
+   "phase_name": "4-Planejamento",
+   "card_type": "revisao"
+  },
+  {
+   "id": "01KZ4ZH1VGRFTVM839Z1BVHYYE",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "5-Desenvolvimento — Briefing técnico",
+   "state": "completed",
+   "version": 17,
+   "created_at": "2026-08-03T23:32:15.8568180+00:00",
+   "updated_at": "2026-08-03T23:48:49.3723030+00:00",
+   "board_state": "done",
+   "phase_name": "5-Desenvolvimento",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ4ZH1VT101SC24CJG00MM5K",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "5-Desenvolvimento — Code review estruturado",
+   "state": "completed",
+   "version": 25,
+   "created_at": "2026-08-03T23:32:15.8668120+00:00",
+   "updated_at": "2026-08-04T00:03:57.4564410+00:00",
+   "board_state": "done",
+   "phase_name": "5-Desenvolvimento",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ4ZH1VVRKP129F7P0QN7A1M",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "5-Desenvolvimento — Métricas DORA",
+   "state": "completed",
+   "version": 12,
+   "created_at": "2026-08-03T23:32:15.8675040+00:00",
+   "updated_at": "2026-08-04T00:09:33.7873750+00:00",
+   "board_state": "done",
+   "phase_name": "5-Desenvolvimento",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ4ZH1VWDNBJ0HMF585S6NCW",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "5-Desenvolvimento — Dicionário ubíquo",
+   "state": "completed",
+   "version": 13,
+   "created_at": "2026-08-03T23:32:15.8680010+00:00",
+   "updated_at": "2026-08-04T00:14:34.3324710+00:00",
+   "board_state": "done",
+   "phase_name": "5-Desenvolvimento",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ4ZM2WYRFEHVNG05C4J3218",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "FEAT/T01 Backend: Controle de empréstimo e devolução de equipamentos",
+   "state": "cancelled",
+   "version": 65,
+   "created_at": "2026-08-03T23:33:55.2303810+00:00",
+   "updated_at": "2026-08-04T14:36:48.1267400+00:00",
+   "board_state": "done",
+   "phase_name": "5-Desenvolvimento",
+   "card_type": "agent_task"
+  },
+  {
+   "id": "01KZ4ZM2X6QH64674T7T0ZH7QR",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "FEAT/T02 Frontend: Controle de empréstimo e devolução de equipamentos",
+   "state": "cancelled",
+   "version": 34,
+   "created_at": "2026-08-03T23:33:55.2383810+00:00",
+   "updated_at": "2026-08-04T14:36:48.1347650+00:00",
+   "board_state": "done",
+   "phase_name": "5-Desenvolvimento",
+   "card_type": "agent_task"
+  },
+  {
+   "id": "01KZ4ZM2XRDYR3W124KJSJQNKJ",
+   "demand_id": "01KZ256JPZRYMKACH3KA1WW9K7",
+   "title": "FEAT/T01 Backend: Uso compartilhado do controle de empréstimos pela equipe",
+   "state": "completed",
+   "version": 45,
+   "created_at": "2026-08-03T23:33:55.2565190+00:00",
+   "updated_at": "2026-08-04T10:41:15.3010310+00:00",
+   "board_state": "done",
+   "phase_name": "5-Desenvolvimento",
+   "card_type": "agent_task"
+  },
+  {
+   "id": "01KZ4ZM2XV8A4HJEZZSHF6QRMR",
+   "demand_id": "01KZ28Z4EGKVZ1B7AS1QETDWMP",
+   "title": "FEAT/T01 Backend: Registro simples de eventos de empréstimo no próprio sistema",
+   "state": "completed",
+   "version": 34,
+   "created_at": "2026-08-03T23:33:55.2599510+00:00",
+   "updated_at": "2026-08-04T03:24:23.1254640+00:00",
+   "board_state": "done",
+   "phase_name": "5-Desenvolvimento",
+   "card_type": "agent_task"
+  },
+  {
+   "id": "01KZ4ZM2Y0J21W0JMC00HWG7XT",
+   "demand_id": "01KZ256JPZRYMKACH3KA1WW9K7",
+   "title": "FEAT/T02 Frontend: Uso compartilhado do controle de empréstimos pela equipe",
+   "state": "cancelled",
+   "version": 24,
+   "created_at": "2026-08-03T23:33:55.2645190+00:00",
+   "updated_at": "2026-08-04T14:36:48.1409920+00:00",
+   "board_state": "done",
+   "phase_name": "5-Desenvolvimento",
+   "card_type": "agent_task"
+  },
+  {
+   "id": "01KZ65YZFAM3YRZBWZRRE89606",
+   "demand_id": "01KZ65YZFCPTF7EZJJJER1AHMS",
+   "title": "ADR: decisão de stack e estrutura do servidor de empréstimos",
+   "state": "cancelled",
+   "version": 53,
+   "created_at": "2026-08-04T10:43:58.0584610+00:00",
+   "updated_at": "2026-08-04T14:36:48.1124460+00:00",
+   "board_state": "done",
+   "phase_name": "5-Desenvolvimento",
+   "card_type": "adr"
+  },
+  {
+   "id": "01KZ67TXGBXPH38134RV8MN084",
+   "demand_id": "01KZ67TXGDAX3R2D4A7WXZPK36",
+   "title": "ADR de stack do servidor de empréstimos (ratificação)",
+   "state": "completed",
+   "version": 10,
+   "created_at": "2026-08-04T11:16:42.1231780+00:00",
+   "updated_at": "2026-08-04T11:20:59.2541770+00:00",
+   "board_state": "done",
+   "phase_name": "5-Desenvolvimento",
+   "card_type": "adr"
+  },
+  {
+   "id": "01KZ68730XCWAF6NY9EXJG2SVD",
+   "demand_id": "01KZ68730ZA2DZA7MXQJM1Q0JJ",
+   "title": "FEAT/T01 Backend: registro e devolução de empréstimo com controle de atraso",
+   "state": "completed",
+   "version": 10,
+   "created_at": "2026-08-04T11:23:20.9893490+00:00",
+   "updated_at": "2026-08-04T11:35:23.0770940+00:00",
+   "board_state": "done",
+   "phase_name": "5-Desenvolvimento",
+   "card_type": "agent_task"
+  },
+  {
+   "id": "01KZ690KDMK400839K3MDDCGFD",
+   "demand_id": "01KZ690KDPCM9JWRC90J3H2R6A",
+   "title": "ADR de fronteira do piloto: entrega backend-only",
+   "state": "completed",
+   "version": 10,
+   "created_at": "2026-08-04T11:37:16.9807710+00:00",
+   "updated_at": "2026-08-04T11:40:56.8389940+00:00",
+   "board_state": "done",
+   "phase_name": "5-Desenvolvimento",
+   "card_type": "adr"
+  },
+  {
+   "id": "01KZ6ESXYM7T15DBFSEV1KPM9W",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "6-Testes — Plano de Testes",
+   "state": "completed",
+   "version": 21,
+   "created_at": "2026-08-04T13:18:29.8442980+00:00",
+   "updated_at": "2026-08-04T14:09:51.7847840+00:00",
+   "board_state": "done",
+   "phase_name": "6-Testes",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ6ESXYYDA331Q5BMJWXYHE7",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "6-Testes — Relatório de Quality Gate",
+   "state": "completed",
+   "version": 18,
+   "created_at": "2026-08-04T13:18:29.8548490+00:00",
+   "updated_at": "2026-08-04T14:20:38.9079670+00:00",
+   "board_state": "done",
+   "phase_name": "6-Testes",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ6ESXYZCPYC3E19D8ZS9GS3",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "6-Testes — Relatório de Performance",
+   "state": "completed",
+   "version": 12,
+   "created_at": "2026-08-04T13:18:29.8556590+00:00",
+   "updated_at": "2026-08-04T14:25:26.1826290+00:00",
+   "board_state": "done",
+   "phase_name": "6-Testes",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ6ESXZ07X0HBSXP2GP51F4S",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "6-Testes — Relatório de Pentest",
+   "state": "escalated",
+   "version": 33,
+   "created_at": "2026-08-04T13:18:29.8564000+00:00",
+   "updated_at": "2026-08-04T15:42:11.5537830+00:00",
+   "board_state": "blocked",
+   "phase_name": "6-Testes",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ6ESXZ0Z6KQ24J8NG68829B",
+   "demand_id": "01KZ24KFDV7D20K1EY1X053J26",
+   "title": "6-Testes — Parecer Go/No-Go",
+   "state": "completed",
+   "version": 17,
+   "created_at": "2026-08-04T13:18:29.8569570+00:00",
+   "updated_at": "2026-08-04T15:04:04.3461540+00:00",
+   "board_state": "done",
+   "phase_name": "6-Testes",
+   "card_type": "documento"
+  },
+  {
+   "id": "01KZ6FT2W9R7JXQYM6SBKEV8C6",
+   "demand_id": "01KZ6FT2WBQ280DFA46HM3WH6H",
+   "title": "ADR de stack da interface de empréstimos",
+   "state": "completed",
+   "version": 10,
+   "created_at": "2026-08-04T13:36:03.4654300+00:00",
+   "updated_at": "2026-08-04T13:42:36.0407570+00:00",
+   "board_state": "done",
+   "phase_name": "5-Desenvolvimento",
+   "card_type": "adr"
+  },
+  {
+   "id": "01KZ6G86RS0HMGP4311E8BDDFN",
+   "demand_id": "01KZ6G86RVBY9NDA582PBPG94H",
+   "title": "FEAT/T02 Interface: tela de controle de empréstimos",
+   "state": "completed",
+   "version": 10,
+   "created_at": "2026-08-04T13:43:46.2015210+00:00",
+   "updated_at": "2026-08-04T14:16:35.4901180+00:00",
+   "board_state": "done",
+   "phase_name": "5-Desenvolvimento",
+   "card_type": "agent_task"
+  }
+ ],
+ "tentativas": [
+  {
+   "id": "01KZ24JYCYPF452XXJAC7KV9VN",
+   "task_id": "01KZ24JY7F406ZY50XSXKSVTNW",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-02T21:02:57.4387670+00:00"
+  },
+  {
+   "id": "01KZ24WVNDW7QDZFGG5HCEBKP3",
+   "task_id": "01KZ24JY7F406ZY50XSXKSVTNW",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-02T21:08:22.3171380+00:00"
+  },
+  {
+   "id": "01KZ2554VX0DBPNN6TB4679VW8",
+   "task_id": "01KZ24JY7F406ZY50XSXKSVTNW",
+   "attempt_number": 3,
+   "state": "approved",
+   "started_at": "2026-08-02T21:12:53.8856050+00:00"
+  },
+  {
+   "id": "01KZ2598CKAGE5ANKJSVBQNKVG",
+   "task_id": "01KZ25989J10TF1EJ1RPT1HQQB",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-02T21:15:08.5632100+00:00"
+  },
+  {
+   "id": "01KZ25FBZ64N1QWA7T467PF7XH",
+   "task_id": "01KZ259WPH3JRA2H2AB2X0Y108",
+   "attempt_number": 1,
+   "state": "approved",
+   "started_at": "2026-08-02T21:18:28.8388320+00:00"
+  },
+  {
+   "id": "01KZ25PF9XDRC10AMZ2BBGV6PG",
+   "task_id": "01KZ25989J10TF1EJ1RPT1HQQB",
+   "attempt_number": 2,
+   "state": "approved",
+   "started_at": "2026-08-02T21:22:21.6294960+00:00"
+  },
+  {
+   "id": "01KZ25X6N0V78QPDBYSKT1H63H",
+   "task_id": "01KZ259WPJEERCZDQ9V1RRKAC4",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-02T21:26:02.1443050+00:00"
+  },
+  {
+   "id": "01KZ2624EXWMJQZMMRRMGRAYHB",
+   "task_id": "01KZ259WPJEERCZDQ9V1RRKAC4",
+   "attempt_number": 2,
+   "state": "approved",
+   "started_at": "2026-08-02T21:28:43.7413380+00:00"
+  },
+  {
+   "id": "01KZ266NNRSJAQHEGJ7MWYF61C",
+   "task_id": "01KZ259WPJRZ1PRWS5N9Q5F36Y",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-02T21:31:12.4406320+00:00"
+  },
+  {
+   "id": "01KZ26BFN6FMAJZXAWT2ZEX2WE",
+   "task_id": "01KZ259WPJRZ1PRWS5N9Q5F36Y",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-02T21:33:50.1187520+00:00"
+  },
+  {
+   "id": "01KZ26NPVXV2PZZ28DYN5BWGYX",
+   "task_id": "01KZ259WPJRZ1PRWS5N9Q5F36Y",
+   "attempt_number": 3,
+   "state": "approved",
+   "started_at": "2026-08-02T21:39:25.1814330+00:00"
+  },
+  {
+   "id": "01KZ26X4WBZPS61VBTQRG977VA",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-02T21:43:28.9079030+00:00"
+  },
+  {
+   "id": "01KZ270C15E8B8ZB8K7NEWM0MN",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-02T21:45:14.5337510+00:00"
+  },
+  {
+   "id": "01KZ277A7D466N1TDC3PR1KW6R",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-02T21:49:02.0612700+00:00"
+  },
+  {
+   "id": "01KZ27FPCY7F6NQMGPH0J5Z867",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 3,
+   "state": "rejected",
+   "started_at": "2026-08-02T21:53:36.6703120+00:00"
+  },
+  {
+   "id": "01KZ27HK6Q50HTYSN8Q32T46VR",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-02T21:54:38.9358740+00:00"
+  },
+  {
+   "id": "01KZ27R03V8FBEDCN2J54ZN6GZ",
+   "task_id": "01KZ26X4RKH4MMJ4AC5GYAGD2Q",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-02T21:58:08.7635840+00:00"
+  },
+  {
+   "id": "01KZ27WJ4EA4NDRM3VC5KHTSY7",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 3,
+   "state": "rejected",
+   "started_at": "2026-08-02T22:00:38.2869970+00:00"
+  },
+  {
+   "id": "01KZ2894VJNP1BETFFCP1G1GRA",
+   "task_id": "01KZ26X4RKH4MMJ4AC5GYAGD2Q",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-02T22:07:30.6740140+00:00"
+  },
+  {
+   "id": "01KZ28HHE2GQZWA3HVHQDEPR9M",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 4,
+   "state": "rejected",
+   "started_at": "2026-08-02T22:12:05.6987820+00:00"
+  },
+  {
+   "id": "01KZ28QJ8KYJ7ZSW1EEG6ER0M6",
+   "task_id": "01KZ26X4RKH4MMJ4AC5GYAGD2Q",
+   "attempt_number": 3,
+   "state": "rejected",
+   "started_at": "2026-08-02T22:15:23.1558010+00:00"
+  },
+  {
+   "id": "01KZ296SABNMJKB4EKEEXG2S5A",
+   "task_id": "01KZ26X4RKH4MMJ4AC5GYAGD2Q",
+   "attempt_number": 4,
+   "state": "rejected",
+   "started_at": "2026-08-02T22:23:41.8996140+00:00"
+  },
+  {
+   "id": "01KZ29D7GMKDXMYM89A312B305",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 5,
+   "state": "rejected",
+   "started_at": "2026-08-02T22:27:13.0440450+00:00"
+  },
+  {
+   "id": "01KZ29TSXZSXWEG6RRXDP72CHK",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 6,
+   "state": "rejected",
+   "started_at": "2026-08-02T22:34:37.8875150+00:00"
+  },
+  {
+   "id": "01KZ2A0DVEENPRJB09GR8YWSVN",
+   "task_id": "01KZ26X4RKH4MMJ4AC5GYAGD2Q",
+   "attempt_number": 5,
+   "state": "rejected",
+   "started_at": "2026-08-02T22:37:42.1261700+00:00"
+  },
+  {
+   "id": "01KZ2ABQ383CJTHM6NZ8YVJN29",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 7,
+   "state": "rejected",
+   "started_at": "2026-08-02T22:43:52.0403200+00:00"
+  },
+  {
+   "id": "01KZ2ANTGM2RYARNHJH2EBDTXG",
+   "task_id": "01KZ26X4RKH4MMJ4AC5GYAGD2Q",
+   "attempt_number": 6,
+   "state": "rejected",
+   "started_at": "2026-08-02T22:49:23.2203970+00:00"
+  },
+  {
+   "id": "01KZ2AVQC7KCZZQ83YQMJKMBQD",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 8,
+   "state": "rejected",
+   "started_at": "2026-08-02T22:52:36.6159470+00:00"
+  },
+  {
+   "id": "01KZ2AVQD85W18ZQBTZZAV64CJ",
+   "task_id": "01KZ26X4RMK99AMT114ZM2H7XH",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-02T22:52:36.6480430+00:00"
+  },
+  {
+   "id": "01KZ2AVQDT6KHP6HXAVMQ89Z3E",
+   "task_id": "01KZ26X4RMW78PPSWB7W5JZQ5F",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-02T22:52:36.6668560+00:00"
+  },
+  {
+   "id": "01KZ2AVQECVWWMMCT6JBVYGB9P",
+   "task_id": "01KZ26X4RMGGNVJ4N6P3E0ZHPH",
+   "attempt_number": 1,
+   "state": "approved",
+   "started_at": "2026-08-02T22:52:36.6846080+00:00"
+  },
+  {
+   "id": "01KZ2B2042KZB6FJ54XKYYKA2R",
+   "task_id": "01KZ2B20023PM7T98QXWFJ1XYX",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-02T22:56:02.1784510+00:00"
+  },
+  {
+   "id": "01KZ2B2045GNC471GG1PA3NYGM",
+   "task_id": "01KZ26X4RMW78PPSWB7W5JZQ5F",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-02T22:56:02.1812320+00:00"
+  },
+  {
+   "id": "01KZ2B204DZE0W2WGTBHR4BSB9",
+   "task_id": "01KZ26X4RMK99AMT114ZM2H7XH",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-02T22:56:02.1890940+00:00"
+  },
+  {
+   "id": "01KZ2B204F4RMHKWRTX9M4CAQV",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 9,
+   "state": "rejected",
+   "started_at": "2026-08-02T22:56:02.1912270+00:00"
+  },
+  {
+   "id": "01KZ2BACJ38YEX20P1CV5NPG58",
+   "task_id": "01KZ26X4RMK99AMT114ZM2H7XH",
+   "attempt_number": 3,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:00:37.0596210+00:00"
+  },
+  {
+   "id": "01KZ2BBZGPW0Q3EYND1B3ESQPA",
+   "task_id": "01KZ26X4RMW78PPSWB7W5JZQ5F",
+   "attempt_number": 3,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:01:29.2384780+00:00"
+  },
+  {
+   "id": "01KZ2BJC0REJ8C8AT9S2HPVNKA",
+   "task_id": "01KZ26X4RMK99AMT114ZM2H7XH",
+   "attempt_number": 4,
+   "state": "approved",
+   "started_at": "2026-08-02T23:04:58.6486730+00:00"
+  },
+  {
+   "id": "01KZ2BVXFJKJNJR38MKEAEK3ZJ",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:10:11.4423180+00:00"
+  },
+  {
+   "id": "01KZ2C2JNCJNRD0J2488ZR2A2Y",
+   "task_id": "01KZ26X4RKH4MMJ4AC5GYAGD2Q",
+   "attempt_number": 7,
+   "state": "approved",
+   "started_at": "2026-08-02T23:13:49.7403380+00:00"
+  },
+  {
+   "id": "01KZ2C71ZJMJSMJD8FVDYRJDXV",
+   "task_id": "01KZ2C71WYF9ZERVRK9FXR9C7Z",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:16:16.4989350+00:00"
+  },
+  {
+   "id": "01KZ2CD2VQ2XPXATC93S3BBXM7",
+   "task_id": "01KZ26X4RMW78PPSWB7W5JZQ5F",
+   "attempt_number": 4,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:19:34.0071820+00:00"
+  },
+  {
+   "id": "01KZ2CDQ21MFDFC9Y0B9SWA1FD",
+   "task_id": "01KZ2B20023PM7T98QXWFJ1XYX",
+   "attempt_number": 2,
+   "state": "approved",
+   "started_at": "2026-08-02T23:19:54.6894130+00:00"
+  },
+  {
+   "id": "01KZ2CW4G8XSG28M2G8DGPPY09",
+   "task_id": "01KZ2CW4AEZQ69XS6R9NVBXYPK",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:27:47.2084500+00:00"
+  },
+  {
+   "id": "01KZ2D2K5SK4F9CHFQGKG40ZWT",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:31:18.8416520+00:00"
+  },
+  {
+   "id": "01KZ2D2XD288SBCWXKY4BF95Y6",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:31:29.3148230+00:00"
+  },
+  {
+   "id": "01KZ2D51BQEYHHA1DG4WBGV7DR",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 3,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:32:38.9034040+00:00"
+  },
+  {
+   "id": "01KZ2D5E8X5S02ZNVS4J3H5FDR",
+   "task_id": "01KZ2CW4AEZQ69XS6R9NVBXYPK",
+   "attempt_number": 2,
+   "state": "approved",
+   "started_at": "2026-08-02T23:32:52.1255330+00:00"
+  },
+  {
+   "id": "01KZ2D630TPWAQPGBB07RCZVGJ",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 4,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:33:13.3709570+00:00"
+  },
+  {
+   "id": "01KZ2D9Z544DM00BH0MYGBAW9T",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 5,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:35:20.4848510+00:00"
+  },
+  {
+   "id": "01KZ2DDTVN8KM7KBKE0C214JA3",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 6,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:37:27.1578970+00:00"
+  },
+  {
+   "id": "01KZ2DF4DC04PYVYJAF38JHAFW",
+   "task_id": "01KZ2DF491MZRCRKM8KQX76Q2T",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:38:09.7089300+00:00"
+  },
+  {
+   "id": "01KZ2DJ1NNJQ2M5ETZDCP5KEDE",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 7,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:39:45.2056880+00:00"
+  },
+  {
+   "id": "01KZ2DNXRK6EFMWV1EMSETXW38",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 8,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:41:52.2757780+00:00"
+  },
+  {
+   "id": "01KZ2DNXXDT9WG9VTEG71RYW6N",
+   "task_id": "01KZ26X4RMW78PPSWB7W5JZQ5F",
+   "attempt_number": 5,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:41:52.4291730+00:00"
+  },
+  {
+   "id": "01KZ2DQ156HF57CTSEX5AFPKR6",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 10,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:42:28.5181250+00:00"
+  },
+  {
+   "id": "01KZ2DSXBQWKZRX6F81WR8S8J0",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 9,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:44:02.9350500+00:00"
+  },
+  {
+   "id": "01KZ2DTWHJ60W50MBN5PF2V6X2",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 11,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:44:34.8663610+00:00"
+  },
+  {
+   "id": "01KZ2DWFFQQHR2X7TJ6MDGX1RM",
+   "task_id": "01KZ2DF491MZRCRKM8KQX76Q2T",
+   "attempt_number": 2,
+   "state": "approved",
+   "started_at": "2026-08-02T23:45:27.0315930+00:00"
+  },
+  {
+   "id": "01KZ2DXRG2WA2T3MVT0Q3KC29Q",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 10,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:46:09.0260110+00:00"
+  },
+  {
+   "id": "01KZ2DYQMZ0NNXPZN70P7NN1XA",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 12,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:46:40.9272350+00:00"
+  },
+  {
+   "id": "01KZ2E1KSF7K81SBNSJQN74RZT",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 11,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:48:15.2799200+00:00"
+  },
+  {
+   "id": "01KZ2E2JZCBX83RVYGZE2ZESRP",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 13,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:48:47.2124140+00:00"
+  },
+  {
+   "id": "01KZ2E5EX41QDTW1JW3PNV4BCA",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 12,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:50:21.3485730+00:00"
+  },
+  {
+   "id": "01KZ2E6EX9AE7T5H1SZ2G1M809",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 14,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:50:54.1214810+00:00"
+  },
+  {
+   "id": "01KZ2E7SSZN98MBEADN5N5QF0B",
+   "task_id": "01KZ2E7SJXQ0FTGFRA7NSKTEV0",
+   "attempt_number": 1,
+   "state": "approved",
+   "started_at": "2026-08-02T23:51:38.0474150+00:00"
+  },
+  {
+   "id": "01KZ2E9RTDWZCG2K05JMT685EW",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 4,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:52:42.5733200+00:00"
+  },
+  {
+   "id": "01KZ2E9RTJPVEW0DY1FSYKS3CZ",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 13,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:52:42.5783480+00:00"
+  },
+  {
+   "id": "01KZ2EAQX14ZTGDVH5Y6R1WXE6",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 15,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:53:14.4010550+00:00"
+  },
+  {
+   "id": "01KZ2EDM8RJGA8JNTR2J8S2ZKZ",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 14,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:54:48.9848090+00:00"
+  },
+  {
+   "id": "01KZ2EDM8Y2AM6CHDVVSZCCN0V",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 5,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:54:48.9904300+00:00"
+  },
+  {
+   "id": "01KZ2EEK86SSVFS2TC9X7NRD2S",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 16,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:55:20.7106140+00:00"
+  },
+  {
+   "id": "01KZ2EHG353JNQT9NGAKM4904Z",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 6,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:56:55.7814340+00:00"
+  },
+  {
+   "id": "01KZ2EHG395DAFG6B7VTMYWAF8",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 15,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:56:55.7852070+00:00"
+  },
+  {
+   "id": "01KZ2EKZBQ6H1NM5NZN9BQ4FFY",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:58:16.9516760+00:00"
+  },
+  {
+   "id": "01KZ2EKZCPREBK1F205K7N7B53",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 17,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:58:16.9825390+00:00"
+  },
+  {
+   "id": "01KZ2ENKV6A3RM22BB54T8832E",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 7,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:59:10.6945530+00:00"
+  },
+  {
+   "id": "01KZ2ENKVGJKDZ3F6FZYJY0N3D",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 16,
+   "state": "rejected",
+   "started_at": "2026-08-02T23:59:10.7042630+00:00"
+  },
+  {
+   "id": "01KZ2EQXRH9RR9ZP696TESZ60J",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 18,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:00:26.3854650+00:00"
+  },
+  {
+   "id": "01KZ2ESKDJ83BVJD3307YVJR7Q",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 17,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:01:21.3302040+00:00"
+  },
+  {
+   "id": "01KZ2ESKE6JD5HZRCSXXFPZY5G",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 8,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:01:21.3507260+00:00"
+  },
+  {
+   "id": "01KZ2ESYB0VVK8GPK40576EFTB",
+   "task_id": "01KZ26X4RMW78PPSWB7W5JZQ5F",
+   "attempt_number": 6,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:01:32.5126840+00:00"
+  },
+  {
+   "id": "01KZ2EVK67H62BEZ9M1EGAVY09",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 19,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:02:26.6316710+00:00"
+  },
+  {
+   "id": "01KZ2EXHJDZHHFRTN6SZ3XA7FH",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 9,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:03:30.5093140+00:00"
+  },
+  {
+   "id": "01KZ2EXHJG6VNHZP6P4TM2EWHV",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 18,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:03:30.5126990+00:00"
+  },
+  {
+   "id": "01KZ2EZEX9TBKHFY5G2TCD4JVB",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 20,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:04:33.3210940+00:00"
+  },
+  {
+   "id": "01KZ2F1CSPZ9NYAVWPYC40GX5K",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 19,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:05:36.6943820+00:00"
+  },
+  {
+   "id": "01KZ2F1CSSVQXPQ9WEHK3WTASS",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 10,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:05:36.6977170+00:00"
+  },
+  {
+   "id": "01KZ2F3A2BXHQE7C5YYTVRQZRM",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 21,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:06:39.4357060+00:00"
+  },
+  {
+   "id": "01KZ2F57Z612JJKBKMJD0NQMJY",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 11,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:07:42.8226090+00:00"
+  },
+  {
+   "id": "01KZ2F57ZARF953MCAXKNASAQZ",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 20,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:07:42.8261810+00:00"
+  },
+  {
+   "id": "01KZ2F6B2WF4ZPRPVFBRHXBGRB",
+   "task_id": "01KZ26X4RMW78PPSWB7W5JZQ5F",
+   "attempt_number": 7,
+   "state": "approved",
+   "started_at": "2026-08-03T00:08:18.7803620+00:00"
+  },
+  {
+   "id": "01KZ2F6ZKW4Q2X1BQW6N0E942W",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 22,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:08:39.8046310+00:00"
+  },
+  {
+   "id": "01KZ2F8XZ5GYAF12FZMMP9WDRP",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 21,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:09:43.6539120+00:00"
+  },
+  {
+   "id": "01KZ2F8XZBNC24GD75P36Q7XZ5",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 12,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:09:43.6596820+00:00"
+  },
+  {
+   "id": "01KZ2FAVBJAB1ZX630GWS0QS1N",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 23,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:10:46.5149260+00:00"
+  },
+  {
+   "id": "01KZ2FCS9AQXFT9MH6E2X65X07",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 13,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:11:49.9306540+00:00"
+  },
+  {
+   "id": "01KZ2FCS9ECXG18YZR32WHAY48",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 22,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:11:49.9342680+00:00"
+  },
+  {
+   "id": "01KZ2FEPMERQF0K35ZTY0FTT4Y",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 24,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:12:52.7508050+00:00"
+  },
+  {
+   "id": "01KZ2FGMHHW2SZVGVKDWXBWRVW",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 23,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:13:56.1452270+00:00"
+  },
+  {
+   "id": "01KZ2FGMHPM1Q1KYA5ZXJAZYR2",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 14,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:13:56.1502230+00:00"
+  },
+  {
+   "id": "01KZ2FJHXX1RBKKXZKVAAR4NVP",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 25,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:14:59.0052370+00:00"
+  },
+  {
+   "id": "01KZ2FMFSP7ZT0PXTQ5DGP7EF3",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 15,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:16:02.3586130+00:00"
+  },
+  {
+   "id": "01KZ2FMFSVFY1JKW014WZ9ENSB",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 24,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:16:02.3634930+00:00"
+  },
+  {
+   "id": "01KZ2FPD59EV07H1XFXJGHJGHB",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 26,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:17:05.1936460+00:00"
+  },
+  {
+   "id": "01KZ2FRB8KA9FE9C3J78STD7WF",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 25,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:18:08.7872090+00:00"
+  },
+  {
+   "id": "01KZ2FRB8RJ4KGZWYTSX69MYZW",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 16,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:18:08.7922890+00:00"
+  },
+  {
+   "id": "01KZ2FSAQR7A26DSRGEEE1GBCB",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:18:41.0168020+00:00"
+  },
+  {
+   "id": "01KZ2FTKN8NCSA01MWW565EBRW",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 27,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:19:22.9204380+00:00"
+  },
+  {
+   "id": "01KZ2FWHNQ93DHM7NQY4VXS7WX",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 26,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:20:26.4234140+00:00"
+  },
+  {
+   "id": "01KZ2FWHP2RAAM1XSA6GVHKBSE",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 17,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:20:26.4345910+00:00"
+  },
+  {
+   "id": "01KZ2FYF5TBRAS3R7S2EYDMMTM",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 28,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:21:29.4029990+00:00"
+  },
+  {
+   "id": "01KZ2FZRHP4J8VCDX4W44BZC5D",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:22:11.7666890+00:00"
+  },
+  {
+   "id": "01KZ2G0DAGFX6357NY4CB9AZBG",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 18,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:22:33.0408230+00:00"
+  },
+  {
+   "id": "01KZ2G0DAN9SBM70PVSC3N81RP",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 27,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:22:33.0455140+00:00"
+  },
+  {
+   "id": "01KZ2G2AH1RZ335QYQTH9B61ED",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 29,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:23:35.7133450+00:00"
+  },
+  {
+   "id": "01KZ2G48M2YK1J54QYR5V442DK",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 28,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:24:39.2983710+00:00"
+  },
+  {
+   "id": "01KZ2G48MCHBK2Z1QDQR71H844",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 19,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:24:39.3082630+00:00"
+  },
+  {
+   "id": "01KZ2G7DQX5RNPDSSEZ08NNMGK",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 20,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:26:22.8452740+00:00"
+  },
+  {
+   "id": "01KZ2G7FNRZF5RPCPQ4GTNJ653",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:26:24.8245670+00:00"
+  },
+  {
+   "id": "01KZ2G84RFEB0KJV1YGCQ2X6XB",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 29,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:26:46.4150760+00:00"
+  },
+  {
+   "id": "01KZ2G8G9EMJKH5DPVEBME80W0",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 30,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:26:58.2221460+00:00"
+  },
+  {
+   "id": "01KZ2GA9WKFNYRBF1G275228BY",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 30,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:27:57.2033110+00:00"
+  },
+  {
+   "id": "01KZ2GABXJW6R8ZA0HRAEP03J4",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 3,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:27:59.2821420+00:00"
+  },
+  {
+   "id": "01KZ2GB0M8QVNA4A8ERQS9G29N",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 21,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:28:20.4888770+00:00"
+  },
+  {
+   "id": "01KZ2GDZX9RTKFN5R9T44DAS7A",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 31,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:29:58.0579710+00:00"
+  },
+  {
+   "id": "01KZ2GN4063783GJWAZXAAGREB",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 4,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:33:51.6226230+00:00"
+  },
+  {
+   "id": "01KZ2GN5PE6ZJTPPFY484334VF",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 32,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:33:53.3580850+00:00"
+  },
+  {
+   "id": "01KZ2GN7N15NJ40Z8C5ZYA7GA5",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 3,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:33:55.3619820+00:00"
+  },
+  {
+   "id": "01KZ2GNR0NWZ0PAS2W2M15Q74W",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 22,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:34:12.1176300+00:00"
+  },
+  {
+   "id": "01KZ2GTSF7FAWZ3P5RFGE5YZ8D",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 5,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:36:57.4473130+00:00"
+  },
+  {
+   "id": "01KZ2GVB0066XS0957384K6F0K",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 4,
+   "state": "rejected",
+   "started_at": "2026-08-03T00:37:15.3928120+00:00"
+  },
+  {
+   "id": "01KZ2JCMMR5N0TYHDGB0F6J348",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 6,
+   "state": "rejected",
+   "started_at": "2026-08-03T01:04:10.9049100+00:00"
+  },
+  {
+   "id": "01KZ2JHJZA30T8SX6EJCY7TTPX",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 23,
+   "state": "rejected",
+   "started_at": "2026-08-03T01:06:53.0347200+00:00"
+  },
+  {
+   "id": "01KZ2JJDBK4Y1YRQ9PJW5QQVA9",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 33,
+   "state": "rejected",
+   "started_at": "2026-08-03T01:07:20.0510450+00:00"
+  },
+  {
+   "id": "01KZ2JK5J6PEE8WKQ3AXH796N9",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 31,
+   "state": "rejected",
+   "started_at": "2026-08-03T01:07:44.8384710+00:00"
+  },
+  {
+   "id": "01KZ2NRP2VWD42BFVTGNQ6PECR",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 7,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:03:11.3238140+00:00"
+  },
+  {
+   "id": "01KZ2NRR2T2FZ3W3HAB15SG5BT",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 32,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:03:13.3707580+00:00"
+  },
+  {
+   "id": "01KZ2NS7XK3J2NE5FKSYKJJKPN",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 34,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:03:29.5877970+00:00"
+  },
+  {
+   "id": "01KZ2NT00HF3VCQTK7WCGPVCT1",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 24,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:03:54.2577610+00:00"
+  },
+  {
+   "id": "01KZ2NX2C4NSVQYPJ8Q2F18C8G",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 33,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:05:34.9801910+00:00"
+  },
+  {
+   "id": "01KZ2NYDEQJ6VXRQ8RFMPZ73V2",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 25,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:06:19.0950670+00:00"
+  },
+  {
+   "id": "01KZ2P0DB5RKZ36HGZB2F9CJF5",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 35,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:07:24.5176890+00:00"
+  },
+  {
+   "id": "01KZ2P3R6XA6ZCEVB9QRRFKNJE",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 26,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:09:13.9495480+00:00"
+  },
+  {
+   "id": "01KZ2P4FY1QBQ4FR70M0Z25WZY",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 36,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:09:38.2418020+00:00"
+  },
+  {
+   "id": "01KZ2P56QZY4X7RAZ65ZN0AZFY",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 34,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:10:01.5999160+00:00"
+  },
+  {
+   "id": "01KZ2P9VEJKMPSS1STDFQP6WP0",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 35,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:12:33.8745160+00:00"
+  },
+  {
+   "id": "01KZ2PF0BAMEC9S4JS7T4FVYQT",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 36,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:15:22.7309910+00:00"
+  },
+  {
+   "id": "01KZ2PFWYHDQ4X1F1VYX82439P",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 37,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:15:52.0174460+00:00"
+  },
+  {
+   "id": "01KZ2PGRVRDNMDRPSKW4HPPF9F",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 27,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:16:20.6007480+00:00"
+  },
+  {
+   "id": "01KZ2PMCK23VNN87JGJSTHT090",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 28,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:18:19.1067950+00:00"
+  },
+  {
+   "id": "01KZ2PMG8YR3AE00WYGERVE5XD",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 5,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:18:22.8789250+00:00"
+  },
+  {
+   "id": "01KZ2PNMRZC8AP7VPJW807X0PW",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 38,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:19:00.2550590+00:00"
+  },
+  {
+   "id": "01KZ2PPBF0H0B4B44GW6JHE5ZH",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 37,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:19:23.4883020+00:00"
+  },
+  {
+   "id": "01KZ2PSJQ7RYE7QTCR534CR6BW",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 29,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:21:09.2230360+00:00"
+  },
+  {
+   "id": "01KZ2Q0242J8GQ2XQ0HZ7HHXCH",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 30,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:24:41.6022260+00:00"
+  },
+  {
+   "id": "01KZ2Q0DHAFTZJ61ZM8QCH8H23",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 38,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:24:53.2903860+00:00"
+  },
+  {
+   "id": "01KZ2Q137GZY3X0KVSFPNRVVRG",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 39,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:25:15.5044980+00:00"
+  },
+  {
+   "id": "01KZ2Q8N7NV9289YC3HK8GVNJM",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 40,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:29:23.3177670+00:00"
+  },
+  {
+   "id": "01KZ2QCCAH3SN8BFRG45ZFKWKV",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 41,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:31:25.2654310+00:00"
+  },
+  {
+   "id": "01KZ2QCEHY1HME4FQEW728MH1S",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 8,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:31:27.5503400+00:00"
+  },
+  {
+   "id": "01KZ2QD1ECQT0JZBVE74H1F0MK",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 39,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:31:46.8922410+00:00"
+  },
+  {
+   "id": "01KZ2QDSFW438W741T5XA7SFBM",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 31,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:32:11.5163800+00:00"
+  },
+  {
+   "id": "01KZ2QQAEMW21874YDCQ78RAGS",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 32,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:37:23.7962680+00:00"
+  },
+  {
+   "id": "01KZ2QR45QES4WHRJN183GHX59",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 40,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:37:50.1354060+00:00"
+  },
+  {
+   "id": "01KZ2QRX112Q3RTS25GQJVCVQN",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 42,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:38:15.5854600+00:00"
+  },
+  {
+   "id": "01KZ2R2SBT7311E0605T7QPFPJ",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 43,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:43:39.5143040+00:00"
+  },
+  {
+   "id": "01KZ2R3F2WDFTR3SNGGQCRSBQG",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 41,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:44:01.7566950+00:00"
+  },
+  {
+   "id": "01KZ2R44YSAV8G3Z2NQCTCE44S",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 33,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:44:24.1537180+00:00"
+  },
+  {
+   "id": "01KZ2R77SP4HE0Z6JGCX0X8FJZ",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 44,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:46:05.3662540+00:00"
+  },
+  {
+   "id": "01KZ2RDQYTWSFCMV5ZFXJ28Z6B",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 45,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:49:38.5221840+00:00"
+  },
+  {
+   "id": "01KZ2REG01JVRGT15WPGAFMJFZ",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 34,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:50:03.1374970+00:00"
+  },
+  {
+   "id": "01KZ2RF83VMR1K3A4J21DEDFP5",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 42,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:50:27.8359320+00:00"
+  },
+  {
+   "id": "01KZ2RNKE2V2TG2KRNCQA7AVMQ",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 43,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:53:56.0349610+00:00"
+  },
+  {
+   "id": "01KZ2RNPP8FX3TMY2QQ6XYQ52K",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 6,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:53:59.3681220+00:00"
+  },
+  {
+   "id": "01KZ2RPB82QF6WAZW8S57SGJ3B",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 35,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:54:20.4189930+00:00"
+  },
+  {
+   "id": "01KZ2RQ1X59QM60XAVP4XPB938",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 46,
+   "state": "rejected",
+   "started_at": "2026-08-03T02:54:43.6210800+00:00"
+  },
+  {
+   "id": "01KZ2S0R1M1VACKGXRBRA6Z0G4",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 47,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:00:01.2049070+00:00"
+  },
+  {
+   "id": "01KZ2S13V8W4HY485BM979YP7M",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 36,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:00:13.2882980+00:00"
+  },
+  {
+   "id": "01KZ2S1TJDC6C2DNKKG4DM4WXW",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 44,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:00:36.5570770+00:00"
+  },
+  {
+   "id": "01KZ2S4WXFWHRD17A994TNXC2S",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 48,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:02:17.2630850+00:00"
+  },
+  {
+   "id": "01KZ2SB5MK5YMD191NRV1CP74M",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 49,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:05:42.8038640+00:00"
+  },
+  {
+   "id": "01KZ2SB7RDBKWNS1963YJS9Z2R",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 9,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:05:44.9739860+00:00"
+  },
+  {
+   "id": "01KZ2SBSRWD2MRGHG1F6WWGJPJ",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 45,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:06:03.4208460+00:00"
+  },
+  {
+   "id": "01KZ2SCGXYVAEKJFC7YHC9F1YF",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 37,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:06:27.1348600+00:00"
+  },
+  {
+   "id": "01KZ2SP8BZXVB5TB3WA3WBGCWT",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 38,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:11:46.0472300+00:00"
+  },
+  {
+   "id": "01KZ2SQ00HSHKE9JVHX5MS5MK1",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 46,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:12:10.2573550+00:00"
+  },
+  {
+   "id": "01KZ2SQCAJ5MM03BBF4MWJTQ9Q",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 50,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:12:22.8660130+00:00"
+  },
+  {
+   "id": "01KZ2T0RSDYWJHB9P54F3XKTQX",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 51,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:17:30.5419470+00:00"
+  },
+  {
+   "id": "01KZ2T16E97SPED3YMSAQH3HE6",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 47,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:17:44.5218720+00:00"
+  },
+  {
+   "id": "01KZ2T1Z5BHY7BQYY43H1525DT",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 39,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:18:09.8357300+00:00"
+  },
+  {
+   "id": "01KZ2T4XZ5CW652V3GND515YYP",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 52,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:19:46.9173610+00:00"
+  },
+  {
+   "id": "01KZ2T5NB3GJ5QC8A8W8W3ZYK5",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 48,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:20:10.8518330+00:00"
+  },
+  {
+   "id": "01KZ2T6NGP32G9ZS5MEE6W0FYS",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 40,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:20:43.7983980+00:00"
+  },
+  {
+   "id": "01KZ2W15P2HM9JSP1G9WZEEMF3",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 41,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:52:40.8986870+00:00"
+  },
+  {
+   "id": "01KZ2W17GNST46J949MGHF59B4",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 10,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:52:42.7737360+00:00"
+  },
+  {
+   "id": "01KZ2W1R51JTD8GAMZ5TNA6JH5",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 49,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:52:59.8097120+00:00"
+  },
+  {
+   "id": "01KZ2W2EF724N8FYS3WW15T4V3",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 53,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:53:22.6634290+00:00"
+  },
+  {
+   "id": "01KZ2W99ACFJJE0R07D7NRDBGV",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 54,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:57:06.7647320+00:00"
+  },
+  {
+   "id": "01KZ2W9B3R4BH9TPCRW2DFEZS5",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 7,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:57:08.6000380+00:00"
+  },
+  {
+   "id": "01KZ2W9V2B0MX5JXT75A7X5XCJ",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 50,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:57:24.9395930+00:00"
+  },
+  {
+   "id": "01KZ2WA5ME1S0803MJC3D33JA4",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 42,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:57:35.7581760+00:00"
+  },
+  {
+   "id": "01KZ2WDRRX1DTK8B6ZM4R56SP5",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 51,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:59:33.6618920+00:00"
+  },
+  {
+   "id": "01KZ2WE386T09ZS3NAJXBWDD1D",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 43,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:59:44.3906020+00:00"
+  },
+  {
+   "id": "01KZ2WEDRCN5KCR34E75908DAM",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 55,
+   "state": "rejected",
+   "started_at": "2026-08-03T03:59:55.1487210+00:00"
+  },
+  {
+   "id": "01KZ2WHPCFNDAKVQBBGT0YDB95",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 52,
+   "state": "rejected",
+   "started_at": "2026-08-03T04:01:42.2870570+00:00"
+  },
+  {
+   "id": "01KZ2WJ0W0WRRG3Y1JAYYDE2QD",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 44,
+   "state": "rejected",
+   "started_at": "2026-08-03T04:01:53.0249950+00:00"
+  },
+  {
+   "id": "01KZ2WJBBKCMJJNDV5KH6ANVNS",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 56,
+   "state": "rejected",
+   "started_at": "2026-08-03T04:02:03.7636360+00:00"
+  },
+  {
+   "id": "01KZ2WNMHC815BS4A54M5XWKQH",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 53,
+   "state": "rejected",
+   "started_at": "2026-08-03T04:03:51.4683960+00:00"
+  },
+  {
+   "id": "01KZ2WNZ4KTW34XRMN0T3ZP410",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 45,
+   "state": "rejected",
+   "started_at": "2026-08-03T04:04:02.3236690+00:00"
+  },
+  {
+   "id": "01KZ2WP9M3NQPEAZ7A5Z7SNTPT",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 57,
+   "state": "rejected",
+   "started_at": "2026-08-03T04:04:13.0596470+00:00"
+  },
+  {
+   "id": "01KZ2WQZBYGCN2A2TFC10ZXZCG",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 11,
+   "state": "rejected",
+   "started_at": "2026-08-03T04:05:08.0941320+00:00"
+  },
+  {
+   "id": "01KZ2WYBQBABVPZTR8FVXGD33D",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 8,
+   "state": "rejected",
+   "started_at": "2026-08-03T04:08:37.3552750+00:00"
+  },
+  {
+   "id": "01KZ2YN6FN5SYKPSYXGJ7481YR",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 9,
+   "state": "rejected",
+   "started_at": "2026-08-03T04:38:34.2290380+00:00"
+  },
+  {
+   "id": "01KZ2ZVSFCV1AN543Q50FKBDWW",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 12,
+   "state": "rejected",
+   "started_at": "2026-08-03T04:59:38.8602470+00:00"
+  },
+  {
+   "id": "01KZ30QVTPSG0VQZ2T6H7Z5AZB",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 13,
+   "state": "rejected",
+   "started_at": "2026-08-03T05:14:58.7748260+00:00"
+  },
+  {
+   "id": "01KZ3G072MKQ1AY7DXA1W4ZNF1",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 14,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:41:41.0763870+00:00"
+  },
+  {
+   "id": "01KZ3G0JVS2D619QDE18N4DX2M",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 10,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:41:53.1458780+00:00"
+  },
+  {
+   "id": "01KZ3G0JW04ZSDT0KKGR9Y3KP2",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 58,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:41:53.1520660+00:00"
+  },
+  {
+   "id": "01KZ3G0JW4F6YM5HGGCKW41V0E",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 46,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:41:53.1563710+00:00"
+  },
+  {
+   "id": "01KZ3G0JW8S9NV3N8VC5DH3K6Y",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 54,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:41:53.1602040+00:00"
+  },
+  {
+   "id": "01KZ3G0XM48A92MB1APXXRTAKE",
+   "task_id": "01KZ2C71WYF9ZERVRK9FXR9C7Z",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:42:04.1643250+00:00"
+  },
+  {
+   "id": "01KZ3G0XMX3CYRCZ7QH044QAVY",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:42:04.1893060+00:00"
+  },
+  {
+   "id": "01KZ3G4A3Y86KG75AW7K02VK01",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 47,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:43:55.2623030+00:00"
+  },
+  {
+   "id": "01KZ3G4A45E3G0GQNDP5REETXV",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 59,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:43:55.2695450+00:00"
+  },
+  {
+   "id": "01KZ3G4A4BZRCC2FEH5VN44TN8",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 11,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:43:55.2754120+00:00"
+  },
+  {
+   "id": "01KZ3G4A4GMWB20XW5N5EM5NCW",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 15,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:43:55.2800820+00:00"
+  },
+  {
+   "id": "01KZ3G4M1XF7CFJSXWNVB9HJ07",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 3,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:44:05.4377360+00:00"
+  },
+  {
+   "id": "01KZ3G4M24CMTCHCZPG23WARVY",
+   "task_id": "01KZ2C71WYF9ZERVRK9FXR9C7Z",
+   "attempt_number": 3,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:44:05.4440200+00:00"
+  },
+  {
+   "id": "01KZ3G4M292QB98NVGB69Y3CJM",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 55,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:44:05.4490550+00:00"
+  },
+  {
+   "id": "01KZ3GDJG0NS0Y9MF47AKDDZCB",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 56,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:48:58.7529760+00:00"
+  },
+  {
+   "id": "01KZ3GDYCQWEN3F1QR80XK5EAV",
+   "task_id": "01KZ2C71WYF9ZERVRK9FXR9C7Z",
+   "attempt_number": 4,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:49:10.9350230+00:00"
+  },
+  {
+   "id": "01KZ3GDYCXM2CW7WV83MWCSD8K",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 4,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:49:10.9412460+00:00"
+  },
+  {
+   "id": "01KZ3GDYD1YK5XHK8TXDJ37F26",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 16,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:49:10.9457230+00:00"
+  },
+  {
+   "id": "01KZ3GDYDAY7EV918310Q85Y6R",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 12,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:49:10.9540150+00:00"
+  },
+  {
+   "id": "01KZ3GE954SNBK72GJ7Q281XS3",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 60,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:49:21.9567490+00:00"
+  },
+  {
+   "id": "01KZ3GE959GYNCS4H1WTJQFTRH",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 48,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:49:21.9619470+00:00"
+  },
+  {
+   "id": "01KZ3GHNQVX0037AZZGD9EJQQD",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 17,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:51:13.1472010+00:00"
+  },
+  {
+   "id": "01KZ3GHNR0CYVQFZZ19JT85FST",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 5,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:51:13.1529190+00:00"
+  },
+  {
+   "id": "01KZ3GHNR6PFAZV5J5K90SCMHY",
+   "task_id": "01KZ2C71WYF9ZERVRK9FXR9C7Z",
+   "attempt_number": 5,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:51:13.1585020+00:00"
+  },
+  {
+   "id": "01KZ3GHNRA7P2NYG0Z4KH12XCM",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 57,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:51:13.1626120+00:00"
+  },
+  {
+   "id": "01KZ3GHZPK5KVRQ19CGNW8XKYH",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 49,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:51:23.3475260+00:00"
+  },
+  {
+   "id": "01KZ3GHZPV8TW80JKGKTR7BR9J",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 61,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:51:23.3551060+00:00"
+  },
+  {
+   "id": "01KZ3GHZQ0PTAQZ9V9CZS0M022",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 13,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:51:23.3602900+00:00"
+  },
+  {
+   "id": "01KZ3GNC1D0Z3NWGHME7NV0JWE",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 58,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:53:14.2850430+00:00"
+  },
+  {
+   "id": "01KZ3GNC1KAT33622TQFVPQZFX",
+   "task_id": "01KZ2C71WYF9ZERVRK9FXR9C7Z",
+   "attempt_number": 6,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:53:14.2914120+00:00"
+  },
+  {
+   "id": "01KZ3GNC20Y3DM2P6PTK6QCXX1",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 6,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:53:14.3045050+00:00"
+  },
+  {
+   "id": "01KZ3GNC25MYJ3QBZYBWZPTQZD",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 18,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:53:14.3094720+00:00"
+  },
+  {
+   "id": "01KZ3GNP1NHGDNTFVPT9WA2ASA",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 14,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:53:24.5331010+00:00"
+  },
+  {
+   "id": "01KZ3GNP1XFJ8HNHS78FHHB40D",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 62,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:53:24.5415140+00:00"
+  },
+  {
+   "id": "01KZ3GNP23Q32A98YHJKMV358N",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 50,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:53:24.5478910+00:00"
+  },
+  {
+   "id": "01KZ3GS2NTJAQ1MG7KDJN9JJXJ",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 19,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:55:15.7700160+00:00"
+  },
+  {
+   "id": "01KZ3GS2P324JD0D1EQQHXB4E0",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 7,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:55:15.7795890+00:00"
+  },
+  {
+   "id": "01KZ3GS2P8VBB94ZWH71JJ45FD",
+   "task_id": "01KZ2C71WYF9ZERVRK9FXR9C7Z",
+   "attempt_number": 7,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:55:15.7846990+00:00"
+  },
+  {
+   "id": "01KZ3GS2PD4G9KTMZE89XMFQQK",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 59,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:55:15.7896310+00:00"
+  },
+  {
+   "id": "01KZ3GSCPT5V67R5J647MP8JSS",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 51,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:55:26.0423340+00:00"
+  },
+  {
+   "id": "01KZ3GSCQ1AXT546CP8M0QDXPD",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 63,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:55:26.0493270+00:00"
+  },
+  {
+   "id": "01KZ3GSCQ5NDMBN8Y85V8MYK97",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 15,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:55:26.0537430+00:00"
+  },
+  {
+   "id": "01KZ3GTXJARP6H3V09RDVF038H",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 16,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:56:16.0741050+00:00"
+  },
+  {
+   "id": "01KZ3GV9EZSTYYGMQWH3SK6DG8",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 64,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:56:28.2551250+00:00"
+  },
+  {
+   "id": "01KZ3GV9F6A9YPGFPRCP2406NJ",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 52,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:56:28.2623580+00:00"
+  },
+  {
+   "id": "01KZ3GV9FB25VR0H5MS9M01K94",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 60,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:56:28.2672130+00:00"
+  },
+  {
+   "id": "01KZ3GV9FKY16M2MHAV5RJCW6M",
+   "task_id": "01KZ2C71WYF9ZERVRK9FXR9C7Z",
+   "attempt_number": 8,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:56:28.2751120+00:00"
+  },
+  {
+   "id": "01KZ3GVM9TJCGXWKKKS568CKFS",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 8,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:56:39.3546260+00:00"
+  },
+  {
+   "id": "01KZ3GVMAG9QBC91EZ8PYNR1X8",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 20,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:56:39.3769520+00:00"
+  },
+  {
+   "id": "01KZ3GZ0TGKD8Y4TCBFCY5NE5T",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 61,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:58:30.4807450+00:00"
+  },
+  {
+   "id": "01KZ3GZ0TPK0EE36TY8KAD72FZ",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 53,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:58:30.4869050+00:00"
+  },
+  {
+   "id": "01KZ3GZ0TWSD4W8VN694E2XWNE",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 65,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:58:30.4925370+00:00"
+  },
+  {
+   "id": "01KZ3GZ0V13BB30WTPFY6G3RXN",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 17,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:58:30.4977190+00:00"
+  },
+  {
+   "id": "01KZ3GZATRXTGRV7N6BW22Q78F",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 21,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:58:40.7282100+00:00"
+  },
+  {
+   "id": "01KZ3GZATY42BETXEFMVDE0HG9",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 9,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:58:40.7340740+00:00"
+  },
+  {
+   "id": "01KZ3GZAV10JVZQE750TSN7B3X",
+   "task_id": "01KZ2C71WYF9ZERVRK9FXR9C7Z",
+   "attempt_number": 9,
+   "state": "rejected",
+   "started_at": "2026-08-03T09:58:40.7377940+00:00"
+  },
+  {
+   "id": "01KZ3H4RPM9562PTHND73DZ8AS",
+   "task_id": "01KZ2C71WYF9ZERVRK9FXR9C7Z",
+   "attempt_number": 10,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:01:38.7728640+00:00"
+  },
+  {
+   "id": "01KZ3H54K333RG8JH56DJ03GPZ",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 10,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:01:50.9479210+00:00"
+  },
+  {
+   "id": "01KZ3H54KAHT9KRKYT687A3GEP",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 22,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:01:50.9541560+00:00"
+  },
+  {
+   "id": "01KZ3H54KDG03MS71EMQ5CHTQR",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 18,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:01:50.9574490+00:00"
+  },
+  {
+   "id": "01KZ3H54KGF2P1PJHBCD7N4ZXJ",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 66,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:01:50.9608790+00:00"
+  },
+  {
+   "id": "01KZ3H5FENJW04RP8BJZW8JVYW",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 54,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:02:02.0697980+00:00"
+  },
+  {
+   "id": "01KZ3H5FET2C9M9F12EHJ1YECP",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 62,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:02:02.0749720+00:00"
+  },
+  {
+   "id": "01KZ3H7WVJJHVBAX8X30B65K5E",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 63,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:03:21.3302290+00:00"
+  },
+  {
+   "id": "01KZ3HEQ3EM936NTRFMST3KTJP",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 64,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:07:04.8142930+00:00"
+  },
+  {
+   "id": "01KZ3HGSCW5G0CEP0R2A90KC8M",
+   "task_id": "01KZ26X4RN6V96W19ZXTKKGTJE",
+   "attempt_number": 65,
+   "state": "approved",
+   "started_at": "2026-08-03T10:08:12.7000080+00:00"
+  },
+  {
+   "id": "01KZ3HP2TRHY01CEJTCGT3PFEC",
+   "task_id": "01KZ3HP2PTMXBYGTJDTVQE105Q",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:11:06.2004240+00:00"
+  },
+  {
+   "id": "01KZ3HVJDN52S2WN2Z752K7VM8",
+   "task_id": "01KZ2C71WYF9ZERVRK9FXR9C7Z",
+   "attempt_number": 11,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:14:06.0054260+00:00"
+  },
+  {
+   "id": "01KZ3HVJEKYG6AXH3CTVCGX295",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 11,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:14:06.0357380+00:00"
+  },
+  {
+   "id": "01KZ3J0HARN0045BF3PFVYTK0C",
+   "task_id": "01KZ2C71WYF9ZERVRK9FXR9C7Z",
+   "attempt_number": 12,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:16:48.7281490+00:00"
+  },
+  {
+   "id": "01KZ3J0HC0P7BWH87FC8T6FVZV",
+   "task_id": "01KZ3HP2PTMXBYGTJDTVQE105Q",
+   "attempt_number": 2,
+   "state": "approved",
+   "started_at": "2026-08-03T10:16:48.7680120+00:00"
+  },
+  {
+   "id": "01KZ3J9MHQQMHEE44RRQSKB682",
+   "task_id": "01KZ2C71WYF9ZERVRK9FXR9C7Z",
+   "attempt_number": 13,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:21:46.9356180+00:00"
+  },
+  {
+   "id": "01KZ3J9MHWM63TGW01KP95QX7B",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 12,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:21:46.9403530+00:00"
+  },
+  {
+   "id": "01KZ3JD5QKWB796CER1BTWXW8Y",
+   "task_id": "01KZ2C71WYF9ZERVRK9FXR9C7Z",
+   "attempt_number": 14,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:23:42.8351500+00:00"
+  },
+  {
+   "id": "01KZ3JD5RGWKYB9AWCWBQVK15T",
+   "task_id": "01KZ2BVXCB73733643C8R3JNPQ",
+   "attempt_number": 55,
+   "state": "approved",
+   "started_at": "2026-08-03T10:23:42.8648890+00:00"
+  },
+  {
+   "id": "01KZ3JHX4R303526KAYNZQ2Y4K",
+   "task_id": "01KZ3JHX054VYQXA0W9AFB1DK2",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:26:17.8800890+00:00"
+  },
+  {
+   "id": "01KZ3JHX528QX485K1T76PDBD2",
+   "task_id": "01KZ2C71WYF9ZERVRK9FXR9C7Z",
+   "attempt_number": 15,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:26:17.8900560+00:00"
+  },
+  {
+   "id": "01KZ3JW4WH6B5XBQVCA1615P3F",
+   "task_id": "01KZ2C71WYF9ZERVRK9FXR9C7Z",
+   "attempt_number": 16,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:31:53.4896210+00:00"
+  },
+  {
+   "id": "01KZ3JYHHZAA6QA6VSRA87NYF1",
+   "task_id": "01KZ3JHX054VYQXA0W9AFB1DK2",
+   "attempt_number": 2,
+   "state": "approved",
+   "started_at": "2026-08-03T10:33:11.9995460+00:00"
+  },
+  {
+   "id": "01KZ3K7TR3KJWMHVJJSBT862AN",
+   "task_id": "01KZ2C71WYF9ZERVRK9FXR9C7Z",
+   "attempt_number": 17,
+   "state": "approved",
+   "started_at": "2026-08-03T10:38:16.3233480+00:00"
+  },
+  {
+   "id": "01KZ3KMSN04ET5Y505BJ0PY7ZW",
+   "task_id": "01KZ3KMSH0QP612VCE2C962GPB",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:45:21.1846290+00:00"
+  },
+  {
+   "id": "01KZ3KV1KRBANS1WCBQR6680HE",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 23,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:48:45.9447350+00:00"
+  },
+  {
+   "id": "01KZ3M3312CHZYNA40DF1958A9",
+   "task_id": "01KZ3KMSH0QP612VCE2C962GPB",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:53:09.5380520+00:00"
+  },
+  {
+   "id": "01KZ3MEBPKC86G7RP211EZ8ZV3",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 24,
+   "state": "rejected",
+   "started_at": "2026-08-03T10:59:18.8675850+00:00"
+  },
+  {
+   "id": "01KZ3MQQP681VHV63H37DKHT0K",
+   "task_id": "01KZ3KMSH0QP612VCE2C962GPB",
+   "attempt_number": 3,
+   "state": "approved",
+   "started_at": "2026-08-03T11:04:26.0542060+00:00"
+  },
+  {
+   "id": "01KZ3N0PN5RWH545QN6TECGTS5",
+   "task_id": "01KZ26X4RJ0KE6YG9GP07EY332",
+   "attempt_number": 67,
+   "state": "approved",
+   "started_at": "2026-08-03T11:09:19.9092090+00:00"
+  },
+  {
+   "id": "01KZ3NA127XK7EKPMTW3ZD8CWD",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 19,
+   "state": "rejected",
+   "started_at": "2026-08-03T11:14:25.4795850+00:00"
+  },
+  {
+   "id": "01KZ3NPS3S2EV88SSZA4TC7C4V",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 20,
+   "state": "rejected",
+   "started_at": "2026-08-03T11:21:23.3216100+00:00"
+  },
+  {
+   "id": "01KZ3NZSFG9V6VJ2R3MJSTA39N",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 13,
+   "state": "rejected",
+   "started_at": "2026-08-03T11:26:18.6083550+00:00"
+  },
+  {
+   "id": "01KZ3P4M3Q6TMTS960GQ21196S",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 21,
+   "state": "rejected",
+   "started_at": "2026-08-03T11:28:56.9512200+00:00"
+  },
+  {
+   "id": "01KZ3PT0A5Y92TX60BFEQMWEPA",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 14,
+   "state": "rejected",
+   "started_at": "2026-08-03T11:40:37.5731970+00:00"
+  },
+  {
+   "id": "01KZ3QF7Q2Q9RQ3EWJ54BASBV9",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 22,
+   "state": "rejected",
+   "started_at": "2026-08-03T11:52:13.2825150+00:00"
+  },
+  {
+   "id": "01KZ3QQAJE99SYGS55AC9R7CAA",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 15,
+   "state": "rejected",
+   "started_at": "2026-08-03T11:56:38.3505530+00:00"
+  },
+  {
+   "id": "01KZ3QWTJW66XF2JS3BPHVV672",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 23,
+   "state": "rejected",
+   "started_at": "2026-08-03T11:59:38.5882900+00:00"
+  },
+  {
+   "id": "01KZ3R29PV50EW5SDFRZQ4QQW5",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 16,
+   "state": "rejected",
+   "started_at": "2026-08-03T12:02:37.9156250+00:00"
+  },
+  {
+   "id": "01KZ3RBB2A20E19GGW2B5GNH5C",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 24,
+   "state": "rejected",
+   "started_at": "2026-08-03T12:07:34.2189650+00:00"
+  },
+  {
+   "id": "01KZ3RHBR1WA19QF5476VDECHB",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 17,
+   "state": "rejected",
+   "started_at": "2026-08-03T12:10:51.5210050+00:00"
+  },
+  {
+   "id": "01KZ3RRRKNDQZFEHD79A04XT3J",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 25,
+   "state": "rejected",
+   "started_at": "2026-08-03T12:14:54.0699860+00:00"
+  },
+  {
+   "id": "01KZ3RYA2S9K7Q406MD16Q60KQ",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 18,
+   "state": "rejected",
+   "started_at": "2026-08-03T12:17:55.8017080+00:00"
+  },
+  {
+   "id": "01KZ3SD6C9208D2WSMDWK3S1PR",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 26,
+   "state": "rejected",
+   "started_at": "2026-08-03T12:26:03.5292560+00:00"
+  },
+  {
+   "id": "01KZ3SN95E7QM9J4BQB5MFNGPK",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 19,
+   "state": "rejected",
+   "started_at": "2026-08-03T12:30:28.5262510+00:00"
+  },
+  {
+   "id": "01KZ3TVATWM68RA0SQ7S1GNT4Y",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 27,
+   "state": "rejected",
+   "started_at": "2026-08-03T12:51:15.4202860+00:00"
+  },
+  {
+   "id": "01KZ3V3D2HMY6SRJJGZ167V1TC",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 20,
+   "state": "rejected",
+   "started_at": "2026-08-03T12:55:39.8570220+00:00"
+  },
+  {
+   "id": "01KZ3VCMJ6SNR42JZX0J4KFVF9",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 28,
+   "state": "rejected",
+   "started_at": "2026-08-03T13:00:42.4385790+00:00"
+  },
+  {
+   "id": "01KZ3VQRD39N55Z6TSM38ZADV8",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 21,
+   "state": "rejected",
+   "started_at": "2026-08-03T13:06:46.8198650+00:00"
+  },
+  {
+   "id": "01KZ3VW8G2MTEVEFQ5XHYT6WTM",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 29,
+   "state": "rejected",
+   "started_at": "2026-08-03T13:09:14.3704030+00:00"
+  },
+  {
+   "id": "01KZ3W9D7WJBT9RP6ZG4Q8K2GE",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 22,
+   "state": "rejected",
+   "started_at": "2026-08-03T13:16:25.2129750+00:00"
+  },
+  {
+   "id": "01KZ3W9QCBY4F1ZTV8JXW6JBNW",
+   "task_id": "01KZ2FSAM70CSERARYVZJVC5ED",
+   "attempt_number": 25,
+   "state": "approved",
+   "started_at": "2026-08-03T13:16:35.5954360+00:00"
+  },
+  {
+   "id": "01KZ3X1EGDGKBDBNZ49CH56GPX",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 30,
+   "state": "rejected",
+   "started_at": "2026-08-03T13:29:32.9418340+00:00"
+  },
+  {
+   "id": "01KZ3X61AGJTJRWVE3R42BEJ79",
+   "task_id": "01KZ3NA0XEKGC1E7ZMR2CSR7PW",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-03T13:32:03.2806230+00:00"
+  },
+  {
+   "id": "01KZ3XJ5Q06W0BS1TS0GR3BAQT",
+   "task_id": "01KZ3NA0XEKGC1E7ZMR2CSR7PW",
+   "attempt_number": 2,
+   "state": "approved",
+   "started_at": "2026-08-03T13:38:40.9922550+00:00"
+  },
+  {
+   "id": "01KZ3XR4PWSPSSAGK2JB2ZQVZH",
+   "task_id": "01KZ3X1EB7VD97ZBXQNG25Q4Q2",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-03T13:41:56.5721010+00:00"
+  },
+  {
+   "id": "01KZ3Y101Z6WGRM11X49E5S3H3",
+   "task_id": "01KZ2EKZ518KNSXE785R4PYYRX",
+   "attempt_number": 23,
+   "state": "approved",
+   "started_at": "2026-08-03T13:46:46.7191030+00:00"
+  },
+  {
+   "id": "01KZ3YHRCY5HSWHVVENEN2FFKM",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 31,
+   "state": "rejected",
+   "started_at": "2026-08-03T13:55:55.9341550+00:00"
+  },
+  {
+   "id": "01KZ45N0Z47XVC0M8QQDXS2P7T",
+   "task_id": "01KZ26X4RN9HPS3T0P3KRBAE5Q",
+   "attempt_number": 32,
+   "state": "approved",
+   "started_at": "2026-08-03T16:00:03.0442250+00:00"
+  },
+  {
+   "id": "01KZ46GFY1KHBW6B6E4WRSSPXH",
+   "task_id": "01KZ3X1EB7VD97ZBXQNG25Q4Q2",
+   "attempt_number": 2,
+   "state": "approved",
+   "started_at": "2026-08-03T16:15:03.1054620+00:00"
+  },
+  {
+   "id": "01KZ4738TP2TDF3RRXGW7FAPA4",
+   "task_id": "01KZ3YHR7ZJN0X9EVG8FD2NG66",
+   "attempt_number": 1,
+   "state": "approved",
+   "started_at": "2026-08-03T16:25:18.4224360+00:00"
+  },
+  {
+   "id": "01KZ47PZS5BKMEJWMKD1Z20N83",
+   "task_id": "01KZ46J5FX4JHBEJ7G6SCHYTJT",
+   "attempt_number": 1,
+   "state": "approved",
+   "started_at": "2026-08-03T16:36:04.5178010+00:00"
+  },
+  {
+   "id": "01KZ48C2ESDJ0052NRXV4RMNKK",
+   "task_id": "01KZ46JSF40MQDPG04ZN8M4DB4",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-03T16:47:35.3856640+00:00"
+  },
+  {
+   "id": "01KZ48NAB9C92YX2NF0FHA38V6",
+   "task_id": "01KZ46JSF40MQDPG04ZN8M4DB4",
+   "attempt_number": 2,
+   "state": "approved",
+   "started_at": "2026-08-03T16:52:38.3774930+00:00"
+  },
+  {
+   "id": "01KZ49HS3400F5V0XRQDD9FXXD",
+   "task_id": "01KZ46JSF6RCCS80W2MKCHM5K2",
+   "attempt_number": 1,
+   "state": "approved",
+   "started_at": "2026-08-03T17:08:10.9807240+00:00"
+  },
+  {
+   "id": "01KZ4A97V9ZJS9SC730HZ974X4",
+   "task_id": "01KZ46JSF6PVC2KA3P6NCJGRRZ",
+   "attempt_number": 1,
+   "state": "approved",
+   "started_at": "2026-08-03T17:20:59.7534990+00:00"
+  },
+  {
+   "id": "01KZ4B7KD4X6KN8XR5EPZJA3MQ",
+   "task_id": "01KZ4B7K34KMCSYNH0T36GF5NN",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-03T17:37:34.6289330+00:00"
+  },
+  {
+   "id": "01KZ4B7KDRVAHFMYNB1GGYFRVF",
+   "task_id": "01KZ4B7K3AB3NRXWJTYSZR8XHF",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-03T17:37:34.6488880+00:00"
+  },
+  {
+   "id": "01KZ4B7KDW8T3SSPPDT015S5RN",
+   "task_id": "01KZ4B7K3GWWKX3JD9F5TYJCZ1",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-03T17:37:34.6525550+00:00"
+  },
+  {
+   "id": "01KZ4B7XT4NA8EMWMS69H4PMA5",
+   "task_id": "01KZ4B7K3P5BQTGASVA0R45486",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-03T17:37:45.2846330+00:00"
+  },
+  {
+   "id": "01KZ4B7XTB2RQ28VB3ASRX1CVQ",
+   "task_id": "01KZ4B7K3W2SA9FQC27QGTBAHC",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-03T17:37:45.2918180+00:00"
+  },
+  {
+   "id": "01KZ4B7XTG2XQH3WE1EXB2P221",
+   "task_id": "01KZ4B7K42QRGDEZTM8GVEG6W8",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-03T17:37:45.2967400+00:00"
+  },
+  {
+   "id": "01KZ4BBD92B03T4DNNQTNX3CGA",
+   "task_id": "01KZ4B7K34KMCSYNH0T36GF5NN",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-03T17:39:39.4267610+00:00"
+  },
+  {
+   "id": "01KZ4BBD97RSCHQ3QXHPKPX0PS",
+   "task_id": "01KZ4B7K3AB3NRXWJTYSZR8XHF",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-03T17:39:39.4311630+00:00"
+  },
+  {
+   "id": "01KZ4BBD9AT742X2AN6W3ARTNC",
+   "task_id": "01KZ4B7K3GWWKX3JD9F5TYJCZ1",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-03T17:39:39.4345090+00:00"
+  },
+  {
+   "id": "01KZ4BBQEA8FBBFR0SH9ENVHN3",
+   "task_id": "01KZ4B7K3P5BQTGASVA0R45486",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-03T17:39:49.8347990+00:00"
+  },
+  {
+   "id": "01KZ4BBQEEERKJJS433N16D0KC",
+   "task_id": "01KZ4B7K3W2SA9FQC27QGTBAHC",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-03T17:39:49.8388960+00:00"
+  },
+  {
+   "id": "01KZ4BBQEJ1MXK7Z6DV7D25QYW",
+   "task_id": "01KZ4B7K42QRGDEZTM8GVEG6W8",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-03T17:39:49.8423370+00:00"
+  },
+  {
+   "id": "01KZ4BD7SJHZNBH640GBEY4P42",
+   "task_id": "01KZ4B7K34KMCSYNH0T36GF5NN",
+   "attempt_number": 3,
+   "state": "awaiting_review",
+   "started_at": "2026-08-03T17:40:39.3462360+00:00"
+  },
+  {
+   "id": "01KZ4BHNMJ6904CSAPBAS9CM13",
+   "task_id": "01KZ4B7K3AB3NRXWJTYSZR8XHF",
+   "attempt_number": 3,
+   "state": "awaiting_review",
+   "started_at": "2026-08-03T17:43:04.5940810+00:00"
+  },
+  {
+   "id": "01KZ4BKJG2JA34CGCVSYBSK17H",
+   "task_id": "01KZ4B7K3GWWKX3JD9F5TYJCZ1",
+   "attempt_number": 3,
+   "state": "awaiting_review",
+   "started_at": "2026-08-03T17:44:06.9146220+00:00"
+  },
+  {
+   "id": "01KZ4BPDFRQRV2F0BNEEA9MF0V",
+   "task_id": "01KZ4B7K3P5BQTGASVA0R45486",
+   "attempt_number": 3,
+   "state": "awaiting_review",
+   "started_at": "2026-08-03T17:45:40.0884890+00:00"
+  },
+  {
+   "id": "01KZ4BRM5AR0WNYM5AHPYRW7ED",
+   "task_id": "01KZ4B7K3W2SA9FQC27QGTBAHC",
+   "attempt_number": 3,
+   "state": "awaiting_review",
+   "started_at": "2026-08-03T17:46:52.4585580+00:00"
+  },
+  {
+   "id": "01KZ4BTH11YHPGCSJDNWTXYK51",
+   "task_id": "01KZ4B7K42QRGDEZTM8GVEG6W8",
+   "attempt_number": 3,
+   "state": "awaiting_review",
+   "started_at": "2026-08-03T17:47:54.7858470+00:00"
+  },
+  {
+   "id": "01KZ4V6AHDT8M5Z7WSZ42R565F",
+   "task_id": "01KZ4B7K34KMCSYNH0T36GF5NN",
+   "attempt_number": 4,
+   "state": "rejected",
+   "started_at": "2026-08-03T22:16:29.9973730+00:00"
+  },
+  {
+   "id": "01KZ4VFB32Q7P4NA2FV7A2J8X3",
+   "task_id": "01KZ4B7K3AB3NRXWJTYSZR8XHF",
+   "attempt_number": 4,
+   "state": "approved",
+   "started_at": "2026-08-03T22:21:25.4745550+00:00"
+  },
+  {
+   "id": "01KZ4VKEDRQ0MMME0B0C8SH9FS",
+   "task_id": "01KZ4B7K3GWWKX3JD9F5TYJCZ1",
+   "attempt_number": 4,
+   "state": "approved",
+   "started_at": "2026-08-03T22:23:39.9608810+00:00"
+  },
+  {
+   "id": "01KZ4VMPW0AYVX63C5M0GTZW3W",
+   "task_id": "01KZ4B7K3P5BQTGASVA0R45486",
+   "attempt_number": 4,
+   "state": "approved",
+   "started_at": "2026-08-03T22:24:21.3765440+00:00"
+  },
+  {
+   "id": "01KZ4VP9PWBB9VNY865SJ5NR69",
+   "task_id": "01KZ4B7K3W2SA9FQC27QGTBAHC",
+   "attempt_number": 4,
+   "state": "approved",
+   "started_at": "2026-08-03T22:25:13.4364920+00:00"
+  },
+  {
+   "id": "01KZ4VQWBEN7VRNMVKR1SJVY88",
+   "task_id": "01KZ4B7K42QRGDEZTM8GVEG6W8",
+   "attempt_number": 4,
+   "state": "approved",
+   "started_at": "2026-08-03T22:26:05.2944630+00:00"
+  },
+  {
+   "id": "01KZ4VT7YAAS8K69VP8EP1H1VN",
+   "task_id": "01KZ4B7K34KMCSYNH0T36GF5NN",
+   "attempt_number": 5,
+   "state": "approved",
+   "started_at": "2026-08-03T22:27:22.6989660+00:00"
+  },
+  {
+   "id": "01KZ4YA2FGTN2ABTWN76MDGQ05",
+   "task_id": "01KZ4YA2BBK17G5Z4VERR13V6D",
+   "attempt_number": 1,
+   "state": "approved",
+   "started_at": "2026-08-03T23:10:58.5444340+00:00"
+  },
+  {
+   "id": "01KZ4ZH243J36M0604M81XZHRW",
+   "task_id": "01KZ4ZH1VGRFTVM839Z1BVHYYE",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-03T23:32:16.1318510+00:00"
+  },
+  {
+   "id": "01KZ4ZSFC55N2NY7VV5T0YNZWZ",
+   "task_id": "01KZ4ZH1VGRFTVM839Z1BVHYYE",
+   "attempt_number": 2,
+   "state": "approved",
+   "started_at": "2026-08-03T23:36:51.8452620+00:00"
+  },
+  {
+   "id": "01KZ50FCMW96DFZ3HHPTPCN9GE",
+   "task_id": "01KZ4ZH1VT101SC24CJG00MM5K",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-03T23:48:49.9482970+00:00"
+  },
+  {
+   "id": "01KZ50RDD8MFFXZC8RGABCFR7V",
+   "task_id": "01KZ4ZH1VT101SC24CJG00MM5K",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-03T23:53:45.6406960+00:00"
+  },
+  {
+   "id": "01KZ512B22WPWQ40BACQ8M3NY3",
+   "task_id": "01KZ4ZH1VT101SC24CJG00MM5K",
+   "attempt_number": 3,
+   "state": "approved",
+   "started_at": "2026-08-03T23:59:10.9147690+00:00"
+  },
+  {
+   "id": "01KZ51B367YFEXYGAEA3TH7CM6",
+   "task_id": "01KZ4ZH1VVRKP129F7P0QN7A1M",
+   "attempt_number": 1,
+   "state": "approved",
+   "started_at": "2026-08-04T00:03:57.7670890+00:00"
+  },
+  {
+   "id": "01KZ51B375ZTV1M445GZTYXXMF",
+   "task_id": "01KZ4ZM2X6QH64674T7T0ZH7QR",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-04T00:03:57.7977050+00:00"
+  },
+  {
+   "id": "01KZ51F6KBDCTF9SKT5520HVA0",
+   "task_id": "01KZ4ZM2X6QH64674T7T0ZH7QR",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-04T00:06:12.3313000+00:00"
+  },
+  {
+   "id": "01KZ51NBKG8F5F5CHP70VXFKDM",
+   "task_id": "01KZ4ZH1VWDNBJ0HMF585S6NCW",
+   "attempt_number": 1,
+   "state": "approved",
+   "started_at": "2026-08-04T00:09:34.0645720+00:00"
+  },
+  {
+   "id": "01KZ51YH45YKA4MD9QA7RZXPG1",
+   "task_id": "01KZ4ZM2WYRFEHVNG05C4J3218",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-04T00:14:34.6290480+00:00"
+  },
+  {
+   "id": "01KZ51ZSXVSN7ST7YPCNR1GQPV",
+   "task_id": "01KZ4ZM2Y0J21W0JMC00HWG7XT",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-04T00:15:16.4114300+00:00"
+  },
+  {
+   "id": "01KZ526X7KPY8HE2Q8YKDB3BZT",
+   "task_id": "01KZ4ZM2WYRFEHVNG05C4J3218",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-04T00:19:09.1713410+00:00"
+  },
+  {
+   "id": "01KZ52A2FPHS6J3KQB8N6D2C2E",
+   "task_id": "01KZ4ZM2XRDYR3W124KJSJQNKJ",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-04T00:20:52.8542610+00:00"
+  },
+  {
+   "id": "01KZ52DM6C6T7D2HYAFMEGCQNN",
+   "task_id": "01KZ4ZM2XRDYR3W124KJSJQNKJ",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-04T00:22:49.2926540+00:00"
+  },
+  {
+   "id": "01KZ52JBDTZ27NSKBG9X34CQE5",
+   "task_id": "01KZ4ZM2XV8A4HJEZZSHF6QRMR",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-04T00:25:24.1541080+00:00"
+  },
+  {
+   "id": "01KZ52V41SQ1FFXYP0PGZQ6RTD",
+   "task_id": "01KZ4ZM2Y0J21W0JMC00HWG7XT",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-04T00:30:11.5136200+00:00"
+  },
+  {
+   "id": "01KZ53X08QC50G1MBQ9SQS9PK4",
+   "task_id": "01KZ4ZM2X6QH64674T7T0ZH7QR",
+   "attempt_number": 3,
+   "state": "rejected",
+   "started_at": "2026-08-04T00:48:41.7514040+00:00"
+  },
+  {
+   "id": "01KZ53XQ6G77DR0WZHGKMJH096",
+   "task_id": "01KZ4ZM2XV8A4HJEZZSHF6QRMR",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-04T00:49:05.2320200+00:00"
+  },
+  {
+   "id": "01KZ543NSTN15676C42GS0B0CV",
+   "task_id": "01KZ4ZM2X6QH64674T7T0ZH7QR",
+   "attempt_number": 4,
+   "state": "rejected",
+   "started_at": "2026-08-04T00:52:20.4108110+00:00"
+  },
+  {
+   "id": "01KZ5AVAX611MQXDHK8RAFXCJQ",
+   "task_id": "01KZ4ZM2X6QH64674T7T0ZH7QR",
+   "attempt_number": 5,
+   "state": "rejected",
+   "started_at": "2026-08-04T02:50:07.1420350+00:00"
+  },
+  {
+   "id": "01KZ5AVN1SK647T7S3S2DV40FS",
+   "task_id": "01KZ4ZM2XV8A4HJEZZSHF6QRMR",
+   "attempt_number": 3,
+   "state": "rejected",
+   "started_at": "2026-08-04T02:50:17.5298210+00:00"
+  },
+  {
+   "id": "01KZ5AZDKNZX70086ENX3Z1NEE",
+   "task_id": "01KZ4ZM2XV8A4HJEZZSHF6QRMR",
+   "attempt_number": 4,
+   "state": "rejected",
+   "started_at": "2026-08-04T02:52:20.9814640+00:00"
+  },
+  {
+   "id": "01KZ5B364MTMM5GKR1JBPZZ61N",
+   "task_id": "01KZ4ZM2XV8A4HJEZZSHF6QRMR",
+   "attempt_number": 5,
+   "state": "rejected",
+   "started_at": "2026-08-04T02:54:24.4044340+00:00"
+  },
+  {
+   "id": "01KZ5BYQTZRPHZEG1QQF8SY982",
+   "task_id": "01KZ4ZM2XV8A4HJEZZSHF6QRMR",
+   "attempt_number": 6,
+   "state": "approved",
+   "started_at": "2026-08-04T03:09:27.2638990+00:00"
+  },
+  {
+   "id": "01KZ64PP2W7JNMATYG6T5QQXJS",
+   "task_id": "01KZ4ZM2WYRFEHVNG05C4J3218",
+   "attempt_number": 3,
+   "state": "rejected",
+   "started_at": "2026-08-04T10:21:57.7245360+00:00"
+  },
+  {
+   "id": "01KZ64WMGN2HW169BQPS36KYSB",
+   "task_id": "01KZ4ZM2WYRFEHVNG05C4J3218",
+   "attempt_number": 4,
+   "state": "rejected",
+   "started_at": "2026-08-04T10:25:12.7253940+00:00"
+  },
+  {
+   "id": "01KZ6558JK400Y5VQW8YXADPSW",
+   "task_id": "01KZ4ZM2XRDYR3W124KJSJQNKJ",
+   "attempt_number": 3,
+   "state": "rejected",
+   "started_at": "2026-08-04T10:29:55.4115630+00:00"
+  },
+  {
+   "id": "01KZ659QG7BZCZDNRQ3CQJ3B1M",
+   "task_id": "01KZ4ZM2XRDYR3W124KJSJQNKJ",
+   "attempt_number": 4,
+   "state": "approved",
+   "started_at": "2026-08-04T10:32:21.7671800+00:00"
+  },
+  {
+   "id": "01KZ65T1Y0G87Z2RA3GFKRRT48",
+   "task_id": "01KZ4ZM2WYRFEHVNG05C4J3218",
+   "attempt_number": 5,
+   "state": "rejected",
+   "started_at": "2026-08-04T10:41:16.7362580+00:00"
+  },
+  {
+   "id": "01KZ65X7BBAD0AM82M3RNYEMWH",
+   "task_id": "01KZ4ZM2WYRFEHVNG05C4J3218",
+   "attempt_number": 6,
+   "state": "rejected",
+   "started_at": "2026-08-04T10:43:00.5877030+00:00"
+  },
+  {
+   "id": "01KZ661B6P3CVB52GVTSHMCWBB",
+   "task_id": "01KZ65YZFAM3YRZBWZRRE89606",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-04T10:45:15.6069760+00:00"
+  },
+  {
+   "id": "01KZ665BSAKKPW9MJ6M86TAFRX",
+   "task_id": "01KZ65YZFAM3YRZBWZRRE89606",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-04T10:47:27.2748520+00:00"
+  },
+  {
+   "id": "01KZ668RRG5ZFR6911E7QECR5N",
+   "task_id": "01KZ65YZFAM3YRZBWZRRE89606",
+   "attempt_number": 3,
+   "state": "rejected",
+   "started_at": "2026-08-04T10:49:18.8648530+00:00"
+  },
+  {
+   "id": "01KZ66C9PM907EP63CY7PH9VY1",
+   "task_id": "01KZ4ZM2WYRFEHVNG05C4J3218",
+   "attempt_number": 7,
+   "state": "rejected",
+   "started_at": "2026-08-04T10:51:14.5167930+00:00"
+  },
+  {
+   "id": "01KZ66HHPDVDHRTP2J4AKM9DJC",
+   "task_id": "01KZ65YZFAM3YRZBWZRRE89606",
+   "attempt_number": 4,
+   "state": "rejected",
+   "started_at": "2026-08-04T10:54:06.5411710+00:00"
+  },
+  {
+   "id": "01KZ66MM4NMGR1J6NHYDK5FV9W",
+   "task_id": "01KZ65YZFAM3YRZBWZRRE89606",
+   "attempt_number": 5,
+   "state": "rejected",
+   "started_at": "2026-08-04T10:55:47.3491490+00:00"
+  },
+  {
+   "id": "01KZ66Q3AT8Y08TKDTFNNXT2YV",
+   "task_id": "01KZ65YZFAM3YRZBWZRRE89606",
+   "attempt_number": 6,
+   "state": "rejected",
+   "started_at": "2026-08-04T10:57:08.4420080+00:00"
+  },
+  {
+   "id": "01KZ66S8JXF2NK2Y8QEWGR4NQP",
+   "task_id": "01KZ65YZFAM3YRZBWZRRE89606",
+   "attempt_number": 7,
+   "state": "rejected",
+   "started_at": "2026-08-04T10:58:19.3572350+00:00"
+  },
+  {
+   "id": "01KZ67V7XRXB9J8R5XHNMJ2F7E",
+   "task_id": "01KZ67TXGBXPH38134RV8MN084",
+   "attempt_number": 1,
+   "state": "approved",
+   "started_at": "2026-08-04T11:16:52.7929550+00:00"
+  },
+  {
+   "id": "01KZ6874JF5B47SP2K2APS3R8K",
+   "task_id": "01KZ68730XCWAF6NY9EXJG2SVD",
+   "attempt_number": 1,
+   "state": "approved",
+   "started_at": "2026-08-04T11:23:22.5753130+00:00"
+  },
+  {
+   "id": "01KZ690MYB5DZ2DPMJ8XW44YWT",
+   "task_id": "01KZ690KDMK400839K3MDDCGFD",
+   "attempt_number": 1,
+   "state": "approved",
+   "started_at": "2026-08-04T11:37:18.5396760+00:00"
+  },
+  {
+   "id": "01KZ6ESY75D7EGQ9E3YBZC1256",
+   "task_id": "01KZ6ESXYM7T15DBFSEV1KPM9W",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-04T13:18:30.1176340+00:00"
+  },
+  {
+   "id": "01KZ6FFSJVPJFZAPF5E35G72Q9",
+   "task_id": "01KZ6ESXYM7T15DBFSEV1KPM9W",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-04T13:30:26.2676920+00:00"
+  },
+  {
+   "id": "01KZ6FH25JB1H9T25FYA7M9Z68",
+   "task_id": "01KZ6ESXYYDA331Q5BMJWXYHE7",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-04T13:31:07.8269580+00:00"
+  },
+  {
+   "id": "01KZ6FZ0895TYXXKQGXHSMRXYH",
+   "task_id": "01KZ6FT2W9R7JXQYM6SBKEV8C6",
+   "attempt_number": 1,
+   "state": "approved",
+   "started_at": "2026-08-04T13:38:44.6178670+00:00"
+  },
+  {
+   "id": "01KZ6G62HHSEQ15ZN2JCJ6YDX7",
+   "task_id": "01KZ6ESXYM7T15DBFSEV1KPM9W",
+   "attempt_number": 3,
+   "state": "approved",
+   "started_at": "2026-08-04T13:42:36.3370920+00:00"
+  },
+  {
+   "id": "01KZ6HR1SBWQD96Z1GV0KBFYTZ",
+   "task_id": "01KZ6G86RS0HMGP4311E8BDDFN",
+   "attempt_number": 1,
+   "state": "approved",
+   "started_at": "2026-08-04T14:09:53.9632540+00:00"
+  },
+  {
+   "id": "01KZ6J4A62B2NM8BT5ZHFAQ07T",
+   "task_id": "01KZ6ESXYYDA331Q5BMJWXYHE7",
+   "attempt_number": 2,
+   "state": "approved",
+   "started_at": "2026-08-04T14:16:35.7780630+00:00"
+  },
+  {
+   "id": "01KZ6JBQWBDHQNS07JECPK6RDV",
+   "task_id": "01KZ6ESXYZCPYC3E19D8ZS9GS3",
+   "attempt_number": 1,
+   "state": "approved",
+   "started_at": "2026-08-04T14:20:39.1793580+00:00"
+  },
+  {
+   "id": "01KZ6JMGF7J1B9D1R3CBTNAJ79",
+   "task_id": "01KZ6ESXZ07X0HBSXP2GP51F4S",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-04T14:25:26.5038640+00:00"
+  },
+  {
+   "id": "01KZ6KARVAZGMK0EWKVW7FV5QD",
+   "task_id": "01KZ6ESXZ07X0HBSXP2GP51F4S",
+   "attempt_number": 2,
+   "state": "rejected",
+   "started_at": "2026-08-04T14:37:35.9786010+00:00"
+  },
+  {
+   "id": "01KZ6KP4V5NVQP9CAZ3328Q21X",
+   "task_id": "01KZ6ESXZ0Z6KQ24J8NG68829B",
+   "attempt_number": 1,
+   "state": "rejected",
+   "started_at": "2026-08-04T14:43:48.7098810+00:00"
+  },
+  {
+   "id": "01KZ6KYZP3AVSXBG0CD4AC63RQ",
+   "task_id": "01KZ6ESXZ07X0HBSXP2GP51F4S",
+   "attempt_number": 3,
+   "state": "rejected",
+   "started_at": "2026-08-04T14:48:38.3395030+00:00"
+  },
+  {
+   "id": "01KZ6MG9N30ZPH0H6Z0FFZ8VAC",
+   "task_id": "01KZ6ESXZ0Z6KQ24J8NG68829B",
+   "attempt_number": 2,
+   "state": "approved",
+   "started_at": "2026-08-04T14:58:05.6035850+00:00"
+  },
+  {
+   "id": "01KZ6P58DW7NPST9CFJXGKJ8CJ",
+   "task_id": "01KZ6ESXZ07X0HBSXP2GP51F4S",
+   "attempt_number": 4,
+   "state": "rejected",
+   "started_at": "2026-08-04T15:27:01.0529280+00:00"
+  }
+ ],
+ "_meta": {
+  "origem": "Arquivos-Historicos-Projetos/01KZ24JCFRHN2RGP8NHGP75JMK.json (QA-PROVA-LIMPA-20260802-EMPRESTIMOS)",
+  "aviso": "Fixture APARADA para as provas de replay da Onda 4 — conteúdo textual pesado removido; ids, títulos, estados e timestamps preservados fielmente."
+ }
+}

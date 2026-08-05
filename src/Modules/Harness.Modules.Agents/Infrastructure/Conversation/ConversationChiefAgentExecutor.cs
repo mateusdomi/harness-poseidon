@@ -624,11 +624,9 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
 
         {AttachmentIndex(outlines)}
 
-        ## Impacto do projeto (grafo) — DADO
-
         {(string.IsNullOrWhiteSpace(request.ImpactDigest)
-            ? "A projeção de grafo deste projeto está desligada ou vazia."
-            : request.ImpactDigest)}
+            ? string.Empty
+            : $"## Impacto do projeto (grafo) — DADO\n\n{request.ImpactDigest}\n")}
 
         ## Mensagem do usuário
 

@@ -501,6 +501,30 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
     }
 
     /// <summary>
+    /// Onda 4.4 — isolamento da flag do grafo no prompt: SEM digest (flag off), o prompt não
+    /// ganha nenhuma seção de grafo, nem cabeçalho vazio; COM digest, a seção aparece com o
+    /// conteúdo como DADO.
+    /// </summary>
+    [Fact]
+    public async Task OPromptSoGanhaSecaoDeGrafoQuandoODigestExiste()
+    {
+        var off = new FakeExternalExecutor(ValidChiefJson);
+        await Build(ChiefRegistry(), off).ExecuteAsync(Request(), CancellationToken.None);
+        Assert.DoesNotContain(
+            "Impacto do projeto (grafo)",
+            Assert.Single(off.Requests).Prompt,
+            StringComparison.Ordinal);
+
+        var on = new FakeExternalExecutor(ValidChiefJson);
+        await Build(ChiefRegistry(), on).ExecuteAsync(
+            Request() with { ImpactDigest = "Grafo do projeto v7 — 3 nós, 2 arestas." },
+            CancellationToken.None);
+        var prompt = Assert.Single(on.Requests).Prompt;
+        Assert.Contains("## Impacto do projeto (grafo) — DADO", prompt, StringComparison.Ordinal);
+        Assert.Contains("Grafo do projeto v7", prompt, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Onda 0.3 — "duas candidatas a Chief, uma vence": com duas contas ELEGÍVEIS o scheduler
     /// escolhe exatamente uma, por prioridade (empate: alias canônico), independentemente da
     /// ordem de registro. Nunca duas Chefs ativas: um turno = uma conta.

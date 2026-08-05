@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <None Update="Governance/Fixtures/negative-cases.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures/replay-emprestimos-qa-prova-limpa.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
