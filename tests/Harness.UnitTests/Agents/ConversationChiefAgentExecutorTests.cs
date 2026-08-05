@@ -163,7 +163,13 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         Assert.NotNull(bridge);
         var bridgeProperties = bridge.GetProperties().Select(property => property.Name).ToArray();
 
-        foreach (var property in contractProperties)
+        // Exceção DELIBERADA, não esquecimento: `contextRequests` (Onda 0.7) é consumido DENTRO
+        // do executor — o pedido de seção vira uma rodada extra de contexto e é resolvido antes
+        // da resposta final. Ele nunca é uma ação para o worker; atravessar a ponte seria vazar
+        // uma etapa interna do turno como se fosse efeito sobre o mundo.
+        string[] consumedInsideExecutor = [nameof(ChiefTurnOutput.ContextRequests)];
+
+        foreach (var property in contractProperties.Except(consumedInsideExecutor))
         {
             Assert.True(
                 bridgeProperties.Contains(property, StringComparer.Ordinal),
@@ -446,8 +452,75 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         Assert.Equal("01KZ26X4RN6V96W19ZXTKKGTJE", action.CardId);
     }
 
+    /// <summary>
+    /// Onda 0.7 de ponta a ponta no executor: a primeira resposta pede seções via
+    /// `contextRequests`; o executor busca o conteúdo INTEGRAL no navegador de anexos, reinvoca
+    /// retomando a MESMA sessão com as seções como DADO, e a resposta final é a que vale.
+    /// </summary>
+    [Fact]
+    public async Task AContextRequestFetchesTheFullSectionAndTheSecondAnswerWins()
+    {
+        var fake = new FakeExternalExecutor(
+            """{"intent":"responder_pergunta","intentConfidence":0.9,"response":"Preciso ler a metodologia antes de afirmar.","demands":[],"contextRequests":[{"file":"espec.md","sections":["5","99"]}]}""")
+        {
+            NextMessages = new Queue<string>(
+                ["""{"intent":"responder_pergunta","intentConfidence":0.95,"response":"Com a seção em mãos: a criticidade sai da tabela de consulta.","demands":[]}"""]),
+        };
+        var navigator = new FakeNavigator();
+        var executor = Build(ChiefRegistry(), fake, navigator);
+
+        var result = await executor.ExecuteAsync(Request(), CancellationToken.None);
+
+        Assert.Equal(2, fake.Requests.Count);
+        // O prompt do turno declara o índice navegável e o caminho do conteúdo integral.
+        Assert.Contains("índice navegável", fake.Requests[0].Prompt, StringComparison.Ordinal);
+        Assert.Contains("§5 — 5. Metodologia", fake.Requests[0].Prompt, StringComparison.Ordinal);
+        // A rodada de seções retoma a MESMA sessão e carrega a seção INTEIRA como DADO.
+        Assert.Equal("session-fake", fake.Requests[1].ResumeSessionId);
+        Assert.Contains("conteúdo INTEGRAL", fake.Requests[1].Prompt, StringComparison.Ordinal);
+        Assert.Contains("tabela de consulta completa", fake.Requests[1].Prompt, StringComparison.Ordinal);
+        // Seção inexistente volta como ausência DECLARADA, nunca inventada.
+        Assert.Contains("seção 99 — NÃO ENCONTRADA", fake.Requests[1].Prompt, StringComparison.Ordinal);
+        // A resposta final é a da segunda rodada.
+        Assert.Contains("a criticidade sai da tabela de consulta", result.StructuredOutput, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task WithoutANavigatorAContextRequestDegradesToTheFirstAnswer()
+    {
+        // Sem navegador registrado o pedido de seção não pode ser atendido: o turno mantém a
+        // primeira resposta válida (comportamento anterior à Onda 0.7), sem rodada extra.
+        var fake = new FakeExternalExecutor(
+            """{"intent":"responder_pergunta","intentConfidence":0.9,"response":"Só tenho o resumo do anexo por enquanto.","demands":[],"contextRequests":[{"file":"espec.md","sections":["5"]}]}""");
+        var executor = Build(ChiefRegistry(), fake);
+
+        var result = await executor.ExecuteAsync(Request(), CancellationToken.None);
+
+        Assert.Single(fake.Requests);
+        Assert.Contains("tenho o resumo do anexo por enquanto", result.StructuredOutput, StringComparison.Ordinal);
+    }
+
+    private sealed class FakeNavigator : IChiefAttachmentNavigator
+    {
+        public Task<IReadOnlyList<ChiefAttachmentOutline>> ListOutlinesAsync(
+            string tenantId, string projectId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<ChiefAttachmentOutline>>(
+                [new ChiefAttachmentOutline(
+                    "espec.md",
+                    [new ChiefAttachmentSectionRef("5", "5. Metodologia de avaliação")])]);
+
+        public Task<string?> ReadSectionAsync(
+            string tenantId, string projectId, string fileName, string sectionId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(sectionId == "5"
+                ? "## 5. Metodologia de avaliação\n\ncritérios de impacto e a tabela de consulta completa"
+                : null);
+    }
+
     private ConversationChiefAgentExecutor Build(
-        AgentAccountRegistry registry, FakeExternalExecutor fake) =>
+        AgentAccountRegistry registry,
+        FakeExternalExecutor fake,
+        IChiefAttachmentNavigator? navigator = null) =>
         new(
             registry,
             new AgentAccountScheduler(),
@@ -455,7 +528,8 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
             _ => fake,
             new StubClock(Now),
             new ConversationChiefExecutorOptions(_repositoryRoot),
-            NullLogger<ConversationChiefAgentExecutor>.Instance);
+            NullLogger<ConversationChiefAgentExecutor>.Instance,
+            navigator);
 
     private static AgentExecutionRequest Request(
         string instruction = "Continue com segurança",

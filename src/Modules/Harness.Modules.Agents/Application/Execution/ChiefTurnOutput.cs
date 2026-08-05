@@ -17,7 +17,15 @@ public sealed record ChiefTurnOutput(
     IReadOnlyList<ChiefTeamAction>? TeamActions = null,
     ChiefTurnIntent Intent = ChiefTurnIntent.Unmatched,
     double IntentConfidence = 0,
-    IReadOnlyList<ChiefCardAction>? CardActions = null);
+    IReadOnlyList<ChiefCardAction>? CardActions = null,
+    IReadOnlyList<ChiefContextRequest>? ContextRequests = null);
+
+/// <summary>
+/// Pedido da chefe por seções INTEGRAIS de um anexo (Onda 0.7). É consumido DENTRO do executor —
+/// que busca as seções e reinvoca o turno com elas — e nunca chega ao worker: pedir contexto não
+/// é uma ação sobre o mundo, é uma etapa da resposta.
+/// </summary>
+public sealed record ChiefContextRequest(string File, IReadOnlyList<string> Sections);
 
 /// <summary>
 /// Decisão do dono sobre um card ESCALADO, traduzida em ação.
@@ -78,8 +86,11 @@ public sealed record ChiefDemandProposal(
 public static class ChiefTurnOutputContract
 {
     private static readonly HashSet<string> RootProperties =
-        new(["response", "demands", "teamActions", "cardActions", "intent", "intentConfidence"],
+        new(["response", "demands", "teamActions", "cardActions", "intent", "intentConfidence",
+             "contextRequests"],
             StringComparer.Ordinal);
+    private static readonly HashSet<string> ContextRequestProperties =
+        new(["file", "sections"], StringComparer.Ordinal);
     private static readonly HashSet<string> TeamActionProperties =
         new(["action", "reason", "persona", "personaKey"], StringComparer.Ordinal);
     private static readonly HashSet<string> CardActionProperties =
@@ -188,7 +199,53 @@ public static class ChiefTurnOutputContract
         return new ChiefTurnOutput(
             response, demands, ReadTeamActions(root),
             ChiefIntentDispatchTable.Resolve(intent, confidence), confidence,
-            ReadCardActions(root));
+            ReadCardActions(root),
+            ReadContextRequests(root));
+    }
+
+    /// <summary>
+    /// Lê os pedidos de seção integral de anexo. Limites apertados (5 pedidos × 10 seções) porque
+    /// cada seção volta COMPLETA para o prompt — o teto protege a janela de contexto, não o modelo.
+    /// </summary>
+    private static List<ChiefContextRequest>? ReadContextRequests(JsonElement root)
+    {
+        if (!root.TryGetProperty("contextRequests", out var node) ||
+            node.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (node.ValueKind != JsonValueKind.Array || node.GetArrayLength() > 5)
+        {
+            throw new AgentOutputValidationException(
+                "Chief context requests must be an array with at most 5 items.");
+        }
+
+        var requests = new List<ChiefContextRequest>();
+        foreach (var entry in node.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.Object)
+            {
+                throw new AgentOutputValidationException("Every context request must be an object.");
+            }
+
+            EnsureOnlyProperties(entry, ContextRequestProperties, "context request");
+            var file = ReadRequiredText(entry, "file", 1, 200);
+            if (!entry.TryGetProperty("sections", out var sectionsNode) ||
+                sectionsNode.ValueKind != JsonValueKind.Array ||
+                sectionsNode.GetArrayLength() is < 1 or > 10)
+            {
+                throw new AgentOutputValidationException(
+                    "Context request sections must contain 1 to 10 items.");
+            }
+
+            var sections = sectionsNode.EnumerateArray()
+                .Select(item => ReadText(item, "context request section", 1, 100))
+                .ToArray();
+            requests.Add(new ChiefContextRequest(file, sections));
+        }
+
+        return requests.Count == 0 ? null : requests;
     }
 
     /// <summary>
@@ -416,6 +473,24 @@ public static class ChiefTurnOutputContract
                            "pedir_status_pessoa_equipe", "conversa_geral"]
                 },
                 "intentConfidence": { "type": "number", "minimum": 0, "maximum": 1 },
+                "contextRequests": {
+                  "type": ["array", "null"],
+                  "maxItems": 5,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["file", "sections"],
+                    "properties": {
+                      "file": { "type": "string", "minLength": 1, "maxLength": 200 },
+                      "sections": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 10,
+                        "items": { "type": "string", "minLength": 1, "maxLength": 100 }
+                      }
+                    }
+                  }
+                },
                 "teamActions": {
                   "type": ["array", "null"],
                   "maxItems": 10,

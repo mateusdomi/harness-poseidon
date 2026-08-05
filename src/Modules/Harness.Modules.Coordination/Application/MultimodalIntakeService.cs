@@ -136,6 +136,15 @@ public sealed class MultimodalIntakeService(IArtifactContentExtractor? extractor
     private static string NormalizePreview(string text)
     {
         var sanitized = Regex.Replace(text, @"\s+", " ").Trim();
-        return sanitized.Length > 4000 ? sanitized[..4000] + "..." : sanitized;
+
+        // Onda 0.7: o corte passa a se DECLARAR. Este preview alimenta a memória de contexto da
+        // chefe, e um resumo que termina em "..." foi lido como o documento inteiro no primeiro
+        // turno real do Prisma — a chefe só descobriu a mutilação porque foi honesta sobre o que
+        // via. O conteúdo integral fica navegável por seção via `contextRequests`.
+        return sanitized.Length > 4000
+            ? sanitized[..4000] +
+                " … [RESUMO TRUNCADO: este trecho cobre só o início do documento; o conteúdo " +
+                "integral está disponível por seção no índice navegável de anexos.]"
+            : sanitized;
     }
 }

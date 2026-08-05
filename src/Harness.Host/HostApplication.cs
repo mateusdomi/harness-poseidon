@@ -616,7 +616,11 @@ public static class HostApplication
                         services.GetRequiredService<IClock>(),
                         new ConversationChiefExecutorOptions(
                             Path.GetFullPath(agentRunSettings.ControlledRoot!)),
-                        services.GetRequiredService<ILogger<ConversationChiefAgentExecutor>>())));
+                        services.GetRequiredService<ILogger<ConversationChiefAgentExecutor>>(),
+                        // Onda 0.7: anexos navegáveis por seção no turno da chefe.
+                        new WorkBoard.SolicitationAttachmentNavigator(
+                            services.GetRequiredService<IWorkBoardStore>(),
+                            services.GetRequiredService<ISolicitationAttachmentStore>()))));
 
             builder.Services.AddSingleton(services => new AgentRunOrchestrator(
                 services.GetRequiredService<IAttemptWorkspaceStore>(),

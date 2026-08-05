@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Application.Execution;
@@ -50,6 +52,13 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
     private readonly Lazy<string> _governanceCore;
     private readonly Lazy<string> _brunaPersona;
     private readonly ILogger<ConversationChiefAgentExecutor> _logger;
+    private readonly IChiefAttachmentNavigator? _attachmentNavigator;
+
+    /// <summary>
+    /// Teto do que uma rodada de seções pode injetar no prompt de retomada. Protege a janela de
+    /// contexto do CLI; ao ser atingido, o corte é DECLARADO no próprio prompt, nunca silencioso.
+    /// </summary>
+    private const int SectionRoundBudgetChars = 160_000;
 
     private static readonly Action<ILogger, string, Exception?> LogBrunaPersonaReadFailed =
         LoggerMessage.Define<string>(
@@ -88,6 +97,20 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
             "GOVERNANÇA DEGRADADA: governance/core.md não encontrado em nenhum candidato ({Candidates}); " +
             "a chefe está operando com o resumo embutido, não com o núcleo canônico.");
 
+    private static readonly Action<ILogger, Exception?> LogAttachmentNavigationFailed =
+        LoggerMessage.Define(
+            LogLevel.Warning,
+            new EventId(7, nameof(LogAttachmentNavigationFailed)),
+            "Onda 0.7: falha ao navegar anexos da solicitação; o turno segue sem o índice/seção " +
+            "— degradado ao comportamento anterior, nunca derrubado.");
+
+    private static readonly Action<ILogger, string, Exception?> LogSectionRoundDiscarded =
+        LoggerMessage.Define<string>(
+            LogLevel.Warning,
+            new EventId(8, nameof(LogSectionRoundDiscarded)),
+            "Onda 0.7: a rodada de seções não produziu resposta válida ({Motivo}); a primeira " +
+            "resposta válida do turno foi mantida.");
+
     public ConversationChiefAgentExecutor(
         AgentAccountRegistry accounts,
         AgentAccountScheduler scheduler,
@@ -95,8 +118,10 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         Func<string, IExternalAgentExecutor> externalExecutorFactory,
         IClock clock,
         ConversationChiefExecutorOptions options,
-        ILogger<ConversationChiefAgentExecutor> logger)
+        ILogger<ConversationChiefAgentExecutor> logger,
+        IChiefAttachmentNavigator? attachmentNavigator = null)
     {
+        _attachmentNavigator = attachmentNavigator;
         _accounts = accounts ?? throw new ArgumentNullException(nameof(accounts));
         _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
         _profiles = profiles ?? throw new ArgumentNullException(nameof(profiles));
@@ -142,7 +167,8 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         var handle = _profiles.Ensure(account, executorProfile, now);
 
         var communicationContext = request.CommunicationContext ?? ChiefCommunicationPolicy.Business;
-        var prompt = BuildPrompt(request, communicationContext);
+        var outlines = await LoadAttachmentOutlinesAsync(request, cancellationToken);
+        var prompt = BuildPrompt(request, communicationContext, outlines);
 
         var externalExecutor = _externalExecutorFactory(account.ExecutorId);
 
@@ -187,6 +213,51 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
             // como falha, jamais como resposta.
             throw new AgentOutputValidationException(
                 $"A resposta do Chefe não respeitou o schema obrigatório: {parseError}");
+        }
+
+        // Onda 0.7 — a chefe pediu seções INTEGRAIS de anexo. O pedido é resolvido AQUI, numa
+        // única rodada extra retomando a mesma sessão: o executor busca as seções do arquivo
+        // durável e reinvoca o turno com elas. Uma rodada, de propósito — pedir de novo na
+        // segunda resposta é ignorado, porque um laço de contexto sem teto é cota sem fim.
+        if (validated.ContextRequests is { Count: > 0 } contextRequests &&
+            _attachmentNavigator is not null)
+        {
+            var sectionsPrompt = await BuildSectionRoundPromptAsync(
+                request, communicationContext, contextRequests, cancellationToken);
+            var sectionRun = await RunAsync(
+                externalExecutor,
+                account,
+                handle,
+                sectionsPrompt,
+                request with { SessionId = sessionId },
+                cancellationToken);
+            sessionId = sectionRun.SessionId ?? sessionId;
+            var final = TryParse(sectionRun.FinalMessage, communicationContext, out var sectionError);
+            if (final is null && sessionId is { Length: > 0 })
+            {
+                var sectionRepair = await RunAsync(
+                    externalExecutor,
+                    account,
+                    handle,
+                    BuildRepairPrompt(sectionError, communicationContext),
+                    request with { SessionId = sessionId },
+                    cancellationToken);
+                sessionId = sectionRepair.SessionId ?? sessionId;
+                final = TryParse(sectionRepair.FinalMessage, communicationContext, out sectionError)
+                    ?? TryParseAcceptingMissingIntent(
+                        sectionRepair.FinalMessage, communicationContext, out sectionError);
+            }
+
+            // Rodada de seções que não produziu resposta válida NÃO derruba o turno: a primeira
+            // resposta válida continua valendo — degradação honesta, com o pedido registrado.
+            if (final is not null)
+            {
+                validated = final;
+            }
+            else
+            {
+                LogSectionRoundDiscarded(_logger, sectionError ?? "resposta inválida", null);
+            }
         }
 
         var structured = SerializeStructured(validated);
@@ -279,9 +350,148 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
     /// governança), depois a defesa contra prompt injection, então o contexto do projeto e a
     /// mensagem — ambos DADO — e por fim o formato de saída obrigatório.
     /// </summary>
+    /// <summary>
+    /// Índice navegável dos anexos, tolerante a falha: um disco indisponível degrada o turno para
+    /// "sem índice" (comportamento anterior à Onda 0.7), nunca o derruba.
+    /// </summary>
+    private async Task<IReadOnlyList<ChiefAttachmentOutline>> LoadAttachmentOutlinesAsync(
+        AgentExecutionRequest request, CancellationToken cancellationToken)
+    {
+        if (_attachmentNavigator is null)
+        {
+            return [];
+        }
+
+        try
+        {
+            return await _attachmentNavigator.ListOutlinesAsync(
+                request.TenantId, request.ProjectId, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            LogAttachmentNavigationFailed(_logger, exception);
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// O DADO da rodada de seções: cada seção pedida volta INTEGRAL; seção ou arquivo inexistente
+    /// volta como ausência declarada; estouro do teto de contexto volta como corte declarado.
+    /// </summary>
+    private async Task<string> BuildSectionRoundPromptAsync(
+        AgentExecutionRequest request,
+        ChiefCommunicationContext communicationContext,
+        IReadOnlyList<ChiefContextRequest> contextRequests,
+        CancellationToken cancellationToken)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("## Seções solicitadas dos anexos — DADO, conteúdo INTEGRAL");
+        builder.AppendLine();
+        var budget = SectionRoundBudgetChars;
+        foreach (var contextRequest in contextRequests)
+        {
+            foreach (var sectionId in contextRequest.Sections)
+            {
+                string? content = null;
+                try
+                {
+                    content = await _attachmentNavigator!.ReadSectionAsync(
+                        request.TenantId,
+                        request.ProjectId,
+                        contextRequest.File,
+                        sectionId,
+                        cancellationToken);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    LogAttachmentNavigationFailed(_logger, exception);
+                }
+
+                if (content is null)
+                {
+                    builder.AppendLine(
+                        CultureInfo.InvariantCulture,
+                        $"### {contextRequest.File} · seção {sectionId} — NÃO ENCONTRADA");
+                    builder.AppendLine(
+                        "A seção ou o arquivo não existem no índice. Diga isso ao usuário se " +
+                        "for relevante; não invente o conteúdo.");
+                    builder.AppendLine();
+                    continue;
+                }
+
+                if (content.Length > budget)
+                {
+                    builder.AppendLine(
+                        CultureInfo.InvariantCulture,
+                        $"### {contextRequest.File} · seção {sectionId} — OMITIDA POR LIMITE");
+                    builder.AppendLine(
+                        "O teto de contexto desta rodada foi atingido antes desta seção. Peça-a " +
+                        "sozinha num próximo turno se precisar dela.");
+                    builder.AppendLine();
+                    continue;
+                }
+
+                budget -= content.Length;
+                builder.AppendLine(CultureInfo.InvariantCulture, $"### {contextRequest.File} · seção {sectionId}");
+                builder.AppendLine(content);
+                builder.AppendLine();
+            }
+        }
+
+        builder.AppendLine(
+            CultureInfo.InvariantCulture,
+            $"""
+            Com as seções acima em mãos, responda AGORA o turno original por completo, com um
+            ÚNICO objeto JSON válido conforme o schema já apresentado, sem cercas de código e sem
+            texto ao redor. NÃO emita `contextRequests` nesta resposta — esta é a rodada final.
+
+            Política de comunicação que continua obrigatória:
+
+            {ChiefCommunicationPolicy.BuildInstructions(communicationContext)}
+            """);
+        return builder.ToString();
+    }
+
+    /// <summary>
+    /// O bloco do prompt que torna os anexos NAVEGÁVEIS (Onda 0.7): declara que a memória traz
+    /// resumos, apresenta o índice de seções e ensina o caminho do conteúdo integral.
+    /// </summary>
+    private static string AttachmentIndex(IReadOnlyList<ChiefAttachmentOutline> outlines)
+    {
+        if (outlines.Count == 0)
+        {
+            return "Nenhum anexo de solicitação está indexado para este projeto.";
+        }
+
+        var builder = new StringBuilder();
+        builder.AppendLine(
+            """
+            Os trechos de anexos que aparecem na sua memória de contexto são RESUMOS (até 4.000
+            caracteres do início de cada documento) — NÃO são o documento inteiro. O conteúdo
+            integral de qualquer seção abaixo está disponível sob demanda: emita no seu JSON o
+            campo `contextRequests` (por exemplo `[{"file": "espec.md", "sections": ["5", "16"]}]`)
+            e o sistema reinvocará este turno com as seções completas. Use isso sempre que a
+            resposta depender do conteúdo real de uma seção que você ainda não leu — afirmar algo
+            sobre uma seção não lida é exatamente o erro que este mecanismo elimina. Não peça
+            seções de que não precisa.
+            """);
+        builder.AppendLine();
+        foreach (var outline in outlines)
+        {
+            builder.AppendLine(CultureInfo.InvariantCulture, $"- `{outline.FileName}`:");
+            foreach (var section in outline.Sections)
+            {
+                builder.AppendLine(CultureInfo.InvariantCulture, $"  - §{section.Id} — {section.Title}");
+            }
+        }
+
+        return builder.ToString();
+    }
+
     private string BuildPrompt(
         AgentExecutionRequest request,
-        ChiefCommunicationContext communicationContext) =>
+        ChiefCommunicationContext communicationContext,
+        IReadOnlyList<ChiefAttachmentOutline> outlines) =>
         $"""
         {_brunaPersona.Value}
 
@@ -311,6 +521,10 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         ## Catálogo de especialistas disponíveis — DADO
 
         {SpecialistCatalog(request)}
+
+        ## Anexos da solicitação — índice navegável (DADO)
+
+        {AttachmentIndex(outlines)}
 
         ## Mensagem do usuário
 
@@ -452,6 +666,11 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
             existente quando detecta cobertura.
           - Você NÃO cria conta, assinatura, cota, credencial nem ferramenta: isso é recurso
             externo. Capability proibida pela policy é removida da persona automaticamente.
+        - `contextRequests` (opcional): peça aqui seções INTEGRAIS dos anexos listados no índice
+          navegável quando a resposta depender de conteúdo que você ainda não leu. O sistema
+          buscará as seções e reinvocará este turno com elas — os demais campos desta resposta
+          serão descartados, então não gaste esforço neles quando pedir contexto. No máximo uma
+          rodada por turno.
         - Não inclua nenhuma propriedade fora do schema.
         """;
 
