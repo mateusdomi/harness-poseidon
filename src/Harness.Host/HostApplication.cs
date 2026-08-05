@@ -691,6 +691,7 @@ public static class HostApplication
         else
         {
             builder.Services.AddSingleton<ISolicitationAttachmentStore, SqliteSolicitationAttachmentStore>();
+            builder.Services.AddSingleton<Harness.Persistence.Abstractions.Coordination.IChiefLoopStateStore, SqliteChiefLoopStateStore>();
             builder.Services.AddSingleton<IVisualReferenceAssetStore, SqliteVisualReferenceAssetStore>();
             builder.Services.AddSingleton(services => new LocalOperationsService(
                 services.GetRequiredService<SqliteWriteDispatcher>(), databasePath, documentCatalogPath));

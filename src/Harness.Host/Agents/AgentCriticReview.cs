@@ -45,6 +45,33 @@ public enum ReviewRejectionCause
 
     /// <summary>Reprovou e o classificador não soube dizer por quê. Honesto, nunca conveniente.</summary>
     Other,
+
+    /// <summary>O executor não domina a habilidade que o card exige (ex.: framework específico).</summary>
+    MissingSkill,
+
+    /// <summary>O card foi mal decomposto: grande demais, ambíguo ou com fatias acopladas.</summary>
+    BadDecomposition,
+
+    /// <summary>A verificação necessária não existe na plataforma — o buraco é nosso, não do ator.</summary>
+    MissingVerifier,
+
+    /// <summary>Faltou ferramenta/permissão para executar o que o card pede.</summary>
+    MissingTool,
+
+    /// <summary>O limite é do modelo: a tarefa excede a capacidade do executor designado.</summary>
+    ModelCapability,
+
+    /// <summary>A especificação admite mais de uma leitura e o ator escolheu uma delas.</summary>
+    SpecAmbiguity,
+
+    /// <summary>Infraestrutura falhou (rede, quota, processo) — não julga o trabalho.</summary>
+    EnvironmentFailure,
+
+    /// <summary>A entrega viola política/regra vigente (governança, segurança, escopo de path).</summary>
+    PolicyViolation,
+
+    /// <summary>Histórico migrado sem causa registrada. Escrita NOVA nunca usa este valor.</summary>
+    Unclassified,
 }
 
 /// <summary>Veredito do critic. `Fail` é o padrão quando falta evidência.</summary>

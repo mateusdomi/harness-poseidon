@@ -54,7 +54,9 @@ public sealed partial class ChiefBacklogLoopService(
     CodeGraphDerivationService codeGraph,
     AgentAccountScheduler scheduler,
     IProviderCatalogStore providerCatalog,
-    ILogger<ChiefBacklogLoopService> logger) : BackgroundService
+    ILogger<ChiefBacklogLoopService> logger,
+    Harness.Persistence.Abstractions.Coordination.IChiefLoopStateStore? loopStateStore = null,
+    ILoggerFactory? loggerFactory = null) : BackgroundService
 {
     /// <summary>Despachante em escala (Fase 10) — puro e determinístico, um por processo.</summary>
     private static readonly ScaleDispatcher ScaleGate = new();
@@ -321,6 +323,9 @@ public sealed partial class ChiefBacklogLoopService(
         foreach (var profile in profileList)
         {
             token.ThrowIfCancellationRequested();
+            // RECOVERY do estado do laço (Onda 0.6): o que foi decidido antes do reinício volta a
+            // valer antes da primeira decisão nova. Uma vez por tenant por processo.
+            await _loopState.HydrateAsync(profile.TenantId, token);
             var controlledRoot = System.IO.Path.GetFullPath(settings.ControlledRoot!);
             var personas = await catalog.ListDefinitionsForTenantAsync(profile.TenantId, null, 100, false, token);
             var plans = scope.ServiceProvider.GetRequiredService<IDemandPlanStore>();
@@ -521,7 +526,7 @@ public sealed partial class ChiefBacklogLoopService(
                     token.ThrowIfCancellationRequested();
                     // Card recusado na largada há pouco (conflito de claim): esperar o escopo liberar é
                     // a decisão correta — re-tentar em seguida só produz tentativa fantasma.
-                    if (_dispatchBackoff.TryGetValue(task.Id, out var retryAt) && retryAt > clock.UtcNow)
+                    if (_loopState.TryGetDispatchBackoff(task.Id, out var retryAt) && retryAt > clock.UtcNow)
                     {
                         continue;
                     }
@@ -1005,7 +1010,9 @@ public sealed partial class ChiefBacklogLoopService(
                     if (!orchestrator.HasProfileCapacity(decision.AccountAlias))
                     {
                         deferred++;
-                        _dispatchBackoff[entry.Task.Id] = clock.UtcNow.Add(RejectedDispatchBackoff);
+                        await _loopState.SetDispatchBackoffAsync(
+                            profile.TenantId, entry.Task.Id,
+                            clock.UtcNow.Add(RejectedDispatchBackoff), token);
                         LogCardProfileBusyDeferred(
                             logger, entry.Task.Id, decision.AccountAlias);
                         continue;
@@ -1463,8 +1470,13 @@ public sealed partial class ChiefBacklogLoopService(
     /// </summary>
     internal const int MaximumReviewInfrastructureFailures = 4;
 
-    /// <summary>Backoff em memória por tentativa para reviews com falha de infraestrutura.</summary>
-    private readonly Dictionary<string, DateTimeOffset> _reviewBackoff = new(StringComparer.Ordinal);
+    /// <summary>
+    /// Estado DURÁVEL do laço (Onda 0.6): backoff de despacho, backoff de revisão e contagem de
+    /// não-progresso, com escrita através para a store relacional e hidratação no arranque. Um
+    /// freio que zerava no reinício não era freio.
+    /// </summary>
+    private readonly ChiefLoopDurableState _loopState = new(
+        loopStateStore, loggerFactory?.CreateLogger("ChiefLoopDurableState"));
 
     /// <summary>
     /// Adiamentos consecutivos por tentativa. Zera quando um veredito real é aplicado — o que
@@ -1585,22 +1597,8 @@ public sealed partial class ChiefBacklogLoopService(
     private static readonly TimeSpan RejectedDispatchBackoff = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan FailedRunRetryBackoff = TimeSpan.FromMinutes(2);
 
-    /// <summary>Backoff em memória por CARD para despachos recusados na largada.</summary>
-    private readonly Dictionary<string, DateTimeOffset> _dispatchBackoff = new(StringComparer.Ordinal);
 
-    /// <summary>
-    /// Runs consecutivos do CARD que não produziram um único token de saída.
-    ///
-    /// É a resposta à segunda pergunta, e ela não é a do circuito: o circuito pergunta "esta
-    /// falha é culpa do card?" e responde bem — zero token quer dizer que ninguém julgou o
-    /// enunciado, então não conta. Só que "ninguém julgou" repetido para sempre é o pior
-    /// desfecho possível, e era exatamente o que ficava invisível: em 03/08/2026 foram catorze
-    /// tentativas em uma hora e quarenta, todas de zero token, sem circuito aberto e sem freio.
-    ///
-    /// Em memória de propósito: é um FREIO, não um veredito. Reinício do Host zera a contagem, e
-    /// isso é aceitável — depois de um reinício vale mesmo a pena tentar de novo.
-    /// </summary>
-    private readonly Dictionary<string, int> _noProgressRuns = new(StringComparer.Ordinal);
+
 
     /// <summary>
     /// Marcador estável do aviso de escalação. É o que permite reconhecer, na própria conversa,
@@ -1957,14 +1955,14 @@ public sealed partial class ChiefBacklogLoopService(
             // conta: a mesma parede pode aparecer em contas diferentes, e foi o que aconteceu.
             if (ProducedOutput(snapshot))
             {
-                _noProgressRuns.Remove(task.Id);
+                await _loopState.ClearNoProgressAsync(tenantId, task.Id, token);
             }
             else
             {
-                _noProgressRuns[task.Id] = _noProgressRuns.GetValueOrDefault(task.Id) + 1;
+                _ = await _loopState.IncrementNoProgressAsync(tenantId, task.Id, token);
             }
 
-            var noProgress = _noProgressRuns.GetValueOrDefault(task.Id);
+            var noProgress = _loopState.NoProgressRuns(task.Id);
             var delay = noProgress > 1
                 ? NoProgressBackoff(noProgress)
                 : RetryDelayAfterRun(snapshot) ?? FailedRunRetryBackoff;
@@ -1973,7 +1971,7 @@ public sealed partial class ChiefBacklogLoopService(
                 LogNoProgressBrake(logger, task.Id, noProgress, (int)delay.TotalSeconds);
             }
 
-            _dispatchBackoff[task.Id] = now.Add(delay);
+            await _loopState.SetDispatchBackoffAsync(tenantId, task.Id, now.Add(delay), token);
         }
 
         LogRunRequeued(logger, task.Id, running.Id, snapshot.Status.ToString());
@@ -2009,7 +2007,8 @@ public sealed partial class ChiefBacklogLoopService(
             _reviewerShortageSince[attemptId] = waitingSince;
             if (ShouldWaitForReviewer(reviewerReturnsBy, reasonCode, waitingSince, now))
             {
-                _reviewBackoff[attemptId] = now.Add(ReviewRetryBackoff);
+                await _loopState.SetReviewBackoffAsync(
+                    tenantId, attemptId, now.Add(ReviewRetryBackoff), token);
                 return false;
             }
         }
@@ -2020,7 +2019,8 @@ public sealed partial class ChiefBacklogLoopService(
         _reviewInfrastructureFailures[attemptId] = failures;
         if (failures < MaximumReviewInfrastructureFailures)
         {
-            _reviewBackoff[attemptId] = now.Add(ReviewRetryBackoff);
+            await _loopState.SetReviewBackoffAsync(
+                tenantId, attemptId, now.Add(ReviewRetryBackoff), token);
             return false;
         }
 
@@ -2039,21 +2039,23 @@ public sealed partial class ChiefBacklogLoopService(
         {
             // Corrida legítima (o card mudou de estado entre a leitura e a escalação): não insiste
             // neste ciclo e deixa o próximo reler o estado atual.
-            _reviewBackoff[attemptId] = now.Add(ReviewRetryBackoff);
+            await _loopState.SetReviewBackoffAsync(
+                tenantId, attemptId, now.Add(ReviewRetryBackoff), token);
             return false;
         }
 
         LogReviewUnavailableEscalated(logger, task.Id, attemptId, reasonCode, failures);
-        _reviewBackoff.Remove(attemptId);
+        await _loopState.ClearReviewBackoffAsync(tenantId, attemptId, token);
         _reviewInfrastructureFailures.Remove(attemptId);
         _reviewerShortageSince.Remove(attemptId);
         return true;
     }
 
     /// <summary>Zera o histórico de adiamentos quando um veredito REAL foi aplicado.</summary>
-    private void ClearReviewDeferrals(string attemptId)
+    private void ClearReviewDeferrals(string tenantId, string attemptId, CancellationToken token)
     {
-        _reviewBackoff.Remove(attemptId);
+        // fire-and-forget deliberado: limpar backoff é otimização de ritmo, nunca decisão.
+        _ = _loopState.ClearReviewBackoffAsync(tenantId, attemptId, token);
         _reviewInfrastructureFailures.Remove(attemptId);
         _reviewerShortageSince.Remove(attemptId);
     }
@@ -2289,7 +2291,7 @@ public sealed partial class ChiefBacklogLoopService(
             }
 
             var now = clock.UtcNow;
-            if (_reviewBackoff.TryGetValue(awaiting.Id, out var notBefore) && notBefore > now)
+            if (_loopState.TryGetReviewBackoff(awaiting.Id, out var notBefore) && notBefore > now)
             {
                 continue;
             }
@@ -2340,7 +2342,7 @@ public sealed partial class ChiefBacklogLoopService(
                             "parecer do Conselho: aprovação de política, sem gate determinístico aplicável")))
                 {
                     reviewed++;
-                    ClearReviewDeferrals(awaiting.Id);
+                    ClearReviewDeferrals(tenantId, awaiting.Id, token);
                     LogCouncilOpinionAccepted(logger, task.Id, awaiting.Id);
                 }
                 else
@@ -2547,7 +2549,7 @@ public sealed partial class ChiefBacklogLoopService(
                             documentFailure.ReasonCode)))
                 {
                     reviewed++;
-                    ClearReviewDeferrals(awaiting.Id);
+                    ClearReviewDeferrals(tenantId, awaiting.Id, token);
                 }
                 else
                 {
@@ -2572,7 +2574,7 @@ public sealed partial class ChiefBacklogLoopService(
                         tenantId, task, awaiting.Id, diagnosticVerdict, chain, token))
                 {
                     reviewed++;
-                    ClearReviewDeferrals(awaiting.Id);
+                    ClearReviewDeferrals(tenantId, awaiting.Id, token);
                 }
                 else
                 {
@@ -2617,7 +2619,7 @@ public sealed partial class ChiefBacklogLoopService(
                         tenantId, task, awaiting.Id, secretResult, chain, token, deterministicLayer))
                 {
                     reviewed++;
-                    ClearReviewDeferrals(awaiting.Id);
+                    ClearReviewDeferrals(tenantId, awaiting.Id, token);
                 }
                 else
                 {
@@ -2667,7 +2669,7 @@ public sealed partial class ChiefBacklogLoopService(
                         tenantId, task, awaiting.Id, gateResult, chain, token, deterministicLayer))
                 {
                     reviewed++;
-                    ClearReviewDeferrals(awaiting.Id);
+                    ClearReviewDeferrals(tenantId, awaiting.Id, token);
                 }
                 else
                 {
@@ -2722,7 +2724,7 @@ public sealed partial class ChiefBacklogLoopService(
                             string.Join("; ", placeholders))))
                 {
                     reviewed++;
-                    ClearReviewDeferrals(awaiting.Id);
+                    ClearReviewDeferrals(tenantId, awaiting.Id, token);
                 }
                 else
                 {
@@ -2791,7 +2793,7 @@ public sealed partial class ChiefBacklogLoopService(
                     tenantId, task, awaiting.Id, result, chain, token, deterministicLayer))
             {
                 reviewed++;
-                ClearReviewDeferrals(awaiting.Id);
+                ClearReviewDeferrals(tenantId, awaiting.Id, token);
             }
             else
             {
@@ -2913,6 +2915,14 @@ public sealed partial class ChiefBacklogLoopService(
             ReviewRejectionCause.AcceptanceNotMet => "acceptanceNotMet",
             ReviewRejectionCause.ScopeViolation => "scopeViolation",
             ReviewRejectionCause.QualityBar => "qualityBar",
+            ReviewRejectionCause.MissingSkill => "missingSkill",
+            ReviewRejectionCause.BadDecomposition => "badDecomposition",
+            ReviewRejectionCause.MissingVerifier => "missingVerifier",
+            ReviewRejectionCause.MissingTool => "missingTool",
+            ReviewRejectionCause.ModelCapability => "modelCapability",
+            ReviewRejectionCause.SpecAmbiguity => "specAmbiguity",
+            ReviewRejectionCause.EnvironmentFailure => "environmentFailure",
+            ReviewRejectionCause.PolicyViolation => "policyViolation",
             ReviewRejectionCause.Other => "other",
             _ => "other",
         };
@@ -4938,7 +4948,8 @@ public sealed partial class ChiefBacklogLoopService(
         {
             var rejection = snapshot.FinalError ?? "rejeitado sem motivo declarado";
             LogRunRejected(logger, task.Id, snapshot.Status.ToString(), rejection);
-            _dispatchBackoff[task.Id] = clock.UtcNow.Add(RejectedDispatchBackoff);
+            await _loopState.SetDispatchBackoffAsync(
+                tenantId, task.Id, clock.UtcNow.Add(RejectedDispatchBackoff), token);
 
             // O MOTIVO precisa ficar visível para o dono, não só no log do servidor.
             //

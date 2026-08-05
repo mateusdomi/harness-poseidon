@@ -73,4 +73,13 @@ public enum ReviewRejectionCause
     ScopeViolation,
     QualityBar,
     Other,
+    MissingSkill,
+    BadDecomposition,
+    MissingVerifier,
+    MissingTool,
+    ModelCapability,
+    SpecAmbiguity,
+    EnvironmentFailure,
+    PolicyViolation,
+    Unclassified,
 }

@@ -817,9 +817,24 @@ public static class WorkChainMutationValidator
         }
 
         if (command.RejectionCause is not
-            ("none" or "contextMissing" or "acceptanceNotMet" or "scopeViolation" or "qualityBar" or "other"))
+            ("none" or "unclassified" or
+             "contextMissing" or "missingSkill" or "badDecomposition" or "missingVerifier" or
+             "missingTool" or "modelCapability" or "specAmbiguity" or "environmentFailure" or
+             "policyViolation" or
+             "acceptanceNotMet" or "scopeViolation" or "qualityBar" or "other"))
         {
             throw new ArgumentException("Review rejection cause is invalid.", nameof(command));
+        }
+
+        // ONDA 0.9 — a causa é OBRIGATÓRIA em toda reprovação nova. 96 dos 98 reviews reprovados
+        // do histórico estavam sem causa, e a maior categoria de falha da fábrica era anônima.
+        // `unclassified` existe só para o histórico migrado; escrita nova reprovada sem causa
+        // tipada é recusada aqui, não convertida em silêncio.
+        if (string.Equals(command.Decision, "rejected", StringComparison.Ordinal) &&
+            command.RejectionCause is "none" or "unclassified")
+        {
+            throw new ArgumentException(
+                "A rejected review requires a typed rejection cause.", nameof(command));
         }
     }
 
