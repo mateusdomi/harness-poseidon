@@ -34154,6 +34154,10 @@
                     "createdAt": {
                         "type": "string",
                         "format": "date-time"
+                    },
+                    "role": {
+                        "type": "string",
+                        "default": "other"
                     }
                 }
             },
