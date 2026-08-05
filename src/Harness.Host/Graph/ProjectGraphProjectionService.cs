@@ -23,7 +23,9 @@ public sealed class ProjectGraphProjectionService(
     IWorkBoardStore board,
     IProjectGraphStore? store,
     IClock clock,
-    ProjectGraphOptions options)
+    ProjectGraphOptions options,
+    Harness.Persistence.Abstractions.Coordination.ISolicitationAttachmentStore? attachments = null,
+    WorkBoard.SolicitationAttachmentStorage? attachmentStorage = null)
 {
     private readonly IWorkBoardStore _board = board ?? throw new ArgumentNullException(nameof(board));
     private readonly IProjectGraphStore? _store = store;
@@ -156,7 +158,83 @@ public sealed class ProjectGraphProjectionService(
             items.Add(new GraphSourceItem(GraphNodeType.Phase, phase, "workflow_phase", 1, phase));
         }
 
+        // Launch Gate (Prisma): a especificação anexada (role requirements_source) alimenta o
+        // grafo — um Requirement por critério de aceite **T<n>** da seção de aceite, derivado do
+        // artefato-solicitação de origem. Ids estáveis por critério ("criterio-t14"), então o
+        // MESMO documento anexado duas vezes colapsa num único conjunto. O fato humano do banco
+        // (Oracle) entra quando a solicitação o declara — extração estreita e declarada, nunca
+        // inferência solta.
+        await AppendRequirementsSourceAsync(tenantId, solicitations, items, links, cancellationToken);
+
         return new GraphSourceSnapshot(projectId, items, links);
+    }
+
+    private async Task AppendRequirementsSourceAsync(
+        string tenantId,
+        IReadOnlyList<BoardSolicitationRecord> solicitations,
+        List<GraphSourceItem> items,
+        List<GraphSourceLink> links,
+        CancellationToken cancellationToken)
+    {
+        if (attachments is null)
+        {
+            return;
+        }
+
+        foreach (var solicitation in solicitations.OrderBy(s => s.Id, StringComparer.Ordinal))
+        {
+            if (solicitation.Body.Contains("Oracle", StringComparison.OrdinalIgnoreCase))
+            {
+                items.Add(new GraphSourceItem(
+                    GraphNodeType.HumanFact, "banco-oracle-19c", "solicitation_declaration", 1,
+                    "O banco corporativo exigido é Oracle Database 19c"));
+            }
+
+            foreach (var record in await attachments.ListAsync(
+                tenantId, solicitation.Id, cancellationToken))
+            {
+                if (!string.Equals(record.Role, "requirements_source", StringComparison.Ordinal) ||
+                    !string.Equals(record.State, "accepted", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                string text;
+                try
+                {
+                    // storage_path é relativo à raiz de anexos; a resolução canônica (com
+                    // confinamento) é da SolicitationAttachmentStorage.
+                    var absolute = attachmentStorage is null
+                        ? record.StoragePath
+                        : attachmentStorage.Resolve(record.StoragePath);
+                    if (!File.Exists(absolute))
+                    {
+                        continue;
+                    }
+
+                    text = await File.ReadAllTextAsync(absolute, cancellationToken);
+                }
+                catch (IOException)
+                {
+                    continue;
+                }
+
+                foreach (System.Text.RegularExpressions.Match match in
+                    System.Text.RegularExpressions.Regex.Matches(text, @"- \*\*T(\d+)\*\*\s*(.+)"))
+                {
+                    var number = int.Parse(
+                        match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+                    var sourceId = $"criterio-t{number}";
+                    items.Add(new GraphSourceItem(
+                        GraphNodeType.Requirement, sourceId, "acceptance_criterion", 1,
+                        $"T{number} — {match.Groups[2].Value.Trim()}"));
+                    links.Add(new GraphSourceLink(
+                        GraphRelationType.DerivesFrom,
+                        GraphNodeType.Requirement, sourceId,
+                        GraphNodeType.Artifact, solicitation.Id));
+                }
+            }
+        }
     }
 }
 

@@ -110,8 +110,16 @@ public static class ProductModalityInference
         return ProductModality.Unspecified;
     }
 
+    /// <summary>
+    /// Termo casa como PALAVRA, nunca como substring. O gate do Prisma pegou o custo do
+    /// contrário em 2026-08-05: "ios" dentro de "critérios" classificava como Mobile qualquer
+    /// texto em português com "critérios/relatórios/usuários" — e o perfil efetivo do projeto
+    /// nascia errado antes do primeiro card.
+    /// </summary>
     private static bool ContainsAny(string text, IReadOnlyList<string> terms) =>
-        terms.Any(term => text.Contains(term, StringComparison.Ordinal));
+        terms.Any(term => System.Text.RegularExpressions.Regex.IsMatch(
+            text,
+            $@"(?<![\p{{L}}\p{{N}}]){System.Text.RegularExpressions.Regex.Escape(term)}(?![\p{{L}}\p{{N}}])"));
 
     private static string Normalize(string value)
     {

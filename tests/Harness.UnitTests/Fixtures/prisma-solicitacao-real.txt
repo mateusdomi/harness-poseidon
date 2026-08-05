@@ -1,0 +1,19 @@
+Oi Bruna. Este é o projeto Prisma, o Sistema de Acompanhamento de Riscos Corporativos da TrensRJ (área de GRC). Ele substitui a planilha de gestão de riscos e é o projeto mais importante que já te entreguei — tem prazo real: 20/08/2026.
+
+Diferente dos anteriores, este NÃO começa de uma frase. Estou anexando duas fontes que valem como autoridade:
+
+1. "Prisma_Especificacao_Tecnica_MVP.md" — a especificação build-ready v3.0, validada com a GRC. Ela é a FONTE ÚNICA DE VERDADE do produto: modelo de dados, metodologia de cálculo de criticidade e do ITRC (em pseudocódigo determinístico, seções 5 e 6), 5 perfis com escopo, cadeia de aprovação, trilha de auditoria imutável, telas, operações, NFRs e a suíte de 26 critérios de aceite (seção 16) que TODOS precisam passar. O que ela marca como fechado (cadeado) não se reabre por preferência técnica; onde houver conflito de interpretação, vale o pseudocódigo e a suíte de testes.
+
+2. "bright-vision-interface-main.zip" — o protótipo React da interface, feito no Lovable. Ele é o frontend FORNECIDO: a linguagem visual, o layout e os componentes devem ser preservados e evoluídos, não reconstruídos. Os mocks dele devem ser substituídos pela API real antes de qualquer "pronto".
+
+Decisões técnicas já tomadas (não reabrir):
+- Banco de dados: Oracle (requisito da TrensRJ; ambiente local de desenvolvimento já preparado).
+- Backend .NET 8, frontend React + TypeScript (o do protótipo).
+- Autenticação PRÓPRIA com e-mail corporativo + senha, sem SSO, sem cadastro público, sem recuperação de senha externa. Provisionamento de usuários pela GRC.
+- Sem integrações externas no MVP. E-mails transacionais pela caixa indicada na especificação.
+- Datas e prazos em America/Sao_Paulo.
+- Auditoria e fechamentos do ITRC são append-only e imutáveis.
+
+O que espero: valide e normalize a especificação em vez de reentrevistar; rastreie cada requisito até critério, card, teste e evidência; pergunte apenas o que for lacuna genuína e bloqueante — o resto, assuma pelo padrão e registre a premissa. "Pronto" significa os 26 critérios de aceite passando, com o dataset de referência da seção 15 conferindo (ITRC = 50,0%).
+
+Pode organizar o plano. Eu libero a execução em seguida.

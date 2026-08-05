@@ -52,7 +52,10 @@ public static class ProfileDirectiveParser
     private static readonly Regex DecisionVerb = new(
         @"\b(quero|queremos|usar|usaremos|utilizar|utilizaremos|deve\s+ser|devera|devera\s+ser|" +
         @"sera|adotar|adotaremos|padronizar|padronizado|migrar\s+para|trocar\s+para|em\s+vez\s+de|" +
-        @"obrigatorio|exigido|decidimos|decidido|fica\s+definido|passa\s+a\s+ser|use|utilize)\b",
+        @"obrigatorio|exigido|decidimos|decidido|fica\s+definido|passa\s+a\s+ser|use|utilize|" +
+        // "Oracle (requisito da TrensRJ)" é a forma natural de o dono declarar decisão fechada
+        // vinda da organização — o gate do Prisma pegou o parser ignorando exatamente isso.
+        @"requisito\s+d[aeo])\b",
         RegexOptions.CultureInvariant | RegexOptions.Compiled, TimeSpan.FromSeconds(1));
 
     /// <summary>Negações que invalidam a frase como decisão positiva.</summary>

@@ -622,7 +622,8 @@ public static class HostApplication
                         new Graph.CompositeChiefNavigator([
                             new WorkBoard.SolicitationAttachmentNavigator(
                                 services.GetRequiredService<IWorkBoardStore>(),
-                                services.GetRequiredService<ISolicitationAttachmentStore>()),
+                                services.GetRequiredService<ISolicitationAttachmentStore>(),
+                                services.GetRequiredService<SolicitationAttachmentStorage>()),
                             new Graph.ChiefGraphNavigator(
                                 services.GetRequiredService<Graph.ProjectGraphProjectionService>(),
                                 services.GetService<Harness.Persistence.Abstractions.Graph.IProjectGraphStore>()),
@@ -715,7 +716,9 @@ public static class HostApplication
             services.GetRequiredService<IWorkBoardStore>(),
             services.GetService<Harness.Persistence.Abstractions.Graph.IProjectGraphStore>(),
             services.GetRequiredService<IClock>(),
-            new Graph.ProjectGraphOptions(
+            attachments: services.GetService<ISolicitationAttachmentStore>(),
+            attachmentStorage: services.GetService<SolicitationAttachmentStorage>(),
+            options: new Graph.ProjectGraphOptions(
                 string.Equals(
                     builder.Configuration["Harness:Graph:ProjectionEnabled"]
                         ?? builder.Configuration["graph.projection.enabled"]

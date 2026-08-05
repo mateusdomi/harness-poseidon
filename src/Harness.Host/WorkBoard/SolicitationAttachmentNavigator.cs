@@ -17,8 +17,12 @@ namespace Harness.Host.WorkBoard;
 /// </summary>
 public sealed class SolicitationAttachmentNavigator(
     IWorkBoardStore board,
-    ISolicitationAttachmentStore attachments) : IChiefAttachmentNavigator
+    ISolicitationAttachmentStore attachments,
+    SolicitationAttachmentStorage storage) : IChiefAttachmentNavigator
 {
+    private readonly SolicitationAttachmentStorage _storage =
+        storage ?? throw new ArgumentNullException(nameof(storage));
+
     private readonly IWorkBoardStore _board =
         board ?? throw new ArgumentNullException(nameof(board));
     private readonly ISolicitationAttachmentStore _attachments =
@@ -110,18 +114,21 @@ public sealed class SolicitationAttachmentNavigator(
     /// não tem seção), grande demais ou não está mais no disco. Ausência é ausência declarada
     /// no chamador — nunca texto inventado.
     /// </summary>
-    private static async Task<string?> TryReadTextAsync(
+    private async Task<string?> TryReadTextAsync(
         SolicitationAttachmentRecord record, CancellationToken cancellationToken)
     {
         try
         {
-            var info = new FileInfo(record.StoragePath);
+            // O storage_path é RELATIVO à raiz de anexos: a resolução canônica (com
+            // confinamento) é da SolicitationAttachmentStorage — nunca File.Exists no relativo,
+            // que falha silenciosamente dependendo do working directory do processo.
+            var info = new FileInfo(_storage.Resolve(record.StoragePath));
             if (!info.Exists || info.Length > MaxNavigableBytes)
             {
                 return null;
             }
 
-            var bytes = await File.ReadAllBytesAsync(record.StoragePath, cancellationToken);
+            var bytes = await File.ReadAllBytesAsync(info.FullName, cancellationToken);
             if (Array.IndexOf(bytes, (byte)0) >= 0)
             {
                 return null;
