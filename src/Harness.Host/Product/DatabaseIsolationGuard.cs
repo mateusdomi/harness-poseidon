@@ -115,15 +115,50 @@ public static partial class DatabaseIsolationGuard
         }
 
         var host = HostPattern().Match(value);
-        if (!host.Success)
+        return host.Success && IsLocalHost(host.Groups[1].Value);
+    }
+
+    /// <summary>
+    /// Reduz o destino ao HOST e decide se ele é local.
+    ///
+    /// As formas variam por fornecedor e todas apareceram em entregas reais:
+    /// <c>localhost</c>, <c>.\SQLEXPRESS</c>, <c>(localdb)\MSSQLLocalDB</c>, <c>127.0.0.1,1433</c>
+    /// e, no Oracle, o EZ-connect <c>127.0.0.1:1521/FREEPDB1</c> — este último foi encontrado no
+    /// preflight do Prisma barrando a verificação de persistência de uma conexão que era local.
+    /// Tratar host local como remoto custa um requisito sem prova; o inverso custaria escrita em
+    /// banco de produção, e por isso tudo o que não se reconhece continua sendo tratado como remoto.
+    /// </summary>
+    private static bool IsLocalHost(string target)
+    {
+        var host = target.Trim();
+
+        // Descritor TNS completo: o host está dentro de `(HOST=...)`.
+        var descriptor = TnsHostPattern().Match(host);
+        if (descriptor.Success)
         {
-            return false;
+            host = descriptor.Groups[1].Value;
         }
 
-        var target = host.Groups[1].Value.Trim();
-        var withoutInstance = target.Split('\\')[0].Split(',')[0].Trim();
-        return withoutInstance is "localhost" or "127.0.0.1" or "::1" or "(local)" or "." ||
-            withoutInstance.StartsWith("(localdb)", StringComparison.Ordinal);
+        // EZ-connect do Oracle: `host:porta/serviço`. Também cobre `host/serviço` sem porta.
+        var slash = host.IndexOf('/', StringComparison.Ordinal);
+        if (slash >= 0)
+        {
+            host = host[..slash];
+        }
+
+        // Instância nomeada do SQL Server (`.\SQLEXPRESS`) e porta por vírgula (`127.0.0.1,1433`).
+        host = host.Split('\\')[0].Split(',')[0];
+
+        // Porta por dois-pontos, preservando IPv6 entre colchetes.
+        if (!host.StartsWith('[') && host.Count(character => character == ':') == 1)
+        {
+            host = host[..host.IndexOf(':', StringComparison.Ordinal)];
+        }
+
+        host = host.Trim().Trim('[', ']');
+        return host is "localhost" or "127.0.0.1" or "::1" or "0.0.0.0" or "(local)" or "." ||
+            host.StartsWith("(localdb)", StringComparison.Ordinal) ||
+            host.EndsWith(".localhost", StringComparison.Ordinal);
     }
 
     private static string DescribeTarget(string connection)
@@ -134,4 +169,7 @@ public static partial class DatabaseIsolationGuard
 
     [GeneratedRegex(@"(?:server|host|data source|datasource)\s*=\s*([^;]+)", RegexOptions.CultureInvariant)]
     private static partial Regex HostPattern();
+
+    [GeneratedRegex(@"\(\s*host\s*=\s*([^)\s]+)", RegexOptions.CultureInvariant)]
+    private static partial Regex TnsHostPattern();
 }

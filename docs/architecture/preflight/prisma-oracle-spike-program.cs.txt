@@ -1,0 +1,171 @@
+using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+// SPIKE DESCARTÁVEL — remove risco técnico do provider Oracle antes do Prisma.
+// Não faz parte do produto. Nada aqui vira código de produção.
+
+const string Cs = "User Id=prisma_app;Password=PrismaApp#2026;Data Source=127.0.0.1:15210/FREEPDB1;";
+
+var resultados = new List<(string Prova, bool Ok, string Detalhe)>();
+void Registrar(string prova, Func<string> acao)
+{
+    try { resultados.Add((prova, true, acao())); }
+    catch (Exception e) { resultados.Add((prova, false, $"{e.GetType().Name}: {e.Message.Split('\n')[0]}")); }
+}
+
+Registrar("connection", () =>
+{
+    using var db = new SpikeContext(Cs);
+    db.Database.OpenConnection();
+    var v = db.Database.SqlQueryRaw<string>("SELECT banner AS \"Value\" FROM v$version WHERE ROWNUM = 1").First();
+    db.Database.CloseConnection();
+    return v;
+});
+
+Registrar("migration/create schema", () =>
+{
+    using var db = new SpikeContext(Cs);
+    db.Database.EnsureDeleted();
+    db.Database.EnsureCreated();
+    return "tabelas criadas via EnsureCreated (equivale ao SQL de migration do provider)";
+});
+
+Registrar("insert + mappings (Guid/bool/DateTime/decimal/CLOB)", () =>
+{
+    using var db = new SpikeContext(Cs);
+    var r = new Risco
+    {
+        Id = Guid.NewGuid(),
+        Titulo = "Risco de preflight",
+        Ativo = true,
+        Probabilidade = 3,
+        Impacto = 12.75m,
+        IdentificadoEm = new DateTime(2026, 8, 4, 22, 30, 0, DateTimeKind.Unspecified),
+        RegistradoEm = new DateTimeOffset(2026, 8, 4, 22, 30, 0, TimeSpan.FromHours(-3)),
+        Descricao = new string('d', 5000),
+    };
+    db.Riscos.Add(r);
+    db.SaveChanges();
+    return $"id={r.Id:N}";
+});
+
+Registrar("query + read-back fidelity", () =>
+{
+    using var db = new SpikeContext(Cs);
+    var r = db.Riscos.AsNoTracking().Single();
+    var problemas = new List<string>();
+    if (!r.Ativo) problemas.Add("bool nao voltou true");
+    if (r.Impacto != 12.75m) problemas.Add($"decimal voltou {r.Impacto}");
+    if (r.IdentificadoEm != new DateTime(2026, 8, 4, 22, 30, 0)) problemas.Add($"DateTime voltou {r.IdentificadoEm:O}");
+    if (r.Descricao?.Length != 5000) problemas.Add($"CLOB voltou {r.Descricao?.Length} chars");
+    if (r.RegistradoEm.Offset != TimeSpan.FromHours(-3)) problemas.Add($"offset voltou {r.RegistradoEm.Offset}");
+    return problemas.Count == 0
+        ? "Guid, bool, DateTime, DateTimeOffset(-03:00), decimal(18,2) e CLOB 5000 voltaram fiéis"
+        : "DIVERGENCIAS: " + string.Join("; ", problemas);
+});
+
+Registrar("update", () =>
+{
+    using var db = new SpikeContext(Cs);
+    var r = db.Riscos.Single();
+    r.Probabilidade = 5;
+    db.SaveChanges();
+    return "probabilidade atualizada";
+});
+
+Registrar("optimistic concurrency", () =>
+{
+    using var a = new SpikeContext(Cs);
+    using var b = new SpikeContext(Cs);
+    var ra = a.Riscos.Single();
+    var rb = b.Riscos.Single();
+    ra.Titulo = "alterado por A";
+    a.SaveChanges();
+    rb.Titulo = "alterado por B";
+    try { b.SaveChanges(); return "FALHOU: segunda gravacao passou sem conflito"; }
+    catch (DbUpdateConcurrencyException) { return "DbUpdateConcurrencyException lancada como esperado"; }
+});
+
+Registrar("unique violation", () =>
+{
+    using var db = new SpikeContext(Cs);
+    var existente = db.Riscos.AsNoTracking().Single();
+    db.Riscos.Add(new Risco
+    {
+        Id = Guid.NewGuid(), Titulo = "outro", Codigo = existente.Codigo,
+        Ativo = true, Probabilidade = 1, Impacto = 1m,
+        IdentificadoEm = DateTime.Now, RegistradoEm = DateTimeOffset.Now,
+    });
+    try { db.SaveChanges(); return "FALHOU: UNIQUE nao foi violado"; }
+    catch (DbUpdateException e) { return "DbUpdateException: " + (e.InnerException?.Message.Split('\n')[0] ?? ""); }
+});
+
+Registrar("transaction + rollback", () =>
+{
+    using var db = new SpikeContext(Cs);
+    var antes = db.Riscos.Count();
+    using (var tx = db.Database.BeginTransaction())
+    {
+        db.Riscos.Add(new Risco
+        {
+            Id = Guid.NewGuid(), Titulo = "descartavel", Codigo = "TX-" + Guid.NewGuid().ToString("N")[..8],
+            Ativo = false, Probabilidade = 1, Impacto = 1m,
+            IdentificadoEm = DateTime.Now, RegistradoEm = DateTimeOffset.Now,
+        });
+        db.SaveChanges();
+        tx.Rollback();
+    }
+    using var conferencia = new SpikeContext(Cs);
+    var depois = conferencia.Riscos.Count();
+    return antes == depois ? $"rollback efetivo ({antes} linhas antes e depois)" : $"FALHOU: {antes} -> {depois}";
+});
+
+Registrar("delete (somente fixture)", () =>
+{
+    using var db = new SpikeContext(Cs);
+    db.Riscos.RemoveRange(db.Riscos);
+    db.SaveChanges();
+    return "fixture removida";
+});
+
+Console.WriteLine();
+Console.WriteLine("| Prova | Resultado | Detalhe |");
+Console.WriteLine("|---|---|---|");
+foreach (var (prova, ok, detalhe) in resultados)
+    Console.WriteLine($"| {prova} | {(ok ? "PASS" : "FAIL")} | {detalhe} |");
+Console.WriteLine();
+Console.WriteLine(resultados.All(r => r.Ok) ? "SPIKE: PASS" : "SPIKE: FAIL");
+return resultados.All(r => r.Ok) ? 0 : 1;
+
+public sealed class Risco
+{
+    public Guid Id { get; set; }
+    [MaxLength(200)] public string Titulo { get; set; } = "";
+    [MaxLength(40)] public string Codigo { get; set; } = "PRF-0001";
+    public bool Ativo { get; set; }
+    public int Probabilidade { get; set; }
+    [Column(TypeName = "NUMBER(18,2)")] public decimal Impacto { get; set; }
+    public DateTime IdentificadoEm { get; set; }
+    public DateTimeOffset RegistradoEm { get; set; }
+    public string? Descricao { get; set; }
+    [Timestamp] public byte[]? Versao { get; set; }
+}
+
+public sealed class SpikeContext(string cs) : DbContext
+{
+    public DbSet<Risco> Riscos => Set<Risco>();
+
+    protected override void OnConfiguring(DbContextOptionsBuilder options) =>
+        options.UseOracle(cs, o => o.UseOracleSQLCompatibility(OracleSQLCompatibility.DatabaseVersion19));
+
+    protected override void OnModelCreating(ModelBuilder model)
+    {
+        var r = model.Entity<Risco>();
+        r.ToTable("RISCOS");
+        r.HasKey(x => x.Id);
+        r.HasIndex(x => x.Codigo).IsUnique();
+        r.Property(x => x.Descricao).HasColumnType("CLOB");
+        r.Property(x => x.Versao).IsRowVersion();
+    }
+}

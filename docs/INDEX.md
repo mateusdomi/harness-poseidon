@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=2.0.0 checksum=sha256:725125fe74276b3475197b0f9a56a31db848c8d186b80a8ecafccf6e4c6ac52b -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=2.0.0 checksum=sha256:07d3f792eda0733a57e4ba1dcd4b903fce09c4401d693710f129acde215c9bdc -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -6,7 +6,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 ## By authority
 
 - `Adapter`: 2
-- `Canonical`: 50
+- `Canonical`: 52
 - `Generated`: 1
 
 ## By domain
@@ -20,7 +20,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `entrypoint`: 1
 - `governance`: 1
 - `index`: 1
-- `product-standard`: 6
+- `product-standard`: 8
 - `rule`: 11
 - `runbook`: 3
 - `security`: 3
@@ -28,7 +28,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By phase
 
-- `*`: 40
+- `*`: 42
 - `architecture`: 7
 - `development`: 1
 - `homologation`: 1
@@ -38,12 +38,12 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 ## By status
 
-- `Active`: 53
+- `Active`: 55
 
 ## By owner
 
 - `Operations`: 7
-- `Platform Engineering`: 19
+- `Platform Engineering`: 21
 - `Platform Governance`: 14
 - `Product Security`: 8
 - `Quality Engineering`: 5
@@ -52,7 +52,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 - `Always`: 4
 - `Bundle`: 33
-- `OnDemand`: 16
+- `OnDemand`: 18
 
 ## Documents by authority and domain
 
@@ -126,6 +126,8 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [Backend do produto entregue — arquitetura, .NET/C# e API](product/backend-standards.md) | * | Active | Platform Engineering | OnDemand | 1476 |
 | [Dados e banco do produto entregue](product/data-standards.md) | * | Active | Platform Engineering | OnDemand | 756 |
 | [Frontend do produto entregue](product/frontend-standards.md) | * | Active | Platform Engineering | OnDemand | 714 |
+| [Autenticação e sessão do produto entregue](product/authentication-standards.md) | * | Active | Platform Engineering | OnDemand | 977 |
+| [Dados e banco do produto entregue — Oracle](product/oracle-data-standards.md) | * | Active | Platform Engineering | OnDemand | 1539 |
 
 #### rule
 

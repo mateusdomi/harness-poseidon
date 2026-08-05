@@ -1,5 +1,5 @@
 manifestVersion: 2.0.0
-lastGeneratedAt: 2026-08-04T23:32:49.2670770+00:00
+lastGeneratedAt: 2026-08-05T01:22:28.6896330+00:00
 tokenBudget: 24000
 knownOwners:
 - Platform Governance
@@ -886,7 +886,7 @@ documents:
   - '**'
   load: always
   priority: 800
-  tokenCost: 1941
+  tokenCost: 2001
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -901,7 +901,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:4bd8c7c1222d0e32d19cae1662dc079f81015e5d748becdcc2baf9b8be1cb1c3
+  checksum: sha256:1c104f22cfc6daf5759dd98eaa492e74f03a629be372e6ee35f46fb9448e2e44
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -2362,6 +2362,108 @@ documents:
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/product/data-standards.md
+- id: product-oracle-data-standards
+  path: docs/product/oracle-data-standards.md
+  title: Dados e banco do produto entregue — Oracle
+  category: product-standard
+  topic: product-oracle-data-standards
+  authority: canonical
+  scope: product
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  roles: []
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - backend-specialist
+  - historia
+  - tarefa
+  - bug
+  - adr
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: on-demand
+  priority: 865
+  tokenCost: 1539
+  owner: Platform Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-08-04T00:00:00-03:00
+  reviewDueAt: 2027-02-04T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - product-data-standards
+  enforcedBy: []
+  checksum: sha256:1d41327bc27aa58ac41fda073c05f8b1b1aa83a7d06c54e800a90c923a9e8bfe
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/product/oracle-data-standards.md
+- id: product-authentication-standards
+  path: docs/product/authentication-standards.md
+  title: Autenticação e sessão do produto entregue
+  category: product-standard
+  topic: product-authentication-standards
+  authority: canonical
+  scope: product
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  roles: []
+  workflows:
+  - '*'
+  phases:
+  - '*'
+  taskTypes:
+  - backend-specialist
+  - historia
+  - tarefa
+  - bug
+  - adr
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: on-demand
+  priority: 866
+  tokenCost: 977
+  owner: Platform Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-08-04T00:00:00-03:00
+  reviewDueAt: 2027-02-04T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - product-security-operability
+  enforcedBy: []
+  checksum: sha256:10d892c65c1115c412b6cb47e877900c970acc57231d07bc30cc82c1b4c17e66
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/product/authentication-standards.md
 - id: product-security-operability
   path: docs/product/security-and-operability.md
   title: Segurança e operabilidade do produto entregue
