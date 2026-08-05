@@ -137,7 +137,14 @@ export function defaultProjectValues(organizationId = ''): ProjectFormValues {
     description: '',
     targetDeadline: '',
     criticality: 'medium',
-    state: 'active',
+    // Projeto NASCE PAUSADO. Criar é organizar; começar é decisão separada.
+    //
+    // Com o default em `active`, quem seguisse o caminho feliz da tela ganhava um projeto que o
+    // ciclo autônomo passa a considerar no mesmo instante — antes de anexar artefato, antes de
+    // conversar com a chefe, antes de o dono ter dito o que quer. Quando a cota é o recurso
+    // escasso, o custo desse instante é real. O seletor continua na tela: quem quiser começar
+    // ativo troca em um clique.
+    state: 'paused',
     repositoryProvider: 'local',
     repositoryUrl: '',
     defaultBranch: 'main',

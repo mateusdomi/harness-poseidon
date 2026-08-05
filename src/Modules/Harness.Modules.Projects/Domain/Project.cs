@@ -63,7 +63,8 @@ public sealed record Project(
         ProjectBrand brand,
         IReadOnlyList<string>? memberProfileIds,
         DateTimeOffset occurredAt,
-        DateTimeOffset? targetDeadline = null)
+        DateTimeOffset? targetDeadline = null,
+        string? state = null)
     {
         var resolvedKey = NormalizeKey(string.IsNullOrWhiteSpace(key) ? GenerateKey(name) : key);
         var resolvedRepoUrl = string.IsNullOrWhiteSpace(repositoryUrl)
@@ -76,7 +77,11 @@ public sealed record Project(
             Required(name, 200, nameof(name)),
             resolvedKey,
             Required(description, 4_000, nameof(description)),
-            "active",
+            // O estado com que o projeto NASCE. Ausente, `active` — que é como todo chamador
+            // anterior a este parâmetro se comportava. Poder nascer `paused` é o que separa criar
+            // de começar: sem isso, o projeto entrava no ciclo autônomo no mesmo instante em que
+            // era criado, antes de qualquer artefato ou conversa.
+            Choice(state ?? "active", States, nameof(state)),
             Choice(criticality ?? "medium", Criticalities, nameof(criticality)),
             resolvedRepoUrl,
             Choice(repositoryProvider ?? "local", RepositoryProviders, nameof(repositoryProvider)),

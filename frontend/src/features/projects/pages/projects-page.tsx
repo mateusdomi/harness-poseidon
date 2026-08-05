@@ -74,6 +74,11 @@ export default function ProjectsPage() {
       key: values.key,
       description: values.description,
       criticality: values.criticality,
+      // O ESTADO precisa ir junto. Sem ele o backend caía no default do schema (`active`), e todo
+      // projeto criado pela tela nascia despachável no mesmo instante — antes de anexar artefato,
+      // antes de conversar com a chefe, antes de o dono dizer o que quer. O formulário sempre teve
+      // o seletor; o payload é que o descartava em silêncio.
+      state: values.state,
       repositoryUrl: values.repositoryUrl === '' ? null : values.repositoryUrl,
       repositoryProvider: values.repositoryProvider,
       defaultBranch: values.defaultBranch,

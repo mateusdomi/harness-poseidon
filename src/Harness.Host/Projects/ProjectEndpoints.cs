@@ -255,6 +255,7 @@ public static class ProjectEndpoints
                 Key = request.Key,
                 Description = request.Description,
                 Criticality = estimate?.Criticality ?? request.Criticality,
+                State = request.State,
                 RepositoryUrl = request.RepositoryUrl,
                 RepositoryProvider = request.RepositoryProvider,
                 DefaultBranch = request.DefaultBranch,

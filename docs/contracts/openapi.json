@@ -24765,6 +24765,12 @@
                             "string"
                         ]
                     },
+                    "state": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
                     "repositoryUrl": {
                         "type": [
                             "null",

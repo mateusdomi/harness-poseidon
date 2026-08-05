@@ -12,7 +12,8 @@ public static class ProjectApplicationService
         return ToContract(Project.Create(id, orgId, chiefAgentId, ownerProfileId,
             request.Name, request.Key, request.Description, request.Criticality, request.RepositoryUrl,
             request.RepositoryProvider, request.DefaultBranch, request.Technologies,
-            ToDomain(request.Brand ?? ProjectBrandContract.Empty), request.MemberProfileIds, now, request.TargetDeadline));
+            ToDomain(request.Brand ?? ProjectBrandContract.Empty), request.MemberProfileIds, now,
+            request.TargetDeadline, request.State));
     }
 
     public static ProjectContract Patch(ProjectContract current, UpdateProjectRequest patch, DateTimeOffset now)

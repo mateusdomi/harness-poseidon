@@ -31,6 +31,19 @@ public sealed class CreateProjectRequest
     public string? Key { get; init; }
     public required string Description { get; init; }
     public string? Criticality { get; init; }
+
+    /// <summary>
+    /// Estado com que o projeto NASCE. Ausente, vale `active` — a compatibilidade de quem já
+    /// chamava esta API sem o campo.
+    ///
+    /// Ele passou a existir porque criar não é começar. Sem o campo, todo projeto criado pela API
+    /// oficial nascia despachável no mesmo instante: antes de anexar artefato, antes de conversar
+    /// com a chefe, antes de o dono dizer o que quer. Quando cota é o recurso escasso, esse
+    /// instante custa dinheiro — e o formulário até oferecia o seletor, mas o contrato não tinha
+    /// onde recebê-lo.
+    /// </summary>
+    public string? State { get; init; }
+
     public string? RepositoryUrl { get; init; }
     public string? RepositoryProvider { get; init; }
     public string? DefaultBranch { get; init; }
