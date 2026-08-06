@@ -32,6 +32,18 @@ Os projetos FINAIS da avaliação serão recriados pelo caminho oficial do naveg
 | Prisma | `01KZA9D9BQFD72D1E2FNN7SD70` | 2026-08-05 (pristine; spec sha A337F909…, ZIP Lovable sha E737EC41… como provided_frontend; intake READY 26 critérios/0 bloqueios) |
 | Indicadores TrensRJ | `01KZA9EQ9JE0YV4P7E8B39TN7S` | 2026-08-05 (pristine; levantamento sha D42430AD…, ZIP Lovable `beautifully-crafted-interface-main` sha FFD5864F… como provided_frontend, 2 HTMLs design_reference; intake READY 22 critérios/0 bloqueios) |
 
+### Kickoff oficial (execução sobreposta iniciada)
+
+| Projeto | Kickoff enviado (UTC) | Despausado | Primeira resposta da Bruna |
+|---|---|---|---|
+| Prisma | 2026-08-06T01:02:58Z | 01:04Z (`active`) | 01:08Z — Triagem, 8 demandas registradas, 0 ASK bloqueante (prazo classificado como DEFER) |
+| Indicadores TrensRJ | 2026-08-06T01:40:40Z | 01:42Z (`active`) | (registrar) |
+
+Checklist de observação dos 30 minutos do Prisma: PASS — sem re-entrevista, Oracle 19c
+registrado como decisão de arquitetura, frontend do Lovable reconhecido como base oficial,
+premissas reversíveis declaradas, grafo isolado por projeto, Indicadores intocado até o
+próprio kickoff.
+
 > Ajuste administrativo registrado: os registros SOFT-DELETADOS de preflight foram renomeados
 > ("… (preflight arquivado 05/08)", keys PRISMAPRE/INDICPRE) para liberar a unicidade de nome na
 > org — dado, não código. Observação para o backlog pós-avaliação: a unicidade de nome/key de
