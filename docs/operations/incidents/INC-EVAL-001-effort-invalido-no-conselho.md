@@ -33,6 +33,17 @@ projetos da avaliação (16 linhas, todas valiam `medium`). Com a rota sem effor
 executor omite `--effort` e a CLI roda no default da conta. Reversível: restaurar
 `medium` nas mesmas linhas.
 
+## Segunda iteração (05:14 UTC): o `--model` também era inválido
+
+Com o effort removido, a mesma conta passou a falhar com `model opus is not recognized as a
+known model` — o override `--model opus` vinha do `model_id` da rota dos agentes e não
+existe no ambiente proxiado da conta critic. Fix complementar, também de dado:
+`UPDATE agents SET model_id=NULL` nos agentes dos dois projetos. Sem override, cada conta
+usa seu modelo default (o comportamento que sempre funcionou).
+
+**Desfecho:** às 05:30:02 as duas primeiras tentativas do Conselho entraram em `running`
+(antes morriam em sub-segundo) — esteiras destravadas.
+
 ## Follow-up para depois da janela (não aplicado agora)
 
 - Capacidade de effort deveria ser resolvida por CONTA (plano/ambiente), não só por
