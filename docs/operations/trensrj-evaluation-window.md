@@ -37,7 +37,12 @@ Os projetos FINAIS da avaliação serão recriados pelo caminho oficial do naveg
 | Projeto | Kickoff enviado (UTC) | Despausado | Primeira resposta da Bruna |
 |---|---|---|---|
 | Prisma | 2026-08-06T01:02:58Z | 01:04Z (`active`) | 01:08Z — Triagem, 8 demandas registradas, 0 ASK bloqueante (prazo classificado como DEFER) |
-| Indicadores TrensRJ | 2026-08-06T01:40:40Z | 01:42Z (`active`) | (registrar) |
+| Indicadores TrensRJ | 2026-08-06T01:40:40Z | 01:42Z (`active`) | 01:43Z — Triagem, 13 demandas, plataforma configurável e HTMLs como design reference reconhecidos, 1 ASK genuíno de autoridade (escopo × prazo) |
+
+Primeira decisão humana de produto da janela (01:44Z, Indicadores): escopo integral fixo dos
+22 itens do MVP, ordenação núcleo-primeiro como ordem de execução, feature complete interno
+13/08, schema Oracle `INDICADORES_APP` isolado. Premissas reversíveis da chief aprovadas
+(stack real do Lovable preservado; editor drag-and-drop fora do MVP).
 
 Checklist de observação dos 30 minutos do Prisma: PASS — sem re-entrevista, Oracle 19c
 registrado como decisão de arquitetura, frontend do Lovable reconhecido como base oficial,
