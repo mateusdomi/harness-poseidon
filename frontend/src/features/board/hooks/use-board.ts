@@ -38,8 +38,22 @@ export function useBoardTasks(projectId: Ulid | null) {
   const api = useApi();
   return useQuery({
     queryKey: boardKeys.tasks(projectId ?? 'none'),
-    queryFn: async (): Promise<Task[]> =>
-      (await api.list('tasks', { filter: { projectId: projectId! } })).items,
+    // O quadro é a visão COMPLETA do projeto: uma página só escondia os cards mais antigos
+    // (as etapas fechadas sumiam da coluna Concluída). Segue o cursor até o fim.
+    queryFn: async (): Promise<Task[]> => {
+      const tasks: Task[] = [];
+      let cursor: string | undefined;
+      do {
+        const page = await api.list('tasks', {
+          filter: { projectId: projectId! },
+          limit: 200,
+          cursor,
+        });
+        tasks.push(...page.items);
+        cursor = page.nextCursor ?? undefined;
+      } while (cursor !== undefined);
+      return tasks;
+    },
     enabled: projectId !== null,
   });
 }
