@@ -29,8 +29,13 @@ Os projetos FINAIS da avaliação serão recriados pelo caminho oficial do naveg
 
 | Projeto | ProjectId final | Criado em |
 |---|---|---|
-| Prisma | _(preencher no kickoff)_ | — |
-| Indicadores TrensRJ | _(preencher no kickoff)_ | — |
+| Prisma | `01KZA9D9BQFD72D1E2FNN7SD70` | 2026-08-05 (pristine; spec sha A337F909…, ZIP Lovable sha E737EC41… como provided_frontend; intake READY 26 critérios/0 bloqueios) |
+| Indicadores TrensRJ | `01KZA9EQ9JE0YV4P7E8B39TN7S` | 2026-08-05 (pristine; levantamento sha D42430AD…, ZIP Lovable `beautifully-crafted-interface-main` sha FFD5864F… como provided_frontend, 2 HTMLs design_reference; intake READY 22 critérios/0 bloqueios) |
+
+> Ajuste administrativo registrado: os registros SOFT-DELETADOS de preflight foram renomeados
+> ("… (preflight arquivado 05/08)", keys PRISMAPRE/INDICPRE) para liberar a unicidade de nome na
+> org — dado, não código. Observação para o backlog pós-avaliação: a unicidade de nome/key de
+> projeto não ignora soft-deletados (descoberto operacionalmente; sem patch durante a janela).
 
 ### Runbook de recriação (kickoff)
 
