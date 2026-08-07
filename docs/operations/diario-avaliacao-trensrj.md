@@ -123,3 +123,27 @@ para `opus` (modelo Anthropic) — 1ª ocorrência, classificada corretamente co
 Decisão do dono ao final do dia: **não pausar, não reiniciar, não mexer em scheduler/Playbook/Graph
 — janela de observação de 60 minutos com os dois projetos `RUNNING`**, medindo funil de dispatch,
 paralelismo real, pré-execução e continuidade de retry antes de qualquer novo ajuste estrutural.
+
+### Encerramento da janela de observação — 13:40 UTC (interrompida pelo dono aos 48min)
+
+Resultado objetivo: **BOTTLENECKED por exaustão de cota, não por defeito de software.**
+`worker-claude-secondary` bateu `run.quota_exhausted` (cooldown até 17:00 UTC) minutos antes do T0;
+`worker-codex-frontend` seguiu com `account_model_unsupported` (INC-EVAL-006, 1ª ocorrência, sem 2ª
+— gatilho de remoção não disparou). Nenhum `workspace.scopeconflict` nem `plan_graph` bloqueando no
+log da janela — as duas correções da noite anterior seguraram.
+
+Funil real: 2 tentativas despachadas (as duas em Prisma, por `chief-claude-primary` executando como
+persona "Software Architect" — fora do pool de 2 contas write-capable mapeado no T0, mas capaz na
+prática), 0 em Indicadores (0 contas elegíveis o tempo todo). 1ª tentativa (RBAC backend) rodou
+25,5min e reprovou em gate determinístico (`npm run test` saiu 1) — não chegou a review humano/IA.
+2ª tentativa (modelo de dados/persistência Oracle) foi interrompida às 13:40 UTC pela ordem do dono
+de parar a fábrica, sem terminar — fica órfã no banco (`operational_state='running'`), recuperável no
+próximo `RecoverStartupOrphansAsync`. Zero cards mesclados na janela, zero sinal de continuidade de
+correção capturado (não houve 2ª tentativa no mesmo card).
+
+Ordem do dono: parar a fábrica assim que o card em curso terminasse e subir os dois produtos para
+inspeção prática — executado com pausa antecipada (dono não esperou o card terminar). `PATCH
+projects.state=paused` nos dois projetos + `./poseidon stop`. Prisma (`dotnet run --project
+src/Prisma.Api`, `:5080`, `/health` 200) e Indicadores (`npm start` com
+`INDICADOREST_MODO=desenvolvimento`, `:8080`, dados em memória) sobem sem tela navegável — só API/
+Swagger — porque nenhum dos dois projetos tem frontend final ainda (E6 pendente nos dois).
