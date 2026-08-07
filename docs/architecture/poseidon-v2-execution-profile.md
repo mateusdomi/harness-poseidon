@@ -136,5 +136,50 @@ execução e isso só foi visível post-mortem.
    dos insumos, kickoff no perfil novo.
 6. Ao final: `Poseidon-Apresentacao-V2` reescrita com o estado real da branch.
 
-Pontos de integração exatos (classes/métodos da engine) são registrados durante a
-implementação nos commits desta branch.
+## 6. Mapa de integração (levantado do código em 2026-08-07)
+
+Fatos do engine que sustentam o desenho "perfil, não segunda engine":
+
+- **O dispatch NÃO filtra por fase**: `ChiefBacklogLoopService.RunCycleAsync` consome
+  qualquer card `ready` (`board.PageTasksAsync(..., "ready", ...)`, sem `phaseName`). A
+  máquina de 9 fases (`WorkflowPhaseDriver.DriveAsync`) governa a EXISTÊNCIA de cards e o
+  fechamento de gates da fase ativa — sem binding/run de workflow, ela retorna cedo e nada
+  bloqueia. Cards sem fase são aceitos por contrato (`ActivePhaseResolver`). Logo: cards-
+  objetivo criados fora do Playbook executam na esteira normal, e congelar as 9 fases =
+  não criar binding, sem tocar em código do driver.
+- **Ponto único de resolução modelo/effort**: `ChiefBacklogLoopService` (~linha 1047) +
+  `ModelRouter.Route` — corrigido nesta branch (INC-EVAL-006, commit 191cb916).
+- **Cadeia de review determinística** (`ReviewAwaitingAttemptsAsync`): gate documental →
+  **gate de conformidade de stack (novo, commit d8294618)** → diagnóstico de código →
+  varredura de segredo → placeholders → review LLM (`orchestrator.ReviewAsync`, timeout
+  10min). Reprovação determinística usa `ApplyReviewVerdictAsync` com
+  `LayerResult(Deterministic, Fail, …)` e ReasonCode em `AppliableReviewReasons`.
+- **Continuidade de correção**: `CorrectionBaseBranch` (público, estático) reaproveita a
+  branch da última tentativa `failed` — o mecanismo "findings voltam ao mesmo executor" já
+  existe e está corrigido.
+- **Perfil efetivo**: `IProjectEffectiveProfileStore.GetCurrentAsync` +
+  `ProjectEffectiveProfile.FromJson` (null = fail-closed); gravado por
+  `ProductDeliveryEvaluator.MaterializeAsync` (fase ≥3) com `ScopeIntegrityGuard`.
+- **Evidência de produto**: `RepositoryEvidenceCollector` (existência/forma) +
+  `ProductDeliveryGate` (proveniência/trust, Default-FAIL) + `PhaseGatePolicy`.
+- **Cota/disponibilidade**: adaptadores de CLI traduzem stderr em `ExternalFailureKind`;
+  `AgentRunOutcomeClassifier.Classify` → `AccountAvailabilityLedger`
+  (`~/.harness/account-availability.json`) + `CapacityManager` (memória) +
+  `IModelInvocationStore` (banco). A probe proativa da v2 reusa essa tríade.
+- **`EvaluationWindow` (Modules.Workflows.Product)**: recorte puro do ledger, pronto e SEM
+  consumidor em `src/` — adotar como recorte oficial das métricas v2.
+- **Parâmetros hoje hardcoded, candidatos ao perfil `objective`**: backoffs (2min/5min/32min),
+  `MaximumOperationalReplanRounds = 4`, timeout de review 10min, truncamento de diff 160kB;
+  `AgentRunSettings` já expõe `RunTimeout` (30min), `RunNoProgressTimeout` (15min),
+  `ContextTokenBudget` (16k) — todos pequenos demais para executor persistente; o perfil
+  `objective` os eleva por card-type, não globalmente.
+
+## 7. Estado da implementação nesta branch
+
+| Componente | Estado |
+|---|---|
+| INC-EVAL-006 (resolução cross-provider) | **FEITO** — 191cb916 |
+| Gate de conformidade de stack | **FEITO** — d8294618 (fixture = entrega real do Indicadores) |
+| Perfil `objective` (card-objetivo, timeouts, rounds, contexto) | em implementação |
+| Product Validator (app rodando, teto 3 ciclos) | pendente |
+| Probe de disponibilidade da fleet | pendente |
