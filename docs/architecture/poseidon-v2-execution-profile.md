@@ -180,6 +180,10 @@ Fatos do engine que sustentam o desenho "perfil, não segunda engine":
 |---|---|
 | INC-EVAL-006 (resolução cross-provider) | **FEITO** — 191cb916 |
 | Gate de conformidade de stack | **FEITO** — d8294618 (fixture = entrega real do Indicadores) |
-| Perfil `objective` (card-objetivo, timeouts, rounds, contexto) | em implementação |
-| Product Validator (app rodando, teto 3 ciclos) | pendente |
-| Probe de disponibilidade da fleet | pendente |
+| Perfil `objective` (papel project-executor, orçamento 12 rodadas, tetos 4h/45min/64k) | **FEITO** — ed286aa5 |
+| Product Validator (árvore entregue + perfil como régua, teto 3 ciclos → escalação humana) | **FEITO** — 23ce4d23 |
+| Probe de disponibilidade da fleet (`POST /api/v1/agent-accounts/probe`) | **FEITO** — bf394e57 |
+
+Pendências operacionais (dados, não código): adicionar `project-executor` aos `allowedRoles`
+das contas executoras em `~/.harness/agent-accounts.json`; recriar Prisma/Indicadores pristine;
+Bruna planeja 3–8 cards-objetivo por projeto (o 1º é sempre a fatia vertical navegável).
