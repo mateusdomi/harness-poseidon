@@ -30,6 +30,16 @@ markdownAllowlist:
   reason: Relatório do Prisma Launch Gate (2026-08-05), com data fechada; evidência operacional de prontidão, não norma canônica.
 - path: docs/operations/pre-prisma-start-checklist.md
   reason: Runbook operacional de uso único para o início do projeto Prisma; procedimento datado, não norma canônica do repositório.
+- path: docs/operations/diario-avaliacao-trensrj.md
+  reason: Diário operacional da janela de avaliação empresarial (Prisma/Indicadores TrensRJ), com entradas datadas; registro de observação, não norma canônica.
+- path: docs/operations/incidents/INC-EVAL-001-effort-invalido-no-conselho.md
+  reason: Registro de incidente datado (2026-08-06) da janela de avaliação; evidência operacional de causa e contorno, não norma canônica.
+- path: docs/operations/incidents/INC-EVAL-002-persona-sem-teto-critical.md
+  reason: Registro de incidente datado (2026-08-06) da janela de avaliação; evidência operacional de causa e contorno, não norma canônica.
+- path: docs/operations/incidents/INC-EVAL-003-quadro-so-carregava-a-primeira-pagina.md
+  reason: Registro de incidente datado da janela de avaliação; evidência operacional de causa e correção, não norma canônica.
+- path: docs/operations/incidents/INC-EVAL-004-replan-do-dono-nao-devolve-orcamento.md
+  reason: Registro de incidente datado (2026-08-06) da janela de avaliação; evidência operacional de causa e contorno, não norma canônica.
 - path: docs/architecture/preflight/prisma-graph-dry-run.md
   reason: Relatório do dry-run da ProjectGraphProjection sobre a spec do Prisma (Onda 4.3), com data fechada; evidência derivada de teste executável, não norma canônica.
 - path: docs/architecture/preflight/prisma-readiness.md
