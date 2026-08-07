@@ -4926,14 +4926,14 @@ public sealed partial class ChiefBacklogLoopService(
         }
 
         var inFlight = objectives.Any(item =>
-            item.BoardState is "ready" or "development" or "review" or "corrections" or "testsGates");
+            item.State is "ready" or "development" or "review" or "corrections" or "testsGates");
         if (inFlight)
         {
             return;
         }
 
         var next = objectives
-            .Where(item => string.Equals(item.BoardState, "backlog", StringComparison.Ordinal))
+            .Where(item => string.Equals(item.State, "backlog", StringComparison.Ordinal))
             .OrderBy(item => item.Id, StringComparer.Ordinal)
             .FirstOrDefault();
         if (next is null)
