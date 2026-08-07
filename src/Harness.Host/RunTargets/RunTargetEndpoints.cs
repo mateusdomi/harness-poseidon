@@ -72,12 +72,17 @@ public static class RunTargetEndpoints
     private static async Task<IResult> GetAsync(string id, HttpRequest request, ILocalProfileStore profiles, IRunTargetStore store, CancellationToken token)
     { if (!UlidValue.TryParse(id, out _)) return InvalidId(); var session = await LocalProfileSession.ResolveAsync(request, profiles, token); if (session is null) return Unauthorized(); var value = await store.GetAsync(session.TenantId, id, token); return value is null ? Missing("run_target") : Results.Ok(ToContract(value)); }
 
-    private static Task<IResult> StartAsync(string id, HttpRequest request, ILocalProfileStore profiles, INotificationStore settings, IRunTargetStore store, RunTargetProcessSupervisor supervisor, IClock clock, CancellationToken token) => StartCoreAsync(id, false, request, profiles, settings, store, supervisor, clock, token);
-    private static Task<IResult> RestartAsync(string id, HttpRequest request, ILocalProfileStore profiles, INotificationStore settings, IRunTargetStore store, RunTargetProcessSupervisor supervisor, IClock clock, CancellationToken token) => StartCoreAsync(id, true, request, profiles, settings, store, supervisor, clock, token);
-    private static async Task<IResult> StartCoreAsync(string id, bool restart, HttpRequest request, ILocalProfileStore profiles, INotificationStore settingsStore, IRunTargetStore store, RunTargetProcessSupervisor supervisor, IClock clock, CancellationToken token)
+    private static Task<IResult> StartAsync(string id, HttpRequest request, ILocalProfileStore profiles, INotificationStore settings, IProjectStore projects, IRunTargetStore store, RunTargetProcessSupervisor supervisor, IClock clock, CancellationToken token) => StartCoreAsync(id, false, request, profiles, settings, projects, store, supervisor, clock, token);
+    private static Task<IResult> RestartAsync(string id, HttpRequest request, ILocalProfileStore profiles, INotificationStore settings, IProjectStore projects, IRunTargetStore store, RunTargetProcessSupervisor supervisor, IClock clock, CancellationToken token) => StartCoreAsync(id, true, request, profiles, settings, projects, store, supervisor, clock, token);
+    private static async Task<IResult> StartCoreAsync(string id, bool restart, HttpRequest request, ILocalProfileStore profiles, INotificationStore settingsStore, IProjectStore projects, IRunTargetStore store, RunTargetProcessSupervisor supervisor, IClock clock, CancellationToken token)
     {
         if (!UlidValue.TryParse(id, out _)) return InvalidId(); var session = await LocalProfileSession.ResolveAsync(request, profiles, token); if (session is null) return Unauthorized(); var settings = await settingsStore.GetSettingsAsync(session.TenantId, session.Id, session.Id, token); var launch = await store.GetLaunchAsync(session.TenantId, id, token); if (launch is null) return Missing("run_target");
-        var authorization = Authorize(settings, launch); if (authorization is not null) return authorization;
+        var project = await projects.GetAsync(session.TenantId, launch.Target.ProjectId, token);
+        var repositoryRoot = project is { RepositoryProvider: "local" } &&
+            !string.IsNullOrWhiteSpace(project.RepositoryUrl) && Path.IsPathRooted(project.RepositoryUrl)
+                ? project.RepositoryUrl
+                : null;
+        var authorization = Authorize(settings, launch, repositoryRoot); if (authorization is not null) return authorization;
         try
         {
             if (restart)
@@ -163,14 +168,27 @@ public static class RunTargetEndpoints
         }
     }
 
-    private static IResult? Authorize(SettingsRecord? settings, RunTargetLaunchRecord launch)
+    private static IResult? Authorize(SettingsRecord? settings, RunTargetLaunchRecord launch, string? projectRepositoryRoot)
     {
         // 0-E: o aceite de risco foi extinto. O contêiner é pré-requisito, e a ausência dele é uma
         // recusa com instrução — não um pedido para o dono abrir mão da fronteira.
         if (!ContainerRuntimeProbe.IsAvailable()) return Problem(409, "docker_required", ContainerRuntimeProbe.Message);
         if (string.IsNullOrWhiteSpace(settings?.WorkingDirectory)) return Problem(409, "working_directory_required", "A working directory must be configured.");
-        var root = Path.GetFullPath(settings.WorkingDirectory); var working = Path.GetFullPath(launch.WorkingDirectory); var relative = Path.GetRelativePath(root, working);
-        return relative == ".." || relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal) || Path.IsPathRooted(relative) ? Problem(409, "run_target_outside_working_directory", "The run target is outside the authorized working directory.") : null;
+        var working = Path.GetFullPath(launch.WorkingDirectory);
+        if (WithinRoot(Path.GetFullPath(settings.WorkingDirectory), working)) return null;
+        // Mesma regra do ResolveProjectRoot: o repositório local do projeto é fronteira
+        // autorizada — sem isso, detectar no repo do produto e recusar o start dele seria
+        // incoerente.
+        if (projectRepositoryRoot is not null && WithinRoot(Path.GetFullPath(projectRepositoryRoot), working)) return null;
+        return Problem(409, "run_target_outside_working_directory", "The run target is outside the authorized working directory.");
+    }
+
+    private static bool WithinRoot(string root, string candidate)
+    {
+        var relative = Path.GetRelativePath(root, candidate);
+        return relative == "." || (relative != ".." &&
+            !relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal) &&
+            !Path.IsPathRooted(relative));
     }
 
     private static string ResolveProjectRoot(string configuredRoot, ProjectRecord project)
@@ -179,8 +197,14 @@ public static class RunTargetEndpoints
         if (!Directory.Exists(root)) throw new RunTargetValidationException("The configured working directory does not exist.");
         if (project.RepositoryProvider == "local" && !string.IsNullOrWhiteSpace(project.RepositoryUrl) && Path.IsPathRooted(project.RepositoryUrl))
         {
-            var repository = Path.GetFullPath(project.RepositoryUrl); var relative = Path.GetRelativePath(root, repository);
-            if (relative != ".." && !relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal) && !Path.IsPathRooted(relative) && Directory.Exists(repository)) return repository;
+            // O repositório LOCAL do projeto é fronteira autorizada por definição: o caminho vem
+            // do registro do projeto (autoridade da plataforma), não de entrada do usuário. Os
+            // repositórios de produto gerenciados vivem em ~/.harness-poseidon/repositories —
+            // fora do working directory do operador — e exigir que estivessem dentro fazia a
+            // detecção varrer o repositório da PLATAFORMA e oferecer os alvos Harness.* como se
+            // fossem o produto (observado ao vivo em 2026-08-07).
+            var repository = Path.GetFullPath(project.RepositoryUrl);
+            if (Directory.Exists(repository)) return repository;
         }
         var keyed = Path.Combine(root, project.Key); return Directory.Exists(keyed) ? keyed : root;
     }
