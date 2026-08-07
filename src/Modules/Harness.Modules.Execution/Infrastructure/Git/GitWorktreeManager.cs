@@ -505,6 +505,11 @@ public sealed class GitWorktreeManager : IDisposable
         await _metadataGate.WaitAsync(cancellationToken);
         try
         {
+            // O merge SEMPRE acontece com o ALVO em HEAD. O repositório de produto pode ficar
+            // com HEAD detached depois de colheita/inspeção — mergear "no HEAD atual" nessa
+            // condição responde "already up to date", registra sucesso e NÃO move o alvo. Foi o
+            // que aconteceu com o 1º objetivo real da v2: intent 'merged', main intacto.
+            await EnsureMergeTargetCheckedOutAsync(cancellationToken);
             var merge = await RunGitAsync(
                 _repositoryRoot,
                 [
@@ -521,6 +526,41 @@ public sealed class GitWorktreeManager : IDisposable
         finally
         {
             _metadataGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Garante que HEAD está PRESO à referência padrão do repositório antes de um merge de
+    /// integração. HEAD detached não é alvo de entrega: é estado transitório de inspeção.
+    /// </summary>
+    private async Task EnsureMergeTargetCheckedOutAsync(CancellationToken cancellationToken)
+    {
+        var symbolic = await RunGitAsync(
+            _repositoryRoot, ["symbolic-ref", "-q", "HEAD"], cancellationToken);
+        if (symbolic.ExitCode == 0 && !string.IsNullOrWhiteSpace(symbolic.StandardOutput))
+        {
+            return;
+        }
+
+        var target = await RunGitAsync(
+            _repositoryRoot,
+            ["config", "--default", "main", "init.defaultBranch"],
+            cancellationToken);
+        var targetBranch = "main";
+        var verify = await RunGitAsync(
+            _repositoryRoot, ["rev-parse", "--verify", "--quiet", targetBranch], cancellationToken);
+        if (verify.ExitCode != 0 && target.ExitCode == 0 &&
+            !string.IsNullOrWhiteSpace(target.StandardOutput))
+        {
+            targetBranch = target.StandardOutput.Trim();
+        }
+
+        var checkout = await RunGitAsync(
+            _repositoryRoot, ["checkout", targetBranch], cancellationToken);
+        if (checkout.ExitCode != 0)
+        {
+            throw CreateGitException(
+                $"attach HEAD to the merge target '{targetBranch}'", checkout);
         }
     }
 
@@ -542,6 +582,7 @@ public sealed class GitWorktreeManager : IDisposable
         await _metadataGate.WaitAsync(cancellationToken);
         try
         {
+            await EnsureMergeTargetCheckedOutAsync(cancellationToken);
             var merge = await RunGitAsync(
                 _repositoryRoot,
                 [
