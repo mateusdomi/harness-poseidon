@@ -2948,55 +2948,55 @@ public sealed partial class ChiefBacklogLoopService(
             CriticReviewResult? result = null;
             try
             {
-            foreach (var candidateAlias in criticAliases)
-            {
-                using var reviewTimeout = CancellationTokenSource.CreateLinkedTokenSource(token);
-                reviewTimeout.CancelAfter(TimeSpan.FromMinutes(10));
-                try
+                foreach (var candidateAlias in criticAliases)
                 {
-                    result = await orchestrator.ReviewAsync(
-                        new AgentCriticReviewCommand
-                        {
-                            AttemptId = awaiting.Id,
-                            TenantId = tenantId,
-                            ProjectId = project.Id,
-                            TaskId = task.Id,
-                            CriticAlias = candidateAlias,
-                            ActorAlias = producerAlias,
-                            ReviewDirectory = validationWorktree ?? repositoryRoot,
-                            ProductValidation = productValidation,
-                            EffectiveProfileSummary = effectiveProfileSummary,
-                            Diff = diff,
-                            DelegationInstruction = instructions[^1].Body,
-                            // A evidência de execução vem de QUEM EXECUTOU. Antes eram só as
-                            // referências duráveis da tentativa, e o revisor — corretamente —
-                            // lia isso como "nenhuma prova de que os gates rodaram" e reprovava
-                            // com P0. O ator não podia produzir essa prova: a sandbox da CLI
-                            // dele nega rodar o runtime. Agora quem produz é a plataforma, e o
-                            // resultado real chega aqui.
-                            TestEvidence = ComposeTestEvidence(awaiting.CommitRefs, gateReport),
-                            AcceptanceCriteria = resolution.Card.AcceptanceCriteria,
-                            ScopeClaims = resolution.ScopeClaims,
-                        },
-                        reviewTimeout.Token);
-                }
-                catch (OperationCanceledException) when (!token.IsCancellationRequested)
-                {
-                    LogReviewInfrastructureFailure(logger, task.Id, awaiting.Id, "critic.review_timeout");
-                    result = null;
-                }
+                    using var reviewTimeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+                    reviewTimeout.CancelAfter(TimeSpan.FromMinutes(10));
+                    try
+                    {
+                        result = await orchestrator.ReviewAsync(
+                            new AgentCriticReviewCommand
+                            {
+                                AttemptId = awaiting.Id,
+                                TenantId = tenantId,
+                                ProjectId = project.Id,
+                                TaskId = task.Id,
+                                CriticAlias = candidateAlias,
+                                ActorAlias = producerAlias,
+                                ReviewDirectory = validationWorktree ?? repositoryRoot,
+                                ProductValidation = productValidation,
+                                EffectiveProfileSummary = effectiveProfileSummary,
+                                Diff = diff,
+                                DelegationInstruction = instructions[^1].Body,
+                                // A evidência de execução vem de QUEM EXECUTOU. Antes eram só as
+                                // referências duráveis da tentativa, e o revisor — corretamente —
+                                // lia isso como "nenhuma prova de que os gates rodaram" e reprovava
+                                // com P0. O ator não podia produzir essa prova: a sandbox da CLI
+                                // dele nega rodar o runtime. Agora quem produz é a plataforma, e o
+                                // resultado real chega aqui.
+                                TestEvidence = ComposeTestEvidence(awaiting.CommitRefs, gateReport),
+                                AcceptanceCriteria = resolution.Card.AcceptanceCriteria,
+                                ScopeClaims = resolution.ScopeClaims,
+                            },
+                            reviewTimeout.Token);
+                    }
+                    catch (OperationCanceledException) when (!token.IsCancellationRequested)
+                    {
+                        LogReviewInfrastructureFailure(logger, task.Id, awaiting.Id, "critic.review_timeout");
+                        result = null;
+                    }
 
-                if (result is not null && AppliableReviewReasons.Contains(result.ReasonCode))
-                {
-                    break;
-                }
+                    if (result is not null && AppliableReviewReasons.Contains(result.ReasonCode))
+                    {
+                        break;
+                    }
 
-                if (result is not null)
-                {
-                    LogReviewInfrastructureFailure(
-                        logger, task.Id, awaiting.Id, result.ReasonCode);
+                    if (result is not null)
+                    {
+                        LogReviewInfrastructureFailure(
+                            logger, task.Id, awaiting.Id, result.ReasonCode);
+                    }
                 }
-            }
             }
             finally
             {
