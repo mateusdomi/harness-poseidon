@@ -13,7 +13,8 @@ public sealed record ModelRoutingRequest(
     string? ActorAlias,
     bool ForCritic,
     IReadOnlyList<string> RequiredPathScopes,
-    DateTimeOffset Now);
+    DateTimeOffset Now,
+    string? PreferredModelProviderKind = null);
 
 /// <summary>
 /// Seleção de conta já concluída pelo scheduler de agentes. O Model Router não reavalia

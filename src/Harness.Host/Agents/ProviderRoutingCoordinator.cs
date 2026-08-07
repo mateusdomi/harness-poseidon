@@ -47,6 +47,7 @@ public sealed class ProviderRoutingCoordinator(
         string projectId,
         ChiefDispatch dispatch,
         string? preferredModel,
+        string? preferredModelProviderKind,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
@@ -82,7 +83,8 @@ public sealed class ProviderRoutingCoordinator(
                 null,
                 false,
                 dispatch.Card.ScopeClaims,
-                now));
+                now,
+                preferredModelProviderKind));
 
         if (!string.Equals(
                 decision.SelectedAlias,

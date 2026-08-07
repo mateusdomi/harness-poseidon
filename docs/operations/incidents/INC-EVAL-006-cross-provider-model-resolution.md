@@ -51,7 +51,29 @@ elegível para dispatch; não foi retirado da fleet.
   "selecionada → falha imediata → selecionada → falha imediata" que a fábrica está tentando
   eliminar. Não fazer blind retry.
 
-## Desenho correto para quando isto for corrigido (não implementado agora)
+## Resolução (2026-08-07, branch poseidon-v2)
+
+Corrigido em duas camadas, seguindo o desenho-alvo abaixo:
+
+1. **Guard semântico no despacho** (`ChiefBacklogLoopService`, resolução de modelo): o
+   `model_id` da rota agora é resolvido junto com o provider do modelo
+   (`GetModelAsync` → `GetProviderAsync(model.ProviderId).Kind`) e comparado com o
+   `ProviderKind` da conta selecionada. Divergência descarta o modelo (a tentativa roda no
+   default da conta), com log dedicado (`LogModelDroppedCrossProvider`) e divergência
+   auditável no ledger (`requested_model ≠ resolved_model`) — espelho exato do tratamento do
+   effort da Onda 0.4.
+2. **Defesa em profundidade no `ModelRouter.Route`**: `ModelRoutingRequest` ganhou
+   `PreferredModelProviderKind` (opcional); modelo com provider declarado divergente do
+   provider da conta nunca é ecoado — `SelectedModel = null`,
+   `DecisionReason = "model_router.cross_provider_model_dropped"`. Provider desconhecido não
+   bloqueia (nulo = desconhecido; o guard semântico vive no chamador).
+
+Provas: `ModelRouterDropsModelWhoseProviderDiffersFromSelectedAccount`,
+`ModelRouterKeepsModelWhenProviderKindMatchesIgnoringCase`,
+`ModelRouterKeepsModelWhenProviderKindIsUnknown` em
+`tests/Harness.UnitTests/Providers/CapacityManagerAndModelRouterTests.cs`.
+
+## Desenho correto (base da resolução acima)
 
 A cadeia de resolução deveria ser:
 

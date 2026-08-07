@@ -9,11 +9,12 @@ public sealed class CapacityManagerAndModelRouterTests
     private static SimpleAccountSpec CreateAccount(
         string alias,
         string role = "backend-specialist",
-        int priority = 100)
+        int priority = 100,
+        string providerKind = "anthropic")
     {
         return new SimpleAccountSpec(
             Alias: alias,
-            ProviderKind: "anthropic",
+            ProviderKind: providerKind,
             AllowedRoles: [role],
             AllowedPathScopes: ["src/**"],
             ConcurrencyLimit: 2,
@@ -143,6 +144,94 @@ public sealed class CapacityManagerAndModelRouterTests
 
         Assert.Equal("fallback", decision.SelectedAlias);
         Assert.True(decision.IsFallback);
+    }
+
+    [Fact]
+    public void ModelRouterDropsModelWhoseProviderDiffersFromSelectedAccount()
+    {
+        // INC-EVAL-006: conta Codex/OpenAI recebia "opus" (modelo Anthropic) e falhava em
+        // sub-segundo. O modelo cross-provider é descartado; a conta permanece selecionada e
+        // roda no próprio default.
+        var accounts = new List<SimpleAccountSpec>
+        {
+            CreateAccount("codex-frontend", role: "frontend-specialist", providerKind: "openai")
+        };
+
+        var request = new ModelRoutingRequest(
+            Role: "frontend-specialist",
+            RequiredCapability: "code",
+            PreferredModel: "opus",
+            RiskTier: "low",
+            ActorAlias: null,
+            ForCritic: false,
+            RequiredPathScopes: ["src/**"],
+            Now: DateTimeOffset.UtcNow,
+            PreferredModelProviderKind: "anthropic");
+
+        var decision = ModelRouter.Route(
+            accounts,
+            Selection("codex-frontend", ("codex-frontend", true, "account.eligible", 100)),
+            request);
+
+        Assert.Equal("codex-frontend", decision.SelectedAlias);
+        Assert.Null(decision.SelectedModel);
+        Assert.Equal("model_router.cross_provider_model_dropped", decision.DecisionReason);
+    }
+
+    [Fact]
+    public void ModelRouterKeepsModelWhenProviderKindMatchesIgnoringCase()
+    {
+        var accounts = new List<SimpleAccountSpec>
+        {
+            CreateAccount("claude-secondary")
+        };
+
+        var request = new ModelRoutingRequest(
+            Role: "backend-specialist",
+            RequiredCapability: "code",
+            PreferredModel: "opus",
+            RiskTier: "low",
+            ActorAlias: null,
+            ForCritic: false,
+            RequiredPathScopes: ["src/**"],
+            Now: DateTimeOffset.UtcNow,
+            PreferredModelProviderKind: "Anthropic");
+
+        var decision = ModelRouter.Route(
+            accounts,
+            Selection("claude-secondary", ("claude-secondary", true, "account.eligible", 100)),
+            request);
+
+        Assert.Equal("opus", decision.SelectedModel);
+        Assert.Equal("model_router.routed_to_primary", decision.DecisionReason);
+    }
+
+    [Fact]
+    public void ModelRouterKeepsModelWhenProviderKindIsUnknown()
+    {
+        // Nulo significa desconhecido: sem prova de divergência, o modelo não é descartado —
+        // o guard semântico (catálogo modelo→provider) vive no chamador.
+        var accounts = new List<SimpleAccountSpec>
+        {
+            CreateAccount("claude-secondary")
+        };
+
+        var request = new ModelRoutingRequest(
+            Role: "backend-specialist",
+            RequiredCapability: "code",
+            PreferredModel: "opus",
+            RiskTier: "low",
+            ActorAlias: null,
+            ForCritic: false,
+            RequiredPathScopes: ["src/**"],
+            Now: DateTimeOffset.UtcNow);
+
+        var decision = ModelRouter.Route(
+            accounts,
+            Selection("claude-secondary", ("claude-secondary", true, "account.eligible", 100)),
+            request);
+
+        Assert.Equal("opus", decision.SelectedModel);
     }
 
     [Fact]

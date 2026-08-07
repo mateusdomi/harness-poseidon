@@ -68,12 +68,23 @@ public static class ModelRouter
         var isFallback = preferredConfigured is not null &&
             !string.Equals(selected.Alias, preferredConfigured.Alias, StringComparison.OrdinalIgnoreCase);
 
+        // INC-EVAL-006 (defesa em profundidade): um modelo cujo provider declarado diverge do
+        // provider da conta selecionada nunca é ecoado — é semanticamente impossível a CLI de
+        // um provider aceitar o identificador de modelo de outro. O modelo cai para o default
+        // da conta (null) e a decisão declara o descarte. Provider desconhecido (null) não
+        // bloqueia: nulo significa desconhecido, e o guard semântico vive no chamador.
+        var crossProviderModel = request.PreferredModel is { Length: > 0 } &&
+            request.PreferredModelProviderKind is { Length: > 0 } modelProviderKind &&
+            !string.Equals(modelProviderKind, selected.ProviderKind, StringComparison.OrdinalIgnoreCase);
+
         return new ModelRoutingDecision(
             SelectedAlias: selected.Alias,
-            SelectedModel: request.PreferredModel,
+            SelectedModel: crossProviderModel ? null : request.PreferredModel,
             Provider: selected.ProviderKind,
             IsFallback: isFallback,
-            DecisionReason: isFallback ? "model_router.routed_to_fallback" : "model_router.routed_to_primary",
+            DecisionReason: crossProviderModel
+                ? "model_router.cross_provider_model_dropped"
+                : isFallback ? "model_router.routed_to_fallback" : "model_router.routed_to_primary",
             EvaluatedCandidates: evaluated,
             RoutedAt: request.Now);
     }

@@ -1048,9 +1048,32 @@ public sealed partial class ChiefBacklogLoopService(
                         profile.TenantId, project.ChiefAgentId, token);
                     var account = accounts.Get(decision.AccountAlias);
                     var executorProfile = ExecutorCatalog.Find(account?.ExecutorId ?? string.Empty);
-                    var preferredModel = route?.ModelId is { Length: > 0 } modelId
-                        ? (await providerCatalog.GetModelAsync(profile.TenantId, modelId, token))?.Name
+                    var preferredModelRecord = route?.ModelId is { Length: > 0 } modelId
+                        ? await providerCatalog.GetModelAsync(profile.TenantId, modelId, token)
                         : null;
+                    var preferredModelProviderKind = preferredModelRecord is null
+                        ? null
+                        : (await providerCatalog.GetProviderAsync(
+                            profile.TenantId, preferredModelRecord.ProviderId, token))?.Kind;
+                    var preferredModel = preferredModelRecord?.Name;
+                    // INC-EVAL-006: o ModelId da rota vem do agente-chefe do projeto, não da
+                    // conta escolhida — nada impedia um modelo Anthropic ("opus") de chegar à
+                    // CLI da Codex e falhar em sub-segundo. O modelo só sobrevive se o provider
+                    // dele bater com o da conta; senão a tentativa roda no default da conta e a
+                    // divergência fica auditável (requested_model ≠ resolved_model).
+                    if (preferredModel is not null &&
+                        account is not null &&
+                        preferredModelProviderKind is not null &&
+                        !string.Equals(
+                            preferredModelProviderKind, account.ProviderKind,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        LogModelDroppedCrossProvider(
+                            logger, entry.Task.Id, preferredModel, preferredModelProviderKind,
+                            decision.AccountAlias, account.ProviderKind);
+                        preferredModel = null;
+                        preferredModelProviderKind = null;
+                    }
                     var effort = route?.Effort is { Length: > 0 } e &&
                         executorProfile?.Capabilities is { SupportsEffort: true } caps &&
                         caps.EffortValues.Contains(e, StringComparer.OrdinalIgnoreCase)
@@ -1072,6 +1095,7 @@ public sealed partial class ChiefBacklogLoopService(
                         project.Id,
                         decision,
                         preferredModel,
+                        preferredModelProviderKind,
                         routingNow,
                         token);
                     if (await LaunchAsync(
@@ -4843,6 +4867,11 @@ public sealed partial class ChiefBacklogLoopService(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Onda 0.4: card {TaskId} — esforço pedido '{RequestedEffort}' não é aceito pelo executor {ExecutorId}; a tentativa roda no default do provedor e a divergência fica auditável no ledger (requested_effort ≠ resolved_effort).")]
     private static partial void LogEffortDropped(
         ILogger logger, string taskId, string requestedEffort, string executorId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "INC-EVAL-006: card {TaskId} — modelo pedido '{RequestedModel}' pertence ao provider '{ModelProviderKind}', mas a conta {AccountAlias} é do provider '{AccountProviderKind}'; o modelo foi descartado e a tentativa roda no default da conta (requested_model ≠ resolved_model, auditável no ledger).")]
+    private static partial void LogModelDroppedCrossProvider(
+        ILogger logger, string taskId, string requestedModel, string modelProviderKind,
+        string accountAlias, string accountProviderKind);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Chief: esteira do projeto {ProjectId} — {Created} card(s) de artefato criado(s), {Advanced} objetivo(s) de fase concluído(s).")]
     private static partial void LogPhaseDriven(ILogger logger, string projectId, int created, int advanced);
