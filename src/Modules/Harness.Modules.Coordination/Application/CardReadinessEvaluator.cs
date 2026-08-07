@@ -17,12 +17,19 @@ namespace Harness.Modules.Coordination.Application;
 /// insumo não existe é despachado para falhar — foi o "review fora de ordem" do run de
 /// empréstimos.
 /// </param>
+/// <param name="InstructionBody">
+/// Corpo da versão de instrução mais recente, já buscado pelo chamador para outros fins (montar o
+/// despacho) — sem IO extra aqui. Usado só para o Slice Readiness Gate (<see
+/// cref="CardReadinessEvaluator.CardTooLarge"/>); nulo/vazio desliga o gate sem afetar o resto da
+/// avaliação.
+/// </param>
 public sealed record CardReadinessFacts(
     string CardType,
     bool HasInstruction,
     bool IsBlocked,
     IReadOnlyList<string>? StaleUpstream = null,
-    IReadOnlyList<string>? IncompleteUpstream = null);
+    IReadOnlyList<string>? IncompleteUpstream = null,
+    string? InstructionBody = null);
 
 /// <summary>
 /// Veredito de prontidão-para-despacho (Definition of Ready) de um card. Somente leitura.
@@ -64,6 +71,38 @@ public static class CardReadinessEvaluator
     /// <summary>Onda 2.3: predecessor incompleto — o insumo do card ainda não existe.</summary>
     public const string UpstreamIncomplete = "dor.graph.upstream_incomplete";
 
+    /// <summary>
+    /// Card Slice Readiness Gate — o card RBAC de Indicadores TrensRJ
+    /// (01KZAVEASRRB5GDDDPR2VSTC9B, INC-EVAL-004) provou que "refinar cards ao menor recorte
+    /// seguro e verificável independentemente" (standard-workflow.md, Fase 4) é regra de texto
+    /// sem contraparte executável: o card consumiu 4 execuções reais, estourou o orçamento de
+    /// rodadas e só foi resolvido fatiando-o manualmente DEPOIS do gasto. Este bloqueador pega o
+    /// sinal ANTES do primeiro despacho, não depois da quarta tentativa reprovada.
+    /// </summary>
+    public const string CardTooLarge = "dor.card_too_large";
+
+    /// <summary>
+    /// Teto de critérios de aceite declarados sob um cabeçalho "Critérios de aceite"/"Acceptance
+    /// Criteria" antes do próximo cabeçalho <c>##</c>. Acima disto o card provavelmente cobre mais
+    /// de um incremento verificável independentemente — o proxy mais direto de "fatia grande
+    /// demais" que existe no texto sem exigir nenhuma coluna nova.
+    /// </summary>
+    public const int MaxAcceptanceCriteria = 8;
+
+    /// <summary>
+    /// Teto de caminhos de arquivo citados explicitamente no corpo (crase com "/"). Proxy de
+    /// superfície de mudança estimada — um card que já nomeia mais de uma dúzia de arquivos
+    /// tende a ser vários cards costurados num só.
+    /// </summary>
+    public const int MaxReferencedPaths = 12;
+
+    /// <summary>
+    /// Teto de tamanho bruto do corpo, em caracteres — último recurso quando nenhum dos dois
+    /// sinais estruturados dispara, para pegar instruções monolíticas sem lista nem caminho
+    /// algum. Generoso de propósito: só existe para o caso sem nenhuma estrutura.
+    /// </summary>
+    public const int MaxInstructionBodyLength = 12_000;
+
     public static CardReadinessSnapshot Evaluate(CardReadinessFacts facts)
     {
         ArgumentNullException.ThrowIfNull(facts);
@@ -96,6 +135,119 @@ public static class CardReadinessEvaluator
             blockers.Add($"{UpstreamIncomplete}:{node}");
         }
 
+        var sizeBlocker = SizeBlockerFor(facts.InstructionBody);
+        if (sizeBlocker is not null)
+        {
+            blockers.Add(sizeBlocker);
+        }
+
         return new CardReadinessSnapshot(blockers.Count == 0, blockers);
+    }
+
+    /// <summary>
+    /// Motivo enunciável de tamanho, ou <c>null</c> quando o corpo cabe nos três tetos. Corpo
+    /// ausente/vazio nunca bloqueia — o gate de tamanho não substitui <see cref="InstructionMissing"/>.
+    /// </summary>
+    private static string? SizeBlockerFor(string? instructionBody)
+    {
+        if (string.IsNullOrWhiteSpace(instructionBody))
+        {
+            return null;
+        }
+
+        var acceptanceCriteria = CountAcceptanceCriteria(instructionBody);
+        if (acceptanceCriteria > MaxAcceptanceCriteria)
+        {
+            return $"{CardTooLarge}:acceptance_criteria:{acceptanceCriteria}";
+        }
+
+        var referencedPaths = CountReferencedPaths(instructionBody);
+        if (referencedPaths > MaxReferencedPaths)
+        {
+            return $"{CardTooLarge}:referenced_paths:{referencedPaths}";
+        }
+
+        if (instructionBody.Length > MaxInstructionBodyLength)
+        {
+            return $"{CardTooLarge}:body_length:{instructionBody.Length}";
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Conta linhas de lista (<c>-</c>, <c>*</c> ou <c>1.</c>) sob um cabeçalho de critérios de
+    /// aceite, até o próximo cabeçalho <c>##</c> ou o fim do texto — mesmo padrão de varredura de
+    /// bloco de <c>ReplanAttemptPolicy.StripReplanBlocks</c>. Sem cabeçalho reconhecível, conta
+    /// zero: o proxy não adivinha estrutura que o autor não declarou.
+    /// </summary>
+    private static int CountAcceptanceCriteria(string body)
+    {
+        var lines = body.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        var count = 0;
+        var insideSection = false;
+        foreach (var line in lines)
+        {
+            var trimmed = line.TrimStart();
+            if (trimmed.StartsWith("##", StringComparison.Ordinal))
+            {
+                insideSection = trimmed.Contains("critério", StringComparison.OrdinalIgnoreCase) ||
+                    trimmed.Contains("acceptance criteria", StringComparison.OrdinalIgnoreCase);
+                continue;
+            }
+
+            if (!insideSection)
+            {
+                continue;
+            }
+
+            if (IsListItem(trimmed))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private static bool IsListItem(string trimmedLine) =>
+        trimmedLine.StartsWith("- ", StringComparison.Ordinal) ||
+        trimmedLine.StartsWith("* ", StringComparison.Ordinal) ||
+        (trimmedLine.Length > 2 && char.IsDigit(trimmedLine[0]) &&
+            trimmedLine.TrimStart(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
+                .StartsWith(". ", StringComparison.Ordinal));
+
+    /// <summary>
+    /// Conta ocorrências, entre crases, de um trecho com pelo menos uma barra — proxy de caminho
+    /// de arquivo citado explicitamente no enunciado (ex.: <c>`src/Foo/Bar.cs`</c>).
+    /// </summary>
+    private static int CountReferencedPaths(string body)
+    {
+        var count = 0;
+        var index = 0;
+        while (true)
+        {
+            var open = body.IndexOf('`', index);
+            if (open < 0)
+            {
+                break;
+            }
+
+            var close = body.IndexOf('`', open + 1);
+            if (close < 0)
+            {
+                break;
+            }
+
+            var span = body[(open + 1)..close];
+            if (span.Contains('/') && !span.Contains(' ') && span.Length is > 2 and < 200)
+            {
+                count++;
+            }
+
+            index = close + 1;
+        }
+
+        return count;
     }
 }
