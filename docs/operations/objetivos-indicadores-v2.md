@@ -8,6 +8,7 @@ Frontend **React** (base: ZIP Lovable `beautifully-crafted-interface-main`) · B
 **.NET 8 / ASP.NET Core** (baseline decide; "Java ou C#" era preferência) · **Oracle**
 (Required, autoridade ProjectRequirement), schema **`INDICADORES_APP`** · REST + OpenAPI
 Required.
+**Regra transversal de entrega:** todo objetivo mantém `docs/ACESSO.md` atualizado no repositório do produto — URLs de tela e API, credenciais de demonstração, passo a passo de login e acesso ao banco (schema/usuário de dev). O pacote de acesso do Poseidon é montado a partir dele; entrega sem `docs/ACESSO.md` atualizado reprova.
 **Regras transversais de reprovação:** dados em memória no caminho de produção = reprovação
 (foi exatamente o desvio da 1ª avaliação); driver Oracle declarado como dependência é
 obrigatório; **"não criar gráficos fixos por indicador" é Requirement** (§5) — estrutura

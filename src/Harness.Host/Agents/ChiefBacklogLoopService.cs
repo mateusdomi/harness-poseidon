@@ -4088,6 +4088,33 @@ public sealed partial class ChiefBacklogLoopService(
                         "O trabalho está na linha principal, com evidência e trilha de auditoria " +
                         "registradas. Quando o próximo objetivo começar, te aviso por aqui.",
                         token);
+
+                    // Depois de cada integração, o dono recebe o PACOTE DE ACESSO com as URLs
+                    // TESTADAS (regra dele: nunca entregar link sem verificar o caminho). A
+                    // sonda nunca derruba o ciclo — sem pacote, a integração continua válida.
+                    try
+                    {
+                        using var accessScope = scopes.CreateScope();
+                        var runTargets = accessScope.ServiceProvider
+                            .GetService<Harness.Persistence.Abstractions.RunTargets.IRunTargetStore>();
+                        if (runTargets is not null)
+                        {
+                            var targets = await runTargets.ListAsync(
+                                tenantId, project.Id, null, 100, token);
+                            var package = await RunTargets.ProjectAccessPackageBuilder.BuildAsync(
+                                project, targets, AccessProbeClient, token);
+                            await AnnounceObjectiveEventAsync(
+                                tenantId, project,
+                                $"{task.Id}:access",
+                                package.Markdown,
+                                token);
+                        }
+                    }
+                    catch (Exception exception) when (exception is not OperationCanceledException)
+                    {
+                        LogObjectiveAnnounceFailed(
+                            logger, project.Id, $"{task.Id}:access", exception.GetType().Name);
+                    }
                 }
             }
             else
@@ -4819,6 +4846,9 @@ public sealed partial class ChiefBacklogLoopService(
             LogObjectiveAnnounceFailed(logger, project.Id, eventKey, exception.GetType().Name);
         }
     }
+
+    /// <summary>Sonda HTTP do pacote de acesso — compartilhada, sem estado por requisição.</summary>
+    private static readonly HttpClient AccessProbeClient = new();
 
     /// <summary>Resumo de achado no tamanho de uma linha de chat.</summary>
     private static string TruncateForChat(string value) =>

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Harness.Host.RunTargets;
 
 namespace Harness.IntegrationTests.RunTargets;
@@ -67,7 +68,11 @@ public sealed class RunTargetUserFacingDetectionTests
 
             var front = Assert.Single(targets, target => target.Name.StartsWith("loja-web", StringComparison.Ordinal));
             Assert.True(front.UserFacing);
-            Assert.Equal(["npm", "run", "dev"], front.Arguments);
+            // Porta/host explícitos: Vite e família ignoram a env PORT — sem o `-- --port`, a
+            // URL registrada apontava para uma porta e o serviço subia em outra.
+            Assert.Equal(
+                ["npm", "run", "dev", "--", "--port", front.Port!.Value.ToString(CultureInfo.InvariantCulture), "--host", "127.0.0.1"],
+                front.Arguments);
 
             var workerTarget = Assert.Single(
                 targets, target => target.Name.StartsWith("fila-worker", StringComparison.Ordinal));

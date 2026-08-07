@@ -6,6 +6,7 @@ valem o pseudocódigo (§5–6) e a suíte de testes (§16).
 Frontend **React** (base: ZIP Lovable `bright-vision-interface-main`) · Backend **.NET 8 /
 ASP.NET Core** · **Oracle 19c**, schema **`PRISMA_APP`** · REST + OpenAPI · fuso
 America/Sao_Paulo (§14).
+**Regra transversal de entrega:** todo objetivo mantém `docs/ACESSO.md` atualizado no repositório do produto — URLs de tela e API, credenciais de demonstração, passo a passo de login e acesso ao banco (schema/usuário de dev). O pacote de acesso do Poseidon é montado a partir dele; entrega sem `docs/ACESSO.md` atualizado reprova.
 **Regra transversal de reprovação:** dados em memória no caminho de produção = reprovação;
 driver Oracle declarado como dependência é obrigatório; autenticação própria sem SSO (§14);
 sem integrações externas no MVP (§14).

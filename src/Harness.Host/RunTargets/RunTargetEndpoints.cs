@@ -20,6 +20,14 @@ public static class RunTargetEndpoints
         targets.MapPost("/{id}/stop", StopAsync).Produces<RunTargetContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         targets.MapPost("/{id}/restart", RestartAsync).Produces<RunTargetContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
         targets.MapGet("/{id}/health", HealthAsync).Produces<RunTargetHealthContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
+        // Pacote de acesso TESTADO sob demanda (regra do dono: nunca entregar URL sem
+        // verificar): checa tela e API de verdade, anexa docs/ACESSO.md do produto e posta o
+        // resultado no chat do projeto.
+        endpoints.MapPost("/api/v1/projects/{projectId}/access-package", AccessPackageAsync)
+            .WithTags("run-targets")
+            .Produces<AccessPackageResponse>()
+            .ProducesProblem(401)
+            .ProducesProblem(404);
         endpoints.MapPost("/api/v1/projects/{projectId}/run-environment/cleanup", CleanupAsync).WithTags("run-project").Produces<int>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404);
         return endpoints;
     }
@@ -100,6 +108,44 @@ public static class RunTargetEndpoints
 
     private static async Task<IResult> StopAsync(string id, HttpRequest request, ILocalProfileStore profiles, IRunTargetStore store, RunTargetProcessSupervisor supervisor, IClock clock, CancellationToken token)
     { if (!UlidValue.TryParse(id, out _)) return InvalidId(); var session = await LocalProfileSession.ResolveAsync(request, profiles, token); if (session is null) return Unauthorized(); var current = await store.GetAsync(session.TenantId, id, token); if (current is null) return Missing("run_target"); await supervisor.StopTargetAsync(id, token); var value = await store.SetStateAsync(new(session.TenantId, session.Id, id, "stopped", $"Stopped \"{current.Name}\".", clock.UtcNow), token); return Results.Ok(ToContract(value)); }
+
+    private static async Task<IResult> AccessPackageAsync(
+        string projectId,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IProjectStore projects,
+        IRunTargetStore store,
+        Harness.Persistence.Abstractions.Conversations.IConversationStore conversations,
+        IClock clock,
+        CancellationToken token)
+    {
+        if (!UlidValue.TryParse(projectId, out _)) return Invalid("invalid_project_id", "Project ID must be a ULID.");
+        var session = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (session is null) return Unauthorized();
+        var project = await projects.GetAsync(session.TenantId, projectId, token);
+        if (project is null) return Missing("project");
+        var targets = await store.ListAsync(session.TenantId, projectId, null, 100, token);
+        var package = await ProjectAccessPackageBuilder.BuildAsync(project, targets, AccessProbe, token);
+
+        // Pedido explícito do dono não é deduplicado: cada solicitação posta o estado ATUAL.
+        var open = await conversations.ListConversationsAsync(session.TenantId, projectId, null, 1, token);
+        if (open.Count > 0)
+        {
+            var now = clock.UtcNow;
+            _ = await conversations.CreateMessageAsync(
+                new Harness.Persistence.Abstractions.Conversations.MessageCreateCommand(
+                    session.TenantId,
+                    new Harness.Persistence.Abstractions.Conversations.MessageRecord(
+                        session.TenantId, projectId, UlidValue.New(now).ToString(), open[0].Id,
+                        "chief", null, project.ChiefAgentId, package.Markdown, null, now),
+                    now),
+                token);
+        }
+
+        return Results.Ok(new AccessPackageResponse(package.AllHealthy, package.Checks, package.Markdown));
+    }
+
+    private static readonly HttpClient AccessProbe = new();
 
     private static async Task<IResult> CleanupAsync(string projectId, HttpRequest request, ILocalProfileStore profiles, IProjectStore projects, IRunTargetStore store, RunTargetProcessSupervisor supervisor, IClock clock, CancellationToken token)
     { if (!UlidValue.TryParse(projectId, out _)) return Invalid("invalid_project_id", "Project ID must be a ULID."); var session = await LocalProfileSession.ResolveAsync(request, profiles, token); if (session is null) return Unauthorized(); if (await projects.GetAsync(session.TenantId, projectId, token) is null) return Missing("project"); await supervisor.StopProjectAsync(projectId, token); return Results.Ok(await store.CleanupAsync(new(session.TenantId, session.Id, projectId, clock.UtcNow), token)); }
@@ -218,6 +264,9 @@ public static class RunTargetEndpoints
 /// abre: é o único serviço revelado no modo Negócio (D8), enquanto a lista completa continua
 /// disponível no modo Técnico.
 /// </summary>
+public sealed record AccessPackageResponse(
+    bool AllHealthy, IReadOnlyList<AccessCheck> Checks, string Markdown);
+
 public sealed record RunTargetContract(string Id, string ProjectId, string Name, string Kind, string? Url, int? Port, string State, DateTimeOffset DetectedAt, DateTimeOffset? LastCheckAt, bool UserFacing);
 public sealed record RunTargetPage(IReadOnlyList<RunTargetContract> Items, string? NextCursor);
 public sealed record RunTargetHealthContract(string TargetId, string? Url, bool Healthy, int? StatusCode, string Detail, DateTimeOffset CheckedAt);
