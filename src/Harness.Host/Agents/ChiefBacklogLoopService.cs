@@ -2507,6 +2507,7 @@ public sealed partial class ChiefBacklogLoopService(
             CodeGraphBuildResult? branchInspection = null;
             DocumentTemplateValidationResult? documentTemplateValidation = null;
             Harness.Modules.Workflows.Product.StackConformanceVerdict? stackConformance = null;
+            ObjectiveBuildProbeResult? objectiveBuild = null;
             string? effectiveProfileSummary = null;
 
             // OPS-071 — quem executa o gate é a PLATAFORMA. O pacote de objetivo exige
@@ -2577,6 +2578,16 @@ public sealed partial class ChiefBacklogLoopService(
                 {
                     branchInspection = await codeGraph.InspectAsync(
                         project.Id, inspectionPath, token);
+
+                    // Prova de COMPILAÇÃO da plataforma para card-objetivo: duas entregas que
+                    // não compilavam foram aprovadas no mesmo dia porque o gate executável
+                    // dependia de superfície declarada pelo produto e o validador é read-only.
+                    // Produto que não compila não é entregável; quem verifica é a plataforma.
+                    if (ObjectiveCardPolicy.IsObjective(task.CardType))
+                    {
+                        objectiveBuild = await ObjectiveBuildProbe.RunAsync(
+                            inspectionPath, TimeSpan.FromMinutes(8), token);
+                    }
 
                     // Conformidade de STACK, constatada na mesma janela dos demais gates (a
                     // worktree de inspeção é exatamente o que se revisa). A lição do caso
@@ -2698,6 +2709,44 @@ public sealed partial class ChiefBacklogLoopService(
                 {
                     _ = await DeferOrEscalateReviewAsync(
                         tenantId, task, awaiting.Id, "document.gate_not_applied", chain, now, token);
+                }
+
+                continue;
+            }
+
+            if (objectiveBuild is { Ran: true, Succeeded: false } buildFailure)
+            {
+                var buildResult = new CriticReviewResult(
+                    UlidValue.New(now).ToString(), awaiting.Id, "deterministic-build-probe",
+                    "deterministic", producerAlias, CriticVerdict.Fail,
+                    "critic.fail",
+                    [new CriticFinding(
+                        CriticFindingSeverity.P1,
+                        "build.does_not_compile",
+                        TruncateForChat(buildFailure.Detail),
+                        null,
+                        "A entrega precisa compilar do zero (`dotnet build` saindo 0) e manter " +
+                        "um arquivo de solução na raiz como superfície de verificação.")],
+                    $"Sonda de build da plataforma reprovou a entrega: o produto não compila.",
+                    null,
+                    0)
+                {
+                    RejectionCause = ReviewRejectionCause.QualityBar,
+                };
+                if (await ApplyReviewVerdictAsync(
+                        tenantId, task, awaiting.Id, buildResult, chain, token,
+                        new LayerResult(
+                            VerificationLayer.Deterministic,
+                            LayerVerdict.Fail,
+                            "build.does_not_compile")))
+                {
+                    reviewed++;
+                    ClearReviewDeferrals(tenantId, awaiting.Id, token);
+                }
+                else
+                {
+                    _ = await DeferOrEscalateReviewAsync(
+                        tenantId, task, awaiting.Id, "build.probe_not_applied", chain, now, token);
                 }
 
                 continue;
