@@ -84,6 +84,20 @@ export const visualReferenceSchema = z.object({
 });
 export type VisualReference = z.infer<typeof visualReferenceSchema>;
 
+export const attemptContextDocumentSchema = z.object({
+  documentId: z.string(),
+  title: z.string(),
+  selectionReason: z.string(),
+  loadPolicy: z.string(),
+  estimatedTokens: z.number(),
+});
+export const attemptContextSchema = z.object({
+  attemptId: z.string(),
+  receiptCount: z.number(),
+  documents: z.array(attemptContextDocumentSchema),
+});
+export type AttemptContext = z.infer<typeof attemptContextSchema>;
+
 export const prototypingStageSchema = z.object({
   projectId: ulidSchema,
   state: z.enum(['NotApplicable', 'Pending', 'SatisfiedByInheritance', 'SatisfiedByApproval']),

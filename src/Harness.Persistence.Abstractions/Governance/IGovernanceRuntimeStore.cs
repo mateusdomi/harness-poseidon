@@ -243,6 +243,16 @@ public interface IGovernanceRuntimeStore
         string turnId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Recibos de contexto de UMA tentativa — a resposta auditável a "o que exatamente o agente
+    /// recebeu para executar este trabalho?" (pedido do dono, 2026-08-07). Lista porque uma
+    /// tentativa pode ter mais de um turno de contexto; vazio é fato, não erro.
+    /// </summary>
+    Task<IReadOnlyList<GovernanceTurnReceiptRecord>> ListReceiptsByAttemptAsync(
+        string tenantId,
+        string attemptId,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<GovernanceTurnReceiptRecord>> ListReceiptsAsync(
         string tenantId,
         string? projectId,

@@ -104,6 +104,22 @@ public sealed class PostgresGovernanceRuntimeStore(NpgsqlDataSource dataSource)
         return await ReadAsync(connection, tenantId, turnId, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<GovernanceTurnReceiptRecord>> ListReceiptsByAttemptAsync(
+        string tenantId,
+        string attemptId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var query = connection.CreateCommand();
+        query.CommandText = $"{SelectReceipt} WHERE tenant_id=$1 AND attempt_id=$2 ORDER BY turn_id;";
+        query.Parameters.Add(Text(tenantId));
+        query.Parameters.Add(Text(attemptId));
+        var rows = new List<GovernanceTurnReceiptRecord>();
+        await using var reader = await query.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken)) rows.Add(MapReceipt(reader));
+        return rows;
+    }
+
     public async Task<IReadOnlyList<GovernanceTurnReceiptRecord>> ListReceiptsAsync(
         string tenantId,
         string? projectId,

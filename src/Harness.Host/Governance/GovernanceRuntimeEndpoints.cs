@@ -27,6 +27,12 @@ public static class GovernanceRuntimeEndpoints
         group.MapGet("/receipts", ListReceiptsAsync).Produces<IReadOnlyList<GovernanceReceiptContract>>().ProducesProblem(401);
         group.MapGet("/receipts/{turnId}", GetReceiptAsync).Produces<GovernanceReceiptContract>().ProducesProblem(401).ProducesProblem(404);
         group.MapGet("/receipts/{turnId}/metrics", ListMetricsAsync).Produces<IReadOnlyList<GovernanceMetricContract>>().ProducesProblem(401);
+        // Auditoria por CARD (pedido do dono, 2026-08-07): o que exatamente o agente recebeu —
+        // documentos do bundle com TÍTULO, prontos para virar link na UI do card.
+        endpoints.MapGet("/api/v1/attempts/{attemptId}/context", GetAttemptContextAsync)
+            .WithTags("governance-runtime")
+            .Produces<AttemptContextResponse>()
+            .ProducesProblem(401);
         group.MapPost("/evaluations", EvaluateAsync).Produces<EvaluationResultContract>().ProducesProblem(400).ProducesProblem(401);
         group.MapGet("/stale-doc-findings", DetectStaleDocumentsAsync).Produces<IReadOnlyList<StaleDocumentFindingContract>>().ProducesProblem(401);
         group.MapPost("/projects/{projectId}/hashline-patches", ApplyHashlinePatchAsync).Produces<HashlinePatchContract>().ProducesProblem(400).ProducesProblem(401).ProducesProblem(404).ProducesProblem(409);
@@ -365,6 +371,44 @@ public static class GovernanceRuntimeEndpoints
         {
             return Invalid("invalid_eval_judge", exception.Message);
         }
+    }
+
+    private static async Task<IResult> GetAttemptContextAsync(
+        string attemptId,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IGovernanceRuntimeStore store,
+        Harness.Persistence.Abstractions.Documents.IDocumentCatalogStore catalog,
+        CancellationToken token)
+    {
+        var session = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (session is null) return Unauthorized();
+        var receipts = await store.ListReceiptsByAttemptAsync(session.TenantId, attemptId, token);
+        var documents = new List<AttemptContextDocumentContract>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var receipt in receipts)
+        {
+            foreach (var document in receipt.Documents)
+            {
+                if (!seen.Add(document.DocumentId))
+                {
+                    continue;
+                }
+
+                // Título vem do catálogo; documento fora do catálogo (ex.: artefato de intake)
+                // não desaparece — aparece pelo próprio id, porque a auditoria não pode mentir
+                // por omissão.
+                var row = await catalog.GetDocumentAsync(session.TenantId, document.DocumentId, token);
+                documents.Add(new AttemptContextDocumentContract(
+                    document.DocumentId,
+                    row?.Title ?? document.DocumentId,
+                    document.SelectionReason,
+                    document.LoadPolicy,
+                    document.EstimatedTokens));
+            }
+        }
+
+        return Results.Ok(new AttemptContextResponse(attemptId, receipts.Count, documents));
     }
 
     private static async Task<IResult> ListReceiptsAsync(
@@ -709,6 +753,12 @@ public sealed record EvaluationResultContract(string SchemaVersion, string Evalu
 public sealed record HashlinePatchApiRequest(string TurnId, string RelativePath, string ExpectedChecksum, string NewContent);
 
 public sealed record GovernanceReceiptDocumentContract(string DocumentId, string Checksum, string SelectionReason, string LoadPolicy, int EstimatedTokens);
+
+public sealed record AttemptContextDocumentContract(
+    string DocumentId, string Title, string SelectionReason, string LoadPolicy, int EstimatedTokens);
+
+public sealed record AttemptContextResponse(
+    string AttemptId, int ReceiptCount, IReadOnlyList<AttemptContextDocumentContract> Documents);
 public sealed record GovernanceReceiptContract(string ProjectId, string TaskId, string AttemptId, string TurnId, string AgentId, string ManifestVersion, IReadOnlyList<GovernanceReceiptDocumentContract> Documents, int EstimatedTokens, int? ActualPromptTokens, IReadOnlyList<string> Truncated, IReadOnlyList<string> Conflicts, int CacheHits, string Provider, string? Model, DateTimeOffset Timestamp, string BundleChecksum, string State, string? GateResult, long Version);
 public sealed record GovernanceMetricContract(string ProjectId, string TurnId, string EventId, string Kind, string? DocumentId, string? RuleId, string? DetailCode, int? TokenCount, DateTimeOffset OccurredAt);
 public sealed record StaleDocumentFindingContract(string FindingId, string DocumentId, string Kind, string Detail, string RecommendedTask, DateTimeOffset DetectedAt);

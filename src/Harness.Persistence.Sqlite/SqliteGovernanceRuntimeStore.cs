@@ -87,6 +87,29 @@ public sealed class SqliteGovernanceRuntimeStore(SqliteWriteDispatcher dispatche
         CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync((connection, token) => ReadAsync(connection, tenantId, turnId, token), cancellationToken);
 
+    public Task<IReadOnlyList<GovernanceTurnReceiptRecord>> ListReceiptsByAttemptAsync(
+        string tenantId,
+        string attemptId,
+        CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync<IReadOnlyList<GovernanceTurnReceiptRecord>>(
+            async (connection, token) =>
+            {
+                await using var query = connection.CreateCommand();
+                query.CommandText =
+                    $"{SelectReceipt} WHERE tenant_id=$tenant AND attempt_id=$attempt ORDER BY turn_id;";
+                Add(query, "$tenant", tenantId);
+                Add(query, "$attempt", attemptId);
+                var rows = new List<GovernanceTurnReceiptRecord>();
+                await using var reader = await query.ExecuteReaderAsync(token);
+                while (await reader.ReadAsync(token))
+                {
+                    rows.Add(MapReceipt(reader));
+                }
+
+                return rows;
+            },
+            cancellationToken);
+
     public Task<IReadOnlyList<GovernanceTurnReceiptRecord>> ListReceiptsAsync(
         string tenantId,
         string? projectId,

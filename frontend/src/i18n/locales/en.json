@@ -1329,6 +1329,10 @@
         "archive": "Archive",
         "unarchive": "Unarchive",
         "archiveOnlyDone": "Only completed tasks can be archived."
+      },
+      "context": {
+        "documentsTitle": "Documents the agent read",
+        "tokens": "~{{count}} tokens"
       }
     },
     "filters": {

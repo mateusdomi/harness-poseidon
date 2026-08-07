@@ -1329,6 +1329,10 @@
         "archive": "Arquivar",
         "unarchive": "Desarquivar",
         "archiveOnlyDone": "Apenas tarefas concluídas podem ser arquivadas."
+      },
+      "context": {
+        "documentsTitle": "Documentos que o agente leu",
+        "tokens": "~{{count}} tokens"
       }
     },
     "filters": {

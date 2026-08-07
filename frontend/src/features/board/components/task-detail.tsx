@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Check, Copy, X } from 'lucide-react';
 
@@ -46,8 +47,10 @@ export function TaskDetail({
 }: TaskDetailProps) {
   const { t, i18n } = useTranslation();
   useTaskRealtime(taskId);
-  const { task, instructions, attempts, attemptEvents, approvals, demand, isPending, isError, refetch } =
-    useTaskDetail(taskId);
+  const {
+    task, instructions, attempts, attemptEvents, approvals, demand, attemptContext,
+    isPending, isError, refetch,
+  } = useTaskDetail(taskId);
 
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
@@ -205,8 +208,9 @@ export function TaskDetail({
             <dt className="text-xs font-medium text-foreground-muted">
               {t('board.detail.scope.objective')}
             </dt>
-            <dd>
+            <dd className="whitespace-pre-wrap">
               {demand?.description ||
+                instructions[0]?.body ||
                 t(
                   showTechnicalDetails
                     ? 'board.detail.sourceUnavailable'
@@ -285,8 +289,6 @@ export function TaskDetail({
         )}
       </section>
 
-      {showTechnicalDetails && (
-        <>
       <section aria-labelledby="task-instruction" className="flex flex-col gap-2">
         <h3 id="task-instruction" className="font-heading text-sm font-semibold">
           {t('board.detail.instruction.title')}
@@ -318,8 +320,32 @@ export function TaskDetail({
             <p className="whitespace-pre-wrap text-sm">{instruction.body}</p>
           </div>
         )}
+        {attemptContext && attemptContext.documents.length > 0 && (
+          <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3">
+            <h4 className="text-xs font-medium text-foreground-muted">
+              {t('board.detail.context.documentsTitle')}
+            </h4>
+            <ul className="flex flex-col gap-1 text-sm">
+              {attemptContext.documents.map((doc) => (
+                <li key={doc.documentId}>
+                  <Link
+                    className="text-accent underline-offset-2 hover:underline"
+                    to={`/documents?doc=${doc.documentId}`}
+                  >
+                    {doc.title}
+                  </Link>
+                  <span className="ml-2 text-xs text-foreground-muted">
+                    {t('board.detail.context.tokens', { count: doc.estimatedTokens })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </section>
 
+      {showTechnicalDetails && (
+        <>
       <section aria-labelledby="task-attempts" className="flex flex-col gap-2">
         <h3 id="task-attempts" className="font-heading text-sm font-semibold">
           {t('board.detail.attempts.title')}

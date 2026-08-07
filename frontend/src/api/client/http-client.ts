@@ -57,6 +57,7 @@ import {
   type Approval,
   type Document,
   type DesignSystemBundle,
+  type AttemptContext,
   type PrototypingStage,
   type Solicitation,
   agentExecutorSchema,
@@ -118,6 +119,7 @@ import {
   chatTurnHandleSchema,
   projectReadinessSnapshotSchema,
   phaseObligationProgressSchema,
+  attemptContextSchema,
   prototypingStageSchema,
   governanceDocTreeSchema,
   governanceDocContentSchema,
@@ -235,6 +237,12 @@ export class HttpApiClient implements ApiClient {
     const form = new FormData();
     form.append('file', file);
     return this.#request('POST', `/projects/${projectId}/logo`, form);
+  }
+
+  /** Auditoria por card: o que exatamente a tentativa recebeu de contexto (docs com título). */
+  async getAttemptContext(attemptId: Ulid): Promise<AttemptContext> {
+    const response = await this.#request<unknown>('GET', `/attempts/${attemptId}/context`);
+    return attemptContextSchema.parse(response);
   }
 
   async getPrototypingStage(projectId: Ulid): Promise<PrototypingStage> {

@@ -178,6 +178,16 @@ export function useTaskDetail(taskId: Ulid | null) {
     enabled: taskId !== null,
   });
 
+  const latestAttemptId =
+    attemptsQuery.data && attemptsQuery.data.length > 0
+      ? attemptsQuery.data[attemptsQuery.data.length - 1].id
+      : null;
+  const attemptContextQuery = useQuery({
+    queryKey: [...BOARD_PREFIX, 'attempt-context', latestAttemptId ?? 'none'],
+    queryFn: () => api.getAttemptContext(latestAttemptId!),
+    enabled: latestAttemptId !== null,
+  });
+
   const demandId = taskQuery.data?.demandId ?? null;
   const demandQuery = useQuery({
     queryKey: boardKeys.demand(demandId ?? 'none'),
@@ -192,6 +202,7 @@ export function useTaskDetail(taskId: Ulid | null) {
     attemptEvents: attemptEventsQuery.data ?? [],
     approvals: approvalsQuery.data ?? [],
     demand: demandQuery.data ?? null,
+    attemptContext: attemptContextQuery.data ?? null,
     isPending:
       taskQuery.isLoading || instructionsQuery.isLoading || attemptsQuery.isLoading ||
       approvalsQuery.isLoading,
