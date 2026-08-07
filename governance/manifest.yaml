@@ -40,6 +40,10 @@ markdownAllowlist:
   reason: Registro de incidente datado da janela de avaliação; evidência operacional de causa e correção, não norma canônica.
 - path: docs/operations/incidents/INC-EVAL-004-replan-do-dono-nao-devolve-orcamento.md
   reason: Registro de incidente datado (2026-08-06) da janela de avaliação; evidência operacional de causa e contorno, não norma canônica.
+- path: docs/operations/incidents/INC-EVAL-006-cross-provider-model-resolution.md
+  reason: Registro de incidente datado (2026-08-07) da janela de avaliação; evidência operacional de causa e gatilho de ação, não norma canônica.
+- path: docs/operations/incidents/INC-EVAL-007-pausa-silenciosa-de-projeto.md
+  reason: Registro de incidente datado (2026-08-07) da janela de avaliação; evidência operacional de causa e contorno, não norma canônica.
 - path: docs/architecture/preflight/prisma-graph-dry-run.md
   reason: Relatório do dry-run da ProjectGraphProjection sobre a spec do Prisma (Onda 4.3), com data fechada; evidência derivada de teste executável, não norma canônica.
 - path: docs/architecture/preflight/prisma-readiness.md

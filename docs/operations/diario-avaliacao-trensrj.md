@@ -75,3 +75,51 @@ revisor principal da fábrica.
    funcionou e deveria ser a regra de planejamento, não a exceção pós-escalonamento.
 4. **Rever o teto de rodadas junto com o replan** (INC-EVAL-004): enquanto a decisão humana não
    reabrir orçamento, todo card que esgota vira descarte + refatiamento manual.
+
+## Dia 2 — 07/08/2026 — Recuperação de throughput da Fase 5
+
+Missão noturna (autorizada com autonomia total, exceto iniciar o Poseidon): investigar, documentar
+e corrigir os achados do Dia 1, sem tocar Playbook/Fases 1-4. Sete fixes reais commitados em
+`develop`, verificados (build+teste, 2290 testes) antes de qualquer aplicação ao vivo:
+
+1. Retry continuity — `CorrectionBaseBranch` comparava com a string errada (`operational_state`
+   nunca contém `"rejected"`); toda correção pós-review reimplementava do zero.
+2. ScopeClaim liberada nos 3 pontos de rejeição pós-acquire (era a causa do storm do INC-EVAL-002).
+3. INC-EVAL-002 fechado: Priority↔RiskTier corrigido em 7 pontos + clamp de elegibilidade de
+   persona (card crítico cabe em persona de teto `high`, sem migração de schema).
+4. INC-EVAL-004 fechado: orçamento de rodadas reseta por época de replanejamento aprovado.
+5. Card Slice Readiness Gate novo (`dor.card_too_large`).
+6. INC-EVAL-001 fechado: erro de `--model`/`--effort` inválido não é mais classificado como cota.
+7. Bug de roteamento de fleet corrigido: personas novas paravam de herdar a conta do Chief por
+   acidente de ordenação.
+
+**Achado dentro da própria missão**: 3 forks paralelos ignoraram instrução de "só leitura" e
+escreveram concorrentemente no mesmo arquivo (um chegou a quebrar o build) — revertido,
+re-investigado com cuidado e refeito com disciplina de dono único por arquivo.
+
+**`SupersedeTaskAsync`** — mutação de domínio nova (migração 0134), com ledger e auditoria, para
+encerrar formalmente card `escalated` substituído por cards menores sem `UPDATE` cru. Usada para
+formalizar RBAC backend e frontend de Indicadores — descoberto que uma decisão real do dono no
+chat (2026-08-07T00:14 UTC) já tinha materializado 5 dos 9 cards de substituição, órfãos pelo
+mesmo bug do INC-EVAL-004.
+
+**Restart real** (autorizado explicitamente pelo dono, de manhã, com supervisão): Docker Desktop
+não estava rodando — o Host recusa subir sem ele (fronteira de sandbox obrigatória); resolvido,
+registrado como dívida de preflight (`./poseidon start` deveria checar Docker/portas/disco ANTES
+de começar a subir, não descobrir no meio). `INC-EVAL-007` — os dois projetos estavam
+`projects.state='paused'` (camada diferente de `workflow_runs.state`, que já mostrava `running`),
+bloqueando dispatch com zero log por ~12 minutos; destravado via `PATCH /api/v1/projects`.
+
+**Achado ao vivo, fora do escopo original**: `plan_graph.shared_scope_undeclared` bloqueava cards
+sem superfície de código reconhecida (artefatos de suporte, CORRECAO/DoD) uns contra os outros —
+dois fallbacks de escopo amplo idênticos não são evidência de colisão real. Corrigido, testado,
+verificado ao vivo (bloqueios sumiram do log pós-fix).
+
+**`INC-EVAL-006`** — `worker-codex-frontend` (provider Codex/OpenAI) recebeu `model_id` resolvendo
+para `opus` (modelo Anthropic) — 1ª ocorrência, classificada corretamente como
+`account_model_unsupported` (não mais `quota_limited`), não corrigida ainda por decisão do dono
+(gatilho: só agir na 2ª ocorrência).
+
+Decisão do dono ao final do dia: **não pausar, não reiniciar, não mexer em scheduler/Playbook/Graph
+— janela de observação de 60 minutos com os dois projetos `RUNNING`**, medindo funil de dispatch,
+paralelismo real, pré-execução e continuidade de retry antes de qualquer novo ajuste estrutural.
