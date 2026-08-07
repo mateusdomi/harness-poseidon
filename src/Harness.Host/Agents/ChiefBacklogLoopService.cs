@@ -5300,7 +5300,14 @@ public sealed partial class ChiefBacklogLoopService(
                 AcceptanceCriteria = resolution.Card.AcceptanceCriteria,
                 // null é deliberadamente fail-closed no orquestrador: uma persona resolvida que
                 // declara zero ferramentas é diferente de não ter resolvido persona alguma.
-                RequiredToolIds = persona?.ToolIds,
+                // CARD-OBJETIVO (perfil v2): o executor persistente trabalha com o ferramental
+                // NATIVO da própria CLI — tools de plugin da plataforma não fazem parte do
+                // contrato do objetivo. Sem esta isenção, o fail-closed de autorização de tools
+                // (persona_tools_unresolved) matava todo dispatch de objetivo no primeiro ciclo,
+                // porque a persona semeada declara tool ids que não existem no registro.
+                RequiredToolIds = ObjectiveCardPolicy.IsObjective(task.CardType)
+                    ? []
+                    : persona?.ToolIds,
                 PersonaKey = persona?.Key,
                 ChiefReinforcement = chiefReinforcement,
             },
