@@ -121,4 +121,35 @@ public sealed class AgentPathScopePolicyTests
     {
         Assert.Equal(expected, AgentPathScopePolicy.KindForRole(role));
     }
+
+    [Theory]
+    [InlineData("src/**")]
+    [InlineData("frontend/**")]
+    [InlineData("tests/**")]
+    [InlineData("infra/**")]
+    [InlineData("tools/**")]
+    [InlineData("docs/product/**")]
+    [InlineData("docs/architecture/**")]
+    [InlineData("docs/frontend/**")]
+    public void ProjectExecutorOwnsTheWholeProductRepository(string claim)
+    {
+        var result = AgentPathScopePolicy.Evaluate(AgentPathScopeKind.ProjectExecutor, [claim]);
+
+        Assert.True(result.Allowed);
+    }
+
+    [Theory]
+    // As duas exceções inegociáveis sobrevivem ao papel mais largo: o parecer não pertence a
+    // quem executa, e a fonte canônica não pertence a card nenhum.
+    [InlineData("docs/conselho/**")]
+    [InlineData("docs/**")]
+    [InlineData("governance/**")]
+    [InlineData("governance/core.md")]
+    [InlineData("governance/manifest.yaml")]
+    public void ProjectExecutorStillCannotTouchCouncilOrCanon(string claim)
+    {
+        var result = AgentPathScopePolicy.Evaluate(AgentPathScopeKind.ProjectExecutor, [claim]);
+
+        Assert.False(result.Allowed);
+    }
 }

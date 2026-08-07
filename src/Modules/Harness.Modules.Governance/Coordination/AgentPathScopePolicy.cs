@@ -30,6 +30,14 @@ public enum AgentPathScopeKind
     /// a causa.
     /// </summary>
     Critic = 2,
+
+    /// <summary>
+    /// Executor persistente da reconstrução v2: dono do repositório do produto inteiro —
+    /// backend E frontend — durante um objetivo. A união dos dois escopos NÃO inclui as duas
+    /// exceções inegociáveis: a área do parecer (<c>docs/conselho/**</c>, independência de quem
+    /// opina) e as fontes canônicas de governança (confused deputy).
+    /// </summary>
+    ProjectExecutor = 3,
 }
 
 public sealed record AgentPathScopeDecision(
@@ -64,6 +72,9 @@ public static class AgentPathScopePolicy
     ];
 
     private static readonly string[] SharedRoots = ["governance", ".github"];
+
+    /// <summary>Raízes adicionais do executor de projeto (v2), além da união backend+frontend.</summary>
+    private static readonly string[] ProjectExecutorExtraRoots = ["tools", "docs/product"];
 
     /// <summary>
     /// As DUAS fontes canônicas. Elas são a regra que restringe o agente — deixar o restringido
@@ -107,7 +118,9 @@ public static class AgentPathScopePolicy
             ? AgentPathScopeKind.FrontendSpecialist
             : string.Equals(role, "critic", StringComparison.OrdinalIgnoreCase)
                 ? AgentPathScopeKind.Critic
-                : AgentPathScopeKind.Backend;
+                : string.Equals(role, "project-executor", StringComparison.OrdinalIgnoreCase)
+                    ? AgentPathScopeKind.ProjectExecutor
+                    : AgentPathScopeKind.Backend;
 
     public static AgentPathScopeDecision Evaluate(
         AgentPathScopeKind kind,
@@ -156,12 +169,31 @@ public static class AgentPathScopePolicy
             return false;
         }
 
-        if (FrontendRoots.Any(root => IsWithin(basePath, root) || IsWithin(root, basePath)))
+        // O executor de projeto (v2) é a união backend+frontend: passa pelas mesmas negações
+        // acima (parecer, e canônicas adiante) e aceita as raízes dos DOIS papéis. Não é um
+        // afrouxamento do backend: é um papel distinto, com serialização por repositório.
+        if (kind == AgentPathScopeKind.ProjectExecutor &&
+            FrontendRoots.Any(root => IsWithin(basePath, root)))
+        {
+            return true;
+        }
+
+        if (kind != AgentPathScopeKind.ProjectExecutor &&
+            FrontendRoots.Any(root => IsWithin(basePath, root) || IsWithin(root, basePath)))
         {
             return false;
         }
 
         if (BackendRoots.Any(root => IsWithin(basePath, root)))
+        {
+            return true;
+        }
+
+        // Raízes que só o executor de projeto possui: o repositório de PRODUTO é dele por
+        // inteiro (tools/ de build do produto, docs/product/ do canon do software entregue),
+        // enquanto no repositório da plataforma o backend continua restrito a tools/backend.
+        if (kind == AgentPathScopeKind.ProjectExecutor &&
+            ProjectExecutorExtraRoots.Any(root => IsWithin(basePath, root)))
         {
             return true;
         }

@@ -17,6 +17,15 @@ public static class AgentRoles
     public const string Critic = "critic";
 
     /// <summary>
+    /// Executor persistente da reconstrução v2 (Understand → Build → Prove): UM agente dono do
+    /// repositório do produto inteiro, backend E frontend, durante todo um objetivo. O papel
+    /// existe porque o modelo v2 serializa por PROJETO (um executor por repo), não por camada —
+    /// os claims largos abaixo são o mecanismo dessa serialização, não uma permissão nova: as
+    /// negações canônicas (parecer do conselho, fontes de governança) continuam valendo.
+    /// </summary>
+    public const string ProjectExecutor = "project-executor";
+
+    /// <summary>
     /// Claims PADRÃO do papel — usados quando o pedido não estreita o escopo. O frontend
     /// possui `frontend/**`+`docs/frontend/**`; o backend possui as raízes de trabalho
     /// backend/compartilhadas (nunca `frontend/**`). Um papel desconhecido não recebe claim.
@@ -32,7 +41,22 @@ public static class AgentRoles
                 ? BackendDefaultScopes
                 : string.Equals(role, Critic, StringComparison.OrdinalIgnoreCase)
                     ? CriticDefaultScopes
-                    : [];
+                    : string.Equals(role, ProjectExecutor, StringComparison.OrdinalIgnoreCase)
+                        ? ProjectExecutorDefaultScopes
+                        : [];
+
+    /// <summary>
+    /// União dos escopos de backend e frontend, por SUBRAIZ de docs (nunca `docs/**`: a varredura
+    /// ampla engoliria `docs/conselho/**`, e o parecer não pertence a quem executa). Dois cards-
+    /// objetivo do mesmo projeto colidem nestes claims — é o comportamento desejado: um executor
+    /// por repositório.
+    /// </summary>
+    private static readonly string[] ProjectExecutorDefaultScopes =
+    [
+        "src/**", "frontend/**", "tests/**", "infra/**", "tools/**",
+        "docs/backend/**", "docs/frontend/**", "docs/contracts/**",
+        "docs/architecture/**", "docs/decisions/**", "docs/product/**",
+    ];
 
     /// <summary>
     /// O crítico ESCREVE uma coisa só: o próprio parecer. Enquanto o papel não tinha claim nenhum,
@@ -57,7 +81,8 @@ public static class AgentRoles
     ];
 
     public static bool IsKnown(string role) =>
-        role is ChiefOrchestrator or FrontendSpecialist or BackendSpecialist or Critic;
+        role is ChiefOrchestrator or FrontendSpecialist or BackendSpecialist or Critic
+            or ProjectExecutor;
 }
 
 /// <summary>

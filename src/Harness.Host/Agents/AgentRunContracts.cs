@@ -66,6 +66,25 @@ public sealed record AgentRunSettings
     public int ContextTokenBudget { get; init; } = 16000;
 
     /// <summary>
+    /// Teto de execução de um CARD-OBJETIVO (perfil v2): o executor persistente trabalha horas
+    /// na mesma sessão — o teto de 30min dos micro-cards o mataria no aquecimento. A vigilância
+    /// de silêncio (<see cref="ObjectiveRunNoProgressTimeout"/>) continua sendo o freio real
+    /// contra travamento; este teto é o limite absoluto de uma rodada.
+    /// </summary>
+    public TimeSpan ObjectiveRunTimeout { get; init; } = TimeSpan.FromHours(4);
+
+    /// <summary>Silêncio máximo tolerado num card-objetivo antes de encerrar como travado.</summary>
+    public TimeSpan ObjectiveRunNoProgressTimeout { get; init; } = TimeSpan.FromMinutes(45);
+
+    /// <summary>
+    /// Orçamento do bundle documental de um card-objetivo: o executor persistente recebe o
+    /// pacote COMPLETO do projeto (requisitos, perfil efetivo, critérios de aceite, decisões) de
+    /// uma vez — pagar contexto por micro-fatia era um dos custos estruturais medidos na
+    /// avaliação TrensRJ.
+    /// </summary>
+    public int ObjectiveContextTokenBudget { get; init; } = 64000;
+
+    /// <summary>
     /// Loop autônomo do chefe (drena o backlog e delega).
     ///
     /// Fase 1E: nasce LIGADO, e o freio real passou a ser o MODO DO PROJETO. Ele nascia desligado

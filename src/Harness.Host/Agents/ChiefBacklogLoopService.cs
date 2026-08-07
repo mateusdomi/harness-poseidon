@@ -705,7 +705,8 @@ public sealed partial class ChiefBacklogLoopService(
                         // ajustável por contorno operacional (ex.: destravar dispatch); RiskTier é
                         // o que os gates de prova continuam exigindo.
                         dispatchTask.RiskTier,
-                        surfaceMap: surfaceMap);
+                        surfaceMap: surfaceMap,
+                        cardType: dispatchTask.CardType);
 
                     // F-17: a persona declarada carrega escopos que devem restringir o escopo do
                     // papel. Resolvemos primeiro para saber qual persona foi escolhida, depois
@@ -723,7 +724,8 @@ public sealed partial class ChiefBacklogLoopService(
                             explicitRole: resolution.Role,
                             surfaceMap: surfaceMap,
                             personaAllowedScopes: dispatchPersona.AllowedScopes,
-                            personaDeniedScopes: dispatchPersona.DeniedScopes);
+                            personaDeniedScopes: dispatchPersona.DeniedScopes,
+                            cardType: dispatchTask.CardType);
                     }
 
                     // Um papel SEM escopo de escrita (o crítico, por exemplo) produz claim vazia, e a
@@ -2432,7 +2434,8 @@ public sealed partial class ChiefBacklogLoopService(
             }
 
             var resolution = ChiefCardResolver.Resolve(
-                task.Title, instructions[^1].Body, [], task.RiskTier);
+                task.Title, instructions[^1].Body, [], task.RiskTier,
+                cardType: task.CardType);
             // A tentativa pertence ao PROFISSIONAL (persona) e por isso `AgentId` é o id dele,
             // não o alias secreto/operacional da conta. O alias executor vem do ledger de
             // invocações da própria tentativa; é esse fato que impede o mesmo provider de revisar
@@ -4314,7 +4317,7 @@ public sealed partial class ChiefBacklogLoopService(
         // (OPS-069) teria deixado os três cards bloqueados da fase 5 exatamente onde estavam.
         var previousBody = instructions[^1].Body;
         var replanResolution = ChiefCardResolver.Resolve(
-            task.Title, previousBody, [], task.RiskTier);
+            task.Title, previousBody, [], task.RiskTier, cardType: task.CardType);
         // O bloco de replanejamento SUBSTITUI o anterior em vez de se somar a ele. Acumulando,
         // o ator recebia cinco cópias idênticas da mesma ordem — "a abordagem anterior NÃO deve
         // ser repetida... registre o bloqueio em vez de tentar de novo" — sem nada que dissesse
@@ -4460,7 +4463,7 @@ public sealed partial class ChiefBacklogLoopService(
             // ao fim, nunca sobrescrevendo nada.
             var previous = instructions[^1].Body;
             var correctionResolution = ChiefCardResolver.Resolve(
-                task.Title, previous, [], task.RiskTier);
+                task.Title, previous, [], task.RiskTier, cardType: task.CardType);
             var content =
                 RebuildInstructionHeader(
                     previous,
@@ -4505,6 +4508,15 @@ public sealed partial class ChiefBacklogLoopService(
     private static async Task<DemandCardBudget?> ReadCardBudgetAsync(
         string tenantId, BoardTaskRecord task, IDemandPlanStore plans, CancellationToken token)
     {
+        // CARD-OBJETIVO (perfil v2): um objetivo funcional inteiro, entregue por um executor
+        // persistente em sessões longas com validação ao final. Três rodadas — o teto certo para
+        // um micro-card de esteira — matariam o objetivo na primeira correção do validador; o
+        // teto alto continua sendo teto: quem o esgota escala, com o fato auditado.
+        if (ObjectiveCardPolicy.IsObjective(task.CardType))
+        {
+            return ObjectiveCardBudget;
+        }
+
         if (task.DemandId is { Length: > 0 } demandId)
         {
             var plan = await plans.GetByDemandAsync(tenantId, demandId, token);
@@ -4544,6 +4556,20 @@ public sealed partial class ChiefBacklogLoopService(
         ReviewDepth: 1,
         FanOutAllowed: false,
         ReasonCode: "effort.default_off_plan");
+
+    /// <summary>
+    /// Orçamento do card-objetivo (perfil v2): 12 rodadas cobrem a execução longa + o ciclo
+    /// validador↔executor (teto de 3 ciclos de validação antes de escalar a humano) com folga
+    /// para recuperação de sessão. Um agente só, sem fan-out: a serialização por projeto é o
+    /// modelo, não uma limitação.
+    /// </summary>
+    private static readonly DemandCardBudget ObjectiveCardBudget = new(
+        Agents: 1,
+        TokenBudget: 200000,
+        MaxRounds: 12,
+        ReviewDepth: 1,
+        FanOutAllowed: false,
+        ReasonCode: "effort.objective_profile");
 
     /// <summary>
     /// Conta somente rodadas que chegaram a executar. O registro durável nasce antes da aquisição

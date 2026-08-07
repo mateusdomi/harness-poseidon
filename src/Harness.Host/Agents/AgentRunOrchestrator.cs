@@ -1390,7 +1390,7 @@ public sealed partial class AgentRunOrchestrator(
                 [$"path-scope:{command.PathScopeKind}", $"access:{command.Access}"],
                 [],
                 ["Stop on canonical conflict, missing claim, secret risk or failed gate."],
-                settings.ContextTokenBudget,
+                ObjectiveCardPolicy.ContextTokenBudget(settings, command.CardType),
                 memory.Select(slice => new ContextMemorySlice(
                     slice.DocumentId,
                     slice.Content,
@@ -1485,8 +1485,9 @@ public sealed partial class AgentRunOrchestrator(
                     ResumeSessionId = command.ResumeSessionId,
                     Model = command.Model,
                     Effort = command.Effort,
-                    Timeout = settings.RunTimeout,
-                    NoProgressTimeout = settings.RunNoProgressTimeout,
+                    Timeout = ObjectiveCardPolicy.RunTimeout(settings, command.CardType),
+                    NoProgressTimeout =
+                        ObjectiveCardPolicy.RunNoProgressTimeout(settings, command.CardType),
                 },
                 cancellationToken);
 
@@ -1713,7 +1714,9 @@ public sealed partial class AgentRunOrchestrator(
             [account.ExecutorId],
             [account.ExecutorId],
             command.ScopeClaims,
-            clock.UtcNow.Add(settings.RunTimeout + TimeSpan.FromMinutes(5)),
+            clock.UtcNow.Add(
+                ObjectiveCardPolicy.RunTimeout(settings, command.CardType) +
+                TimeSpan.FromMinutes(5)),
             accountLock.FencingToken));
 
         var decision = await pep.AuthorizeAsync(

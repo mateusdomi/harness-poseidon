@@ -24,8 +24,28 @@ public static class ChiefCardResolver
         string riskTier, string? explicitPersonaKey = null, string? explicitRole = null,
         RepositorySurfaceMap? surfaceMap = null,
         IReadOnlyList<string>? personaAllowedScopes = null,
-        IReadOnlyList<string>? personaDeniedScopes = null)
+        IReadOnlyList<string>? personaDeniedScopes = null,
+        string? cardType = null)
     {
+        // CARD-OBJETIVO (perfil v2, Understand → Build → Prove): um executor persistente dono do
+        // repositório inteiro por um objetivo funcional. Nada de heurística nem estreitamento de
+        // escopo — os claims largos do papel são o mecanismo de serialização por projeto, e a
+        // persona é o engenheiro salvo declaração explícita.
+        if (string.Equals(cardType, "objetivo", StringComparison.Ordinal))
+        {
+            var objectiveRole = AgentRoles.ProjectExecutor;
+            var objectiveClaims = AgentRoles.PathScopesFor(objectiveRole);
+            var objectiveCard = new DelegationCard(
+                title, instructionBody, acceptanceCriteria, objectiveClaims, riskTier);
+            var objectivePersona = explicitPersonaKey
+                ?? ParseDeclaredSpecialty(instructionBody)
+                ?? Engineer;
+            return new ChiefCardResolution(
+                objectiveRole, "code", objectivePersona, objectiveClaims, objectiveCard,
+                Engineer,
+                new CardPathScopePlan(objectiveClaims, false, "objective.full_repository", []));
+        }
+
         // A heurística lê a DEMANDA, não os marcadores de despacho. A linha "Especialidade
         // exigida: architecture-security" carrega a palavra "architecture" — deixá-la no palheiro
         // faria a persona declarada enviesar o próprio fallback dela, e uma chave inválida

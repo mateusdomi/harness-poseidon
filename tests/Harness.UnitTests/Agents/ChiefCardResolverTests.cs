@@ -229,4 +229,34 @@ public sealed class ChiefCardResolverTests
 
         Assert.Contains("src/**", r.ScopeClaims);
     }
+
+    [Fact]
+    public void CardObjetivoResolveParaExecutorDeProjetoComRepositorioInteiro()
+    {
+        // Perfil v2 (Understand → Build → Prove): o card-objetivo ignora heurística e
+        // estreitamento — um executor persistente é dono do repositório do produto inteiro, e a
+        // colisão de claims entre dois objetivos do mesmo projeto é o mecanismo de serialização.
+        var r = ChiefCardResolver.Resolve(
+            "Objetivo 1: fatia vertical navegável",
+            "Integrar o frontend fornecido, login e uma tela núcleo contra API e banco reais.",
+            ["fatia vertical navegável validada"], "critical", cardType: "objetivo");
+
+        Assert.Equal(AgentRoles.ProjectExecutor, r.Role);
+        Assert.Equal("code", r.RequiredCapability);
+        Assert.Equal(ChiefCardResolver.Engineer, r.PersonaKey);
+        Assert.Contains("src/**", r.ScopeClaims);
+        Assert.Contains("frontend/**", r.ScopeClaims);
+        Assert.DoesNotContain("docs/conselho/**", r.ScopeClaims);
+        Assert.Equal("objective.full_repository", r.ScopePlan!.ReasonCode);
+    }
+
+    [Fact]
+    public void CardComumNaoEAfetadoPeloPerfilObjetivo()
+    {
+        var r = ChiefCardResolver.Resolve(
+            "Ajustar o componente de login", "Corrigir o layout da tela em React.",
+            ["ok"], "medium", cardType: "feature");
+
+        Assert.Equal(AgentRoles.FrontendSpecialist, r.Role);
+    }
 }
