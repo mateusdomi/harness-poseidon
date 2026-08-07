@@ -172,4 +172,25 @@ public sealed class CardReadinessEvaluatorTests
 
         Assert.True(snapshot.IsDispatchable);
     }
+
+    [Fact]
+    public void CardObjetivoNaoSofreOGateDeTamanho()
+    {
+        // Perfil v2: o card-objetivo é grande por definição — objetivo funcional inteiro, com
+        // critérios além do teto de micro-card. Os freios dele são o orçamento de rodadas e o
+        // teto de ciclos de validação, não o tamanho do enunciado.
+        var criterios = string.Join('\n', Enumerable.Range(1, 12).Select(n => $"- criterio {n}"));
+        var corpo = $"## Critérios de aceite\n{criterios}\n" + new string('x', 20_000);
+
+        var snapshot = CardReadinessEvaluator.Evaluate(new CardReadinessFacts(
+            CardType: "objetivo",
+            HasInstruction: true,
+            IsBlocked: false,
+            StaleUpstream: [],
+            IncompleteUpstream: [],
+            InstructionBody: corpo));
+
+        Assert.True(snapshot.IsDispatchable);
+        Assert.Empty(snapshot.Blockers);
+    }
 }

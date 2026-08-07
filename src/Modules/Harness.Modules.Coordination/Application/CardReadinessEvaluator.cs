@@ -58,6 +58,9 @@ public static class CardReadinessEvaluator
                 "agent_task", "spike",
                 "historia", "tarefa", "bug", "adr", "documento", "revisao", "council",
                 "incidente", "chamado",
+                // Perfil v2: o card-objetivo é despachável por definição — é a unidade de
+                // trabalho do executor persistente.
+                "objetivo",
             ],
             StringComparer.Ordinal);
 
@@ -135,10 +138,17 @@ public static class CardReadinessEvaluator
             blockers.Add($"{UpstreamIncomplete}:{node}");
         }
 
-        var sizeBlocker = SizeBlockerFor(facts.InstructionBody);
-        if (sizeBlocker is not null)
+        // CARD-OBJETIVO (perfil v2): grande POR DEFINIÇÃO — um objetivo funcional inteiro para
+        // um executor persistente. O teto de tamanho existe para impedir que um MICRO-card vire
+        // um épico acidental; aplicá-lo aqui inverteria o perfil. Os freios do objetivo são
+        // outros: orçamento de 12 rodadas e teto de 3 ciclos de validação de produto.
+        if (!string.Equals(facts.CardType, "objetivo", StringComparison.Ordinal))
         {
-            blockers.Add(sizeBlocker);
+            var sizeBlocker = SizeBlockerFor(facts.InstructionBody);
+            if (sizeBlocker is not null)
+            {
+                blockers.Add(sizeBlocker);
+            }
         }
 
         return new CardReadinessSnapshot(blockers.Count == 0, blockers);

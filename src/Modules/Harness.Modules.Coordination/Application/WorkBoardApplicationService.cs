@@ -25,6 +25,9 @@ public static class WorkBoardApplicationService
             "feature", "agent_task", "human_gate", "spike", "decision",
             "historia", "tarefa", "bug", "adr", "documento",
             "revisao", "council", "gate", "incidente", "chamado",
+            // Perfil v2 (Understand → Build → Prove): um objetivo funcional inteiro por card,
+            // executor persistente dono do repositório; ver ObjectiveCardPolicy.
+            "objetivo",
         ], StringComparer.Ordinal);
 
     public static SolicitationContract CreateSolicitation(
