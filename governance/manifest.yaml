@@ -44,6 +44,8 @@ markdownAllowlist:
   reason: Registro de incidente datado (2026-08-07) da janela de avaliação; evidência operacional de causa e gatilho de ação, não norma canônica.
 - path: docs/operations/incidents/INC-EVAL-007-pausa-silenciosa-de-projeto.md
   reason: Registro de incidente datado (2026-08-07) da janela de avaliação; evidência operacional de causa e contorno, não norma canônica.
+- path: docs/architecture/poseidon-v2-execution-profile.md
+  reason: Norma de implementação da reconstrução v2 (branch poseidon-v2, 2026-08-07) — perfil Understand→Build→Prove sobre a engine de cards; decisão baseada na evidência da avaliação TrensRJ.
 - path: docs/architecture/preflight/prisma-graph-dry-run.md
   reason: Relatório do dry-run da ProjectGraphProjection sobre a spec do Prisma (Onda 4.3), com data fechada; evidência derivada de teste executável, não norma canônica.
 - path: docs/architecture/preflight/prisma-readiness.md
