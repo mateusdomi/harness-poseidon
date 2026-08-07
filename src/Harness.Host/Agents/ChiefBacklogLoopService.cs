@@ -2951,7 +2951,11 @@ public sealed partial class ChiefBacklogLoopService(
                 foreach (var candidateAlias in criticAliases)
                 {
                     using var reviewTimeout = CancellationTokenSource.CreateLinkedTokenSource(token);
-                    reviewTimeout.CancelAfter(TimeSpan.FromMinutes(10));
+                    // Validação de PRODUTO explora a árvore inteira — 10min (calibrados para
+                    // review de diff) estouravam no 1º ciclo real e viravam critic.review_timeout
+                    // em loop. O teto continua existindo; só respeita o trabalho pedido.
+                    reviewTimeout.CancelAfter(
+                        productValidation ? TimeSpan.FromMinutes(25) : TimeSpan.FromMinutes(10));
                     try
                     {
                         result = await orchestrator.ReviewAsync(
@@ -3002,10 +3006,31 @@ public sealed partial class ChiefBacklogLoopService(
             {
                 if (validationManager is not null)
                 {
+                    // Limpeza resiliente: uma worktree que o git recusa remover (arquivos não
+                    // rastreados deixados pela sessão de validação) NÃO pode abortar o ciclo de
+                    // acompanhamento do projeto inteiro — foi exatamente o que aconteceu no 1º
+                    // ciclo real. Falha vira warning; o diretório órfão é removido à força.
                     if (ownsValidationWorktree && validationWorktree is not null)
                     {
-                        _ = await validationManager.RemoveTaskWorktreeAsync(
-                            branch, validationWorktree, deleteBranch: false, token);
+                        try
+                        {
+                            _ = await validationManager.RemoveTaskWorktreeAsync(
+                                branch, validationWorktree, deleteBranch: false, token);
+                        }
+                        catch (Exception cleanupException)
+                            when (cleanupException is not OperationCanceledException)
+                        {
+                            LogValidationWorktreeCleanupFailed(
+                                logger, awaiting.Id, cleanupException.Message);
+                            try
+                            {
+                                System.IO.Directory.Delete(validationWorktree, recursive: true);
+                            }
+                            catch (System.IO.IOException)
+                            {
+                                // O janitor de worktrees do próximo boot recolhe o resto.
+                            }
+                        }
                     }
 
                     validationManager.Dispose();
@@ -4727,6 +4752,10 @@ public sealed partial class ChiefBacklogLoopService(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Perfil v2: card-objetivo {TaskId} reprovado {FailedCycles} vezes pela validação de produto — escalado para decisão humana em vez de novo ciclo.")]
     private static partial void LogObjectiveValidationExhausted(
         ILogger logger, string taskId, int failedCycles);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Perfil v2: worktree de validação da tentativa {AttemptId} não pôde ser removida pelo git ({Detail}); removida à força — o ciclo de acompanhamento segue.")]
+    private static partial void LogValidationWorktreeCleanupFailed(
+        ILogger logger, string attemptId, string detail);
 
     private async Task EscalateBudgetExhaustionAsync(
         string tenantId,
