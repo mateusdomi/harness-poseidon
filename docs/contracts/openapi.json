@@ -158,6 +158,45 @@
                 }
             }
         },
+        "/api/v1/agent-accounts/probe": {
+            "post": {
+                "tags": [
+                    "agent-runs"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AgentAccountProbeResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/agent-accounts": {
             "get": {
                 "tags": [
@@ -20653,6 +20692,51 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/AgentAccountDoctorContract"
+                        }
+                    }
+                }
+            },
+            "AgentAccountProbeReport": {
+                "required": [
+                    "alias",
+                    "executorId",
+                    "state",
+                    "reasonCode",
+                    "cooldownUntil"
+                ],
+                "type": "object",
+                "properties": {
+                    "alias": {
+                        "type": "string"
+                    },
+                    "executorId": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "reasonCode": {
+                        "type": "string"
+                    },
+                    "cooldownUntil": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    }
+                }
+            },
+            "AgentAccountProbeResponse": {
+                "required": [
+                    "accounts"
+                ],
+                "type": "object",
+                "properties": {
+                    "accounts": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AgentAccountProbeReport"
                         }
                     }
                 }

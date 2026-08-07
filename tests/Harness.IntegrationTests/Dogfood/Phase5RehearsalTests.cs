@@ -393,6 +393,15 @@ public sealed class Phase5RehearsalTests : IDisposable
             Path.Combine(migrations, "0001_inicial.sql"),
             "CREATE TABLE emprestimos (id INTEGER PRIMARY KEY, titulo TEXT NOT NULL);\n");
 
+        // Declaração de acesso a dados exigida por DataAccessDeclared (o perfil baseline fixa
+        // SQL Server). Fora da solution: o build roda offline e um PackageReference restaurável
+        // exigiria rede — a constatação do driver é textual, sobre a árvore entregue.
+        var infra = Path.Combine(_root, "src", "Emprestimos.Infrastructure");
+        Directory.CreateDirectory(infra);
+        File.WriteAllText(
+            Path.Combine(infra, "Emprestimos.Infrastructure.csproj"),
+            "<Project>\n  <ItemGroup>\n    <PackageReference Include=\"Microsoft.EntityFrameworkCore.SqlServer\" Version=\"8.0.8\" />\n  </ItemGroup>\n</Project>\n");
+
         File.WriteAllText(
             Path.Combine(_root, "README.md"),
             "# Empréstimos\n\n## Como executar\n\n    dotnet run --project src/Emprestimos.Api\n");

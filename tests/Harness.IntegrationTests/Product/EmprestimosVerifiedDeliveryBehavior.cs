@@ -171,6 +171,22 @@ public sealed class EmprestimosVerifiedDeliveryBehavior : IDisposable
                   """
                 : "Console.WriteLine(\"x\"  // não compila");
 
+        // Declaração de acesso a dados exigida por DataAccessDeclared (o perfil baseline fixa
+        // SQL Server). O projeto fica FORA da solution de propósito: o build do fixture roda
+        // offline e um PackageReference restaurável exigiria rede — a constatação do driver é
+        // textual, sobre a árvore entregue, exatamente como no repositório real.
+        var infra = Path.Combine(_root, "src", "Emprestimos.Infrastructure");
+        Directory.CreateDirectory(infra);
+        File.WriteAllText(
+            Path.Combine(infra, "Emprestimos.Infrastructure.csproj"),
+            """
+            <Project>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.8" />
+              </ItemGroup>
+            </Project>
+            """);
+
         if (!comTestes)
         {
             return;

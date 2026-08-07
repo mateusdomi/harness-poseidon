@@ -142,6 +142,7 @@ public sealed record ProductVerificationPlan(
         ProductEvidenceKind.FrontendPresent or
         ProductEvidenceKind.ApiPresent or
         ProductEvidenceKind.DatabaseMigrationValidated or
+        ProductEvidenceKind.DataAccessDeclared or
         ProductEvidenceKind.RunbookPresent;
 
     private static readonly Dictionary<ProductEvidenceKind, string> EmptyNative = [];
@@ -156,6 +157,7 @@ public sealed record ProductVerificationPlan(
         ProductEvidenceKind.FrontendPresent or
         ProductEvidenceKind.ApiPresent or
         ProductEvidenceKind.DatabaseMigrationValidated or
+        ProductEvidenceKind.DataAccessDeclared or
         ProductEvidenceKind.RunbookPresent => ProductEvidenceProvenance.Observed,
         _ => ProductEvidenceProvenance.Verified,
     };
@@ -176,6 +178,9 @@ public sealed record ProductVerificationPlan(
             $"O perfil declara persistência em {profile.Data.Database ?? "banco não fixado"}.",
         ProductEvidenceKind.PersistenceVerified =>
             "Ter migration não prova que a aplicação persiste: são fatos diferentes.",
+        ProductEvidenceKind.DataAccessDeclared =>
+            $"O perfil fixa {profile.Data.Database}: o driver precisa estar declarado na entrega — " +
+            "migration sem driver é persistência de fachada (caso Indicadores, avaliação TrensRJ).",
         ProductEvidenceKind.E2EJourneyPassed =>
             "Produto operado por pessoa precisa de jornada exercitada ponta a ponta.",
         ProductEvidenceKind.AutomatedTestsPassed =>
