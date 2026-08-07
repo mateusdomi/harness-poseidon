@@ -1112,6 +1112,17 @@ public sealed partial class ChiefBacklogLoopService(
                     {
                         dispatched++;
                         dispatchCounts[project.Id] = dispatchCounts.GetValueOrDefault(project.Id) + 1;
+                        if (ObjectiveCardPolicy.IsObjective(entry.Task.CardType))
+                        {
+                            await AnnounceObjectiveEventAsync(
+                                profile.TenantId, project,
+                                $"{entry.Task.Id}:dispatch",
+                                $"🚀 Comecei a execução de **{entry.Task.Title}** com um executor " +
+                                $"persistente (conta {decision.AccountAlias}). Ele trabalha o objetivo " +
+                                "de ponta a ponta e, ao concluir, a entrega passa por validação " +
+                                "independente antes de eu te avisar. Acompanho daqui.",
+                                token);
+                        }
                     }
                 }
             }
@@ -1794,6 +1805,16 @@ public sealed partial class ChiefBacklogLoopService(
                 {
                     harvested++;
                     LogRunHarvested(logger, task.Id, running.Id);
+                    if (ObjectiveCardPolicy.IsObjective(task.CardType))
+                    {
+                        await AnnounceObjectiveEventAsync(
+                            tenantId, project,
+                            $"{running.Id}:harvest",
+                            $"🧺 O executor concluiu o trabalho de **{task.Title}**. Enviei a entrega " +
+                            "para a validação independente — ela confere o produto contra os " +
+                            "critérios de aceite e a stack decidida, requisito por requisito.",
+                            token);
+                    }
                 }
             }
 
@@ -3044,6 +3065,27 @@ public sealed partial class ChiefBacklogLoopService(
                 reviewed++;
                 ClearReviewDeferrals(tenantId, awaiting.Id, token);
 
+                if (productValidation)
+                {
+                    var verdictContent = result.Verdict == CriticVerdict.Fail
+                        ? $"🔎 A validação independente REPROVOU **{task.Title}** e devolvi os " +
+                          "achados ao mesmo executor, com o contexto preservado:\n" +
+                          string.Join(
+                              "\n",
+                              result.Findings.Take(3).Select(finding =>
+                                  $"- [{finding.Severity}] {TruncateForChat(finding.Summary)}")) +
+                          (result.Findings.Count > 3
+                              ? $"\n- … e mais {result.Findings.Count - 3} achado(s)."
+                              : string.Empty)
+                        : $"✅ A validação independente APROVOU **{task.Title}**. Sigo para a " +
+                          "integração da entrega no repositório do produto.";
+                    await AnnounceObjectiveEventAsync(
+                        tenantId, project,
+                        $"{awaiting.Id}:verdict",
+                        verdictContent,
+                        token);
+                }
+
                 // Teto de ciclos validador↔executor do card-objetivo: um executor que
                 // racionalizou uma interpretação errada não ganha rodadas infinitas para
                 // defendê-la. Na terceira reprovação o card escala para decisão humana — o
@@ -4037,6 +4079,16 @@ public sealed partial class ChiefBacklogLoopService(
             {
                 integrated++;
                 LogCardIntegrated(logger, task.Id, outcome.Branch ?? "-");
+                if (ObjectiveCardPolicy.IsObjective(task.CardType))
+                {
+                    await AnnounceObjectiveEventAsync(
+                        tenantId, project,
+                        $"{task.Id}:integrated",
+                        $"🏁 **{task.Title}** foi validado e integrado ao repositório do produto. " +
+                        "O trabalho está na linha principal, com evidência e trilha de auditoria " +
+                        "registradas. Quando o próximo objetivo começar, te aviso por aqui.",
+                        token);
+                }
             }
             else
             {
@@ -4698,6 +4750,84 @@ public sealed partial class ChiefBacklogLoopService(
     /// evidência: quantas rodadas foram orçadas, quantas foram gastas e por qual razão o orçamento
     /// era aquele.
     /// </summary>
+    /// <summary>
+    /// Eventos do ciclo de vida do card-objetivo já narrados nesta execução do processo. A
+    /// verdade durável é a própria conversa (marcador no corpo da mensagem); este cache só
+    /// evita reconsultar o histórico a cada ciclo.
+    /// </summary>
+    private readonly HashSet<string> _announcedObjectiveEvents = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// A Bruna NARRA o projeto: cards andando no quadro sem uma palavra no chat deixam o dono
+    /// sem saber se a fábrica funciona ou se alguém a está empurrando por fora (pedido do dono,
+    /// 2026-08-07). Cada evento é dito UMA vez — dedupe em memória + marcador durável na
+    /// própria mensagem, o mesmo padrão dos marcos de fase.
+    /// </summary>
+    private async Task AnnounceObjectiveEventAsync(
+        string tenantId,
+        ProjectRecord project,
+        string eventKey,
+        string content,
+        CancellationToken token)
+    {
+        if (!_announcedObjectiveEvents.Add(eventKey))
+        {
+            return;
+        }
+
+        try
+        {
+            using var scope = scopes.CreateScope();
+            var conversations = scope.ServiceProvider.GetRequiredService<IConversationStore>();
+            var open = await conversations.ListConversationsAsync(
+                tenantId, project.Id, null, 1, token);
+            if (open.Count == 0)
+            {
+                _ = _announcedObjectiveEvents.Remove(eventKey);
+                return;
+            }
+
+            var markerToken = $"‹{eventKey}›";
+            var history = await conversations.ListMessagesAsync(
+                tenantId, open[0].Id, null, 200, token);
+            if (history.Any(entry =>
+                    entry.Content.Contains(markerToken, StringComparison.Ordinal)))
+            {
+                return;
+            }
+
+            var now = clock.UtcNow;
+            var result = await conversations.CreateMessageAsync(
+                new MessageCreateCommand(
+                    tenantId,
+                    new MessageRecord(
+                        tenantId, project.Id, UlidValue.New(now).ToString(), open[0].Id,
+                        "chief", null, project.ChiefAgentId,
+                        $"{content}\n\n{markerToken}", null, now),
+                    now),
+                token);
+            if (result.Status != MessageMutationStatus.Applied)
+            {
+                _ = _announcedObjectiveEvents.Remove(eventKey);
+            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Narração nunca derruba o ciclo: sem a mensagem, o trabalho continua e o evento
+            // volta ao cache para nova tentativa no próximo ciclo.
+            _ = _announcedObjectiveEvents.Remove(eventKey);
+            LogObjectiveAnnounceFailed(logger, project.Id, eventKey, exception.GetType().Name);
+        }
+    }
+
+    /// <summary>Resumo de achado no tamanho de uma linha de chat.</summary>
+    private static string TruncateForChat(string value) =>
+        value.Length <= 220 ? value : value[..217] + "…";
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Perfil v2: narração da Bruna falhou para {ProjectId} ({EventKey}): {Detail}; tentarei de novo no próximo ciclo.")]
+    private static partial void LogObjectiveAnnounceFailed(
+        ILogger logger, string projectId, string eventKey, string detail);
+
     /// <summary>
     /// Teto de ciclos validador↔executor de um card-objetivo antes da escalação humana. Três é
     /// deliberado: a primeira reprovação é correção normal, a segunda é sinal, a terceira é um
