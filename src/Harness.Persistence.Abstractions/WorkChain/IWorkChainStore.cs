@@ -92,6 +92,22 @@ public interface IWorkChainStore
     Task<WorkChainMutationReceipt> CancelRunningTaskAsync(
         WorkTaskCancellationCommand command,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Um card ESCALADO (orçamento de rodadas esgotado, sem replanejamento viável) é substituído
+    /// por cards menores que assumem o escopo. Diferente de <see cref="CancelRunningTaskAsync"/>
+    /// (que encerra uma tentativa `running`), esta mutação nunca exige tentativa ativa — o card já
+    /// não tem uma.
+    ///
+    /// Recuperação de throughput da Fase 5 (2026-08-07): o único encerramento oficial disponível
+    /// para um card escalado era o replanejamento; não havia caminho para "isto não vai ser
+    /// refeito, outros cards já assumiram o trabalho" sem um `UPDATE work_tasks` cru — que perderia
+    /// o rastro de QUEM substituiu QUEM e arriscaria órfão o requisito (RequirementCoverageAnalyzer)
+    /// se o card fosse o único vivo sob sua demanda.
+    /// </summary>
+    Task<WorkChainMutationReceipt> SupersedeTaskAsync(
+        WorkTaskSupersessionCommand command,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record WorkChainCreateCommand(
@@ -385,6 +401,18 @@ public sealed record WorkTaskCancellationCommand(
     string ActorId,
     string Reason,
     string EvidenceReference,
+    long ExpectedTaskVersion,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
+
+public sealed record WorkTaskSupersessionCommand(
+    string TenantId,
+    string SolicitationId,
+    string TaskId,
+    IReadOnlyList<string> ReplacementTaskIds,
+    string ActorKind,
+    string ActorId,
+    string Reason,
     long ExpectedTaskVersion,
     string IdempotencyKey,
     DateTimeOffset OccurredAt);
@@ -882,6 +910,46 @@ public static class WorkChainMutationValidator
         ValidateText(command.ActorId, nameof(command), 200);
         ValidateText(command.Reason, nameof(command), 10_000);
         ValidateText(command.EvidenceReference, nameof(command), 2_000);
+    }
+
+    public static void Validate(WorkTaskSupersessionCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateTaskTransition(
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            command.ExpectedTaskVersion,
+            command.IdempotencyKey);
+        if (!ActorKinds.Contains(command.ActorKind))
+        {
+            throw new ArgumentException("Supersession actor kind is invalid.", nameof(command));
+        }
+
+        ValidateText(command.ActorId, nameof(command), 200);
+        ValidateText(command.Reason, nameof(command), 10_000);
+        if (command.ReplacementTaskIds is null || command.ReplacementTaskIds.Count == 0)
+        {
+            throw new ArgumentException(
+                "A supersession requires at least one replacement task.", nameof(command));
+        }
+
+        foreach (var replacementId in command.ReplacementTaskIds)
+        {
+            ValidateUlid(replacementId, nameof(command));
+            if (string.Equals(replacementId, command.TaskId, StringComparison.Ordinal))
+            {
+                throw new ArgumentException(
+                    "A task cannot supersede itself.", nameof(command));
+            }
+        }
+
+        if (command.ReplacementTaskIds.Distinct(StringComparer.Ordinal).Count() !=
+            command.ReplacementTaskIds.Count)
+        {
+            throw new ArgumentException(
+                "Replacement task ids must be distinct.", nameof(command));
+        }
     }
 
     public static string Hash<TCommand>(TCommand command)

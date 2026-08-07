@@ -107,4 +107,8 @@ public sealed class SerializedMergeWorkChainStore(
     public Task<WorkChainMutationReceipt> CancelRunningTaskAsync(
         WorkTaskCancellationCommand command, CancellationToken cancellationToken = default) =>
         _inner.CancelRunningTaskAsync(command, cancellationToken);
+
+    public Task<WorkChainMutationReceipt> SupersedeTaskAsync(
+        WorkTaskSupersessionCommand command, CancellationToken cancellationToken = default) =>
+        _inner.SupersedeTaskAsync(command, cancellationToken);
 }

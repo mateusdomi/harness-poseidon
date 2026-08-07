@@ -399,6 +399,14 @@ public sealed partial class PostgresWorkChainStore
         return CancelRunningTaskCoreAsync(command, cancellationToken);
     }
 
+    public Task<WorkChainMutationReceipt> SupersedeTaskAsync(
+        WorkTaskSupersessionCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return SupersedeTaskCoreAsync(command, cancellationToken);
+    }
+
     private async Task<WorkChainMutationReceipt> AddInstructionVersionCoreAsync(
         WorkInstructionVersionCreateCommand command,
         CancellationToken cancellationToken)
@@ -1530,6 +1538,162 @@ public sealed partial class PostgresWorkChainStore
                 command.ActorId,
                 command.Reason,
                 command.EvidenceReference),
+            cancellationToken);
+    }
+
+    private async Task<WorkChainMutationReceipt> SupersedeTaskCoreAsync(
+        WorkTaskSupersessionCommand command,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await LockTaskAsync(connection, transaction, command.TaskId, cancellationToken);
+        var hash = WorkChainMutationValidator.Hash(command);
+        var replay = await ReadMutationInboxAsync(
+            connection, transaction, command.TenantId, command.IdempotencyKey, hash, cancellationToken);
+        if (replay is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return replay with { Status = WorkChainMutationStatus.IdempotentReplay };
+        }
+
+        var row = await ReadTaskAsync(
+            connection, transaction, command.TenantId, command.SolicitationId, command.TaskId,
+            attemptId: null, cancellationToken);
+        WorkChainMutationReceipt receipt;
+        if (row is null)
+        {
+            receipt = Rejected(WorkChainMutationStatus.NotFound, command.TaskId, null);
+        }
+        else if (row.Version != command.ExpectedTaskVersion)
+        {
+            receipt = Rejected(WorkChainMutationStatus.VersionConflict, row, command.TaskId, null);
+        }
+        else if (row.TaskState != "escalated")
+        {
+            receipt = Rejected(WorkChainMutationStatus.InvalidState, row, command.TaskId, null);
+        }
+        else
+        {
+            await using var demandQuery = connection.CreateCommand();
+            demandQuery.Transaction = transaction;
+            demandQuery.CommandText =
+                "SELECT demand_id FROM harness.work_tasks WHERE id=$1 AND tenant_id=$2;";
+            demandQuery.Parameters.Add(Text(command.TaskId));
+            demandQuery.Parameters.Add(Text(command.TenantId));
+            var demandId = (string)(await demandQuery.ExecuteScalarAsync(cancellationToken))!;
+
+            await using var replacementCheck = connection.CreateCommand();
+            replacementCheck.Transaction = transaction;
+            replacementCheck.CommandText =
+                "SELECT COUNT(*) FROM harness.work_tasks " +
+                "WHERE tenant_id=$1 AND project_id=$2 AND id = ANY($3);";
+            replacementCheck.Parameters.Add(Text(command.TenantId));
+            replacementCheck.Parameters.Add(Text(row.ProjectId));
+            replacementCheck.Parameters.Add(new NpgsqlParameter
+            {
+                Value = command.ReplacementTaskIds.ToArray(),
+                NpgsqlDbType = NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text,
+            });
+            var existingReplacements = Convert.ToInt32(
+                await replacementCheck.ExecuteScalarAsync(cancellationToken),
+                System.Globalization.CultureInfo.InvariantCulture);
+            if (existingReplacements != command.ReplacementTaskIds.Count)
+            {
+                receipt = Rejected(WorkChainMutationStatus.InvalidState, row, command.TaskId, null);
+                return await FinalizeMutationAsync(
+                    connection, transaction, command.TenantId, command.IdempotencyKey, hash,
+                    "task.stateChanged", command.OccurredAt, receipt, cancellationToken);
+            }
+
+            await using var liveClaimCheck = connection.CreateCommand();
+            liveClaimCheck.Transaction = transaction;
+            liveClaimCheck.CommandText =
+                "SELECT COUNT(*) FROM harness.attempt_workspaces " +
+                "WHERE task_id=$1 AND released_at IS NULL;";
+            liveClaimCheck.Parameters.Add(Text(command.TaskId));
+            var liveClaims = Convert.ToInt32(
+                await liveClaimCheck.ExecuteScalarAsync(cancellationToken),
+                System.Globalization.CultureInfo.InvariantCulture);
+            if (liveClaims > 0)
+            {
+                receipt = Rejected(WorkChainMutationStatus.InvalidState, row, command.TaskId, null);
+                return await FinalizeMutationAsync(
+                    connection, transaction, command.TenantId, command.IdempotencyKey, hash,
+                    "task.stateChanged", command.OccurredAt, receipt, cancellationToken);
+            }
+
+            await using var siblingCheck = connection.CreateCommand();
+            siblingCheck.Transaction = transaction;
+            siblingCheck.CommandText =
+                "SELECT COUNT(*) FROM harness.work_tasks " +
+                "WHERE tenant_id=$1 AND demand_id=$2 AND id != $3 " +
+                "AND archived_at IS NULL AND state NOT IN ('cancelled','done','completed');";
+            siblingCheck.Parameters.Add(Text(command.TenantId));
+            siblingCheck.Parameters.Add(Text(demandId));
+            siblingCheck.Parameters.Add(Text(command.TaskId));
+            var aliveSiblings = Convert.ToInt32(
+                await siblingCheck.ExecuteScalarAsync(cancellationToken),
+                System.Globalization.CultureInfo.InvariantCulture);
+            var supersedeDemand = aliveSiblings == 0;
+
+            var nextVersion = row.Version + 1;
+            var supersessionId = UlidValue.New(command.OccurredAt).ToString();
+            await ExecuteAsync(
+                connection, transaction,
+                """
+                UPDATE harness.work_tasks
+                SET state='cancelled',version=$1,updated_at=$2,
+                    board_state='done',blocked_reason=NULL,assignee_agent_id=NULL
+                WHERE id=$3 AND tenant_id=$4 AND version=$5;
+                """,
+                cancellationToken,
+                Bigint(nextVersion), Timestamp(command.OccurredAt), Text(command.TaskId),
+                Text(command.TenantId), Bigint(command.ExpectedTaskVersion));
+            await ExecuteAsync(
+                connection, transaction,
+                """
+                INSERT INTO harness.task_supersessions
+                    (id,tenant_id,project_id,original_task_id,replacement_task_ids_json,reason,
+                     actor_kind,actor_id,demand_superseded,occurred_at)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10);
+                """,
+                cancellationToken,
+                Text(supersessionId), Text(command.TenantId), Text(row.ProjectId), Text(command.TaskId),
+                Json(JsonSerializer.Serialize(command.ReplacementTaskIds)), Text(command.Reason),
+                Text(command.ActorKind), Text(command.ActorId),
+                new NpgsqlParameter { Value = supersedeDemand }, Timestamp(command.OccurredAt));
+            if (supersedeDemand)
+            {
+                await ExecuteAsync(
+                    connection, transaction,
+                    "UPDATE harness.demands SET state='superseded' WHERE id=$1 AND tenant_id=$2;",
+                    cancellationToken,
+                    Text(demandId), Text(command.TenantId));
+            }
+
+            receipt = new WorkChainMutationReceipt(
+                WorkChainMutationStatus.Applied, command.TaskId, null, nextVersion, "cancelled", null);
+        }
+
+        return await FinalizeMutationAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            "task.stateChanged",
+            command.OccurredAt,
+            receipt,
+            new TransitionAudit(
+                "escalated",
+                "cancelled",
+                "superseded",
+                "blocked",
+                command.ActorKind,
+                command.ActorId,
+                command.Reason,
+                string.Join(',', command.ReplacementTaskIds)),
             cancellationToken);
     }
 

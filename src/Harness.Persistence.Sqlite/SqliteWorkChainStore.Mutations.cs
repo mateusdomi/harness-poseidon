@@ -441,6 +441,16 @@ public sealed partial class SqliteWorkChainStore
             cancellationToken);
     }
 
+    public Task<WorkChainMutationReceipt> SupersedeTaskAsync(
+        WorkTaskSupersessionCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return _dispatcher.ExecuteAsync(
+            (connection, token) => SupersedeTaskCoreAsync(connection, command, token),
+            cancellationToken);
+    }
+
     private static async Task<WorkChainMutationReceipt> AddInstructionVersionCoreAsync(
         SqliteConnection connection,
         WorkInstructionVersionCreateCommand command,
@@ -1542,6 +1552,187 @@ public sealed partial class SqliteWorkChainStore
                 command.ActorId,
                 command.Reason,
                 command.EvidenceReference),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Superssessão de card escalado. Precondições:
+    ///
+    /// - o card precisa estar `escalated` (mesma exigência de <see cref="ReplanEscalatedTaskCoreAsync"/>
+    ///   — se estivesse `running`, seria <see cref="CancelRunningTaskCoreAsync"/> quem se aplica);
+    /// - todo id de substituto precisa existir no mesmo tenant/projeto;
+    /// - nenhuma tentativa do card pode ter workspace com claim ainda viva (<c>released_at</c> nulo)
+    ///   — em vez de tentar liberar por conta própria (a fencing token e o dono da concessão
+    ///   pertencem a <c>IAttemptWorkspaceStore</c>, uma store diferente), a superssessão recusa e
+    ///   pede para o caminho de liberação normal (lease/rejeição) rodar primeiro.
+    ///
+    /// Se, depois de terminal, NENHUMA outra tarefa viva restar sob a mesma demanda, a demanda
+    /// também vira `superseded` — sem isso, <c>RequirementCoverageAnalyzer</c> relataria o
+    /// requisito como órfão (`Unplanned`), o mesmo defeito do run de 2026-08-04. Se um irmão sob a
+    /// mesma demanda ainda está vivo (ex.: o card gêmeo de frontend), a demanda fica como está — o
+    /// irmão continua contando a verdade sobre o requisito.
+    /// </summary>
+    private static async Task<WorkChainMutationReceipt> SupersedeTaskCoreAsync(
+        SqliteConnection connection,
+        WorkTaskSupersessionCommand command,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction =
+            (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        var hash = WorkChainMutationValidator.Hash(command);
+        var replay = await ReadMutationInboxAsync(
+            connection, transaction, command.TenantId, command.IdempotencyKey, hash, cancellationToken);
+        if (replay is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return replay with { Status = WorkChainMutationStatus.IdempotentReplay };
+        }
+
+        var row = await ReadTaskAsync(
+            connection, transaction, command.TenantId, command.SolicitationId, command.TaskId,
+            attemptId: null, cancellationToken);
+        WorkChainMutationReceipt receipt;
+        if (row is null)
+        {
+            receipt = Rejected(WorkChainMutationStatus.NotFound, command.TaskId, null);
+        }
+        else if (row.Version != command.ExpectedTaskVersion)
+        {
+            receipt = Rejected(WorkChainMutationStatus.VersionConflict, row, command.TaskId, null);
+        }
+        else if (row.TaskState != "escalated")
+        {
+            receipt = Rejected(WorkChainMutationStatus.InvalidState, row, command.TaskId, null);
+        }
+        else
+        {
+            await using var demandQuery = connection.CreateCommand();
+            demandQuery.Transaction = transaction;
+            demandQuery.CommandText =
+                "SELECT demand_id FROM work_tasks WHERE id=$taskId AND tenant_id=$tenantId;";
+            Add(demandQuery, "$taskId", command.TaskId);
+            Add(demandQuery, "$tenantId", command.TenantId);
+            var demandId = (string)(await demandQuery.ExecuteScalarAsync(cancellationToken))!;
+
+            await using var replacementCheck = connection.CreateCommand();
+            replacementCheck.Transaction = transaction;
+            replacementCheck.CommandText =
+                $"""
+                SELECT COUNT(*) FROM work_tasks
+                WHERE tenant_id=$tenantId AND project_id=$projectId
+                  AND id IN ({string.Join(',', command.ReplacementTaskIds.Select((_, i) => $"$r{i}"))});
+                """;
+            Add(replacementCheck, "$tenantId", command.TenantId);
+            Add(replacementCheck, "$projectId", row.ProjectId);
+            for (var i = 0; i < command.ReplacementTaskIds.Count; i++)
+            {
+                Add(replacementCheck, $"$r{i}", command.ReplacementTaskIds[i]);
+            }
+
+            var existingReplacements = Convert.ToInt32(
+                await replacementCheck.ExecuteScalarAsync(cancellationToken),
+                System.Globalization.CultureInfo.InvariantCulture);
+            if (existingReplacements != command.ReplacementTaskIds.Count)
+            {
+                receipt = Rejected(WorkChainMutationStatus.InvalidState, row, command.TaskId, null);
+                return await FinalizeMutationAsync(
+                    connection, transaction, command.TenantId, command.IdempotencyKey, hash,
+                    "task.stateChanged", command.OccurredAt, receipt, cancellationToken);
+            }
+
+            await using var liveClaimCheck = connection.CreateCommand();
+            liveClaimCheck.Transaction = transaction;
+            liveClaimCheck.CommandText =
+                "SELECT COUNT(*) FROM attempt_workspaces WHERE task_id=$taskId AND released_at IS NULL;";
+            Add(liveClaimCheck, "$taskId", command.TaskId);
+            var liveClaims = Convert.ToInt32(
+                await liveClaimCheck.ExecuteScalarAsync(cancellationToken),
+                System.Globalization.CultureInfo.InvariantCulture);
+            if (liveClaims > 0)
+            {
+                receipt = Rejected(WorkChainMutationStatus.InvalidState, row, command.TaskId, null);
+                return await FinalizeMutationAsync(
+                    connection, transaction, command.TenantId, command.IdempotencyKey, hash,
+                    "task.stateChanged", command.OccurredAt, receipt, cancellationToken);
+            }
+
+            await using var siblingCheck = connection.CreateCommand();
+            siblingCheck.Transaction = transaction;
+            siblingCheck.CommandText =
+                """
+                SELECT COUNT(*) FROM work_tasks
+                WHERE tenant_id=$tenantId AND demand_id=$demandId AND id != $taskId
+                  AND archived_at IS NULL
+                  AND state NOT IN ('cancelled','done','completed');
+                """;
+            Add(siblingCheck, "$tenantId", command.TenantId);
+            Add(siblingCheck, "$demandId", demandId);
+            Add(siblingCheck, "$taskId", command.TaskId);
+            var aliveSiblings = Convert.ToInt32(
+                await siblingCheck.ExecuteScalarAsync(cancellationToken),
+                System.Globalization.CultureInfo.InvariantCulture);
+            var supersedeDemand = aliveSiblings == 0;
+
+            var nextVersion = row.Version + 1;
+            var supersessionId = UlidValue.New(command.OccurredAt).ToString();
+            await using var mutation = connection.CreateCommand();
+            mutation.Transaction = transaction;
+            mutation.CommandText =
+                """
+                UPDATE work_tasks
+                SET state='cancelled',version=$nextVersion,updated_at=$occurredAt,
+                    board_state='done',blocked_reason=NULL,assignee_agent_id=NULL
+                WHERE id=$taskId AND tenant_id=$tenantId AND version=$expectedVersion;
+                INSERT INTO task_supersessions
+                    (id,tenant_id,project_id,original_task_id,replacement_task_ids_json,reason,
+                     actor_kind,actor_id,demand_superseded,occurred_at)
+                VALUES
+                    ($supersessionId,$tenantId,$projectId,$taskId,$replacementIdsJson,$reason,
+                     $actorKind,$actorId,$demandSuperseded,$occurredAt);
+                """;
+            if (supersedeDemand)
+            {
+                mutation.CommandText +=
+                    "UPDATE demands SET state='superseded' WHERE id=$demandId AND tenant_id=$tenantId;";
+                Add(mutation, "$demandId", demandId);
+            }
+
+            Add(mutation, "$nextVersion", nextVersion);
+            Add(mutation, "$occurredAt", ToStorage(command.OccurredAt));
+            Add(mutation, "$taskId", command.TaskId);
+            Add(mutation, "$tenantId", command.TenantId);
+            Add(mutation, "$expectedVersion", command.ExpectedTaskVersion);
+            Add(mutation, "$supersessionId", supersessionId);
+            Add(mutation, "$projectId", row.ProjectId);
+            Add(mutation, "$replacementIdsJson", JsonSerializer.Serialize(command.ReplacementTaskIds));
+            Add(mutation, "$reason", command.Reason);
+            Add(mutation, "$actorKind", command.ActorKind);
+            Add(mutation, "$actorId", command.ActorId);
+            Add(mutation, "$demandSuperseded", supersedeDemand ? 1 : 0);
+            await mutation.ExecuteNonQueryAsync(cancellationToken);
+
+            receipt = new WorkChainMutationReceipt(
+                WorkChainMutationStatus.Applied, command.TaskId, null, nextVersion, "cancelled", null);
+        }
+
+        return await FinalizeMutationAsync(
+            connection,
+            transaction,
+            command.TenantId,
+            command.IdempotencyKey,
+            hash,
+            "task.stateChanged",
+            command.OccurredAt,
+            receipt,
+            new TransitionAudit(
+                "escalated",
+                "cancelled",
+                "superseded",
+                "blocked",
+                command.ActorKind,
+                command.ActorId,
+                command.Reason,
+                string.Join(',', command.ReplacementTaskIds)),
             cancellationToken);
     }
 

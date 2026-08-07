@@ -84,6 +84,7 @@ internal static class WorkChainStoreBehavior
         await AssertCancellationAsync(store, command, cancellationToken);
         await AssertBlockingAsync(store, command, cancellationToken);
         await AssertReviewEscalationAsync(store, command, cancellationToken);
+        await AssertSupersessionAsync(store, command, cancellationToken);
         Assert.Null(await store.ReadAsync(
             command.TenantId,
             "01ARZ3NDEKTSV4RRFFQ69G5FF4",
@@ -1600,5 +1601,149 @@ internal static class WorkChainStoreBehavior
         Assert.NotNull(ready.LedgerSequence);
         Assert.NotNull(ready.LedgerHash);
         Assert.NotNull(ready.OutboxMessageId);
+    }
+
+    /// <summary>
+    /// Recuperação de throughput da Fase 5 (2026-08-07): o card RBAC de Indicadores TrensRJ
+    /// (01KZAVEASRRB5GDDDPR2VSTC9B) esgotou o orçamento de rodadas e foi substituído por quatro
+    /// cards menores — só que a única saída oficial disponível era `UPDATE work_tasks` cru, sem
+    /// registro auditável de QUEM substituiu QUEM.
+    /// </summary>
+    private static async Task AssertSupersessionAsync(
+        IWorkChainStore store,
+        WorkChainCreateCommand template,
+        CancellationToken cancellationToken)
+    {
+        var chain = template with
+        {
+            SolicitationId = "01ARZ3NDEKTSV4RRFFQ69G5FS0",
+            DemandId = "01ARZ3NDEKTSV4RRFFQ69G5FS1",
+            TaskId = "01ARZ3NDEKTSV4RRFFQ69G5FS2",
+            InstructionVersionId = "01ARZ3NDEKTSV4RRFFQ69G5FS3",
+            IdempotencyKey = "work-chain:create:supersession",
+            OccurredAt = template.OccurredAt.AddDays(4),
+        };
+        await store.CreateAsync(chain, cancellationToken);
+        await AssertInitialLifecycleAsync(store, chain, cancellationToken);
+
+        var undispatchable = new WorkTaskUndispatchableCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            "Card too large for one verifiable slice; smaller replacements take over the scope.",
+            $"card:{chain.TaskId}",
+            3,
+            "work-chain:task:undispatchable:supersession",
+            chain.OccurredAt.AddMinutes(1));
+        var escalated = await store.EscalateUndispatchableTaskAsync(undispatchable, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, escalated.Status);
+        Assert.Equal("escalated", escalated.TaskState);
+        Assert.Equal(4, escalated.TaskVersion);
+
+        // O substituto precisa EXISTIR de verdade — mesmo tenant/projeto do original, demanda
+        // própria (é assim que o fatiamento real de RBAC funcionou).
+        var replacement = chain with
+        {
+            SolicitationId = "01ARZ3NDEKTSV4RRFFQ69G5FS4",
+            DemandId = "01ARZ3NDEKTSV4RRFFQ69G5FS5",
+            TaskId = "01ARZ3NDEKTSV4RRFFQ69G5FS6",
+            InstructionVersionId = "01ARZ3NDEKTSV4RRFFQ69G5FS7",
+            IdempotencyKey = "work-chain:create:supersession:replacement",
+            OccurredAt = chain.OccurredAt.AddMinutes(2),
+        };
+        await store.CreateAsync(replacement, cancellationToken);
+
+        // Substituto que não existe: a superssessão não pode fingir que existe.
+        var missingReplacement = new WorkTaskSupersessionCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            [replacement.TaskId, "01ARZ3NDEKTSV4RRFFQ69G5FSZ"],
+            "agent",
+            "bruna",
+            "Card too large.",
+            4,
+            "work-chain:task:supersede:missing-replacement",
+            chain.OccurredAt.AddMinutes(3));
+        var rejectedMissing = await store.SupersedeTaskAsync(missingReplacement, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.InvalidState, rejectedMissing.Status);
+        Assert.Null(rejectedMissing.LedgerSequence);
+
+        var supersede = new WorkTaskSupersessionCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            [replacement.TaskId],
+            "agent",
+            "bruna",
+            "Superseded by a smaller, independently verifiable slice.",
+            4,
+            "work-chain:task:supersede:first",
+            chain.OccurredAt.AddMinutes(4));
+        var superseded = await store.SupersedeTaskAsync(supersede, cancellationToken);
+        var supersededReplay = await store.SupersedeTaskAsync(supersede, cancellationToken);
+
+        Assert.Equal(WorkChainMutationStatus.Applied, superseded.Status);
+        Assert.Equal(5, superseded.TaskVersion);
+        Assert.Equal("cancelled", superseded.TaskState);
+        Assert.NotNull(superseded.LedgerHash);
+        Assert.NotNull(superseded.OutboxMessageId);
+        Assert.Equal(WorkChainMutationStatus.IdempotentReplay, supersededReplay.Status);
+        Assert.Equal(superseded.LedgerHash, supersededReplay.LedgerHash);
+
+        var snapshot = await store.ReadAsync(chain.TenantId, chain.SolicitationId, cancellationToken);
+        Assert.NotNull(snapshot);
+        Assert.Equal("cancelled", snapshot.TaskState);
+        Assert.Equal(5, snapshot.TaskVersion);
+
+        // Um card já terminal (cancelado pela própria superssessão acima) não pode ser
+        // superseded de novo com uma chave de idempotência nova — a precondição de estado
+        // (`escalated`) recusa, não finge sucesso.
+        var alreadyCancelled = supersede with
+        {
+            ExpectedTaskVersion = 5,
+            IdempotencyKey = "work-chain:task:supersede:already-terminal",
+            OccurredAt = chain.OccurredAt.AddMinutes(5),
+        };
+        var rejectedTerminal = await store.SupersedeTaskAsync(alreadyCancelled, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.InvalidState, rejectedTerminal.Status);
+
+        // Um card RUNNING (nunca escalado) também não pode ser superseded — isto não é um atalho
+        // para CancelRunningTaskAsync.
+        var runningChain = chain with
+        {
+            SolicitationId = "01ARZ3NDEKTSV4RRFFQ69G5FS8",
+            DemandId = "01ARZ3NDEKTSV4RRFFQ69G5FS9",
+            TaskId = "01ARZ3NDEKTSV4RRFFQ69G5FSA",
+            InstructionVersionId = "01ARZ3NDEKTSV4RRFFQ69G5FSB",
+            IdempotencyKey = "work-chain:create:supersession:running",
+            OccurredAt = chain.OccurredAt.AddMinutes(6),
+        };
+        await store.CreateAsync(runningChain, cancellationToken);
+        await AssertInitialLifecycleAsync(store, runningChain, cancellationToken);
+        var start = new WorkAttemptStartCommand(
+            runningChain.TenantId,
+            runningChain.SolicitationId,
+            runningChain.TaskId,
+            runningChain.InstructionVersionId,
+            "01ARZ3NDEKTSV4RRFFQ69G5FSC",
+            "supersession-owner",
+            3,
+            "work-chain:attempt:start:supersession-running",
+            runningChain.OccurredAt.AddMinutes(1));
+        await store.StartAttemptAsync(start, cancellationToken);
+        var supersedeRunning = new WorkTaskSupersessionCommand(
+            runningChain.TenantId,
+            runningChain.SolicitationId,
+            runningChain.TaskId,
+            [replacement.TaskId],
+            "agent",
+            "bruna",
+            "Attempted supersession of a running task.",
+            5,
+            "work-chain:task:supersede:running-invalid",
+            runningChain.OccurredAt.AddMinutes(2));
+        var rejectedRunning = await store.SupersedeTaskAsync(supersedeRunning, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.InvalidState, rejectedRunning.Status);
     }
 }
