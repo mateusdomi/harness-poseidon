@@ -116,6 +116,7 @@ import {
 import { streams } from '../contracts';
 import { product } from '@/config/product';
 import type { ApiClient } from './api-client';
+import type { AttemptContext } from '../contracts';
 import type { ProjectReadinessSnapshot } from '../contracts/readiness';
 import type { FixtureData } from '../fixtures';
 import { buildMockReadinessSnapshot } from '../fixtures/readiness';
@@ -543,6 +544,10 @@ export class MockApiClient implements ApiClient {
     await this.#simulate();
     this.#require('solicitations', solicitationId);
     if (file.size === 0) throw new Error('O anexo não pode ser vazio.');
+  }
+
+  async getAttemptContext(attemptId: Ulid): Promise<AttemptContext> {
+    return { attemptId, receiptCount: 0, documents: [] };
   }
 
   async getPrototypingStage(projectId: Ulid): Promise<PrototypingStage> {
