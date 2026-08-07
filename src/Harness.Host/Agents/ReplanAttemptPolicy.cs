@@ -1,3 +1,5 @@
+using Harness.Persistence.Abstractions.WorkChain;
+
 namespace Harness.Host.Agents;
 
 /// <summary>
@@ -74,6 +76,53 @@ public static class ReplanAttemptPolicy
         }
 
         return declared ? highest : Math.Min(highest, 1);
+    }
+
+    /// <summary>
+    /// Desde quando contar rodadas gastas: o início do EPISÓDIO de replanejamento atual, não a
+    /// história inteira do card.
+    ///
+    /// INC-EVAL-004: <c>ReplanEscalatedTaskAsync</c> devolve o card a <c>ready</c> e grava uma
+    /// instrução nova com <c>(rodada N)</c>, mas <c>CountSpentRounds</c> lia o histórico de
+    /// tentativas inteiro, sem nunca zerado — a contagem seguia ≥ <c>MaxRounds</c> e a guarda
+    /// reescalava o card no mesmo ciclo do laço, dezenas de segundos depois da decisão humana ter
+    /// sido aplicada. As duas regras (guarda anti-laço, replanejamento aprovado) estavam corretas
+    /// isoladamente; juntas, tornavam a decisão do dono um no-op.
+    ///
+    /// As instruções chegam em ordem cronológica ascendente (a mais recente por último). A rodada
+    /// declarada persiste através de correções — <c>PrepareCorrectionsAsync</c> preserva o corpo
+    /// anterior e só reconstrói o cabeçalho — então caminhar para trás enquanto a rodada
+    /// permanece a MESMA encontra exatamente a instrução do replanejamento que abriu o episódio
+    /// atual, não importa quantas correções vieram depois dela. Round 0 (nunca replanejado)
+    /// devolve <c>null</c>: quem chama usa o histórico inteiro, o comportamento de sempre.
+    /// </summary>
+    public static DateTimeOffset? CurrentReplanEpochStartedAt(
+        IReadOnlyList<BoardInstructionRecord> instructions)
+    {
+        ArgumentNullException.ThrowIfNull(instructions);
+        if (instructions.Count == 0)
+        {
+            return null;
+        }
+
+        var currentRound = ReadReplanRound(instructions[^1].Body);
+        if (currentRound == 0)
+        {
+            return null;
+        }
+
+        var epochStartedAt = instructions[^1].CreatedAt;
+        for (var index = instructions.Count - 2; index >= 0; index--)
+        {
+            if (ReadReplanRound(instructions[index].Body) != currentRound)
+            {
+                break;
+            }
+
+            epochStartedAt = instructions[index].CreatedAt;
+        }
+
+        return epochStartedAt;
     }
 
     /// <summary>

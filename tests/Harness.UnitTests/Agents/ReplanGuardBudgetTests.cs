@@ -1,4 +1,5 @@
 using Harness.Host.Agents;
+using Harness.Persistence.Abstractions.WorkChain;
 
 namespace Harness.UnitTests.Agents;
 
@@ -140,5 +141,83 @@ public sealed class ReplanGuardBudgetTests
         Assert.DoesNotContain(Marker, stripped, StringComparison.Ordinal);
         Assert.Contains("cabeçalho do card", stripped, StringComparison.Ordinal);
         Assert.Contains("achado P0", stripped, StringComparison.Ordinal);
+    }
+
+    // ---- INC-EVAL-004: o orçamento de rodadas é do EPISÓDIO, não do card inteiro -----
+
+    private static readonly DateTimeOffset Day1 = DateTimeOffset.Parse(
+        "2026-08-06T08:00:00Z", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static BoardInstructionRecord Instruction(string body, DateTimeOffset createdAt, int version = 1) =>
+        new("tenant", $"instr-{version}", "task", version, body, "chief", null, createdAt);
+
+    /// <summary>Card nunca replanejado: sem marcador, sem época — o chamador usa a história inteira.</summary>
+    [Fact]
+    public void CardNuncaReplanejadoNaoTemEpocaEUsaAHistoriaInteira()
+    {
+        var instructions = new[] { Instruction("corpo comum, sem marcador", Day1) };
+
+        Assert.Null(ReplanAttemptPolicy.CurrentReplanEpochStartedAt(instructions));
+    }
+
+    /// <summary>
+    /// O caso do INC-EVAL-004: o dono aprova o replanejamento, a instrução nova é gravada — a
+    /// época do orçamento começa NAQUELE instante, não no início do card.
+    /// </summary>
+    [Fact]
+    public void UmUnicoReplanejamentoAbreAEpocaNaSuaPropriaData()
+    {
+        var replanAt = Day1.AddDays(1);
+        var instructions = new[]
+        {
+            Instruction("cabeçalho\n\ncorpo original, nunca replanejado", Day1),
+            Instruction($"cabeçalho\n\n{Marker} (rodada 1)\ntexto", replanAt, version: 2),
+        };
+
+        Assert.Equal(replanAt, ReplanAttemptPolicy.CurrentReplanEpochStartedAt(instructions));
+    }
+
+    /// <summary>
+    /// Correções DEPOIS do replanejamento preservam o corpo (e o marcador) — a época continua
+    /// sendo a do replanejamento original, não a da correção mais recente. Sem isto, cada
+    /// correção reabriria o orçamento de rodadas de graça.
+    /// </summary>
+    [Fact]
+    public void CorrecoesAposOReplanejamentoNaoMovemAEpocaParaFrente()
+    {
+        var replanAt = Day1.AddDays(1);
+        var instructions = new[]
+        {
+            Instruction("cabeçalho\n\ncorpo original, nunca replanejado", Day1),
+            Instruction($"cabeçalho\n\n{Marker} (rodada 1)\ntexto", replanAt, version: 2),
+            Instruction(
+                $"cabeçalho\n\n{Marker} (rodada 1)\ntexto\n\n## Correções exigidas\nachado",
+                replanAt.AddHours(3), version: 3),
+        };
+
+        Assert.Equal(replanAt, ReplanAttemptPolicy.CurrentReplanEpochStartedAt(instructions));
+    }
+
+    /// <summary>
+    /// Um SEGUNDO replanejamento — o card re-escalou e o dono aprovou de novo — abre uma época
+    /// NOVA a partir da rodada 2, sem herdar a data da primeira. Cada aprovação humana reabre o
+    /// orçamento do zero, não acumula com a anterior.
+    /// </summary>
+    [Fact]
+    public void UmSegundoReplanejamentoAbreUmaEpocaNovaSemHerdarADoPrimeiro()
+    {
+        var firstReplanAt = Day1.AddDays(1);
+        var secondReplanAt = Day1.AddDays(5);
+        var instructions = new[]
+        {
+            Instruction("cabeçalho\n\ncorpo original, nunca replanejado", Day1),
+            Instruction($"cabeçalho\n\n{Marker} (rodada 1)\ntexto", firstReplanAt, version: 2),
+            Instruction(
+                $"cabeçalho\n\n{Marker} (rodada 1)\ntexto\n\n## Correções exigidas\nachado",
+                firstReplanAt.AddHours(3), version: 3),
+            Instruction($"cabeçalho\n\n{Marker} (rodada 2)\ntexto novo", secondReplanAt, version: 4),
+        };
+
+        Assert.Equal(secondReplanAt, ReplanAttemptPolicy.CurrentReplanEpochStartedAt(instructions));
     }
 }

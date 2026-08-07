@@ -628,7 +628,14 @@ public sealed partial class ChiefBacklogLoopService(
                     // coisa (falha técnica, não esgotamento do plano). Um card que já consumiu as
                     // rodadas orçadas não é redespachado em silêncio: ele ESCALA, com o fato auditado.
                     var budget = await ReadCardBudgetAsync(profile.TenantId, task, plans, token);
-                    var spentRounds = CountSpentRounds(attemptHistory);
+                    // INC-EVAL-004: o orçamento de rodadas é do EPISÓDIO de replanejamento atual,
+                    // não do card inteiro — senão a aprovação do dono nunca reabre trabalho (ver
+                    // ReplanAttemptPolicy.CurrentReplanEpochStartedAt).
+                    var replanEpochStartedAt = ReplanAttemptPolicy.CurrentReplanEpochStartedAt(instructions);
+                    var roundBudgetHistory = replanEpochStartedAt is null
+                        ? attemptHistory
+                        : [.. attemptHistory.Where(attempt => attempt.StartedAt >= replanEpochStartedAt.Value)];
+                    var spentRounds = CountSpentRounds(roundBudgetHistory);
                     if (budget is not null && spentRounds >= budget.MaxRounds)
                     {
                         // A MESMA pergunta do replanejamento, feita ao orçamento: uma rodada é
@@ -642,7 +649,7 @@ public sealed partial class ChiefBacklogLoopService(
                         // "esgotou": ler o diff de toda tentativa a cada tique custaria git por
                         // card por dez segundos, e a resposta só muda quando o card ia escalar.
                         spentRounds = await CountExercisedRoundsAsync(
-                            project, projectControlledRoot, attemptHistory, token);
+                            project, projectControlledRoot, roundBudgetHistory, token);
                     }
 
                     if (budget is not null && spentRounds >= budget.MaxRounds)
