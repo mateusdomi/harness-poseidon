@@ -122,7 +122,13 @@ public sealed record BoardTaskRecord(
     BoardProgressRecord Progress, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt,
     DateTimeOffset? DueAt, DateTimeOffset? ArchivedAt, long Version, string InternalState,
     string BackingSolicitationId, string BackingDemandId, string? PhaseName = null,
-    string CardType = "agent_task");
+    string CardType = "agent_task",
+    // INC-EVAL-002: risco de execução do card (work_tasks.risk_tier), distinto de Priority
+    // (urgência de fila). Nasce igual à Priority na criação, mas diverge quando uma correção
+    // operacional ajusta só a Priority para destravar dispatch — o risk_tier é o que os gates de
+    // prova continuam respeitando. Elegibilidade de persona e obrigatoriedade de revisão pareada
+    // devem ler ESTE campo, nunca Priority.
+    string RiskTier = "medium");
 
 public sealed record BoardTaskPageQuery(
     string? ProjectId, string? DemandId, string? Search, string? State, string? Priority,

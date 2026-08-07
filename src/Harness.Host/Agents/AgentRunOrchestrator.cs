@@ -465,6 +465,12 @@ public sealed partial class AgentRunOrchestrator(
         {
             if (executor is not ProcessExternalAgentExecutor processExecutor)
             {
+                // INC-EVAL-002: o claim durável já foi adquirido acima (linha ~420). Sem falhar o
+                // workspace e liberar aqui, ele fica preso até o lease de 15 min vencer — e todo
+                // card cujo path colida com este fica recusado por `workspace.scopeconflict` até lá.
+                var failedWorkspace = await TryFailAsync(
+                    command, acquired.Workspace, "executor.sandbox_unsupported");
+                await TryReleaseWorkspaceAsync(command, failedWorkspace);
                 profiles.ReleaseLock(command.AccountAlias, accountLock.FencingToken);
                 return Rejected(runId, command, "executor.sandbox_unsupported", account.ExecutorId);
             }
@@ -499,6 +505,9 @@ public sealed partial class AgentRunOrchestrator(
                 // `sandbox_required`, porque aqui a sandbox nem chegou a ser avaliada.
                 LogSandboxOpenFailure(logger, command.AttemptId, exception.GetType().Name);
                 TryDeleteEmptyWorktreeDirectory(command.WorktreePath);
+                var failedWorkspace = await TryFailAsync(
+                    command, acquired.Workspace, "sandbox.unavailable");
+                await TryReleaseWorkspaceAsync(command, failedWorkspace);
                 profiles.ReleaseLock(command.AccountAlias, accountLock.FencingToken);
                 return Rejected(runId, command, "sandbox.unavailable", account.ExecutorId);
             }
@@ -531,6 +540,12 @@ public sealed partial class AgentRunOrchestrator(
             }
 
             TryDeleteEmptyWorktreeDirectory(command.WorktreePath);
+            // INC-EVAL-002: esta é a recusa mais comum em produção (`persona_tools_unresolved`).
+            // Sem falhar+liberar o workspace aqui, a claim de path fica viva até o lease vencer e
+            // toda tentativa seguinte no mesmo escopo colhe `workspace.scopeconflict` — a
+            // tempestade observada em 2026-08-06 (150+ rejeições em ~2h30).
+            var failedWorkspace = await TryFailAsync(command, acquired.Workspace, toolDecision.Code);
+            await TryReleaseWorkspaceAsync(command, failedWorkspace);
             profiles.ReleaseLock(command.AccountAlias, accountLock.FencingToken);
             return Rejected(runId, command, toolDecision.Code, account.ExecutorId);
         }

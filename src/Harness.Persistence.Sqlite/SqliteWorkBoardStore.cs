@@ -468,7 +468,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
             command.DemandId, command.Title, "backlog", command.Priority,
             command.AssigneeAgentId, null, 1, new BoardProgressRecord(0, 0, 0),
             command.OccurredAt, command.OccurredAt, command.DueAt, null, 1, "ready",
-            backingSolicitation, backingDemand, phaseName, cardType);
+            backingSolicitation, backingDemand, phaseName, cardType, command.Priority);
         var instruction = new BoardInstructionRecord(command.TenantId, command.InstructionId,
             command.Id, 1, command.InstructionBody, "chief", null, command.OccurredAt);
         var payload = TaskPayload(task); await AppendAuditAsync(c, tx, command.TenantId,
@@ -599,7 +599,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
             r.IsDBNull(12) ? null : Parse(r.GetString(12)),
             r.IsDBNull(13) ? null : Parse(r.GetString(13)), r.GetInt64(14),
             internalState, r.GetString(15), r.GetString(16),
-            r.IsDBNull(18) ? null : r.GetString(18), r.GetString(19));
+            r.IsDBNull(18) ? null : r.GetString(18), r.GetString(19), r.GetString(20));
     }
     private static BoardInstructionRecord ReadInstruction(SqliteDataReader r) => new(
         r.GetString(0), r.GetString(1), r.GetString(2), r.GetInt32(3), r.GetString(4),
@@ -690,7 +690,7 @@ public sealed partial class SqliteWorkBoardStore(SqliteWriteDispatcher dispatche
                t.assignee_agent_id,t.blocked_reason,
                (SELECT MAX(version) FROM instruction_versions i WHERE i.task_id=t.id),
                t.created_at,t.updated_at,t.due_at,t.archived_at,t.version,
-               d.solicitation_id,t.demand_id,t.state,t.phase_name,t.card_type
+               d.solicitation_id,t.demand_id,t.state,t.phase_name,t.card_type,t.risk_tier
         FROM work_tasks t JOIN demands d ON d.id=t.demand_id
         """;
     private const string InstructionSelect =

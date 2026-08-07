@@ -693,7 +693,10 @@ public sealed partial class ChiefBacklogLoopService(
                         dispatchTask.Title,
                         dispatchInstruction.Body,
                         [],
-                        dispatchTask.Priority,
+                        // INC-EVAL-002: risco de execução, não urgência de fila. Priority é
+                        // ajustável por contorno operacional (ex.: destravar dispatch); RiskTier é
+                        // o que os gates de prova continuam exigindo.
+                        dispatchTask.RiskTier,
                         surfaceMap: surfaceMap);
 
                     // F-17: a persona declarada carrega escopos que devem restringir o escopo do
@@ -707,7 +710,7 @@ public sealed partial class ChiefBacklogLoopService(
                             dispatchTask.Title,
                             dispatchInstruction.Body,
                             [],
-                            dispatchTask.Priority,
+                            dispatchTask.RiskTier,
                             explicitPersonaKey: resolution.PersonaKey,
                             explicitRole: resolution.Role,
                             surfaceMap: surfaceMap,
@@ -2388,7 +2391,7 @@ public sealed partial class ChiefBacklogLoopService(
             }
 
             var resolution = ChiefCardResolver.Resolve(
-                task.Title, instructions[^1].Body, [], task.Priority);
+                task.Title, instructions[^1].Body, [], task.RiskTier);
             // A tentativa pertence ao PROFISSIONAL (persona) e por isso `AgentId` é o id dele,
             // não o alias secreto/operacional da conta. O alias executor vem do ledger de
             // invocações da própria tentativa; é esse fato que impede o mesmo provider de revisar
@@ -2417,7 +2420,7 @@ public sealed partial class ChiefBacklogLoopService(
             // raciocínio que o trouxe até aqui e o encontra correto. Em risco baixo a ausência é
             // tolerada, e é a política que diz isso, não a sorte de haver conta livre.
             var pairing = ContinuousReviewPolicy.Evaluate(
-                Enum.TryParse<RiskTier>(task.Priority, ignoreCase: true, out var taskRisk)
+                Enum.TryParse<RiskTier>(task.RiskTier, ignoreCase: true, out var taskRisk)
                     ? taskRisk
                     : RiskTier.Medium,
                 producerAlias,
@@ -4185,7 +4188,7 @@ public sealed partial class ChiefBacklogLoopService(
         // (OPS-069) teria deixado os três cards bloqueados da fase 5 exatamente onde estavam.
         var previousBody = instructions[^1].Body;
         var replanResolution = ChiefCardResolver.Resolve(
-            task.Title, previousBody, [], task.Priority);
+            task.Title, previousBody, [], task.RiskTier);
         // O bloco de replanejamento SUBSTITUI o anterior em vez de se somar a ele. Acumulando,
         // o ator recebia cinco cópias idênticas da mesma ordem — "a abordagem anterior NÃO deve
         // ser repetida... registre o bloqueio em vez de tentar de novo" — sem nada que dissesse
@@ -4331,7 +4334,7 @@ public sealed partial class ChiefBacklogLoopService(
             // ao fim, nunca sobrescrevendo nada.
             var previous = instructions[^1].Body;
             var correctionResolution = ChiefCardResolver.Resolve(
-                task.Title, previous, [], task.Priority);
+                task.Title, previous, [], task.RiskTier);
             var content =
                 RebuildInstructionHeader(
                     previous,
@@ -4867,7 +4870,11 @@ public sealed partial class ChiefBacklogLoopService(
         // projeto. Antes os dois conceitos eram colapsados e a interface mostrava um alias de
         // provider (ou "Aguardando organização") no lugar do Product Owner/Arquiteto/QA.
         var persona = FindPersona(personas, resolution.PersonaKey);
-        if (persona is not null && !IsEligible(persona, project.Id, task.Priority))
+        // INC-EVAL-002: risco de execução (RiskTier), não urgência de fila (Priority). Cards
+        // críticos usavam Priority aqui e nunca achavam persona elegível — nenhuma persona pode
+        // declarar teto 'critical' (schema de agent_definitions só aceita low/medium/high); ver o
+        // clamp em PersonaEligibilityPolicy.RankOf.
+        if (persona is not null && !IsEligible(persona, project.Id, task.RiskTier))
         {
             LogPersonaNotEligible(logger, task.Id, persona.Key);
             persona = null;
@@ -5068,11 +5075,18 @@ public sealed partial class ChiefBacklogLoopService(
         return true;
     }
 
-    /// <summary>Branch colhida da reprovação mais recente, usada como base da correção.</summary>
+    /// <summary>
+    /// Branch colhida da reprovação mais recente, usada como base da correção. Reprovação de
+    /// review grava <c>operational_state='failed'</c> (mesmo valor que
+    /// <see cref="PrepareCorrectionsAsync"/> usa) — <c>"rejected"</c> é a outra coluna
+    /// (<c>work_attempts.state</c>), nunca projetada em <see cref="BoardAttemptRecord"/>, e nunca
+    /// casava. Toda correção caía no fallback `HEAD` e reimplementava do zero um diff que já
+    /// existia. Confirmado no banco de produção: zero linhas com esse valor.
+    /// </summary>
     public static string? CorrectionBaseBranch(IReadOnlyList<BoardAttemptRecord> attempts)
     {
         var rejected = attempts.LastOrDefault(attempt =>
-            string.Equals(attempt.State, "rejected", StringComparison.Ordinal));
+            string.Equals(attempt.State, "failed", StringComparison.Ordinal));
         return rejected is null
             ? null
             : $"task/agent-run-{rejected.Id.ToLowerInvariant()}";

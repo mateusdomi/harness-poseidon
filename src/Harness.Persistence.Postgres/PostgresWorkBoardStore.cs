@@ -25,7 +25,7 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
                t.assignee_agent_id,t.blocked_reason,
                (SELECT MAX(i.version) FROM harness.instruction_versions i WHERE i.task_id=t.id),
                t.created_at,t.updated_at,t.due_at,t.archived_at,t.version,
-               d.solicitation_id,t.demand_id,t.state,t.phase_name,t.card_type
+               d.solicitation_id,t.demand_id,t.state,t.phase_name,t.card_type,t.risk_tier
         FROM harness.work_tasks t JOIN harness.demands d ON d.id=t.demand_id
         """;
     private const string InstructionSelect =
@@ -596,7 +596,8 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
             command.TenantId, command.Id, command.ProjectId, command.DemandId, command.Title,
             "backlog", command.Priority, command.AssigneeAgentId, null, 1,
             new BoardProgressRecord(0, 0, 0), command.OccurredAt, command.OccurredAt,
-            command.DueAt, null, 1, "ready", backingSolicitation, backingDemand, phaseName, cardType);
+            command.DueAt, null, 1, "ready", backingSolicitation, backingDemand, phaseName, cardType,
+            command.Priority);
         var instruction = new BoardInstructionRecord(
             command.TenantId, command.InstructionId, command.Id, 1, command.InstructionBody,
             "chief", null, command.OccurredAt);
@@ -773,7 +774,8 @@ public sealed partial class PostgresWorkBoardStore(NpgsqlDataSource dataSource) 
             reader.IsDBNull(13) ? null : reader.GetFieldValue<DateTimeOffset>(13),
             reader.GetInt64(14), internalState, reader.GetString(15).TrimEnd(),
             reader.GetString(16).TrimEnd(),
-            reader.IsDBNull(18) ? null : reader.GetString(18), reader.GetString(19).TrimEnd());
+            reader.IsDBNull(18) ? null : reader.GetString(18), reader.GetString(19).TrimEnd(),
+            reader.GetString(20).TrimEnd());
     }
 
     private static BoardInstructionRecord ReadInstruction(NpgsqlDataReader reader) => new(

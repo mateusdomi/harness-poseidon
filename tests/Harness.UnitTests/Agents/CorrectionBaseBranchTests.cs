@@ -9,19 +9,39 @@ public sealed class CorrectionBaseBranchTests
     private static readonly DateTimeOffset Now = DateTimeOffset.Parse(
         "2026-08-01T12:00:00Z", System.Globalization.CultureInfo.InvariantCulture);
 
+    /// <summary>
+    /// <see cref="BoardAttemptRecord.State"/> é projetado de <c>work_attempts.operational_state</c>
+    /// (queued|running|completed|failed|cancelled) — reprovação de review grava
+    /// <c>operational_state='failed'</c> (ver <c>ReviewAttemptCoreAsync</c>). A OUTRA coluna,
+    /// <c>work_attempts.state</c> (running|awaiting_review|approved|rejected), nunca é projetada
+    /// em <see cref="BoardAttemptRecord"/>. Um teste sintético com <c>State="rejected"</c> validava
+    /// uma premissa que a produção nunca satisfaz — passava sozinho, sem nunca exercitar o
+    /// comportamento real (INC-EVAL-observado 2026-08-06/07).
+    /// </summary>
     [Fact]
     public void CorrectionStartsFromTheMostRecentRejectedAttemptBranch()
     {
         var attempts = new[]
         {
-            Attempt("01ARZ3NDEKTSV4RRFFQ69G5FAA", 1, "rejected"),
-            Attempt("01ARZ3NDEKTSV4RRFFQ69G5FAB", 2, "rejected"),
+            Attempt("01ARZ3NDEKTSV4RRFFQ69G5FAA", 1, "failed"),
+            Attempt("01ARZ3NDEKTSV4RRFFQ69G5FAB", 2, "failed"),
             Attempt("01ARZ3NDEKTSV4RRFFQ69G5FAC", 3, "running"),
         };
 
         Assert.Equal(
             "task/agent-run-01arz3ndektsv4rrffq69g5fab",
             ChiefBacklogLoopService.CorrectionBaseBranch(attempts));
+    }
+
+    [Fact]
+    public void CorrectionNeverMatchesTheDeadStateColumnValue()
+    {
+        var attempts = new[]
+        {
+            Attempt("01ARZ3NDEKTSV4RRFFQ69G5FAA", 1, "rejected"),
+        };
+
+        Assert.Null(ChiefBacklogLoopService.CorrectionBaseBranch(attempts));
     }
 
     [Fact]

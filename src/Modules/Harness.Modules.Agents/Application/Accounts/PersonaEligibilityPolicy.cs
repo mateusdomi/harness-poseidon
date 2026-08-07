@@ -81,13 +81,23 @@ public static class PersonaEligibilityPolicy
 
         // O risco do card não pode exceder o que a persona foi autorizada a assumir. Menor
         // privilégio vale também para o tipo de trabalho.
-        if (RankOf(cardRiskTier) > RankOf(persona.Risk))
+        //
+        // INC-EVAL-002: o CHECK de agent_definitions.risk só admite low/medium/high — nenhuma
+        // persona pode declarar teto 'critical' (migração 0043). Comparar cru contra o card fazia
+        // todo card risk_tier='critical' ficar estruturalmente sem persona elegível, sempre. O teto
+        // de comparação é fixado no MAIOR risco que uma persona pode declarar: um card crítico cabe
+        // na persona de teto 'high' (a mais alta possível), mas os gates de prova de risco crítico
+        // — revisão pareada obrigatória, evidência extra — continuam lendo o RiskTier real do card,
+        // não este clamp, que é só o portão de elegibilidade.
+        if (Math.Min(RankOf(cardRiskTier), MaxPersonaDeclarableRiskRank) > RankOf(persona.Risk))
         {
             return new PersonaEligibilityVerdict(false, "persona.risk_tier_exceeded");
         }
 
         return new PersonaEligibilityVerdict(true, "persona.eligible");
     }
+
+    private static readonly int MaxPersonaDeclarableRiskRank = Array.IndexOf(RiskOrder, "high");
 
     /// <summary>
     /// Risco ausente conta como o MENOR: uma persona que nunca declarou faixa não herda

@@ -94,6 +94,36 @@ public sealed class PersonaEligibilityPolicyTests
         Assert.Equal("persona.risk_tier_exceeded", verdict.ReasonCode);
     }
 
+    /// <summary>
+    /// INC-EVAL-002: <c>agent_definitions.risk</c> só admite low/medium/high (migração 0043) —
+    /// nenhuma persona pode declarar teto 'critical'. Comparar o risco do card cru contra isso
+    /// tornava todo card crítico estruturalmente sem persona elegível, sempre, mesmo com a persona
+    /// de maior teto possível. O card crítico cabe na persona de teto 'high' — os gates de prova de
+    /// risco crítico (revisão pareada, evidência extra) continuam lendo o RiskTier real do card em
+    /// outro lugar; este teste cobre só o portão de elegibilidade.
+    /// </summary>
+    [Fact]
+    public void ACriticalCardIsEligibleForTheHighestDeclarablePersonaCeiling()
+    {
+        var highRisk = Persona(risk: "high");
+
+        var verdict = PersonaEligibilityPolicy.Evaluate(highRisk, Project, "critical", requiresTools: false);
+
+        Assert.True(verdict.Eligible);
+        Assert.Equal("persona.eligible", verdict.ReasonCode);
+    }
+
+    [Fact]
+    public void AMediumRiskPersonaIsStillNotEligibleForACriticalCard()
+    {
+        var mediumRisk = Persona(risk: "medium");
+
+        var verdict = PersonaEligibilityPolicy.Evaluate(mediumRisk, Project, "critical", requiresTools: false);
+
+        Assert.False(verdict.Eligible);
+        Assert.Equal("persona.risk_tier_exceeded", verdict.ReasonCode);
+    }
+
     [Fact]
     public void AnUndeclaredRiskTierNeverInheritsAuthorityForCriticalWork()
     {
