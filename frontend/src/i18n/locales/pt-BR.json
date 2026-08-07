@@ -1331,8 +1331,8 @@
         "archiveOnlyDone": "Apenas tarefas concluídas podem ser arquivadas."
       },
       "context": {
-        "documentsTitle": "Documentos que o agente leu",
-        "tokens": "~{{count}} tokens"
+        "documentsTitle": "Documentos que a equipe leu",
+        "tokens": "leitura estimada: {{count}}"
       }
     },
     "filters": {

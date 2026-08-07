@@ -1331,8 +1331,8 @@
         "archiveOnlyDone": "Only completed tasks can be archived."
       },
       "context": {
-        "documentsTitle": "Documents the agent read",
-        "tokens": "~{{count}} tokens"
+        "documentsTitle": "Documents the team read",
+        "tokens": "estimated reading: {{count}}"
       }
     },
     "filters": {
