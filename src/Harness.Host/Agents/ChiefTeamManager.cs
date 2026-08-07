@@ -31,11 +31,16 @@ public sealed partial class ChiefTeamManager(
     ITeamSpecialtyCatalogStore specialties,
     IToolCatalogStore tools,
     IClock clock,
-    ILogger<ChiefTeamManager> logger)
+    ILogger<ChiefTeamManager> logger,
+    AgentAccountRegistry? accounts = null)
 {
     private readonly IAgentCatalogStore _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
     private readonly ITeamSpecialtyCatalogStore _specialties = specialties ?? throw new ArgumentNullException(nameof(specialties));
     private readonly IToolCatalogStore _tools = tools ?? throw new ArgumentNullException(nameof(tools));
+    // Opcional: só existe quando AgentRuns está habilitado (é onde as contas são carregadas). Sem
+    // ele a seleção de rota cai para o comportamento anterior — qualquer executável serve —, em
+    // vez de derrubar a criação de persona onde AgentRuns nunca foi ligado.
+    private readonly AgentAccountRegistry? _accounts = accounts;
     private readonly IClock _clock = clock ?? throw new ArgumentNullException(nameof(clock));
 
     public async Task<IReadOnlyList<ChiefTeamActionResult>> ApplyAsync(
@@ -103,11 +108,7 @@ public sealed partial class ChiefTeamManager(
 
         var projectAgents = await _catalog.ListAgentsAsync(
             tenantId, projectId, null, 500, cancellationToken);
-        var route = projectAgents
-            .Where(HasExecutableRoute)
-            .OrderByDescending(agent => agent.State is "active" or "idle" or "waiting")
-            .ThenBy(agent => agent.Id, StringComparer.Ordinal)
-            .FirstOrDefault();
+        var route = SelectRoute(projectAgents, persona);
         if (route is null)
         {
             LogTeamActionRefused(logger, action.Action, "team.no_executable_route");
@@ -277,6 +278,97 @@ public sealed partial class ChiefTeamManager(
         !string.IsNullOrWhiteSpace(agent.ProviderEffortValue) &&
         agent.State is not ("retired" or "failed" or "disabled");
 
+    /// <summary>
+    /// A rota (conta/modelo/effort) que a persona nova herda ao nascer.
+    ///
+    /// Achado da recuperação de throughput da Fase 5 (2026-08): esta seleção nunca olhava o papel —
+    /// só pegava o primeiro agente executável do projeto, ordenado por estado e depois por Id. Como
+    /// os primeiros agentes de cada projeto (fases 1-4: arquiteto, PO) rodam sob a conta do Chief,
+    /// TODA persona de código nova herdava a mesma conta por acidente de ordenação, mesmo com outras
+    /// contas write-capable e com quota disponíveis para o papel certo. A fleet nominal de N contas
+    /// virava fleet efetiva de 1 por bug de roteamento, não só por falta de cota real — e a conta do
+    /// Chief ficava no caminho de virar executora de FEAT, violando a prioridade dela (coordenação
+    /// antes de execução).
+    ///
+    /// Agora prefere, entre os agentes executáveis, aquele cuja CONTA declara o papel que esta
+    /// persona vai exercer (<c>AgentAccountRegistry.AllowedRoles</c>) — e só cai no comportamento
+    /// antigo (primeiro executável, por estado e Id) quando nenhuma conta com o papel certo existe,
+    /// para não deixar a persona sem rota nenhuma.
+    /// </summary>
+    private AgentRecord? SelectRoute(IReadOnlyList<AgentRecord> projectAgents, ProposedPersona persona)
+    {
+        var role = InferAccountRole(persona);
+        var (route, matchedRole) = SelectRouteCore(
+            projectAgents,
+            role,
+            agent => _accounts is not null &&
+                agent.AccountId is { Length: > 0 } accountId &&
+                _accounts.Get(accountId)?.AllowedRoles.Contains(role, StringComparer.OrdinalIgnoreCase) == true);
+
+        // _accounts nulo não é "nenhuma conta tinha o papel certo" — é "não dá para saber"
+        // (AgentRuns desligado, registro de contas nunca carregado). Só vale a pena avisar quando
+        // a checagem realmente rodou e não achou nada.
+        if (route is not null && !matchedRole && _accounts is not null)
+        {
+            LogRouteWithoutMatchingRole(logger, persona.Key, role, route.AccountId ?? "?");
+        }
+
+        return route;
+    }
+
+    /// <summary>
+    /// O núcleo puro da seleção: role-aware quando <paramref name="accountAllowsRole"/> acha
+    /// alguém, senão cai no comportamento anterior (mais disponível, por estado e Id) — nenhuma
+    /// persona fica sem rota só porque nenhuma conta do projeto declara o papel certo. Extraído
+    /// para testar sem precisar de <see cref="AgentAccountRegistry"/> nem de DI: o predicado
+    /// abstrai a fonte de verdade de "quais papéis esta conta aceita".
+    /// </summary>
+    internal static (AgentRecord? Route, bool MatchedRole) SelectRouteCore(
+        IReadOnlyList<AgentRecord> projectAgents,
+        string role,
+        Func<AgentRecord, bool> accountAllowsRole)
+    {
+        var executable = projectAgents.Where(HasExecutableRoute).ToArray();
+        var byRole = executable
+            .Where(accountAllowsRole)
+            .OrderByDescending(agent => agent.State is "active" or "idle" or "waiting")
+            .ThenBy(agent => agent.Id, StringComparer.Ordinal)
+            .FirstOrDefault();
+        if (byRole is not null)
+        {
+            return (byRole, true);
+        }
+
+        // Nenhuma conta do projeto declara o papel certo — cair para a rota mais disponível é
+        // melhor do que recusar a persona inteira (team.no_executable_route).
+        var fallback = executable
+            .OrderByDescending(agent => agent.State is "active" or "idle" or "waiting")
+            .ThenBy(agent => agent.Id, StringComparer.Ordinal)
+            .FirstOrDefault();
+        return (fallback, false);
+    }
+
+    /// <summary>
+    /// O vocabulário de papel de CONTA (<see cref="AgentRoles"/>) só distingue frontend, backend,
+    /// critic e chief-orchestrator — mais grosso que os escopos de <see cref="SelectScopes"/>
+    /// (devops, dados, genérico). Toda persona que não é claramente de frontend cai em backend, que
+    /// é o papel que cobre infra/dados/genérico neste vocabulário.
+    /// </summary>
+    internal static string InferAccountRole(ProposedPersona persona) =>
+        IsFrontendPersona(PersonaText(persona)) ? AgentRoles.FrontendSpecialist : AgentRoles.BackendSpecialist;
+
+    private static bool IsFrontendPersona(string text) =>
+        text.Contains("frontend", StringComparison.Ordinal) ||
+        text.Contains("mobile", StringComparison.Ordinal) ||
+        text.Contains("acessibilidade", StringComparison.Ordinal) ||
+        text.Contains("interface", StringComparison.Ordinal);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Chief: persona {PersonaKey} nasceu sem conta do papel {Role} disponível no " +
+            "projeto; herdou a conta {AccountId} por fallback.")]
+    private static partial void LogRouteWithoutMatchingRole(
+        ILogger logger, string personaKey, string role, string accountId);
+
     private static string[] SelectTools(
         ProposedPersona persona,
         IReadOnlyList<ToolCatalogRecord> tools)
@@ -333,10 +425,7 @@ public sealed partial class ChiefTeamManager(
     {
         var text = PersonaText(persona);
         IReadOnlyList<string> allowed;
-        if (text.Contains("frontend", StringComparison.Ordinal) ||
-            text.Contains("mobile", StringComparison.Ordinal) ||
-            text.Contains("acessibilidade", StringComparison.Ordinal) ||
-            text.Contains("interface", StringComparison.Ordinal))
+        if (IsFrontendPersona(text))
             allowed = ["frontend/**", "tests/**", "docs/**"];
         else if (text.Contains("devops", StringComparison.Ordinal) ||
             text.Contains("sre", StringComparison.Ordinal) ||
