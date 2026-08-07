@@ -301,6 +301,21 @@ public sealed record AgentRunSnapshot(
     string? FinalError);
 
 /// <summary>Diagnóstico de uma conta: perfil em disco + executor observado por probe.</summary>
+/// <summary>
+/// Resultado da PROBE VIVA de uma conta (perfil v2): o desfecho real de executar um prompt
+/// trivial na CLI, classificado e persistido no ledger de disponibilidade. Difere do doctor,
+/// que prova instalação e autenticação sem executar — e por isso não enxerga cota.
+/// </summary>
+public sealed record AgentAccountProbeReport(
+    string Alias,
+    string ExecutorId,
+    string State,
+    string ReasonCode,
+    DateTimeOffset? CooldownUntil);
+
+public sealed record AgentAccountProbeResponse(
+    IReadOnlyList<AgentAccountProbeReport> Accounts);
+
 public sealed record AgentAccountDoctorReport(
     string Alias,
     string ExecutorId,

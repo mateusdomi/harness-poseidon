@@ -66,6 +66,15 @@ public static class AgentRunEndpoints
             .ProducesProblem(401)
             .ProducesProblem(409);
 
+        // PROBE VIVA (perfil v2): executa um prompt trivial em cada conta e persiste o desfecho
+        // real (cota + horário de volta, login, modelo) no ledger de disponibilidade. É POST de
+        // propósito: gasta uma invocação mínima por conta.
+        endpoints.MapPost("/api/v1/agent-accounts/probe", ProbeAsync)
+            .WithTags("agent-runs")
+            .Produces<AgentAccountProbeResponse>()
+            .ProducesProblem(401)
+            .ProducesProblem(409);
+
         // Roster REDIGIDO das identidades de execução (CA-5): apenas alias/provider/executor/
         // papéis/estado. Nunca a referência de credencial, jamais o token. Leitura pura da
         // configuração local — não executa probe, por isso não conflita (409) como o doctor.
@@ -644,6 +653,28 @@ public static class AgentRunEndpoints
                 report.Profile.Healthy,
                 report.Profile.Findings,
                 report.Authenticated))]));
+    }
+
+    private static async Task<IResult> ProbeAsync(
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IServiceProvider services,
+        CancellationToken token)
+    {
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null)
+        {
+            return SessionRequired();
+        }
+
+        var orchestrator = services.GetService<AgentRunOrchestrator>();
+        if (orchestrator is null)
+        {
+            return Disabled();
+        }
+
+        var reports = await orchestrator.ProbeAvailabilityAsync(token);
+        return Results.Ok(new AgentAccountProbeResponse(reports));
     }
 
     private static async Task<IResult> RosterAsync(

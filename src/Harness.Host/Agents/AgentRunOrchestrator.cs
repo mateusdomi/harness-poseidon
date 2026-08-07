@@ -1360,6 +1360,113 @@ public sealed partial class AgentRunOrchestrator(
         return reports;
     }
 
+    /// <summary>
+    /// PROBE VIVA de disponibilidade (perfil v2): executa um prompt trivial em cada conta
+    /// habilitada e converte o desfecho REAL da CLI — cota esgotada com horário de volta,
+    /// modelo não suportado, login expirado — em estado durável no ledger, sem esperar uma
+    /// tentativa de card falhar para descobrir. Resposta ao fato medido na avaliação TrensRJ:
+    /// a disponibilidade era só reativa, e o teto real de vazão (1 conta elegível) apareceu
+    /// post-mortem. O doctor prova instalação/autenticação; ESTA prova cota.
+    /// </summary>
+    [SuppressMessage(
+        "Design", "CA1031:Do not catch general exception types",
+        Justification = "A probe registra o desfecho no ledger e segue para a próxima conta diante de qualquer falha do executor externo.")]
+    public async Task<IReadOnlyList<AgentAccountProbeReport>> ProbeAvailabilityAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var reports = new List<AgentAccountProbeReport>();
+        foreach (var account in accounts.List())
+        {
+            var now = clock.UtcNow;
+            if (account.State == AgentAccountState.Disabled)
+            {
+                reports.Add(new(
+                    account.Alias, account.ExecutorId, nameof(AgentAccountState.Disabled),
+                    "account.disabled", null));
+                continue;
+            }
+
+            if (!ExternalAgentExecutorFactory.IsImplemented(account.ExecutorId))
+            {
+                reports.Add(new(
+                    account.Alias, account.ExecutorId, nameof(AgentAccountState.Unavailable),
+                    "executor.adapter_not_implemented", null));
+                continue;
+            }
+
+            var executorProfile = ExecutorCatalog.Find(account.ExecutorId)!;
+            var handle = profiles.Ensure(account, executorProfile, now);
+            AccountProfileLock probeLock;
+            try
+            {
+                probeLock = profiles.AcquireLock(
+                    account.Alias, $"probe:{UlidValue.New(now)}", now,
+                    TimeSpan.FromMinutes(5), account.ConcurrencyLimit);
+            }
+            catch (AgentAccountValidationException exception)
+            {
+                // Conta ocupada por trabalho real não é probeada: o trabalho real É a probe.
+                reports.Add(new(
+                    account.Alias, account.ExecutorId, "Busy", exception.Code, null));
+                continue;
+            }
+
+            IExternalAgentSession? session = null;
+            try
+            {
+                var executor = executors.Create(account.ExecutorId);
+                session = await executor.StartAsync(
+                    new ExternalAgentRunRequest
+                    {
+                        Alias = account.Alias,
+                        Prompt = "Probe de disponibilidade do Poseidon. Responda somente: OK",
+                        WorkingDirectory = settings.ControlledRoot ?? Path.GetTempPath(),
+                        Profile = handle.Layout,
+                        Access = ExternalAgentAccess.ReadOnly,
+                        Timeout = TimeSpan.FromMinutes(4),
+                        NoProgressTimeout = TimeSpan.FromMinutes(2),
+                    },
+                    cancellationToken);
+                var execution = await session.CollectAsync(cancellationToken);
+                var outcome = AgentRunOutcomeClassifier.Classify(
+                    execution.Status, execution.FailureKind, execution.FailureCode,
+                    execution.FailureDiagnostic, clock.UtcNow);
+                RecordAvailability(account.Alias, outcome, clock.UtcNow);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                var outcome = AgentRunOutcomeClassifier.Classify(
+                    ExternalAgentRunStatus.Failed, "probe.execution_failed");
+                RecordAvailability(account.Alias, outcome, clock.UtcNow);
+            }
+            finally
+            {
+                if (session is not null)
+                {
+                    await session.CleanupAsync(CancellationToken.None);
+                    await session.DisposeAsync();
+                }
+
+                profiles.Cleanup(account.Alias, AccountProfileCleanupScope.Ephemeral);
+                TryReleaseAccount(account.Alias, probeLock.FencingToken);
+            }
+
+            var observed = availability.Get(account.Alias);
+            reports.Add(new(
+                account.Alias,
+                account.ExecutorId,
+                (observed?.State ?? AgentAccountState.Available).ToString(),
+                observed?.ReasonCode ?? "availability.available",
+                observed?.CooldownUntil));
+        }
+
+        return reports;
+    }
+
     [SuppressMessage(
         "Design", "CA1031:Do not catch general exception types",
         Justification = "O run precisa transicionar para Failed e liberar claim, conta e worktree diante de qualquer falha do executor externo.")]
