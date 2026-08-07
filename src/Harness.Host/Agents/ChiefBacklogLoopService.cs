@@ -1291,6 +1291,15 @@ public sealed partial class ChiefBacklogLoopService(
                 candidate.Task.Title,
                 ExpandScopeClaims(candidate.Resolution.ScopeClaims, graph)))
             .ToArray();
+        // Recuperação de throughput da Fase 5 (2026-08-07): card sem superfície reconhecida
+        // (cross-cutting — artefato de suporte, correção ampla de DoD) herda o escopo INTEIRO do
+        // papel do CardPathScopePlanner, como fallback conservador. Dois cards assim colidiam
+        // aos pares mesmo sem tocar o mesmo arquivo de verdade — ver o racional completo em
+        // PlanGraphValidationPolicy.Validate.
+        var unnarrowedCardIds = cards
+            .Where(candidate => candidate.Resolution.ScopePlan is { Narrowed: false })
+            .Select(candidate => candidate.Card.TaskId)
+            .ToHashSet(StringComparer.Ordinal);
         var edges = new List<CardDependencyEdge>();
         foreach (var demandGroup in cards
                      .Where(candidate => candidate.Task.DemandId is not null)
@@ -1331,7 +1340,7 @@ public sealed partial class ChiefBacklogLoopService(
             }
         }
 
-        return PlanGraphValidationPolicy.Validate(scopes, edges, graph);
+        return PlanGraphValidationPolicy.Validate(scopes, edges, graph, unnarrowedCardIds);
     }
 
     /// <summary>

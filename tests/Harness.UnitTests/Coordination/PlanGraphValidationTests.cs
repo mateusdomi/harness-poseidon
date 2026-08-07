@@ -153,4 +153,57 @@ public sealed class PlanGraphValidationTests
         Assert.Empty(validation.All);
         Assert.Empty(validation.ValidatedCardIds);
     }
+
+    /// <summary>
+    /// Recuperação de throughput da Fase 5 (2026-08-07): quatro cards de suporte (Briefing,
+    /// DORA, etc.) sem superfície reconhecida herdavam o escopo INTEIRO do papel
+    /// (CardPathScopePlanner, fallback conservador) e se bloqueavam aos pares — o backlog
+    /// inteiro travava em "0 despachado(s)" com contas livres e nada rodando. Dois fallbacks
+    /// idênticos não são evidência de colisão real; são evidência de que ninguém sabia de
+    /// nenhum dos dois cards.
+    /// </summary>
+    [Fact]
+    public void TwoCardsThatBothFellBackToTheWholeRoleScopeDoNotBlockEachOther()
+    {
+        var validation = PlanGraphValidationPolicy.Validate(
+            [Card("CARD-BRIEFING", "src/contrato.cs"), Card("CARD-DORA", "src/contrato.cs")],
+            declaredEdges: [],
+            Graph(),
+            unnarrowedCardIds: new HashSet<string>(StringComparer.Ordinal) { "CARD-BRIEFING", "CARD-DORA" });
+
+        Assert.True(validation.DispatchAllowed);
+        Assert.Empty(validation.Blocking);
+    }
+
+    /// <summary>
+    /// A segurança não afrouxa quando só UM lado é fallback: o escopo amplo genuinamente PODE
+    /// tocar o arquivo estreito do outro card, e aí a colisão é real — não é o mesmo caso do
+    /// achado acima, onde os dois lados eram igualmente vagos.
+    /// </summary>
+    [Fact]
+    public void AFallbackScopeStillBlocksAgainstARealNarrowedScope()
+    {
+        var validation = PlanGraphValidationPolicy.Validate(
+            [Card("CARD-BROAD-FALLBACK", "src/contrato.cs"), Card("CARD-NARROW", "src/contrato.cs")],
+            declaredEdges: [],
+            Graph(),
+            unnarrowedCardIds: new HashSet<string>(StringComparer.Ordinal) { "CARD-BROAD-FALLBACK" });
+
+        Assert.False(validation.DispatchAllowed);
+        var divergence = Assert.Single(validation.Blocking);
+        Assert.Equal(PlanGraphValidationPolicy.CodeSharedScope, divergence.Code);
+    }
+
+    /// <summary>Sem o parâmetro novo (chamador antigo), o comportamento é idêntico ao de antes.</summary>
+    [Fact]
+    public void OmittingTheUnnarrowedSetPreservesThePreviousBehavior()
+    {
+        var validation = PlanGraphValidationPolicy.Validate(
+            [Card("CARD-A", "src/contrato.cs"), Card("CARD-B", "src/contrato.cs")],
+            declaredEdges: [],
+            Graph());
+
+        Assert.False(validation.DispatchAllowed);
+        Assert.Equal(PlanGraphValidationPolicy.CodeSharedScope, Assert.Single(validation.Blocking).Code);
+    }
 }

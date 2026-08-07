@@ -77,15 +77,33 @@ public static class PlanGraphValidationPolicy
     /// escopos são os MESMOS <see cref="CardScope"/> que a F14 já usa para montar a fronteira
     /// negativa do card — o que o card possui é o que ele vai tocar, e duas definições disso no
     /// mesmo sistema divergiriam.
+    ///
+    /// <paramref name="unnarrowedCardIds"/> — recuperação de throughput da Fase 5 (2026-08-07):
+    /// quando <c>CardPathScopePlanner</c> não consegue estreitar o escopo de um card (nenhuma
+    /// superfície reconhecida — comum em cards conceituais/cross-cutting como os artefatos de
+    /// suporte da fase e correções amplas de DoD), ele devolve o escopo INTEIRO do papel como
+    /// fallback conservador — por exemplo `src/**` inteiro. Medido ao vivo: quatro cards desse
+    /// tipo no mesmo projeto, todos com o mesmo fallback, bloqueavam-se mutuamente aos pares
+    /// (seis colisões de um só grupo) — o backlog inteiro travava em `0 despachado(s)` por
+    /// ciclo, com contas livres e nada rodando. Dois fallbacks idênticos não são evidência de que
+    /// os cards vão tocar o mesmo arquivo; são evidência de que o planejador não sabia de nenhum
+    /// dos dois. Um card com escopo REAL (estreitado) contra um fallback amplo continua
+    /// bloqueando — o fallback pode genuinamente tocar o arquivo estreito do outro, e aí a
+    /// colisão é real. A segurança não afrouxa: o ScopeClaim real, na aquisição da tentativa,
+    /// continua sendo a segunda camada que pega qualquer sobreposição de verdade neste ou em
+    /// qualquer outro par — este ajuste só evita o pré-bloqueio de um par sobre o qual ninguém
+    /// tem informação nenhuma.
     /// </summary>
     public static PlanGraphValidation Validate(
         IReadOnlyList<CardScope> scopes,
         IReadOnlyList<CardDependencyEdge> declaredEdges,
-        CodeGraph graph)
+        CodeGraph graph,
+        IReadOnlySet<string>? unnarrowedCardIds = null)
     {
         ArgumentNullException.ThrowIfNull(scopes);
         ArgumentNullException.ThrowIfNull(declaredEdges);
         ArgumentNullException.ThrowIfNull(graph);
+        var unnarrowed = unnarrowedCardIds ?? new HashSet<string>(StringComparer.Ordinal);
 
         var touchedByCard = new Dictionary<string, string[]>(StringComparer.Ordinal);
         var unverifiable = new SortedSet<string>(StringComparer.Ordinal);
@@ -118,6 +136,17 @@ public static class PlanGraphValidationPolicy
             {
                 var left = cardIds[i];
                 var right = cardIds[j];
+
+                // Os dois lados caíram no fallback do papel inteiro (nenhuma superfície
+                // reconhecida) — nem a colisão de escopo nem o acoplamento direto do grafo
+                // dizem algo confiável sobre ESTES dois cards especificamente, porque o mesmo
+                // sinal apareceria entre QUALQUER par que tivesse caído no mesmo fallback. Ver o
+                // racional completo no XML-doc de <see cref="Validate"/>.
+                if (unnarrowed.Contains(left) && unnarrowed.Contains(right))
+                {
+                    continue;
+                }
+
                 var declared = declaredPairs.Contains(PairKey(left, right));
 
                 var shared = touchedByCard[left]
