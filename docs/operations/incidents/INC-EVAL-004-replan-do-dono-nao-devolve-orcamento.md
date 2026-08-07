@@ -48,3 +48,18 @@ mantendo o escopo funcional integral e carregando os achados dos revisores. O fa
   do dono nunca reabre trabalho.
 - O pedido de atenção não deveria ir para `answered` quando a ação decorrente não teve efeito:
   ou reabre, ou informa ao dono que a decisão não pôde ser aplicada.
+
+## Resolução em código (2026-08-07, `7917186c`)
+
+O primeiro follow-up está resolvido sem migração de schema: `ReplanAttemptPolicy` ganhou
+`CurrentReplanEpochStartedAt`, que lê a rodada já declarada no corpo da instrução
+(`ReadReplanRound`, existente desde OPS-080) e caminha para trás nas versões de instrução enquanto
+a rodada permanece a mesma, achando a data em que o episódio de replanejamento atual começou —
+correções posteriores preservam o corpo (e o marcador), então não movem a época para frente; um
+segundo replanejamento abre uma época nova sem herdar a data do primeiro. O laço de despacho
+(`ChiefBacklogLoopService`) agora filtra o histórico de tentativas por essa época antes de contar
+rodadas gastas (`CountSpentRounds`, `CountExercisedRoundsAsync`). Card nunca replanejado continua
+usando a história inteira — comportamento inalterado.
+
+O segundo follow-up (pedido de atenção não deveria ir para `answered` sem efeito real) segue em
+aberto.

@@ -51,3 +51,18 @@ usa seu modelo default (o comportamento que sempre funcionou).
   `invalid model selection`.
 - O erro de argumento inválido foi classificado como quota (`account.quota_limited`),
   mascarando a causa e atrasando o diagnóstico; merece um reason code próprio.
+
+## Resolução em código (2026-08-07, `a071a983`)
+
+O segundo item do follow-up está resolvido: `ClaudeStreamJsonParser` (Claude Code) passou a
+reconhecer as frases reais da rejeição ("invalid model selection", "is not supported for model",
+"not recognized as a known model") e classificá-las estruturalmente como
+`ExternalFailureKind.AccountModelUnsupported` — mesmo padrão que o adaptador do Codex já usava
+para a recusa de modelo do plano ChatGPT. O desfecho agora é `run.account_model_unsupported`
+(precisa de decisão humana, nunca retry cego, nunca `account.quota_limited`).
+
+O primeiro item (capacidade de effort resolvida por CONTA, não por executor) segue em aberto,
+registrado deliberadamente: `AgentAccountContract` não tem hoje um campo de "modelos/efforts
+suportados por conta" — só `ExecutorProfile.Capabilities`, por executor. Adicionar isso é mudança
+de schema/config maior que o escopo desta correção; a classificação correta do erro observado já
+resolve o sintoma medido (retry cego consumindo tentativas com o mesmo argumento inválido).
