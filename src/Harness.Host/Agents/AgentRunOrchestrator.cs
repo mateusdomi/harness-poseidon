@@ -2252,6 +2252,18 @@ public sealed partial class AgentRunOrchestrator(
         faça COMMIT do trabalho na branch da tentativa antes de finalizar (`git add -A` +
         `git commit`, mensagem convencional). NUNCA faça push. Uma resposta sem commit é
         tratada como tentativa vazia e será REPROVADA pelo revisor independente.
+        {(ObjectiveCardPolicy.IsObjective(command.CardType)
+            ? """
+
+              AUTO-VERIFICAÇÃO OBRIGATÓRIA (premissa básica de desenvolvimento): antes de
+              encerrar, RODE o build e os testes do que você entregou — `dotnet build` e
+              `dotnet test` da solução, e o build/testes do frontend quando o tocou — e
+              exercite a feature de ponta a ponta com chamadas reais. Só encerre com tudo
+              VERDE, resumindo as saídas na mensagem final. A plataforma RECOMPILA a sua
+              entrega no review: submeter sem se verificar queima um ciclo de validação e
+              desperdiça o revisor com erro de compilação.
+              """
+            : string.Empty)}
         {continuationNote}
         ## Instrução
 

@@ -30,6 +30,10 @@ DEFAULT_ALLOWLIST = (
     # medido ao vivo: proxy-deny chatgpt.com:443 até a entrada existir.
     "chatgpt.com",
     "registry.npmjs.org",
+    # Restore do .NET dentro da sandbox: o executor se auto-verifica com `dotnet build/test`
+    # (regra do dono, 2026-08-08) e o feed v3 do NuGet vive nestes hosts.
+    "api.nuget.org",
+    "nuget.org",
     "github.com",
     "api.github.com",
     "codeload.github.com",

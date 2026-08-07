@@ -30,7 +30,19 @@
 # `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, …). Assim uma conta nunca enxerga o perfil da outra, e revogar
 # acesso é apagar um diretório do host — não reconstruir imagem.
 
+FROM mcr.microsoft.com/dotnet/sdk:8.0-bookworm-slim AS dotnet-sdk
+
 FROM node:22-bookworm-slim
+
+# .NET SDK 8 — o EXECUTOR se auto-verifica antes de submeter (regra do dono, 2026-08-08):
+# desenvolver sem conseguir rodar `dotnet build/test` do próprio trabalho era o motivo
+# estrutural do loop desenvolve→reprova→corrige que queimava tokens. A cópia multi-stage traz
+# só o SDK, sem gerenciador de pacote extra nem credencial.
+COPY --from=dotnet-sdk /usr/share/dotnet /usr/share/dotnet
+RUN ln -s /usr/share/dotnet/dotnet /usr/local/bin/dotnet
+ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
+    DOTNET_NOLOGO=1 \
+    DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
 
 LABEL com.harness.managed="true"
 LABEL com.harness.purpose="agent-execution-sandbox"

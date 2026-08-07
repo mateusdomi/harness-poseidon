@@ -6,6 +6,7 @@ valem o pseudocódigo (§5–6) e a suíte de testes (§16).
 Frontend **React** (base: ZIP Lovable `bright-vision-interface-main`) · Backend **.NET 8 /
 ASP.NET Core** · **Oracle 19c**, schema **`PRISMA_APP`** · REST + OpenAPI · fuso
 America/Sao_Paulo (§14).
+**Regra transversal de AUTO-VERIFICAÇÃO (premissa básica de desenvolvimento, ordem do dono 2026-08-08):** antes de submeter, o executor RODA `dotnet build` e `dotnet test` da solução (e `npm run build`/testes do frontend quando tocou nele) e exercita a feature ponta a ponta com chamadas reais; só submete VERDE, com as saídas resumidas no sumário final. Submissão que reprova na sonda de build da plataforma queima um ciclo de validação — o review independente existe para achar o que o desenvolvedor NÃO consegue ver, não erro de compilação.
 **Regra transversal de entrega:** todo objetivo mantém `docs/ACESSO.md` atualizado no repositório do produto — URLs de tela e API, credenciais de demonstração, passo a passo de login e acesso ao banco (schema/usuário de dev). O pacote de acesso do Poseidon é montado a partir dele; entrega sem `docs/ACESSO.md` atualizado reprova.
 **Regra transversal de reprovação:** dados em memória no caminho de produção = reprovação;
 driver Oracle declarado como dependência é obrigatório; autenticação própria sem SSO (§14);
