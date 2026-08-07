@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
@@ -168,7 +169,11 @@ public sealed class RunTargetDetector(RunTargetAgentFallback? agentFallback = nu
                     port,
                     directory,
                     "/usr/bin/env",
-                    ["npm", "run", "dev"],
+                    // `--port`/`--host` explícitos depois do `--`: Vite (e os dev servers da
+                    // família — TanStack Start, Astro, Nuxt) IGNORA a env PORT e sobe na porta
+                    // do próprio config — a URL registrada apontava para uma porta e o serviço
+                    // vivia em outra (observado ao vivo com os frontends Lovable, 2026-08-07).
+                    ["npm", "run", "dev", "--", "--port", port.ToString(CultureInfo.InvariantCulture), "--host", "127.0.0.1"],
                     environment,
                     UserFacing: true);
                 return true;
