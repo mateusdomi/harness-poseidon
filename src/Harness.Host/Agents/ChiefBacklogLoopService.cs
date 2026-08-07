@@ -57,7 +57,8 @@ public sealed partial class ChiefBacklogLoopService(
     ILogger<ChiefBacklogLoopService> logger,
     Harness.Persistence.Abstractions.Coordination.IChiefLoopStateStore? loopStateStore = null,
     ILoggerFactory? loggerFactory = null,
-    Graph.ProjectGraphImpactService? graphImpact = null) : BackgroundService
+    Graph.ProjectGraphImpactService? graphImpact = null,
+    Harness.Persistence.Abstractions.Product.IProjectEffectiveProfileStore? effectiveProfiles = null) : BackgroundService
 {
     /// <summary>Despachante em escala (Fase 10) — puro e determinístico, um por processo.</summary>
     private static readonly ScaleDispatcher ScaleGate = new();
@@ -2481,6 +2482,7 @@ public sealed partial class ChiefBacklogLoopService(
             string diff;
             CodeGraphBuildResult? branchInspection = null;
             DocumentTemplateValidationResult? documentTemplateValidation = null;
+            Harness.Modules.Workflows.Product.StackConformanceVerdict? stackConformance = null;
 
             // OPS-071 — quem executa o gate é a PLATAFORMA. O pacote de objetivo exige
             // "Gates: build, tests" e o revisor cobra a prova de execução, corretamente; mas a CLI
@@ -2550,6 +2552,51 @@ public sealed partial class ChiefBacklogLoopService(
                 {
                     branchInspection = await codeGraph.InspectAsync(
                         project.Id, inspectionPath, token);
+
+                    // Conformidade de STACK, constatada na mesma janela dos demais gates (a
+                    // worktree de inspeção é exatamente o que se revisa). A lição do caso
+                    // Indicadores: 4 reviews independentes aprovaram um backend Node/memória
+                    // porque todos olhavam o diff — este gate confronta a ÁRVORE entregue com o
+                    // perfil efetivo do projeto. Sem perfil materializado não há régua (fases
+                    // pré-arquitetura); perfil ilegível reprova (Default-FAIL).
+                    if (!string.Equals(task.CardType, "documento", StringComparison.Ordinal) &&
+                        effectiveProfiles is not null)
+                    {
+                        var profileRecord = await effectiveProfiles.GetCurrentAsync(
+                            tenantId, project.Id, token);
+                        if (profileRecord is not null)
+                        {
+                            var effectiveProfile =
+                                Harness.Modules.Workflows.Product.ProjectEffectiveProfile.FromJson(
+                                    profileRecord.ProfileJson);
+                            if (effectiveProfile is null)
+                            {
+                                stackConformance = new(false,
+                                [
+                                    new Harness.Modules.Workflows.Product.ProductEvidence(
+                                        Harness.Modules.Workflows.Product.ProductEvidenceKind.BackendPresent,
+                                        false,
+                                        "O perfil efetivo do projeto existe mas não pôde ser lido " +
+                                        "(JSON inválido); conformidade indecidível reprova (Default-FAIL)."),
+                                ]);
+                            }
+                            else
+                            {
+                                var inspectionSha = awaiting.CommitRefs is { Count: > 0 } refs
+                                    ? refs[^1]
+                                    : branch;
+                                var stackEvidence =
+                                    new Harness.Modules.Workflows.Product.RepositoryEvidenceCollector()
+                                        .Collect(
+                                            effectiveProfile,
+                                            new Product.FileSystemProductWorkspace(
+                                                inspectionPath, inspectionSha));
+                                stackConformance =
+                                    Harness.Modules.Workflows.Product.StackConformanceGate.Evaluate(
+                                        effectiveProfile, stackEvidence);
+                            }
+                        }
+                    }
 
                     // Os gates rodam AQUI, com a worktree da tentativa viva e antes de ela ser
                     // removida — é a única janela em que o que se executa é exatamente o que se
@@ -2625,6 +2672,45 @@ public sealed partial class ChiefBacklogLoopService(
                 {
                     _ = await DeferOrEscalateReviewAsync(
                         tenantId, task, awaiting.Id, "document.gate_not_applied", chain, now, token);
+                }
+
+                continue;
+            }
+
+            if (stackConformance is { Satisfied: false } stackFailure)
+            {
+                var stackDetail = stackFailure.Summary();
+                var stackResult = new CriticReviewResult(
+                    UlidValue.New(now).ToString(), awaiting.Id, "deterministic-stack-conformance-gate",
+                    "deterministic", producerAlias, CriticVerdict.Fail,
+                    "critic.fail",
+                    [.. stackFailure.Violations.Select(violation => new CriticFinding(
+                        CriticFindingSeverity.P1,
+                        $"stack.nonconformant:{violation.Kind.ToString().ToLowerInvariant()}",
+                        violation.Detail ?? violation.Kind.ToString(),
+                        null,
+                        "Entregue na stack que o perfil efetivo do projeto decidiu; desvio " +
+                        "deliberado exige ADR aprovado que ALTERE o perfil, nunca contorno."))],
+                    $"Gate de conformidade de stack recusou a entrega: {stackDetail}",
+                    null,
+                    0)
+                {
+                    RejectionCause = ReviewRejectionCause.ScopeViolation,
+                };
+                if (await ApplyReviewVerdictAsync(
+                        tenantId, task, awaiting.Id, stackResult, chain, token,
+                        new LayerResult(
+                            VerificationLayer.Deterministic,
+                            LayerVerdict.Fail,
+                            stackDetail)))
+                {
+                    reviewed++;
+                    ClearReviewDeferrals(tenantId, awaiting.Id, token);
+                }
+                else
+                {
+                    _ = await DeferOrEscalateReviewAsync(
+                        tenantId, task, awaiting.Id, "stack.gate_not_applied", chain, now, token);
                 }
 
                 continue;

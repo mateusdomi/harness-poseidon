@@ -123,6 +123,9 @@ public sealed class EmprestimosSystemRegressionTests
             new EffectiveProfileInputs("project", "Crie somente uma API de empréstimos.", []));
         var files = RepositoryEvidenceCollectorTests.ApiOnlyDeliveryFiles();
         files["src/Emprestimos.Infrastructure/Migrations/0001_inicial.sql"] = "CREATE TABLE emprestimos (id int);";
+        files["src/Emprestimos.Infrastructure/Emprestimos.Infrastructure.csproj"] =
+            "<Project><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup>" +
+            "<ItemGroup><PackageReference Include=\"Microsoft.Data.SqlClient\" Version=\"5.2.2\" /></ItemGroup></Project>";
         files["README.md"] = "Execute com `dotnet run`.";
         var workspace = new FakeProductWorkspace(RepositoryEvidenceCollectorTests.CommitSha, files);
 

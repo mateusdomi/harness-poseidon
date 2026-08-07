@@ -140,6 +140,11 @@ public sealed class EmprestimosIncidentRegressionTests
                 ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.OpenApiGenerated),
                 ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.DatabaseMigrationValidated),
                 ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.PersistenceVerified),
+
+                // Banco fixado pelo perfil (SQL Server, baseline) exige o driver DECLARADO na
+                // entrega — lição do caso Indicadores (avaliação TrensRJ): migration sem driver
+                // é persistência de fachada.
+                ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.DataAccessDeclared),
                 ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.AutomatedTestsPassed),
                 ProductDeliveryGateTests.Satisfied(ProductEvidenceKind.RunbookPresent),
 

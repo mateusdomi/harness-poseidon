@@ -46,6 +46,11 @@ public sealed class RepositoryEvidenceCollector(TimeProvider? timeProvider = nul
         if (profile.Data.Required)
         {
             evidence.Add(InspectMigrations(workspace, now));
+
+            if (profile.Data.Database is { Length: > 0 })
+            {
+                evidence.Add(InspectDataAccess(profile, workspace, now));
+            }
         }
 
         evidence.Add(InspectRunbook(workspace, now));
@@ -189,6 +194,78 @@ public sealed class RepositoryEvidenceCollector(TimeProvider? timeProvider = nul
                 ProductEvidenceKind.DatabaseMigrationValidated, false, workspace, now,
                 "O perfil exige persistência e nenhuma migration versionada foi encontrada.");
     }
+
+    /// <summary>
+    /// Acesso ao banco DO PERFIL existe quando um driver conhecido dele está DECLARADO como
+    /// dependência (PackageReference no .csproj ou dependência no package.json). Uma pasta
+    /// `oracle/` cheia de adaptadores sem driver não acessa banco nenhum — foi exatamente o
+    /// caso Indicadores: migrations e mapeadores presentes, runtime persistindo em memória.
+    /// Banco que o catálogo não conhece não reprova (nulo significa desconhecido).
+    /// </summary>
+    private static ProductEvidence InspectDataAccess(
+        ProjectEffectiveProfile profile, IProductWorkspace workspace, DateTimeOffset now)
+    {
+        var database = profile.Data.Database!.Trim();
+        var drivers = KnownDrivers(database);
+        if (drivers.Length == 0)
+        {
+            return Observed(
+                ProductEvidenceKind.DataAccessDeclared, true, workspace, now,
+                $"O perfil fixa '{database}', banco fora do catálogo de drivers conhecidos; " +
+                "sem prova de divergência, a constatação não reprova.");
+        }
+
+        foreach (var project in workspace.Find("*.csproj"))
+        {
+            var content = workspace.ReadText(project);
+            if (content is not null && drivers.Any(driver =>
+                    Regex.IsMatch(
+                        content,
+                        $"Include\\s*=\\s*\"{Regex.Escape(driver)}",
+                        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+                        TimeSpan.FromSeconds(1))))
+            {
+                return Observed(
+                    ProductEvidenceKind.DataAccessDeclared, true, workspace, now,
+                    $"{project} declara driver de {database} como PackageReference.", project);
+            }
+        }
+
+        foreach (var manifest in workspace.Find("package.json")
+                     .Where(path => !path.Contains("node_modules/", StringComparison.Ordinal)))
+        {
+            var content = workspace.ReadText(manifest);
+            if (content is not null && drivers.Any(driver => DeclaresDependency(content, driver)))
+            {
+                return Observed(
+                    ProductEvidenceKind.DataAccessDeclared, true, workspace, now,
+                    $"{manifest} declara driver de {database} como dependência.", manifest);
+            }
+        }
+
+        return Observed(
+            ProductEvidenceKind.DataAccessDeclared, false, workspace, now,
+            $"O perfil exige {database} e nenhum manifesto da entrega declara um driver " +
+            $"conhecido ({string.Join(", ", drivers)}). Adaptador sem driver é persistência de fachada.");
+    }
+
+    /// <summary>Drivers aceitos por banco, .NET e Node — nomes reais de pacote, nunca inventados.</summary>
+    private static string[] KnownDrivers(string database) => database.Trim().ToLowerInvariant() switch
+    {
+        "oracle" or "oracle 19c" or "oracle19c" =>
+            ["Oracle.ManagedDataAccess", "Oracle.EntityFrameworkCore", "oracledb"],
+        "postgres" or "postgresql" =>
+            ["Npgsql", "Npgsql.EntityFrameworkCore.PostgreSQL", "pg"],
+        "sqlserver" or "sql server" or "mssql" =>
+            ["Microsoft.Data.SqlClient", "System.Data.SqlClient",
+             "Microsoft.EntityFrameworkCore.SqlServer", "mssql"],
+        "mysql" or "mariadb" =>
+            ["MySqlConnector", "MySql.Data", "Pomelo.EntityFrameworkCore.MySql", "mysql2", "mysql"],
+        "sqlite" =>
+            ["Microsoft.Data.Sqlite", "System.Data.SQLite",
+             "Microsoft.EntityFrameworkCore.Sqlite", "better-sqlite3", "sqlite3"],
+        _ => [],
+    };
 
     /// <summary>
     /// Runbook é RESPONSABILIDADE, não nome de arquivo: o que importa é existir documento que

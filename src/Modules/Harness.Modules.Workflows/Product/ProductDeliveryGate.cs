@@ -31,6 +31,14 @@ public enum ProductEvidenceKind
     /// <summary>Existem migrations e o schema é reproduzível.</summary>
     DatabaseMigrationValidated,
 
+    /// <summary>
+    /// O acesso ao banco DO PERFIL está declarado como dependência real (driver no manifesto).
+    /// Fecha o vão do caso Indicadores (avaliação TrensRJ): migrations `.sql` presentes e
+    /// adaptadores "Oracle" escritos, mas nenhum driver declarado — o runtime rodava em memória
+    /// e a entrega passava por persistência.
+    /// </summary>
+    DataAccessDeclared,
+
     /// <summary>Dados persistem de verdade.</summary>
     PersistenceVerified,
 
@@ -164,6 +172,13 @@ public static class ProductDeliveryRequirements
         {
             required.Add(ProductEvidenceKind.DatabaseMigrationValidated);
             required.Add(ProductEvidenceKind.PersistenceVerified);
+
+            // Banco fixado pelo perfil exige o driver DECLARADO na entrega. Migration sem
+            // driver é fachada: o schema existe no papel e o runtime persiste em outro lugar.
+            if (profile.Data.Database is { Length: > 0 })
+            {
+                required.Add(ProductEvidenceKind.DataAccessDeclared);
+            }
         }
 
         required.Add(ProductEvidenceKind.AutomatedTestsPassed);
@@ -209,6 +224,7 @@ public static class ProductDeliveryGate
         ProductEvidenceKind.FrontendPresent or
         ProductEvidenceKind.ApiPresent or
         ProductEvidenceKind.DatabaseMigrationValidated or
+        ProductEvidenceKind.DataAccessDeclared or
         ProductEvidenceKind.RunbookPresent => ProductEvidenceProvenance.Observed,
 
         // Funcionamento não se constata olhando: exige execução controlada com resultado

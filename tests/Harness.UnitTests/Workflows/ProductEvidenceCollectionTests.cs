@@ -205,6 +205,12 @@ public sealed class RepositoryEvidenceCollectorTests
         files["frontend/src/main.tsx"] = "createRoot(document.getElementById('root')!).render(<App />);";
         files["src/Emprestimos.Infrastructure/Migrations/0001_inicial.sql"] =
             "CREATE TABLE emprestimos (id uniqueidentifier PRIMARY KEY);";
+        // Entrega completa declara o acesso ao banco do perfil (SQL Server do baseline) como
+        // dependência real — migration sem driver é persistência de fachada (DataAccessDeclared).
+        // Sem TargetFramework de propósito: o runtime do backend é assunto do csproj da API — e
+        // do teste que o diverge; este manifesto existe para declarar o driver, não o runtime.
+        files["src/Emprestimos.Infrastructure/Emprestimos.Infrastructure.csproj"] =
+            "<Project><ItemGroup><PackageReference Include=\"Microsoft.EntityFrameworkCore.SqlServer\" Version=\"8.0.8\" /></ItemGroup></Project>";
         files["README.md"] = "# Empréstimos\n\nExecute com `dotnet run` e `npm run dev`.\n";
         return files;
     }
