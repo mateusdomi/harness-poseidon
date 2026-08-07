@@ -214,12 +214,33 @@ public sealed class ClaudeCodeExternalAgentExecutor(
         /// CLI). Mesmo motivo do ramo de stdout: sem o código estruturado, a conta caía como
         /// transitória e voltava à eleição a cada dois minutos.
         /// </summary>
-        public void ObserveErrorLine(string line)
+        public void ObserveErrorLine(string line) => ObserveFailureText(line);
+
+        /// <summary>
+        /// INC-EVAL-001: a rejeição de argumento inválido (<c>--model</c>/<c>--effort</c> que a
+        /// conta específica não aceita) saía FORA do envelope stream-json, com código de saída 1
+        /// — igual ao caso de credencial ausente — e o classificador genérico via só
+        /// <c>executor.exit_code_1</c>, que casa com o sinal transitório "exit_code" e virava
+        /// retry cego na MESMA conta com o MESMO argumento inválido, sempre repetindo o
+        /// fracasso. A causa real é a CONTA (roteada por um `ANTHROPIC_BASE_URL` alternativo que
+        /// não aceita a combinação), não o card nem uma instabilidade — mesma família de
+        /// <see cref="ExternalFailureKind.AccountModelUnsupported"/> que o adaptador do Codex já
+        /// reconhece para a recusa de modelo do plano ChatGPT. Duas frases observadas ao vivo:
+        /// <c>--effort is not supported for model "opus"</c> e
+        /// <c>model opus is not recognized as a known model</c>.
+        /// </summary>
+        private void ObserveFailureText(string text)
         {
-            if (line.Contains("Not logged in", StringComparison.OrdinalIgnoreCase) ||
-                line.Contains("Please run /login", StringComparison.OrdinalIgnoreCase))
+            if (text.Contains("Not logged in", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("Please run /login", StringComparison.OrdinalIgnoreCase))
             {
                 Fail("executor.authentication_required", ExternalFailureKind.AuthenticationRequired);
+            }
+            else if (text.Contains("invalid model selection", StringComparison.OrdinalIgnoreCase) ||
+                     text.Contains("is not supported for model", StringComparison.OrdinalIgnoreCase) ||
+                     text.Contains("not recognized as a known model", StringComparison.OrdinalIgnoreCase))
+            {
+                Fail("executor.invalid_model_selection", ExternalFailureKind.AccountModelUnsupported);
             }
         }
 
@@ -247,15 +268,13 @@ public sealed class ClaudeCodeExternalAgentExecutor(
             }
             catch (JsonException)
             {
-                // Linha não estruturada: a CLI imprime a falta de credencial assim, FORA do
-                // envelope stream-json ("Not logged in · Please run /login"), e sai com código
-                // 1. Sem esta tradução o classificador recebia só exit_code_1 e derrubava a
-                // conta como transitória — reeleição a cada dois minutos, para sempre.
-                if (line.Contains("Not logged in", StringComparison.OrdinalIgnoreCase) ||
-                    line.Contains("Please run /login", StringComparison.OrdinalIgnoreCase))
-                {
-                    Fail("executor.authentication_required", ExternalFailureKind.AuthenticationRequired);
-                }
+                // Linha não estruturada: a CLI imprime a falta de credencial ("Not logged in ·
+                // Please run /login") e a rejeição de argumento inválido de model/effort FORA do
+                // envelope stream-json, e sai com código 1 nos dois casos. Sem esta tradução o
+                // classificador recebia só exit_code_1 e tratava os dois como falha transitória
+                // — reeleição/retry cego para sempre, no segundo caso repetindo o mesmo argumento
+                // inválido a cada tentativa (INC-EVAL-001).
+                ObserveFailureText(line);
 
                 // Linha não estruturada (banner, aviso do terminal): ignorada de propósito.
                 yield break;

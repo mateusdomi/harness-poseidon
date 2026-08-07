@@ -124,7 +124,14 @@ public static class AgentRunOutcomeClassifier
     /// estruturado do adapter quanto a frase no diagnóstico.
     /// </summary>
     private static readonly string[] AccountModelSignals =
-        ["account_model_unsupported", "not supported when using"];
+        [
+            "account_model_unsupported", "not supported when using",
+            // INC-EVAL-001: a CLI Claude Code recusa `--model`/`--effort` que a CONTA específica
+            // não aceita (roteada por um ANTHROPIC_BASE_URL alternativo) com estas frases — o
+            // adaptador já classifica estruturalmente (ClaudeStreamJsonParser.ObserveFailureText);
+            // estes sinais são o fallback de texto para quem não passar pelo caminho estruturado.
+            "invalid model selection", "is not supported for model", "not recognized as a known model",
+        ];
 
     private static readonly string[] TransientSignals =
         ["timeout", "no_output", "no_progress", "tool_permission_denied", "prompt_write_failed", "start_failed",
