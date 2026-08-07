@@ -458,6 +458,7 @@ public sealed partial class ChiefBacklogLoopService(
                 // aqui é logada e NUNCA impede o despacho do restante do ciclo.
                 try
                 {
+                    await PromoteNextObjectiveAsync(profile.TenantId, project, board, token);
                     await HarvestCompletedRunsAsync(
                         profile.TenantId, project, projectControlledRoot, board, chain,
                         scope.ServiceProvider.GetRequiredService<IModelInvocationStore>(), token);
@@ -4895,6 +4896,72 @@ public sealed partial class ChiefBacklogLoopService(
             LogObjectiveAnnounceFailed(logger, project.Id, eventKey, exception.GetType().Name);
         }
     }
+
+    /// <summary>
+    /// SEQUENCIAMENTO AUTOMÁTICO de card-objetivo (perfil v2): quando um projeto não tem
+    /// nenhum objetivo em andamento (ready/development/review) e ainda há objetivos no
+    /// backlog, a Bruna promove o PRÓXIMO (ordem de criação = ordem do plano) e narra.
+    ///
+    /// Existe porque a fila vazia dependia do Chefe humano-IA promover à mão — e o dono
+    /// encontrou a fábrica PARADA com trabalho no backlog, avisado por uma mensagem de
+    /// estagnação que ninguém acionou (2026-08-08). Fila com trabalho não fica parada.
+    /// </summary>
+    private async Task PromoteNextObjectiveAsync(
+        string tenantId,
+        ProjectRecord project,
+        IWorkBoardStore board,
+        CancellationToken token)
+    {
+        var page = await board.PageTasksAsync(
+            tenantId,
+            new BoardTaskPageQuery(
+                project.Id, null, null, null, null, null, "active", null, 0, 200),
+            token);
+        var objectives = page.Items
+            .Where(item => ObjectiveCardPolicy.IsObjective(item.CardType))
+            .ToArray();
+        if (objectives.Length == 0)
+        {
+            return;
+        }
+
+        var inFlight = objectives.Any(item =>
+            item.BoardState is "ready" or "development" or "review" or "corrections" or "testsGates");
+        if (inFlight)
+        {
+            return;
+        }
+
+        var next = objectives
+            .Where(item => string.Equals(item.BoardState, "backlog", StringComparison.Ordinal))
+            .OrderBy(item => item.Id, StringComparer.Ordinal)
+            .FirstOrDefault();
+        if (next is null)
+        {
+            return;
+        }
+
+        _ = await board.MoveTaskAsync(
+            new BoardTaskMoveCommand(
+                tenantId,
+                next.Id,
+                "ready",
+                "sequenciamento automático: objetivo anterior concluído, próximo liberado",
+                "system",
+                clock.UtcNow),
+            token);
+        LogObjectivePromoted(logger, project.Id, next.Id);
+        await AnnounceObjectiveEventAsync(
+            tenantId, project,
+            $"{next.Id}:promoted",
+            $"▶️ Liberei o próximo objetivo da fila: **{next.Title}**. Assim que houver um " +
+            "executor disponível, o trabalho começa e eu te aviso.",
+            token);
+    }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Perfil v2: projeto {ProjectId} sem objetivo em andamento — próximo objetivo {TaskId} promovido a ready pelo sequenciamento automático.")]
+    private static partial void LogObjectivePromoted(
+        ILogger logger, string projectId, string taskId);
 
     /// <summary>Sonda HTTP do pacote de acesso — compartilhada, sem estado por requisição.</summary>
     private static readonly HttpClient AccessProbeClient = new();
