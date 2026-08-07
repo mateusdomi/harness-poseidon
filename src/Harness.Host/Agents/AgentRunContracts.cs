@@ -347,4 +347,15 @@ public sealed record AgentCriticReviewCommand
     public IReadOnlyList<string> ScopeClaims { get; init; } = [];
 
     public string? Model { get; init; }
+
+    /// <summary>
+    /// Validação de PRODUTO (perfil v2, card-objetivo): em vez de revisar o diff, o revisor
+    /// explora a árvore entregue em <see cref="ReviewDirectory"/> (somente leitura) e confronta
+    /// o produto com o pacote de delegação, os critérios de aceite e o perfil efetivo. A lição
+    /// do caso Indicadores: quem olha só o diff aprova a stack errada quatro vezes.
+    /// </summary>
+    public bool ProductValidation { get; init; }
+
+    /// <summary>Resumo do perfil efetivo do projeto — a régua de stack da validação de produto.</summary>
+    public string? EffectiveProfileSummary { get; init; }
 }

@@ -2486,6 +2486,7 @@ public sealed partial class ChiefBacklogLoopService(
             CodeGraphBuildResult? branchInspection = null;
             DocumentTemplateValidationResult? documentTemplateValidation = null;
             Harness.Modules.Workflows.Product.StackConformanceVerdict? stackConformance = null;
+            string? effectiveProfileSummary = null;
 
             // OPS-071 — quem executa o gate é a PLATAFORMA. O pacote de objetivo exige
             // "Gates: build, tests" e o revisor cobra a prova de execução, corretamente; mas a CLI
@@ -2585,6 +2586,7 @@ public sealed partial class ChiefBacklogLoopService(
                             }
                             else
                             {
+                                effectiveProfileSummary = effectiveProfile.ToContextSummary();
                                 var inspectionSha = awaiting.CommitRefs is { Count: > 0 } refs
                                     ? refs[^1]
                                     : branch;
@@ -2894,11 +2896,58 @@ public sealed partial class ChiefBacklogLoopService(
                 continue;
             }
 
+            // VALIDAÇÃO DE PRODUTO (perfil v2): o card-objetivo não é revisado pelo diff — o
+            // validador explora a ÁRVORE entregue, em worktree própria e somente leitura, e
+            // confronta o produto com o pacote, os critérios e o perfil efetivo. Sem worktree
+            // não há validação: falha de infra adia, nunca reprova o ator.
+            var productValidation = ObjectiveCardPolicy.IsObjective(task.CardType);
+            string? validationWorktree = null;
+            var ownsValidationWorktree = false;
+            GitWorktreeManager? validationManager = null;
+            if (productValidation)
+            {
+                try
+                {
+                    validationManager = await GitWorktreeManager.OpenAsync(
+                        repositoryRoot, controlledRoot, token);
+                    var registeredForValidation = await validationManager.ListWorktreesAsync(token);
+                    var existingForValidation = registeredForValidation.FirstOrDefault(item =>
+                        string.Equals(item.BranchName, branch, StringComparison.Ordinal));
+                    if (existingForValidation is not null)
+                    {
+                        validationWorktree = existingForValidation.WorktreePath;
+                    }
+                    else
+                    {
+                        validationWorktree = System.IO.Path.Combine(
+                            controlledRoot, "product-validation", awaiting.Id);
+                        System.IO.Directory.CreateDirectory(
+                            System.IO.Path.GetDirectoryName(validationWorktree)!);
+                        _ = await validationManager.CreateTaskWorktreeAsync(
+                            branch, awaiting.Id, validationWorktree, cancellationToken: token);
+                        ownsValidationWorktree = true;
+                    }
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    validationManager?.Dispose();
+                    LogReviewInfrastructureFailure(
+                        logger, task.Id, awaiting.Id,
+                        $"validation-worktree:{exception.GetType().Name}");
+                    _ = await DeferOrEscalateReviewAsync(
+                        tenantId, task, awaiting.Id,
+                        $"validation-worktree:{exception.GetType().Name}", chain, now, token);
+                    continue;
+                }
+            }
+
             // O review roda dentro do ciclo; um executor de crítico que TRAVE congelaria o loop
             // inteiro (colheita, correções, triagem e despacho). O teto local garante que o
             // ciclo sempre volta: estouro vira falha de infraestrutura com backoff, nunca
             // reprovação do ator.
             CriticReviewResult? result = null;
+            try
+            {
             foreach (var candidateAlias in criticAliases)
             {
                 using var reviewTimeout = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -2914,7 +2963,9 @@ public sealed partial class ChiefBacklogLoopService(
                             TaskId = task.Id,
                             CriticAlias = candidateAlias,
                             ActorAlias = producerAlias,
-                            ReviewDirectory = repositoryRoot,
+                            ReviewDirectory = validationWorktree ?? repositoryRoot,
+                            ProductValidation = productValidation,
+                            EffectiveProfileSummary = effectiveProfileSummary,
                             Diff = diff,
                             DelegationInstruction = instructions[^1].Body,
                             // A evidência de execução vem de QUEM EXECUTOU. Antes eram só as
@@ -2946,6 +2997,20 @@ public sealed partial class ChiefBacklogLoopService(
                         logger, task.Id, awaiting.Id, result.ReasonCode);
                 }
             }
+            }
+            finally
+            {
+                if (validationManager is not null)
+                {
+                    if (ownsValidationWorktree && validationWorktree is not null)
+                    {
+                        _ = await validationManager.RemoveTaskWorktreeAsync(
+                            branch, validationWorktree, deleteBranch: false, token);
+                    }
+
+                    validationManager.Dispose();
+                }
+            }
 
             if (result is not null &&
                 await ApplyReviewVerdictAsync(
@@ -2953,6 +3018,21 @@ public sealed partial class ChiefBacklogLoopService(
             {
                 reviewed++;
                 ClearReviewDeferrals(tenantId, awaiting.Id, token);
+
+                // Teto de ciclos validador↔executor do card-objetivo: um executor que
+                // racionalizou uma interpretação errada não ganha rodadas infinitas para
+                // defendê-la. Na terceira reprovação o card escala para decisão humana — o
+                // replanejamento aprovado reabre o orçamento (INC-EVAL-004).
+                if (productValidation && result.Verdict == CriticVerdict.Fail)
+                {
+                    var failedCycles = attempts.Count(attempt =>
+                        string.Equals(attempt.State, "failed", StringComparison.Ordinal)) + 1;
+                    if (failedCycles >= MaximumObjectiveValidationCycles)
+                    {
+                        await EscalateObjectiveValidationExhaustionAsync(
+                            tenantId, project.Id, task, chain, failedCycles, token);
+                    }
+                }
             }
             else
             {
@@ -4593,6 +4673,61 @@ public sealed partial class ChiefBacklogLoopService(
     /// evidência: quantas rodadas foram orçadas, quantas foram gastas e por qual razão o orçamento
     /// era aquele.
     /// </summary>
+    /// <summary>
+    /// Teto de ciclos validador↔executor de um card-objetivo antes da escalação humana. Três é
+    /// deliberado: a primeira reprovação é correção normal, a segunda é sinal, a terceira é um
+    /// executor defendendo a própria interpretação — e isso é decisão de gente, não de cota.
+    /// </summary>
+    internal const int MaximumObjectiveValidationCycles = 3;
+
+    private async Task EscalateObjectiveValidationExhaustionAsync(
+        string tenantId,
+        string projectId,
+        BoardTaskRecord task,
+        IWorkChainStore chain,
+        int failedCycles,
+        CancellationToken token)
+    {
+        LogObjectiveValidationExhausted(logger, task.Id, failedCycles);
+        _ = await chain.EscalateUndispatchableTaskAsync(
+            new WorkTaskUndispatchableCommand(
+                tenantId, task.BackingSolicitationId, task.Id,
+                $"Este objetivo foi reprovado {failedCycles} vezes pela validação independente. " +
+                "O executor está repetindo a mesma interpretação e continuar gastaria cota " +
+                "defendendo-a: preciso de uma decisão humana — rever o enunciado do objetivo, " +
+                "aceitar um desvio por ADR, ou replanejar (o replanejamento aprovado reabre o " +
+                "orçamento de rodadas).",
+                $"card:{task.Id}",
+                task.Version,
+                $"chief-loop-validation-exhausted:{task.Id}:{task.Version}",
+                clock.UtcNow),
+            token);
+        using var scope = scopes.CreateScope();
+        var audit = scope.ServiceProvider
+            .GetRequiredService<global::Harness.Persistence.Abstractions.Governance.IAuditEventStore>();
+        await audit.AppendAsync(
+            new global::Harness.Persistence.Abstractions.Governance.AuditEventAppendCommand(
+                tenantId,
+                "system",
+                null,
+                "card.objectiveValidationExhausted",
+                "task",
+                task.Id,
+                System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    projectId,
+                    taskId = task.Id,
+                    failedCycles,
+                    maximum = MaximumObjectiveValidationCycles,
+                }),
+                clock.UtcNow),
+            token);
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Perfil v2: card-objetivo {TaskId} reprovado {FailedCycles} vezes pela validação de produto — escalado para decisão humana em vez de novo ciclo.")]
+    private static partial void LogObjectiveValidationExhausted(
+        ILogger logger, string taskId, int failedCycles);
+
     private async Task EscalateBudgetExhaustionAsync(
         string tenantId,
         string projectId,
