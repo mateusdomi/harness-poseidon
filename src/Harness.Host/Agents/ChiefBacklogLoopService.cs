@@ -58,8 +58,16 @@ public sealed partial class ChiefBacklogLoopService(
     Harness.Persistence.Abstractions.Coordination.IChiefLoopStateStore? loopStateStore = null,
     ILoggerFactory? loggerFactory = null,
     Graph.ProjectGraphImpactService? graphImpact = null,
-    Harness.Persistence.Abstractions.Product.IProjectEffectiveProfileStore? effectiveProfiles = null) : BackgroundService
+    Harness.Persistence.Abstractions.Product.IProjectEffectiveProfileStore? effectiveProfiles = null,
+    ChiefLoopHeartbeat? heartbeat = null) : BackgroundService
 {
+    /// <summary>
+    /// Pulso compartilhado com o watchdog e o <c>/health</c>: este loop ESCREVE a cada ciclo. Nulo
+    /// só em teste de unidade que constrói o serviço à mão; em produção o DI injeta o singleton.
+    /// </summary>
+    private readonly ChiefLoopHeartbeat _heartbeat =
+        heartbeat ?? new ChiefLoopHeartbeat(DateTimeOffset.UtcNow);
+
     /// <summary>Despachante em escala (Fase 10) — puro e determinístico, um por processo.</summary>
     private static readonly ScaleDispatcher ScaleGate = new();
 
@@ -294,6 +302,9 @@ public sealed partial class ChiefBacklogLoopService(
     // e inspeciona o par (Dispatched, Deferred) — ver InternalsVisibleTo no .csproj.
     internal async Task<(int Dispatched, int Deferred)> RunCycleAsync(CancellationToken token)
     {
+        // PULSO: abre o ciclo. Se algo travar no meio deste método, a distância até aqui é a prova
+        // que o watchdog usa para declarar o loop parado e derrubar o falso verde do /health.
+        _heartbeat.CycleStarted(clock.UtcNow);
         using var scope = scopes.CreateScope();
         var profiles = scope.ServiceProvider.GetRequiredService<ILocalProfileStore>();
         var projects = scope.ServiceProvider.GetRequiredService<IProjectStore>();
@@ -310,6 +321,7 @@ public sealed partial class ChiefBacklogLoopService(
         var profileList = await profiles.ListAsync(token);
         if (profileList.Count == 0)
         {
+            _heartbeat.CycleCompleted(clock.UtcNow, dispatchableCards: 0, eligibleAgents: 0, dispatched: 0);
             return (0, 0);
         }
 
@@ -322,6 +334,10 @@ public sealed partial class ChiefBacklogLoopService(
         // paralisa a instalação inteira.
         var dispatched = 0;
         var deferred = 0;
+        // Quantos cards passaram por TODOS os portões de despacho neste ciclo (readiness, circuito,
+        // orçamento) — o predicado REAL de "despachável", contado sem divergir do dispatcher porque
+        // é o mesmo conjunto que ele monta. Alimenta a invariante anti-ociosidade do watchdog.
+        var dispatchableCards = 0;
         foreach (var profile in profileList)
         {
             token.ThrowIfCancellationRequested();
@@ -769,6 +785,9 @@ public sealed partial class ChiefBacklogLoopService(
                         resolution, dispatchTask, dispatchInstruction.Id));
                 }
 
+                // Todo card aqui passou pelos portões: é genuinamente despachável neste ciclo.
+                dispatchableCards += cards.Count;
+
                 if (cards.Count == 0)
                 {
                     continue;
@@ -1140,6 +1159,15 @@ public sealed partial class ChiefBacklogLoopService(
             }
 
         }
+
+        // PULSO: fecha o ciclo com a fotografia honesta. `eligibleAgents` conta EXECUTORES (aliases
+        // worker-*) que o ledger diz prontos para receber trabalho — o chief não conta porque, com o
+        // reforço desligado, ele não executa. É contra estes dois números que o watchdog verifica a
+        // invariante do dono: trabalho despachável + executor pronto ⇒ a fábrica não pode dormir.
+        var eligibleAgents = availability.List().Count(record =>
+            record.State == AgentAccountState.Available &&
+            record.Alias.StartsWith("worker-", StringComparison.Ordinal));
+        _heartbeat.CycleCompleted(clock.UtcNow, dispatchableCards, eligibleAgents, dispatched);
 
         return (dispatched, deferred);
     }
@@ -3617,8 +3645,15 @@ public sealed partial class ChiefBacklogLoopService(
             },
             token);
 
+        // "Esperando" é a FILA DE DESPACHO REAL: board_state='ready' (campo State do record), o
+        // mesmo que o dispatcher pagina. NÃO a coluna `state` (InternalState) — um card de andaime
+        // parado em board_state='backlog' tem state='ready' e o dispatcher nunca o pega; contá-lo
+        // como "esperando" fazia a saúde gritar "parada há 2h" com a fábrica de fato CONCLUÍDA
+        // (defeito observado 2026-08-08: "1-Triagem"/"t-sonda3" em backlog seguravam o alarme falso,
+        // que ainda caía no fallback genérico "problema de infraestrutura"). Sem card na fila real
+        // não há parede — há fila vazia, que é silêncio honesto, não pausa.
         var waiting = page.Items.Count(task =>
-            task.InternalState is "ready" or "running");
+            string.Equals(task.State, "ready", StringComparison.Ordinal));
         if (waiting == 0)
         {
             return null;

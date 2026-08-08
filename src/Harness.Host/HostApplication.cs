@@ -607,7 +607,12 @@ public static class HostApplication
                 services.GetService<Harness.Persistence.Abstractions.Projects.IProjectStore>()));
             builder.Services.AddScoped<Product.ProductDeliveryEvaluator>();
             builder.Services.AddScoped<Workflows.WorkflowPhaseDriver>();
+            // VIVACIDADE do loop: pulso compartilhado (loop escreve, watchdog e /health leem) e o
+            // vigia determinístico que derruba o falso verde e denuncia ociosidade indevida. Ordem
+            // do dono 2026-08-08: a fábrica nunca pode ficar >5min parada havendo trabalho e executor.
+            builder.Services.AddSingleton(new ChiefLoopHeartbeat(DateTimeOffset.UtcNow));
             builder.Services.AddHostedService<ChiefBacklogLoopService>();
+            builder.Services.AddHostedService<ChiefLoopWatchdogService>();
             builder.Services.AddSingleton(new AttemptArtifactArchive(
                 string.IsNullOrWhiteSpace(agentRunSettings.ArchiveRoot)
                     ? AttemptArtifactArchive.DefaultRoot
@@ -944,8 +949,56 @@ public static class HostApplication
             app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = frontendFiles });
             app.UseStaticFiles(new StaticFileOptions { FileProvider = frontendFiles });
         }
-        app.MapGet("/health", () => Results.Ok(new HealthResponse("healthy")))
-            .WithTags("system");
+        // /health agora PROVA a vivacidade do loop, não só a do servidor web. O falso verde —
+        // processo "healthy" com o loop morto/travado — foi o defeito que deixou a fábrica 2h parada
+        // sem ninguém saber (2026-08-08). 503 quando o loop está travado é o gatilho determinístico
+        // do supervisor externo, que só faz `curl` e reinicia o host sem depender do processo travado.
+        app.MapGet("/health", (HttpContext http) =>
+        {
+            var heartbeat = http.RequestServices.GetService<ChiefLoopHeartbeat>();
+            var settings = http.RequestServices.GetService<AgentRunSettings>();
+            var clock = http.RequestServices.GetService<IClock>();
+            if (heartbeat is null || settings is null || clock is null)
+            {
+                // Loop desabilitado nesta instância: health cobre só o servidor web.
+                return Results.Ok(new HealthResponse("healthy"));
+            }
+
+            var liveness = heartbeat.Read(
+                clock.UtcNow,
+                settings.LoopStuckAfter,
+                settings.LoopIdleBudget,
+                settings.LoopLivenessStartupGrace);
+
+            if (liveness.Stuck)
+            {
+                return Results.Json(
+                    new
+                    {
+                        status = "unhealthy",
+                        reason = "chief_loop_stuck",
+                        stalenessSeconds = liveness.StalenessSeconds,
+                        cyclesCompleted = liveness.CyclesCompleted,
+                    },
+                    statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
+
+            if (liveness.AntiIdleViolation)
+            {
+                // Vivo, mas violando a invariante do dono (trabalho + executor, sem despacho).
+                // Reiniciar não conserta bug de despacho — então NÃO derruba o health; sinaliza.
+                return Results.Json(new
+                {
+                    status = "degraded",
+                    reason = "anti_idle_violation",
+                    idleSeconds = liveness.IdleSeconds,
+                    dispatchableCards = liveness.DispatchableCards,
+                    eligibleAgents = liveness.EligibleAgents,
+                });
+            }
+
+            return Results.Ok(new HealthResponse("healthy"));
+        }).WithTags("system");
 
         app.MapGet("/ready", () => Results.Ok(new Dictionary<string, string>
         {

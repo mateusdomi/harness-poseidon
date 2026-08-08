@@ -156,6 +156,31 @@ public sealed record AgentRunSettings
     /// então abaixo disso silêncio ainda é trabalho.
     /// </summary>
     public int DeliveryStallMinutes { get; init; } = 20;
+
+    /// <summary>
+    /// VIVACIDADE (watchdog do loop). Sem NENHUM ciclo dando sinal de progresso por mais que isto,
+    /// o loop é considerado TRAVADO: o <c>/health</c> vira 503 e o supervisor externo reinicia o
+    /// host. Cinco minutos por padrão — dez vezes o intervalo do loop; um ciclo saudável fecha em
+    /// segundos, então cinco minutos de silêncio é hang, não trabalho pesado.
+    /// </summary>
+    public TimeSpan LoopStuckAfter { get; init; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// INVARIANTE DO DONO (2026-08-08): havendo card despachável E executor elegível, a fábrica não
+    /// pode ficar ociosa mais que isto. Excedido, o watchdog registra VIOLAÇÃO — bug de despacho, não
+    /// ociosidade legítima. Cinco minutos por padrão, o número que o dono cravou.
+    /// </summary>
+    public TimeSpan LoopIdleBudget { get; init; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Carência de vivacidade logo após a subida do processo: um deploy cancela o que voava e zera
+    /// a atividade por alguns minutos. Sem ela, todo reinício acusaria travamento que o próprio
+    /// reinício causou. Três minutos — curta, porque um processo são já deve estar despachando.
+    /// </summary>
+    public TimeSpan LoopLivenessStartupGrace { get; init; } = TimeSpan.FromMinutes(3);
+
+    /// <summary>Cadência com que o watchdog reavalia o pulso do loop. Um minuto: o dono exige &lt;5min.</summary>
+    public TimeSpan LoopWatchdogInterval { get; init; } = TimeSpan.FromMinutes(1);
 }
 
 /// <summary>Situação de um run de agente. Conjunto fechado.</summary>
