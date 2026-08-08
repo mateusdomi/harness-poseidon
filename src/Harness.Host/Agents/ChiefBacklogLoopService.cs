@@ -3079,12 +3079,12 @@ public sealed partial class ChiefBacklogLoopService(
                                 tenantId, task, awaiting.Id, "e2e.gate_not_applied", chain, now, token);
                         }
 
-                        LogProductE2EGate(logger, task.Id, "failed", e2e.Detail.Length);
+                        LogProductE2EGate(logger, task.Id, "failed", TruncateForChat(e2e.Detail));
                         continue;
                     }
 
                     LogProductE2EGate(
-                        logger, task.Id, e2e.Ran ? "passed" : "unavailable", e2e.Detail.Length);
+                        logger, task.Id, e2e.Ran ? "passed" : "unavailable", TruncateForChat(e2e.Detail));
                 }
             }
 
@@ -5171,9 +5171,9 @@ public sealed partial class ChiefBacklogLoopService(
     private static partial void LogValidationWorktreeCleanupFailed(
         ILogger logger, string attemptId, string detail);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Perfil v2: gate de E2E da plataforma para o card {TaskId} resultou {Result} (detalhe {DetailLength} chars).")]
+    [LoggerMessage(Level = LogLevel.Information, Message = "Perfil v2: gate de E2E da plataforma para o card {TaskId} resultou {Result}: {Detail}")]
     private static partial void LogProductE2EGate(
-        ILogger logger, string taskId, string result, int detailLength);
+        ILogger logger, string taskId, string result, string detail);
 
     private async Task EscalateBudgetExhaustionAsync(
         string tenantId,
