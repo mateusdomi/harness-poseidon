@@ -24,7 +24,20 @@ public sealed record ProductE2EHarness(
     [property: JsonPropertyName("frontUrl")] string? FrontUrl,
     [property: JsonPropertyName("e2eDir")] string E2eDir,
     [property: JsonPropertyName("e2eCommand")] IReadOnlyList<string> E2eCommand,
-    [property: JsonPropertyName("env")] IReadOnlyDictionary<string, string> Env)
+    [property: JsonPropertyName("env")] IReadOnlyDictionary<string, string> Env,
+    // SEGREDOS EFÊMEROS: o que NÃO pode ir no git. O produto declara QUAIS variáveis o gate deve
+    // gerar na hora e de que TIPO ("password", "hex32", "policyPassword"); o runner materializa um
+    // valor por rodada, injeta no compose+API+E2E e joga fora no teardown. É a peça que faltava
+    // para o gate deixar de devolver "unavailable" (o compose/API subiam sem senha).
+    [property: JsonPropertyName("generatedSecrets")] IReadOnlyDictionary<string, string>? GeneratedSecrets = null,
+    // Variável que recebe uma PORTA DE BANCO ALEATÓRIA (isolamento entre rodadas/produtos). Se
+    // declarada, o runner acha uma porta livre e a expõe como esta variável e como ${DB_PORT} nos
+    // templates de `env`. Se ausente, usa a porta fixa do compose do produto.
+    [property: JsonPropertyName("dbPortVar")] string? DbPortVar = null,
+    // Comando para SUBIR O FRONT quando a config de Playwright do produto não o faz sozinha
+    // (ex.: sem `webServer`). Opcional: se ausente, assume-se que o Playwright sobe o próprio front.
+    [property: JsonPropertyName("frontCommand")] IReadOnlyList<string>? FrontCommand = null,
+    [property: JsonPropertyName("frontDir")] string? FrontDir = null)
 {
     private static readonly JsonSerializerOptions Options = new()
     {

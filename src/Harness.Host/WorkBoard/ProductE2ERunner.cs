@@ -33,7 +33,14 @@ internal static class ProductE2ERunner
         ArgumentNullException.ThrowIfNull(harness);
 
         var apiProcess = default(Process);
+        var frontProcess = default(Process);
         var startedCompose = false;
+
+        // AMBIENTE EFÊMERO: gera os segredos declarados e resolve os templates ${VAR} de `env`.
+        // É o mesmo env para compose, API e E2E — cada rodada com credenciais próprias, que somem
+        // no teardown. Sem isto o compose/API subiam sem senha e o gate devolvia "unavailable".
+        var env = ProductE2EEnvironment.Materialize(harness, GenerateSecret, AllocateFreePort);
+
         try
         {
             // 1. Banco, via o compose DO PRODUTO. Sem Docker, a prova não roda (não reprova).
@@ -45,11 +52,19 @@ internal static class ProductE2ERunner
                         false, false, "Docker indisponível no host: E2E não pôde subir o banco.");
                 }
 
+                // Sempre parte de banco LIMPO: a suíte não é idempotente contra Oracle sujo (uma
+                // rodada anterior troca as senhas do 1º acesso e a seguinte herda o estado, dando
+                // reprovação falsa). `down -v` apaga o volume antes de subir.
+                _ = await RunAsync(
+                    repositoryRoot, "docker",
+                    ["compose", "-f", compose, "down", "-v"],
+                    TimeSpan.FromMinutes(3), env, cancellationToken);
+
                 var (composeExit, composeOut) = await RunAsync(
                     repositoryRoot, "docker",
                     ["compose", "-f", compose, "up", "-d",
                      .. (harness.ComposeService is { Length: > 0 } svc ? new[] { svc } : [])],
-                    ComposeTimeout, harness.Env, cancellationToken);
+                    ComposeTimeout, env, cancellationToken);
                 if (composeExit != 0)
                 {
                     return new ProductE2EResult(
@@ -60,13 +75,13 @@ internal static class ProductE2ERunner
                 await WaitForHealthyAsync(repositoryRoot, harness.ComposeService, cancellationToken);
             }
 
-            // 2. API, via dotnet run — herda o env declarado (connection string, jwt, senha).
+            // 2. API, via dotnet run — herda o env efêmero (connection string, jwt, senha).
             if (harness.ApiProject is { Length: > 0 } apiProject)
             {
                 apiProcess = StartDetached(
                     repositoryRoot, "dotnet",
                     ["run", "--project", apiProject, "--no-launch-profile", "--", "--urls", harness.ApiUrl],
-                    harness.Env);
+                    env);
                 var healthy = await PollHealthAsync(
                     harness.ApiUrl.TrimEnd('/') + harness.ApiHealthPath, ApiBootTimeout, cancellationToken);
                 if (!healthy)
@@ -76,11 +91,28 @@ internal static class ProductE2ERunner
                 }
             }
 
-            // 3. Browser + suíte. A config do produto sobe o próprio front (ou usa FrontUrl).
+            // 3. Front, quando a config de Playwright do produto NÃO o sobe sozinha (sem webServer).
+            //    Declarado em `frontCommand`; herda o env efêmero (ex.: URL da API).
+            if (harness.FrontCommand is { Count: > 0 } frontCommand)
+            {
+                var frontDir = Path.Combine(repositoryRoot, harness.FrontDir ?? harness.E2eDir);
+                frontProcess = StartDetached(frontDir, frontCommand[0], [.. frontCommand.Skip(1)], env);
+                if (harness.FrontUrl is { Length: > 0 } frontUrl)
+                {
+                    var frontReady = await PollHealthAsync(frontUrl, ApiBootTimeout, cancellationToken);
+                    if (!frontReady)
+                    {
+                        return new ProductE2EResult(
+                            false, false, "O front do produto não respondeu no tempo previsto.");
+                    }
+                }
+            }
+
+            // 4. Browser + suíte. A config do produto sobe o próprio front (ou usamos frontCommand).
             var e2eDir = Path.Combine(repositoryRoot, harness.E2eDir);
             var install = await RunAsync(
                 e2eDir, "npx", ["playwright", "install", "chromium"],
-                TimeSpan.FromMinutes(4), harness.Env, cancellationToken);
+                TimeSpan.FromMinutes(4), env, cancellationToken);
             if (install.ExitCode != 0)
             {
                 return new ProductE2EResult(
@@ -89,7 +121,7 @@ internal static class ProductE2ERunner
 
             var e2e = await RunAsync(
                 e2eDir, harness.E2eCommand[0], [.. harness.E2eCommand.Skip(1)],
-                E2ETimeout, harness.Env, cancellationToken);
+                E2ETimeout, env, cancellationToken);
 
             // Exit 0 = todas passaram. Exit != 0 com saída de teste = produto reprovou (prova real).
             return new ProductE2EResult(
@@ -104,6 +136,12 @@ internal static class ProductE2ERunner
         }
         finally
         {
+            if (frontProcess is not null)
+            {
+                try { frontProcess.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+                frontProcess.Dispose();
+            }
+
             if (apiProcess is not null)
             {
                 try { apiProcess.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
@@ -115,8 +153,52 @@ internal static class ProductE2ERunner
                 _ = await RunAsync(
                     repositoryRoot, "docker",
                     ["compose", "-f", composeDown, "down", "-v"],
-                    TimeSpan.FromMinutes(3), harness.Env, CancellationToken.None);
+                    TimeSpan.FromMinutes(3), env, CancellationToken.None);
             }
+        }
+    }
+
+    /// <summary>
+    /// Gera um valor efêmero do TIPO pedido pelo manifesto. Vale só para uma rodada de gate contra
+    /// banco descartável — não é credencial persistida.
+    /// <list type="bullet">
+    /// <item><c>hex32</c>: 32 bytes em hex (64 chars) — chave de assinatura JWT.</item>
+    /// <item><c>policyPassword</c>: forte por construção (maiúscula, minúscula, dígito, símbolo,
+    /// 20+ chars) para passar em políticas de senha típicas do produto semeado.</item>
+    /// <item>qualquer outro (ex.: <c>password</c>): 24 chars alfanuméricos.</item>
+    /// </list>
+    /// </summary>
+    private static string GenerateSecret(string kind) => kind switch
+    {
+        "hex32" => Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)),
+        "policyPassword" => "Aa1!" + RandomAlphanumeric(20),
+        _ => RandomAlphanumeric(24),
+    };
+
+    private static string RandomAlphanumeric(int length)
+    {
+        const string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        var chars = new char[length];
+        for (var index = 0; index < length; index++)
+        {
+            chars[index] = alphabet[System.Security.Cryptography.RandomNumberGenerator.GetInt32(alphabet.Length)];
+        }
+
+        return new string(chars);
+    }
+
+    /// <summary>Acha uma porta TCP livre pedindo a porta 0 ao SO e devolvendo a que ele atribuiu.</summary>
+    private static int AllocateFreePort()
+    {
+        var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        listener.Start();
+        try
+        {
+            return ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+        }
+        finally
+        {
+            listener.Stop();
         }
     }
 
