@@ -84,12 +84,15 @@ public static class ExecutorCatalog
         new ExecutorProfile(
             KimiCode,
             "Kimi Code",
+            // Binário real em ~/.kimi-code/bin/kimi. `kimi -p <prompt> --auto` roda um prompt
+            // não interativo, autônomo (não pergunta). As flags de execução são montadas pelo
+            // KimiExternalAgentExecutor; aqui só o binário e o isolamento por HOME (CA-3).
             "kimi",
-            ["-p"],
+            [],
             null,
             ["PATH", "HOME", "LANG", "USER"],
             new CapabilitySet(
-                ["chat", "code"], SupportsStreaming: true, SupportsResume: true,
+                ["chat", "code"], SupportsStreaming: false, SupportsResume: false,
                 SupportsEffort: false, [], MaxContextTokens: null),
             DetectedVersion: null),
 

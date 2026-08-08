@@ -17,7 +17,7 @@ public sealed class ExternalAgentExecutorFactory(AccountProfileProvisioner profi
 
     public static bool IsImplemented(string executorId) =>
         executorId is ExecutorCatalog.ClaudeCode or ExecutorCatalog.Glm or ExecutorCatalog.Codex
-            or ExecutorCatalog.Antigravity;
+            or ExecutorCatalog.Antigravity or ExecutorCatalog.KimiCode;
 
     public IExternalAgentExecutor Create(string executorId) => executorId switch
     {
@@ -25,6 +25,7 @@ public sealed class ExternalAgentExecutorFactory(AccountProfileProvisioner profi
         ExecutorCatalog.Glm => ClaudeCodeExternalAgentExecutor.ForGlm(_profiles),
         ExecutorCatalog.Codex => CodexExternalAgentExecutor.Create(_profiles),
         ExecutorCatalog.Antigravity => AntigravityExternalAgentExecutor.Create(_profiles),
+        ExecutorCatalog.KimiCode => KimiExternalAgentExecutor.Create(_profiles),
         _ => throw new ExternalAgentException("executor.adapter_not_implemented"),
     };
 }
