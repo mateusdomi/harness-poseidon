@@ -3013,6 +3013,81 @@ public sealed partial class ChiefBacklogLoopService(
                 }
             }
 
+            // GATE DE E2E DA PLATAFORMA (perfil v2): a prova de navegador é executada AQUI, no
+            // host, contra o ambiente vivo — não se confia no relato do ator (que afirmou "E2E
+            // verde" com 22 falhas reais e cujo sandbox nem sobe banco). Só roda para
+            // card-objetivo com manifesto .harness/e2e.json declarado; E2E vermelho reprova o
+            // objetivo deterministicamente; E2E não-executável (sem Docker, boot falho) adia como
+            // infra — NUNCA um falso verde.
+            if (productValidation && validationWorktree is not null)
+            {
+                var harness = Harness.Modules.Workflows.Product.ProductE2EHarness.TryLoad(
+                    validationWorktree);
+                if (harness is not null)
+                {
+                    var e2e = await ProductE2ERunner.RunAsync(validationWorktree, harness, token);
+                    if (e2e is { Ran: true, Passed: false })
+                    {
+                        var e2eResult = new CriticReviewResult(
+                            UlidValue.New(now).ToString(), awaiting.Id, "deterministic-e2e-gate",
+                            "deterministic", producerAlias, CriticVerdict.Fail,
+                            "critic.fail",
+                            [new CriticFinding(
+                                CriticFindingSeverity.P1,
+                                "e2e.suite_failed",
+                                TruncateForChat(e2e.Detail),
+                                null,
+                                "A suíte E2E de navegador do produto tem que passar 100% contra o " +
+                                "ambiente vivo. Rode-a você mesmo e conserte a raiz.")],
+                            "Gate de E2E da plataforma reprovou: o produto falha no navegador.",
+                            null,
+                            0)
+                        {
+                            RejectionCause = ReviewRejectionCause.AcceptanceNotMet,
+                        };
+                        var applied = await ApplyReviewVerdictAsync(
+                            tenantId, task, awaiting.Id, e2eResult, chain, token,
+                            new LayerResult(
+                                VerificationLayer.Deterministic, LayerVerdict.Fail, "e2e.suite_failed"));
+                        if (validationManager is not null)
+                        {
+                            if (ownsValidationWorktree && validationWorktree is not null)
+                            {
+                                try
+                                {
+                                    _ = await validationManager.RemoveTaskWorktreeAsync(
+                                        branch, validationWorktree, deleteBranch: false, token);
+                                }
+                                catch (Exception cleanup) when (cleanup is not OperationCanceledException)
+                                {
+                                    LogValidationWorktreeCleanupFailed(
+                                        logger, awaiting.Id, cleanup.Message);
+                                }
+                            }
+
+                            validationManager.Dispose();
+                        }
+
+                        if (applied)
+                        {
+                            reviewed++;
+                            ClearReviewDeferrals(tenantId, awaiting.Id, token);
+                        }
+                        else
+                        {
+                            _ = await DeferOrEscalateReviewAsync(
+                                tenantId, task, awaiting.Id, "e2e.gate_not_applied", chain, now, token);
+                        }
+
+                        LogProductE2EGate(logger, task.Id, "failed", e2e.Detail.Length);
+                        continue;
+                    }
+
+                    LogProductE2EGate(
+                        logger, task.Id, e2e.Ran ? "passed" : "unavailable", e2e.Detail.Length);
+                }
+            }
+
             // O review roda dentro do ciclo; um executor de crítico que TRAVE congelaria o loop
             // inteiro (colheita, correções, triagem e despacho). O teto local garante que o
             // ciclo sempre volta: estouro vira falha de infraestrutura com backoff, nunca
@@ -5095,6 +5170,10 @@ public sealed partial class ChiefBacklogLoopService(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Perfil v2: worktree de validação da tentativa {AttemptId} não pôde ser removida pelo git ({Detail}); removida à força — o ciclo de acompanhamento segue.")]
     private static partial void LogValidationWorktreeCleanupFailed(
         ILogger logger, string attemptId, string detail);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Perfil v2: gate de E2E da plataforma para o card {TaskId} resultou {Result} (detalhe {DetailLength} chars).")]
+    private static partial void LogProductE2EGate(
+        ILogger logger, string taskId, string result, int detailLength);
 
     private async Task EscalateBudgetExhaustionAsync(
         string tenantId,
