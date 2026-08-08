@@ -100,6 +100,15 @@ public sealed record AgentRunSettings
     /// </summary>
     public bool AutoDispatchEnabled { get; init; } = true;
 
+    /// <summary>
+    /// Permite o REFORÇO DO CHEFE — emprestar a conta do chief-orchestrator para EXECUTAR um card
+    /// quando nenhum executor regular está disponível. Nasce ligado (comportamento histórico), mas
+    /// desligar preserva a cota do chief/Bruna: com ele OFF, a fábrica só executa nas contas de
+    /// executor (cotas próprias), e o chief apenas orquestra (decisão determinística, sem chamar o
+    /// modelo). Ordem do dono 2026-08-08: a cota do chief é escassa e deve ser só para orquestrar.
+    /// </summary>
+    public bool AllowChiefReinforcement { get; init; } = true;
+
     /// <summary>Intervalo entre ciclos do loop do chefe.</summary>
     public TimeSpan AutoDispatchInterval { get; init; } = TimeSpan.FromSeconds(30);
 

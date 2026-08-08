@@ -1021,6 +1021,16 @@ public sealed partial class ChiefBacklogLoopService(
                 foreach (var decision in plan.Dispatch)
                 {
                     token.ThrowIfCancellationRequested();
+                    // Reforço do chefe desligado (ordem do dono 2026-08-08): a conta do chief
+                    // NÃO executa card — a cota dela é para orquestrar. O card fica para o próximo
+                    // ciclo, quando um executor regular estiver livre.
+                    if (!settings.AllowChiefReinforcement && string.Equals(
+                            decision.ReasonCode, "chief.reinforcement_dispatched", StringComparison.Ordinal))
+                    {
+                        deferred++;
+                        continue;
+                    }
+
                     var entry = cards.First(candidate => candidate.Card.TaskId == decision.Card.TaskId);
                     if (orchestrator.HasLiveScopeConflict(
                             project.Id, entry.Resolution.ScopeClaims))
@@ -3079,12 +3089,11 @@ public sealed partial class ChiefBacklogLoopService(
                                 tenantId, task, awaiting.Id, "e2e.gate_not_applied", chain, now, token);
                         }
 
-                        LogProductE2EGate(logger, task.Id, "failed", TruncateForChat(e2e.Detail));
+                        LogProductE2EGate(logger, task.Id, "failed", e2e.Detail);
                         continue;
                     }
 
-                    LogProductE2EGate(
-                        logger, task.Id, e2e.Ran ? "passed" : "unavailable", TruncateForChat(e2e.Detail));
+                    LogProductE2EGate(logger, task.Id, e2e.Ran ? "passed" : "unavailable", e2e.Detail);
                 }
             }
 
