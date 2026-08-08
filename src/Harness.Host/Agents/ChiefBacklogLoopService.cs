@@ -4934,7 +4934,11 @@ public sealed partial class ChiefBacklogLoopService(
 
         var next = objectives
             .Where(item => string.Equals(item.State, "backlog", StringComparison.Ordinal))
-            .OrderBy(item => item.Id, StringComparer.Ordinal)
+            // Ordem do PLANO é o título ("Objetivo N: …"), não o id: cards criados no mesmo
+            // milissegundo empatam no prefixo temporal do ULID e a ordenação por id embaralhou
+            // a fila (o Objetivo 5 furou o 4, observado ao vivo em 2026-08-08).
+            .OrderBy(item => item.Title, StringComparer.Ordinal)
+            .ThenBy(item => item.Id, StringComparer.Ordinal)
             .FirstOrDefault();
         if (next is null)
         {

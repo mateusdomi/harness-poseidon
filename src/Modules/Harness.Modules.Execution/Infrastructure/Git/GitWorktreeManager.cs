@@ -510,6 +510,7 @@ public sealed class GitWorktreeManager : IDisposable
             // condição responde "already up to date", registra sucesso e NÃO move o alvo. Foi o
             // que aconteceu com o 1º objetivo real da v2: intent 'merged', main intacto.
             await EnsureMergeTargetCheckedOutAsync(cancellationToken);
+            await ResetMergeTargetAsync(cancellationToken);
             var merge = await RunGitAsync(
                 _repositoryRoot,
                 [
@@ -561,6 +562,23 @@ public sealed class GitWorktreeManager : IDisposable
         {
             throw CreateGitException(
                 $"attach HEAD to the merge target '{targetBranch}'", checkout);
+        }
+    }
+
+    /// <summary>
+    /// Descarta modificações locais do checkout principal antes do merge de integração. O
+    /// checkout do produto NUNCA é workspace — todo trabalho vive em worktrees de tentativa —
+    /// então qualquer sujeira ali é contaminação de máquina, não trabalho: o caso real foi o
+    /// dev server do preview regenerando `routeTree.gen.ts` (arquivo rastreado) e TODO merge
+    /// passar a falhar com "Please commit your changes or stash them" (2026-08-08).
+    /// </summary>
+    private async Task ResetMergeTargetAsync(CancellationToken cancellationToken)
+    {
+        var reset = await RunGitAsync(
+            _repositoryRoot, ["reset", "--hard"], cancellationToken);
+        if (reset.ExitCode != 0)
+        {
+            throw CreateGitException("reset the merge target working tree", reset);
         }
     }
 
