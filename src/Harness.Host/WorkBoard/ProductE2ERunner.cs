@@ -41,6 +41,12 @@ internal static class ProductE2ERunner
         // no teardown. Sem isto o compose/API subiam sem senha e o gate devolvia "unavailable".
         var env = ProductE2EEnvironment.Materialize(harness, GenerateSecret, AllocateFreePort);
 
+        // PROJECT NAME ISOLADO. Sem `-p`, o docker-compose usa o nome do DIRETÓRIO do compose como
+        // project name — e dois produtos com o compose em `infra/` viram ambos o projeto "infra".
+        // Um `down -v` de um apagava o contêiner do outro (perda de dados observada 2026-08-08). Um
+        // nome próprio e único por repositório isola o gate de qualquer ambiente de desenvolvimento.
+        var composeProject = ComposeProjectName(repositoryRoot);
+
         try
         {
             // 1. Banco, via o compose DO PRODUTO. Sem Docker, a prova não roda (não reprova).
@@ -57,12 +63,12 @@ internal static class ProductE2ERunner
                 // reprovação falsa). `down -v` apaga o volume antes de subir.
                 _ = await RunAsync(
                     repositoryRoot, "docker",
-                    ["compose", "-f", compose, "down", "-v"],
+                    ["compose", "-p", composeProject, "-f", compose, "down", "-v"],
                     TimeSpan.FromMinutes(3), env, cancellationToken);
 
                 var (composeExit, composeOut) = await RunAsync(
                     repositoryRoot, "docker",
-                    ["compose", "-f", compose, "up", "-d",
+                    ["compose", "-p", composeProject, "-f", compose, "up", "-d",
                      .. (harness.ComposeService is { Length: > 0 } svc ? new[] { svc } : [])],
                     ComposeTimeout, env, cancellationToken);
                 if (composeExit != 0)
@@ -152,7 +158,7 @@ internal static class ProductE2ERunner
             {
                 _ = await RunAsync(
                     repositoryRoot, "docker",
-                    ["compose", "-f", composeDown, "down", "-v"],
+                    ["compose", "-p", composeProject, "-f", composeDown, "down", "-v"],
                     TimeSpan.FromMinutes(3), env, CancellationToken.None);
             }
         }
@@ -185,6 +191,18 @@ internal static class ProductE2ERunner
         }
 
         return new string(chars);
+    }
+
+    /// <summary>
+    /// Nome de projeto docker-compose ISOLADO e estável por repositório: <c>poseidon-e2e-</c> +
+    /// hash curto do caminho. Não colide com o project name padrão (nome do diretório do compose,
+    /// que para dois produtos em <c>infra/</c> seria o mesmo "infra") nem com ambientes de dev.
+    /// </summary>
+    private static string ComposeProjectName(string repositoryRoot)
+    {
+        var hash = System.Security.Cryptography.SHA256.HashData(
+            Encoding.UTF8.GetBytes(Path.GetFullPath(repositoryRoot)));
+        return "poseidon-e2e-" + Convert.ToHexString(hash)[..12].ToLowerInvariant();
     }
 
     /// <summary>Acha uma porta TCP livre pedindo a porta 0 ao SO e devolvendo a que ele atribuiu.</summary>
