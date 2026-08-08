@@ -458,6 +458,7 @@ public sealed partial class ChiefBacklogLoopService(
                 // aqui é logada e NUNCA impede o despacho do restante do ciclo.
                 try
                 {
+                    await EnsureRequirementGraphAsync(profile.TenantId, project, board, scope, token);
                     await PromoteNextObjectiveAsync(profile.TenantId, project, board, token);
                     await HarvestCompletedRunsAsync(
                         profile.TenantId, project, projectControlledRoot, board, chain,
@@ -4896,6 +4897,64 @@ public sealed partial class ChiefBacklogLoopService(
             LogObjectiveAnnounceFailed(logger, project.Id, eventKey, exception.GetType().Name);
         }
     }
+
+    /// <summary>
+    /// GARANTE A ESPINHA DE RASTREABILIDADE do perfil v2. A projeção do grafo de requisitos
+    /// (critérios de aceite → cards → provas) era acionada pela esteira de 9 fases; ao
+    /// congelá-la, os projetos v2 ficaram com ZERO nós de requisito — o sistema deixou de
+    /// poder se perguntar "o produto cobre todos os requisitos?" (defeito apontado pelo dono,
+    /// 2026-08-08). Aqui, todo projeto com cards-objetivo tem o grafo reconstruído quando os
+    /// nós de requisito estão ausentes; barato porque só dispara quando falta.
+    /// </summary>
+    private async Task EnsureRequirementGraphAsync(
+        string tenantId,
+        ProjectRecord project,
+        IWorkBoardStore board,
+        IServiceScope scope,
+        CancellationToken token)
+    {
+        var projection = scope.ServiceProvider.GetService<Graph.ProjectGraphProjectionService>();
+        if (projection is null)
+        {
+            return;
+        }
+
+        var hasObjective = (await board.PageTasksAsync(
+            tenantId,
+            new BoardTaskPageQuery(project.Id, null, null, null, null, null, "active", null, 0, 1),
+            token)).Items.Any(item => ObjectiveCardPolicy.IsObjective(item.CardType));
+        if (!hasObjective)
+        {
+            return;
+        }
+
+        var graphStore = scope.ServiceProvider
+            .GetService<Harness.Persistence.Abstractions.Graph.IProjectGraphStore>();
+        if (graphStore is not null)
+        {
+            var snapshot = await graphStore.GetAsync(tenantId, project.Id, token);
+            var hasRequirementNodes = snapshot.Nodes.Any(node =>
+                string.Equals(
+                    node.CanonicalSourceKind, "acceptance_criterion", StringComparison.Ordinal));
+            if (hasRequirementNodes)
+            {
+                return;
+            }
+        }
+
+        try
+        {
+            _ = await projection.RebuildAsync(tenantId, project.Id, token);
+            LogRequirementGraphRebuilt(logger, project.Id);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            LogObjectiveAnnounceFailed(logger, project.Id, "graph_rebuild", exception.GetType().Name);
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Perfil v2: grafo de requisitos do projeto {ProjectId} reconstruído — a espinha de rastreabilidade estava ausente.")]
+    private static partial void LogRequirementGraphRebuilt(ILogger logger, string projectId);
 
     /// <summary>
     /// SEQUENCIAMENTO AUTOMÁTICO de card-objetivo (perfil v2): quando um projeto não tem
