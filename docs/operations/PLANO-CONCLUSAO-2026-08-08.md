@@ -11,9 +11,7 @@ handoff: qualquer sessão de supervisão retoma daqui.
   determinística — não chama o modelo).
 - **Executores (cota própria):** `worker-claude-secondary` (Claude B), `worker-codex-frontend` e
   `worker-codex-critic` (Codex ×2, resetam a tarde de 08/08), `worker-glm-general` (GLM, habilitado).
-- **Kimi NÃO executa** — o adapter da CLI `kimi-code` nunca foi implementado
-  (`ExternalAgentExecutorFactory.IsImplemented` só cobre claude-code, glm, codex, antigravity).
-  Cota resetada não muda isso.
+- **Kimi É EXECUTOR** (adapter implementado 08/08, commit 1a43bb7e): `kimi -p <prompt> --output-format text`. Autenticação por symlink da config home da conta ao `~/.kimi-code` do operador (uma assinatura só, sem isolamento).
 - **Verificação por shell (E2E, Docker, curl) é GRÁTIS** de cota de modelo — o supervisor pode
   rodar E2E como gate manual sem gastar cota.
 
