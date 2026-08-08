@@ -44,6 +44,8 @@ markdownAllowlist:
   reason: Registro de incidente datado (2026-08-07) da janela de avaliação; evidência operacional de causa e gatilho de ação, não norma canônica.
 - path: docs/operations/incidents/INC-EVAL-007-pausa-silenciosa-de-projeto.md
   reason: Registro de incidente datado (2026-08-07) da janela de avaliação; evidência operacional de causa e contorno, não norma canônica.
+- path: docs/product/PADROES-DE-PRODUTO.md
+  reason: Normas invioláveis do dono (2026-08-08) sobre toda entrega da fábrica — produto final, tela de login limpa, identidade própria, troca de senha no 1º acesso, auto-verificação visual; canon do software entregue.
 - path: docs/operations/objetivos-prisma-v2.md
   reason: Pacote de cards-objetivo do Prisma para o reinício da avaliação sob o perfil v2 (2026-08-07), com cobertura do MVP e decisões do Chefe; material operacional datado, não norma canônica.
 - path: docs/operations/objetivos-indicadores-v2.md
