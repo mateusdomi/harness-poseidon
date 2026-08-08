@@ -58,6 +58,36 @@ Estas são tarefas do REPO da plataforma (não dos produtos), para um supervisor
    nós, auto-mantido). Falta: ligar objetivo→critério e o sequenciador só declarar projeto
    pronto quando `RequirementCoverageAnalyzer` = cobertura total, com a prova sendo a suíte E2E.
 
+## Vivacidade do loop — anti-ociosidade determinística (2026-08-08)
+
+O dono achou a fábrica ~2h "parada" com a Bruna repetindo "problema de infraestrutura" e o
+`/health` dizendo "healthy". Causa: os produtos estavam CONCLUÍDOS, mas o sistema não distinguia
+"fim de fila" de "travado", e o health só cobria o servidor web (falso verde). Corrigido com
+mecanismos determinísticos (só timestamps, custo zero de cota):
+
+1. **`ChiefLoopHeartbeat`** — pulso compartilhado; o loop escreve a cada ciclo (timestamps +
+   quantos cards despacháveis e executores elegíveis viu), o watchdog e o `/health` leem.
+2. **`ChiefLoopWatchdogService`** (60s) — detecta **TRAVADO** (nenhum sinal de progresso >
+   `LoopStuckAfter`=5min) e **OCIOSIDADE INDEVIDA** (card despachável + executor elegível, sem
+   despacho > `LoopIdleBudget`=5min). Grita Crítico no log.
+3. **`/health` reflete o loop** — 503 quando travado (gatilho do supervisor externo). Fim do falso
+   verde. Ocioso-por-conclusão continua 200 (fim de fila é honesto, não pausa).
+4. **`ReadDeliveryHealthAsync` honesto** — "esperando" agora conta a FILA REAL (`board_state=ready`),
+   não a coluna `state` dos andaimes de backlog. Foi o que segurava o alarme falso de "parada há 2h".
+5. **`tools/backend/loop-supervisor.sh`** — supervisor externo: `curl /health` a cada 30s e, em 503
+   ou inacessível por 2 sondagens, mata e relança o host; avisa o dono por Telegram.
+
+Prova: `ChiefLoopHeartbeatTests` (8/8).
+
+**CAVEAT do supervisor externo (macOS TCC):** um agente **launchd** não consegue executar binários
+sob `~/Documents` (pasta protegida) — nem o script, nem o launcher no restart. Por isso o supervisor
+roda hoje como processo de sessão (`nohup`, com acesso ao `~/Documents`), que cobre o fim de semana
+enquanto a máquina fica ligada. Para torná-lo durável ENTRE REINÍCIOS da máquina via launchd, o dono
+precisa conceder **Full Disk Access** ao intérprete em Ajustes do Sistema → Privacidade — passo único.
+O plist está em `~/Library/LaunchAgents/com.poseidon.loop-supervisor.plist` (carregado com
+`launchctl load`). Publicar o host numa pasta fora do `~/Documents` não resolve sozinho: o launcher
+procura um binário self-contained do Runner (`ResolveRunnerPath`) que precisa ser publicado junto.
+
 ## Por que a fleet não se auto-verifica em E2E (limitação conhecida)
 
 Os executores têm .NET SDK + Node no sandbox, mas **não sobem Oracle (sem docker-in-docker)** —
