@@ -28,11 +28,12 @@ rotate_host_log() {
 }
 
 usage() {
-  echo "Uso: ./poseidon {start|status|stop|restart|doctor|logs|check-update|update|agent|graph|release-candidate} [opções]"
+  echo "Uso: ./poseidon {start|status|stop|restart|doctor|logs|check-update|update|bruna|agent|graph|release-candidate} [opções]"
   echo "  start [--no-browser] [--port PORT] [--demo]"
   echo "  check-update [--source <dir-do-pacote-novo>]"
   echo "  update [--source <dir-do-pacote-novo>]"
   echo "  logs [--follow]"
+  echo "  bruna [--data-dir <caminho>]"
   echo "  agent start --project <id> --task <id> --role <papel>"
   echo "              --account <alias> --instruction <texto>"
   echo "              [--attempt <id>] [--resume-from <attemptId>] [--model <m>] [--effort <e>] [--read-only]"
@@ -487,6 +488,7 @@ doctor_poseidon() {
   if [[ -x "${POSEIDON_ROOT}/Harness.Launcher" ]]; then
     [[ "$(uname -m)" == "arm64" ]] && echo "[ok] arquitetura Apple Silicon" || { echo "[erro] pacote osx-arm64 incompatível com $(uname -m)"; failures=$((failures+1)); }
     [[ -x "${POSEIDON_ROOT}/runner/Harness.Runner" ]] && echo "[ok] pacote self-contained completo" || { echo "[erro] Runner ausente"; failures=$((failures+1)); }
+    [[ -x "${POSEIDON_ROOT}/Harness.Bruna.Desktop" || -x "${POSEIDON_ROOT}/Harness.Bruna.Desktop.exe" ]] && echo "[ok] Bruna Desktop Companion presente" || { echo "[erro] Bruna Desktop Companion ausente"; failures=$((failures+1)); }
     [[ -s "${POSEIDON_ROOT}/wwwroot/index.html" ]] && echo "[ok] frontend empacotado" || { echo "[erro] frontend ausente"; failures=$((failures+1)); }
   else
     [[ -x "${POSEIDON_ROOT}/tools/backend/dotnet.sh" ]] && echo "[ok] SDK .NET versionado" || { echo "[erro] SDK .NET ausente"; failures=$((failures+1)); }
@@ -542,6 +544,21 @@ update_poseidon() {
     --install-dir "${POSEIDON_ROOT}" --data-dir "${POSEIDON_DATA_DIR}" "$@"
 }
 
+bruna_poseidon() {
+  local bruna_path="${POSEIDON_ROOT}/Harness.Bruna.Desktop"
+  [[ -x "${bruna_path}" ]] || bruna_path="${POSEIDON_ROOT}/Harness.Bruna.Desktop.exe"
+  if [[ ! -x "${bruna_path}" ]]; then
+    echo "Bruna Desktop Companion não encontrado em ${POSEIDON_ROOT}." >&2
+    echo "Verifique se a instalação foi feita a partir de um pacote publicado." >&2
+    return 2
+  fi
+  local args=(--data-dir "${POSEIDON_DATA_DIR}")
+  # Forward any extra arguments (e.g. --install-dir) to the companion.
+  [[ $# -eq 0 ]] || args+=("$@")
+  nohup "${bruna_path}" "${args[@]}" >/dev/null 2>&1 &
+  echo "Bruna Desktop Companion iniciada."
+}
+
 case "${1:-}" in
   start) shift; start_poseidon "$@" ;;
   status) status_poseidon ;;
@@ -553,6 +570,7 @@ case "${1:-}" in
   agent) shift; agent_poseidon "$@" ;;
   graph) shift; graph_poseidon "$@" ;;
   logs) mkdir -p "${POSEIDON_LOG_DIR}"; [[ "${2:-}" == "--follow" ]] && exec tail -f "${POSEIDON_HOST_LOG}" || { echo "Logs: ${POSEIDON_LOG_DIR}"; tail -n 200 "${POSEIDON_HOST_LOG}" 2>/dev/null || true; } ;;
+  bruna) shift; bruna_poseidon "$@" ;;
   release-candidate) [[ -x "${POSEIDON_ROOT}/tools/backend/verify-release-candidate.sh" ]] || { echo "Comando disponível apenas no checkout de desenvolvimento." >&2; exit 2; }; exec "${POSEIDON_ROOT}/tools/backend/verify-release-candidate.sh" ;;
   *) usage; exit 2 ;;
 esac

@@ -48,3 +48,6 @@ coordination/final-operation/supervisor.log
 coordination/final-operation/INTEGRATOR.json
 .tooling/
 .claude/nightshift/
+
+# Ambiente virtual Python usado para preparação de assets da Bruna
+.venv-bruna/
