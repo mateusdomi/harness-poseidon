@@ -319,6 +319,14 @@ public sealed partial class PostgresWorkChainStore
         return CompleteAndApproveAttemptCoreAsync(command, cancellationToken);
     }
 
+    public Task<WorkChainMutationReceipt> AppendAttemptEvidenceAsync(
+        WorkAttemptEvidenceAppendCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return AppendAttemptEvidenceCoreAsync(command, cancellationToken);
+    }
+
     public Task<WorkChainMutationReceipt> ExpireAttemptLeaseAsync(
         WorkAttemptLeaseExpiredCommand command,
         CancellationToken cancellationToken = default)
@@ -927,6 +935,80 @@ public sealed partial class PostgresWorkChainStore
         return await FinalizeMutationAsync(
             connection, transaction, command.TenantId, command.IdempotencyKey, hash,
             "attempt.completed", command.OccurredAt, receipt, cancellationToken);
+    }
+
+    private async Task<WorkChainMutationReceipt> AppendAttemptEvidenceCoreAsync(
+        WorkAttemptEvidenceAppendCommand command,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await LockTaskAsync(connection, transaction, command.TaskId, cancellationToken);
+        var hash = WorkChainMutationValidator.Hash(command);
+        var replay = await ReadMutationInboxAsync(
+            connection, transaction, command.TenantId, command.IdempotencyKey, hash, cancellationToken);
+        if (replay is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return replay with { Status = WorkChainMutationStatus.IdempotentReplay };
+        }
+
+        var row = await ReadTaskAsync(
+            connection, transaction, command.TenantId, command.SolicitationId,
+            command.TaskId, command.AttemptId, cancellationToken);
+        WorkChainMutationReceipt receipt;
+        if (row is null || row.AttemptState is null)
+        {
+            receipt = Rejected(WorkChainMutationStatus.NotFound, command.TaskId, command.AttemptId);
+        }
+        else if (row.AttemptState == "running")
+        {
+            receipt = Rejected(WorkChainMutationStatus.InvalidState, row, command.TaskId, command.AttemptId);
+        }
+        else
+        {
+            await using var ordinalQuery = connection.CreateCommand();
+            ordinalQuery.Transaction = transaction;
+            ordinalQuery.CommandText =
+                "SELECT COALESCE(MAX(ordinal), 0) FROM harness.work_evidence WHERE attempt_id = $1;";
+            ordinalQuery.Parameters.Add(Text(command.AttemptId));
+            var nextOrdinal = Convert.ToInt32(
+                await ordinalQuery.ExecuteScalarAsync(cancellationToken),
+                System.Globalization.CultureInfo.InvariantCulture) + 1;
+
+            for (var index = 0; index < command.Evidence.Count; index++)
+            {
+                await ExecuteAsync(
+                    connection, transaction,
+                    """
+                    INSERT INTO harness.work_evidence
+                        (id, tenant_id, project_id, attempt_id, ordinal, reference, created_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7);
+                    """,
+                    cancellationToken,
+                    Text(command.Evidence[index].EvidenceId), Text(command.TenantId), Text(row.ProjectId),
+                    Text(command.AttemptId), Integer(nextOrdinal + index),
+                    Text(command.Evidence[index].Reference), Timestamp(command.OccurredAt));
+            }
+
+            await ExecuteAsync(
+                connection, transaction,
+                """
+                INSERT INTO harness.attempt_events (id, tenant_id, project_id, attempt_id, kind, content, occurred_at)
+                VALUES ($1, $2, $3, $4, 'log', 'Attempt evidence appended.', $5);
+                """,
+                cancellationToken,
+                Text(UlidValue.New(command.OccurredAt).ToString()), Text(command.TenantId),
+                Text(row.ProjectId), Text(command.AttemptId), Timestamp(command.OccurredAt));
+
+            receipt = new WorkChainMutationReceipt(
+                WorkChainMutationStatus.Applied, command.TaskId, command.AttemptId,
+                row.Version, row.TaskState, row.AttemptState);
+        }
+
+        return await FinalizeMutationAsync(
+            connection, transaction, command.TenantId, command.IdempotencyKey, hash,
+            "attempt.evidenceAppended", command.OccurredAt, receipt, cancellationToken);
     }
 
     private async Task<WorkChainMutationReceipt> ReviewAttemptCoreAsync(

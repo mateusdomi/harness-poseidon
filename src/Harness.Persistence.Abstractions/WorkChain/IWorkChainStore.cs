@@ -53,6 +53,10 @@ public interface IWorkChainStore
         WorkAttemptCompleteCommand command,
         CancellationToken cancellationToken = default);
 
+    Task<WorkChainMutationReceipt> AppendAttemptEvidenceAsync(
+        WorkAttemptEvidenceAppendCommand command,
+        CancellationToken cancellationToken = default);
+
     Task<WorkChainMutationReceipt> ExpireAttemptLeaseAsync(
         WorkAttemptLeaseExpiredCommand command,
         CancellationToken cancellationToken = default);
@@ -239,6 +243,15 @@ public sealed record WorkAttemptCompleteCommand(
     string IdempotencyKey,
     DateTimeOffset OccurredAt,
     WorkAttemptUsage? Usage = null);
+
+public sealed record WorkAttemptEvidenceAppendCommand(
+    string TenantId,
+    string SolicitationId,
+    string TaskId,
+    string AttemptId,
+    IReadOnlyList<WorkEvidenceInput> Evidence,
+    string IdempotencyKey,
+    DateTimeOffset OccurredAt);
 
 /// <summary>
 /// Consumo medido de uma tentativa, colhido do executor no fechamento. Existe porque
@@ -681,6 +694,36 @@ public static class WorkChainMutationValidator
         }
     }
 
+    public static void Validate(WorkAttemptEvidenceAppendCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ValidateCommon(
+            command.TenantId,
+            command.SolicitationId,
+            command.TaskId,
+            command.AttemptId,
+            expectedTaskVersion: 1,
+            command.IdempotencyKey,
+            validateVersion: false);
+        ArgumentNullException.ThrowIfNull(command.Evidence);
+        if (command.Evidence.Count == 0)
+        {
+            throw new ArgumentException("At least one evidence reference is required.", nameof(command));
+        }
+
+        var identifiers = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var evidence in command.Evidence)
+        {
+            ArgumentNullException.ThrowIfNull(evidence);
+            ValidateUlid(evidence.EvidenceId, nameof(command));
+            ValidateText(evidence.Reference, nameof(command), 2_000);
+            if (!identifiers.Add(evidence.EvidenceId))
+            {
+                throw new ArgumentException("Evidence identifiers must be unique.", nameof(command));
+            }
+        }
+    }
+
     public static void Validate(WorkAttemptLeaseExpiredCommand command)
     {
         ArgumentNullException.ThrowIfNull(command);
@@ -962,13 +1005,18 @@ public static class WorkChainMutationValidator
         string taskId,
         string attemptId,
         long expectedTaskVersion,
-        string idempotencyKey)
+        string idempotencyKey,
+        bool validateVersion = true)
     {
         ValidateUlid(tenantId, nameof(tenantId));
         ValidateUlid(solicitationId, nameof(solicitationId));
         ValidateUlid(taskId, nameof(taskId));
         ValidateUlid(attemptId, nameof(attemptId));
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(expectedTaskVersion);
+        if (validateVersion)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(expectedTaskVersion);
+        }
+
         ValidateText(idempotencyKey, nameof(idempotencyKey), 200);
     }
 

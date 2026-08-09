@@ -18,6 +18,7 @@ using Harness.Persistence.Abstractions.Documents;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.Providers;
+using Harness.Persistence.Abstractions.Product;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.Persistence.Abstractions.Workflows;
 using Harness.SharedKernel.Identifiers;
@@ -27,6 +28,7 @@ using Harness.SharedKernel.Time;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using WorkflowProduct = Harness.Modules.Workflows.Product;
 
 namespace Harness.Host.Agents;
 
@@ -59,6 +61,7 @@ public sealed partial class ChiefBacklogLoopService(
     ILoggerFactory? loggerFactory = null,
     Graph.ProjectGraphImpactService? graphImpact = null,
     Harness.Persistence.Abstractions.Product.IProjectEffectiveProfileStore? effectiveProfiles = null,
+    IProductEvidenceSetStore? productEvidenceSets = null,
     ChiefLoopHeartbeat? heartbeat = null) : BackgroundService
 {
     /// <summary>
@@ -3064,7 +3067,103 @@ public sealed partial class ChiefBacklogLoopService(
                 if (harness is not null)
                 {
                     var e2e = await ProductE2ERunner.RunAsync(validationWorktree, harness, token);
-                    if (ProductE2EGatePolicy.Decide(e2e) == ProductE2EGateDecision.Failed)
+                    var e2eDecision = ProductE2EGatePolicy.Decide(e2e);
+                    var e2eCommit = await TryReadGitHeadAsync(validationWorktree, token) ??
+                        (awaiting.CommitRefs.Count > 0
+                            ? awaiting.CommitRefs[^1]
+                            : null) ??
+                        branch;
+                    var e2eEvidenceSetId = await PersistAndLinkObjectiveE2EEvidenceAsync(
+                        tenantId, project.Id, task, awaiting.Id, e2eCommit, e2e, chain, token);
+                    if (e2eEvidenceSetId is null)
+                    {
+                        var evidenceResult = new CriticReviewResult(
+                            UlidValue.New(now).ToString(), awaiting.Id, "deterministic-e2e-evidence-gate",
+                            "deterministic", producerAlias, CriticVerdict.Fail,
+                            "critic.fail",
+                            [new CriticFinding(
+                                CriticFindingSeverity.P1,
+                                "e2e.evidence_not_persisted",
+                                "O ProductE2ERunner executou ou tentou executar, mas a plataforma não " +
+                                "persistiu product_evidence_sets + work_evidence para esta tentativa.",
+                                null,
+                                "Sem evidência durável associada ao SHA testado, o objetivo não pode " +
+                                "ser considerado provado.")],
+                            "Gate de E2E da plataforma recusou a entrega: evidência durável ausente.",
+                            null,
+                            0)
+                        {
+                            RejectionCause = ReviewRejectionCause.QualityBar,
+                        };
+                        var applied = await ApplyReviewVerdictAsync(
+                            tenantId, task, awaiting.Id, evidenceResult, chain, token,
+                            new LayerResult(
+                                VerificationLayer.Deterministic,
+                                LayerVerdict.Fail,
+                                "e2e.evidence_not_persisted"));
+                        if (validationManager is not null)
+                        {
+                            if (ownsValidationWorktree && validationWorktree is not null)
+                            {
+                                try
+                                {
+                                    _ = await validationManager.RemoveTaskWorktreeAsync(
+                                        branch, validationWorktree, deleteBranch: false, token);
+                                }
+                                catch (Exception cleanup) when (cleanup is not OperationCanceledException)
+                                {
+                                    LogValidationWorktreeCleanupFailed(
+                                        logger, awaiting.Id, cleanup.Message);
+                                }
+                            }
+
+                            validationManager.Dispose();
+                        }
+
+                        if (applied)
+                        {
+                            reviewed++;
+                            ClearReviewDeferrals(tenantId, awaiting.Id, token);
+                        }
+                        else
+                        {
+                            _ = await DeferOrEscalateReviewAsync(
+                                tenantId, task, awaiting.Id, "e2e.evidence_not_applied", chain, now, token);
+                        }
+
+                        LogProductE2EGate(logger, task.Id, "evidence-missing", e2e.Detail);
+                        continue;
+                    }
+
+                    if (e2eDecision == ProductE2EGateDecision.Unavailable)
+                    {
+                        LogReviewInfrastructureFailure(logger, task.Id, awaiting.Id, "e2e.unavailable");
+                        _ = await DeferOrEscalateReviewAsync(
+                            tenantId, task, awaiting.Id, "e2e.unavailable", chain, now, token);
+                        if (validationManager is not null)
+                        {
+                            if (ownsValidationWorktree && validationWorktree is not null)
+                            {
+                                try
+                                {
+                                    _ = await validationManager.RemoveTaskWorktreeAsync(
+                                        branch, validationWorktree, deleteBranch: false, token);
+                                }
+                                catch (Exception cleanup) when (cleanup is not OperationCanceledException)
+                                {
+                                    LogValidationWorktreeCleanupFailed(
+                                        logger, awaiting.Id, cleanup.Message);
+                                }
+                            }
+
+                            validationManager.Dispose();
+                        }
+
+                        LogProductE2EGate(logger, task.Id, "unavailable", e2e.Detail);
+                        continue;
+                    }
+
+                    if (e2eDecision == ProductE2EGateDecision.Failed)
                     {
                         var e2eResult = new CriticReviewResult(
                             UlidValue.New(now).ToString(), awaiting.Id, "deterministic-e2e-gate",
@@ -3121,7 +3220,8 @@ public sealed partial class ChiefBacklogLoopService(
                         continue;
                     }
 
-                    LogProductE2EGate(logger, task.Id, e2e.Ran ? "passed" : "unavailable", e2e.Detail);
+                    LogProductE2EGate(
+                        logger, task.Id, "passed:" + e2eEvidenceSetId, e2e.Detail);
                 }
             }
 
@@ -3395,6 +3495,165 @@ public sealed partial class ChiefBacklogLoopService(
             ReviewRejectionCause.Other => "other",
             _ => "other",
         };
+
+    private static readonly System.Text.Json.JsonSerializerOptions ObjectiveE2ELedgerJson =
+        new(System.Text.Json.JsonSerializerDefaults.Web)
+        {
+            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+        };
+
+    private async Task<string?> PersistAndLinkObjectiveE2EEvidenceAsync(
+        string tenantId,
+        string projectId,
+        BoardTaskRecord task,
+        string attemptId,
+        string commitSha,
+        ProductE2EResult result,
+        IWorkChainStore chain,
+        CancellationToken token)
+    {
+        if (productEvidenceSets is null || effectiveProfiles is null)
+        {
+            return null;
+        }
+
+        var profileRecord = await effectiveProfiles.GetCurrentAsync(tenantId, projectId, token);
+        if (profileRecord is null ||
+            WorkflowProduct.ProjectEffectiveProfile.FromJson(profileRecord.ProfileJson) is not { } profile)
+        {
+            return null;
+        }
+
+        var now = clock.UtcNow;
+        var evidenceSetId = UlidValue.New(now).ToString();
+        var plan = new WorkflowProduct.ProductVerificationPlan(
+            profile.Modality,
+            profile.BaselineVersion,
+            [new WorkflowProduct.ProductVerificationStep(
+                WorkflowProduct.ProductEvidenceKind.E2EJourneyPassed,
+                Required: true,
+                "Card-objetivo com manifesto .harness/e2e.json exige prova real de navegador " +
+                "executada pela plataforma contra ambiente efêmero.",
+                WorkflowProduct.ProductEvidenceProvenance.Verified,
+                WorkflowProduct.VerificationTrustLevel.PoseidonControlled,
+                "ProductE2ERunner",
+                WorkflowProduct.ProductVerificationDisposition.RequiredNative)]);
+        var item = new WorkflowProduct.ProductEvidence(
+            WorkflowProduct.ProductEvidenceKind.E2EJourneyPassed,
+            result.Ran && result.Passed,
+            result.Detail,
+            WorkflowProduct.ProductEvidenceProvenanceRecord.FromVerifier(
+                "product-e2e-runner",
+                commitSha,
+                now,
+                "ProductE2ERunner",
+                result.Ran && result.Passed ? 0 : 1,
+                result.RunId,
+                WorkflowProduct.ProductE2EHarness.ManifestPath,
+                WorkflowProduct.VerificationTrustLevel.PoseidonControlled));
+        var findings = result.Ran && result.Passed
+            ? Array.Empty<WorkflowProduct.ProductEvidenceFinding>()
+            :
+            [
+                new WorkflowProduct.ProductEvidenceFinding(
+                    WorkflowProduct.ProductEvidenceKind.E2EJourneyPassed,
+                    result.Ran
+                        ? WorkflowProduct.ProductEvidenceGap.Failed
+                        : WorkflowProduct.ProductEvidenceGap.Missing,
+                    TruncateForChat(result.Detail))
+            ];
+
+        try
+        {
+            await productEvidenceSets.AppendAsync(
+                new ProductEvidenceSetRecord(
+                    tenantId,
+                    evidenceSetId,
+                    projectId,
+                    null,
+                    task.Id,
+                    attemptId,
+                    commitSha,
+                    profileRecord.Version,
+                    profileRecord.Fingerprint,
+                    profileRecord.Modality,
+                    result.Ran && result.Passed ? "satisfied" : "failed",
+                    System.Text.Json.JsonSerializer.Serialize(plan.Steps, ObjectiveE2ELedgerJson),
+                    System.Text.Json.JsonSerializer.Serialize(new[] { item }, ObjectiveE2ELedgerJson),
+                    System.Text.Json.JsonSerializer.Serialize(findings, ObjectiveE2ELedgerJson),
+                    "product-e2e-runner",
+                    now),
+                token);
+
+            var linked = await chain.AppendAttemptEvidenceAsync(
+                new WorkAttemptEvidenceAppendCommand(
+                    tenantId,
+                    task.BackingSolicitationId,
+                    task.Id,
+                    attemptId,
+                    [
+                        new WorkEvidenceInput(
+                            UlidValue.New(now.AddTicks(1)).ToString(),
+                            $"product-evidence-set:{evidenceSetId}"),
+                        new WorkEvidenceInput(
+                            UlidValue.New(now.AddTicks(2)).ToString(),
+                            "proof-type:browser-e2e"),
+                        new WorkEvidenceInput(
+                            UlidValue.New(now.AddTicks(3)).ToString(),
+                            $"proof-result:{(result.Ran && result.Passed ? "pass" : "fail")}"),
+                        new WorkEvidenceInput(
+                            UlidValue.New(now.AddTicks(4)).ToString(),
+                            $"git-commit:{commitSha}"),
+                        new WorkEvidenceInput(
+                            UlidValue.New(now.AddTicks(5)).ToString(),
+                            $"e2e-run:{result.RunId ?? evidenceSetId}"),
+                    ],
+                    $"chief-loop-product-e2e-evidence:{attemptId}:{evidenceSetId}",
+                    now),
+                token);
+
+            return linked.Status is WorkChainMutationStatus.Applied or WorkChainMutationStatus.IdempotentReplay
+                ? evidenceSetId
+                : null;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return null;
+        }
+    }
+
+    private static async Task<string?> TryReadGitHeadAsync(
+        string repositoryRoot,
+        CancellationToken token)
+    {
+        try
+        {
+            var start = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "git",
+                WorkingDirectory = repositoryRoot,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            };
+            start.ArgumentList.Add("rev-parse");
+            start.ArgumentList.Add("HEAD");
+            using var process = System.Diagnostics.Process.Start(start);
+            if (process is null)
+            {
+                return null;
+            }
+
+            var output = await process.StandardOutput.ReadToEndAsync(token);
+            await process.WaitForExitAsync(token);
+            var sha = output.Trim();
+            return process.ExitCode == 0 && sha.Length == 40 ? sha : null;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            return null;
+        }
+    }
 
     /// <summary>
     /// A "Evidência de testes" que o revisor lê. Duas fontes, e a ordem importa: primeiro o que a

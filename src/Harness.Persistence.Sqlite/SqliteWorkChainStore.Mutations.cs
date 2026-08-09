@@ -337,6 +337,16 @@ public sealed partial class SqliteWorkChainStore
             cancellationToken);
     }
 
+    public Task<WorkChainMutationReceipt> AppendAttemptEvidenceAsync(
+        WorkAttemptEvidenceAppendCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        WorkChainMutationValidator.Validate(command);
+        return _dispatcher.ExecuteAsync(
+            (connection, token) => AppendAttemptEvidenceCoreAsync(connection, command, token),
+            cancellationToken);
+    }
+
     public Task<WorkChainMutationReceipt> ExpireAttemptLeaseAsync(
         WorkAttemptLeaseExpiredCommand command,
         CancellationToken cancellationToken = default)
@@ -958,6 +968,88 @@ public sealed partial class SqliteWorkChainStore
         return await FinalizeMutationAsync(
             connection, transaction, command.TenantId, command.IdempotencyKey, hash,
             "attempt.completed", command.OccurredAt, receipt, cancellationToken);
+    }
+
+    private static async Task<WorkChainMutationReceipt> AppendAttemptEvidenceCoreAsync(
+        SqliteConnection connection,
+        WorkAttemptEvidenceAppendCommand command,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(cancellationToken);
+        var hash = WorkChainMutationValidator.Hash(command);
+        var replay = await ReadMutationInboxAsync(
+            connection, transaction, command.TenantId, command.IdempotencyKey, hash, cancellationToken);
+        if (replay is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return replay with { Status = WorkChainMutationStatus.IdempotentReplay };
+        }
+
+        var row = await ReadTaskAsync(
+            connection, transaction, command.TenantId, command.SolicitationId, command.TaskId,
+            command.AttemptId, cancellationToken);
+        WorkChainMutationReceipt receipt;
+        if (row is null || row.AttemptState is null)
+        {
+            receipt = Rejected(WorkChainMutationStatus.NotFound, command.TaskId, command.AttemptId);
+        }
+        else if (row.AttemptState == "running")
+        {
+            receipt = Rejected(WorkChainMutationStatus.InvalidState, row, command.TaskId, command.AttemptId);
+        }
+        else
+        {
+            await using var ordinalQuery = connection.CreateCommand();
+            ordinalQuery.Transaction = transaction;
+            ordinalQuery.CommandText =
+                "SELECT COALESCE(MAX(ordinal), 0) FROM work_evidence WHERE attempt_id = $attemptId;";
+            Add(ordinalQuery, "$attemptId", command.AttemptId);
+            var nextOrdinal = Convert.ToInt32(
+                await ordinalQuery.ExecuteScalarAsync(cancellationToken),
+                CultureInfo.InvariantCulture) + 1;
+
+            for (var index = 0; index < command.Evidence.Count; index++)
+            {
+                await using var evidence = connection.CreateCommand();
+                evidence.Transaction = transaction;
+                evidence.CommandText =
+                    """
+                    INSERT INTO work_evidence
+                        (id, tenant_id, project_id, attempt_id, ordinal, reference, created_at)
+                    VALUES ($id, $tenantId, $projectId, $attemptId, $ordinal, $reference, $occurredAt);
+                    """;
+                Add(evidence, "$id", command.Evidence[index].EvidenceId);
+                Add(evidence, "$tenantId", command.TenantId);
+                Add(evidence, "$projectId", row.ProjectId);
+                Add(evidence, "$attemptId", command.AttemptId);
+                Add(evidence, "$ordinal", nextOrdinal + index);
+                Add(evidence, "$reference", command.Evidence[index].Reference);
+                Add(evidence, "$occurredAt", ToStorage(command.OccurredAt));
+                await evidence.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await using var attemptEvent = connection.CreateCommand();
+            attemptEvent.Transaction = transaction;
+            attemptEvent.CommandText =
+                """
+                INSERT INTO attempt_events (id,tenant_id,project_id,attempt_id,kind,content,occurred_at)
+                VALUES ($attemptEventId,$tenantId,$projectId,$attemptId,'log','Attempt evidence appended.',$occurredAt);
+                """;
+            Add(attemptEvent, "$attemptEventId", UlidValue.New(command.OccurredAt).ToString());
+            Add(attemptEvent, "$tenantId", command.TenantId);
+            Add(attemptEvent, "$projectId", row.ProjectId);
+            Add(attemptEvent, "$attemptId", command.AttemptId);
+            Add(attemptEvent, "$occurredAt", ToStorage(command.OccurredAt));
+            await attemptEvent.ExecuteNonQueryAsync(cancellationToken);
+
+            receipt = new WorkChainMutationReceipt(
+                WorkChainMutationStatus.Applied, command.TaskId, command.AttemptId,
+                row.Version, row.TaskState, row.AttemptState);
+        }
+
+        return await FinalizeMutationAsync(
+            connection, transaction, command.TenantId, command.IdempotencyKey, hash,
+            "attempt.evidenceAppended", command.OccurredAt, receipt, cancellationToken);
     }
 
     /// <summary>
@@ -2384,6 +2476,18 @@ public sealed partial class SqliteWorkChainStore
                 costUsd = reader.GetDecimal(6),
                 commitRefs,
                 summary = reader.IsDBNull(9) ? null : reader.GetString(9),
+            });
+        }
+
+        if (eventType == "attempt.evidenceAppended")
+        {
+            return JsonSerializer.Serialize(new
+            {
+                projectId,
+                attemptId = receipt.AttemptId,
+                taskId = receipt.TaskId,
+                commitRefs,
+                appendedAt = occurredAt,
             });
         }
 

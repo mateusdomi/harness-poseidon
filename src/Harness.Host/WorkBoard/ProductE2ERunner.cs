@@ -4,7 +4,15 @@ using Harness.Modules.Workflows.Product;
 
 namespace Harness.Host.WorkBoard;
 
-public sealed record ProductE2EResult(bool Ran, bool Passed, string Detail);
+public sealed record ProductE2EResult(
+    bool Ran,
+    bool Passed,
+    string Detail,
+    string? RunId = null,
+    int? PassedCount = null,
+    int? FailedCount = null,
+    int? SkippedCount = null,
+    TimeSpan? Duration = null);
 
 /// <summary>
 /// Executa a suíte E2E de NAVEGADOR do produto pela PLATAFORMA, contra o ambiente vivo — a prova
@@ -17,7 +25,7 @@ public sealed record ProductE2EResult(bool Ran, bool Passed, string Detail);
 /// Fronteira: roda no HOST (onde há Docker), fora do sandbox do agente. É a extensão natural do
 /// gate de entrega, mas com REDE e ESTADO — porque provar navegador exige app de pé.
 /// </summary>
-internal static class ProductE2ERunner
+public static class ProductE2ERunner
 {
     private static readonly TimeSpan ComposeTimeout = TimeSpan.FromMinutes(6);
     private static readonly TimeSpan ApiBootTimeout = TimeSpan.FromMinutes(3);
@@ -34,7 +42,20 @@ internal static class ProductE2ERunner
 
         var apiProcess = default(Process);
         var frontProcess = default(Process);
-        var startedCompose = false;
+        var attemptedCompose = false;
+        var startedAt = DateTimeOffset.UtcNow;
+        var runId = Guid.NewGuid().ToString("N");
+
+        var dirty = await DirtyWorktreeAsync(repositoryRoot, cancellationToken);
+        if (dirty is { Length: > 0 })
+        {
+            return new ProductE2EResult(
+                false,
+                false,
+                "worktree Git não está limpa; a plataforma não pode associar a prova a um " +
+                $"CommitSha imutável. Primeiro detalhe: {dirty}",
+                runId);
+        }
 
         var missingPlaceholders = ProductE2EEnvironment.MissingPlaceholders(harness);
         if (missingPlaceholders.Count > 0)
@@ -44,7 +65,8 @@ internal static class ProductE2ERunner
                 false,
                 "Manifesto E2E referencia variável sem provedor runtime: " +
                 string.Join(',', missingPlaceholders) +
-                ". Declare em generatedSecrets/dbPortVar; valores secretos não podem ir para Git.");
+                ". Declare em generatedSecrets/dbPortVar; valores secretos não podem ir para Git.",
+                runId);
         }
 
         // AMBIENTE EFÊMERO: gera os segredos declarados e resolve os templates ${VAR} de `env`.
@@ -66,7 +88,8 @@ internal static class ProductE2ERunner
                 if (!Execution.ContainerRuntimeProbe.IsAvailable())
                 {
                     return new ProductE2EResult(
-                        false, false, "Docker indisponível no host: E2E não pôde subir o banco.");
+                        false, false, "Docker indisponível no host: E2E não pôde subir o banco.",
+                        runId);
                 }
 
                 // Sempre parte de banco LIMPO: a suíte não é idempotente contra Oracle sujo (uma
@@ -77,6 +100,7 @@ internal static class ProductE2ERunner
                     ["compose", "-p", composeProject, "-f", compose, "down", "-v"],
                     TimeSpan.FromMinutes(3), env, cancellationToken);
 
+                attemptedCompose = true;
                 var (composeExit, composeOut) = await RunAsync(
                     repositoryRoot, "docker",
                     ["compose", "-p", composeProject, "-f", compose, "up", "-d",
@@ -85,11 +109,17 @@ internal static class ProductE2ERunner
                 if (composeExit != 0)
                 {
                     return new ProductE2EResult(
-                        false, false, $"compose up falhou (exit {composeExit}): {RedactedTail(composeOut, env)}");
+                        false, false, $"compose up falhou (exit {composeExit}): {RedactedTail(composeOut, env)}",
+                        runId);
                 }
 
-                startedCompose = true;
-                await WaitForHealthyAsync(repositoryRoot, harness.ComposeService, cancellationToken);
+                await WaitForHealthyAsync(
+                    repositoryRoot,
+                    composeProject,
+                    compose,
+                    harness.ComposeService,
+                    env,
+                    cancellationToken);
             }
 
             // 2. API, via dotnet run — herda o env efêmero (connection string, jwt, senha).
@@ -104,7 +134,8 @@ internal static class ProductE2ERunner
                 if (!healthy)
                 {
                     return new ProductE2EResult(
-                        false, false, "A API do produto não respondeu ao health no tempo previsto.");
+                        false, false, "A API do produto não respondeu ao health no tempo previsto.",
+                        runId);
                 }
             }
 
@@ -120,7 +151,8 @@ internal static class ProductE2ERunner
                     if (!frontReady)
                     {
                         return new ProductE2EResult(
-                            false, false, "O front do produto não respondeu no tempo previsto.");
+                            false, false, "O front do produto não respondeu no tempo previsto.",
+                            runId);
                     }
                 }
             }
@@ -133,23 +165,32 @@ internal static class ProductE2ERunner
             if (install.ExitCode != 0)
             {
                 return new ProductE2EResult(
-                    false, false, $"playwright install falhou: {RedactedTail(install.Output, env)}");
+                    false, false, $"playwright install falhou: {RedactedTail(install.Output, env)}",
+                    runId);
             }
 
             var e2e = await RunAsync(
                 e2eDir, harness.E2eCommand[0], [.. harness.E2eCommand.Skip(1)],
                 E2ETimeout, env, cancellationToken);
+            var summary = ParsePlaywrightSummary(e2e.Output);
+            var duration = DateTimeOffset.UtcNow - startedAt;
 
             // Exit 0 = todas passaram. Exit != 0 com saída de teste = produto reprovou (prova real).
             return new ProductE2EResult(
                 true, e2e.ExitCode == 0,
                 e2e.ExitCode == 0
                     ? $"E2E verde: {RedactedTail(e2e.Output, env, 400)}"
-                    : $"E2E reprovou (exit {e2e.ExitCode}): {RedactedTail(e2e.Output, env)}");
+                    : $"E2E reprovou (exit {e2e.ExitCode}): {RedactedTail(e2e.Output, env)}",
+                runId,
+                summary.Passed,
+                summary.Failed,
+                summary.Skipped,
+                duration);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            return new ProductE2EResult(false, false, $"E2E não executou: {exception.Message}");
+            return new ProductE2EResult(
+                false, false, $"E2E não executou: {exception.Message}", runId);
         }
         finally
         {
@@ -165,7 +206,7 @@ internal static class ProductE2ERunner
                 apiProcess.Dispose();
             }
 
-            if (startedCompose && harness.ComposeFile is { Length: > 0 } composeDown)
+            if (attemptedCompose && harness.ComposeFile is { Length: > 0 } composeDown)
             {
                 _ = await RunAsync(
                     repositoryRoot, "docker",
@@ -191,6 +232,37 @@ internal static class ProductE2ERunner
         "policyPassword" => "Aa1!" + RandomAlphanumeric(20),
         _ => RandomAlphanumeric(24),
     };
+
+    internal static (int? Passed, int? Failed, int? Skipped) ParsePlaywrightSummary(string output)
+    {
+        var passed = default(int?);
+        var failed = default(int?);
+        var skipped = default(int?);
+        foreach (var line in output.Split('\n'))
+        {
+            var trimmed = line.Trim();
+            var parts = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2 || !int.TryParse(parts[0], out var count))
+            {
+                continue;
+            }
+
+            if (string.Equals(parts[1], "passed", StringComparison.Ordinal))
+            {
+                passed = count;
+            }
+            else if (string.Equals(parts[1], "failed", StringComparison.Ordinal))
+            {
+                failed = count;
+            }
+            else if (string.Equals(parts[1], "skipped", StringComparison.Ordinal))
+            {
+                skipped = count;
+            }
+        }
+
+        return (passed, failed, skipped);
+    }
 
     private static string RandomAlphanumeric(int length)
     {
@@ -231,7 +303,12 @@ internal static class ProductE2ERunner
     }
 
     private static async Task WaitForHealthyAsync(
-        string root, string? service, CancellationToken token)
+        string root,
+        string composeProject,
+        string composeFile,
+        string? service,
+        IReadOnlyDictionary<string, string> env,
+        CancellationToken token)
     {
         if (service is not { Length: > 0 })
         {
@@ -242,11 +319,22 @@ internal static class ProductE2ERunner
         while (DateTimeOffset.UtcNow < deadline)
         {
             token.ThrowIfCancellationRequested();
-            var (exit, output) = await RunAsync(
+            var (psExit, psOutput) = await RunAsync(
                 root, "docker",
-                ["inspect", "-f", "{{.State.Health.Status}}", service],
+                ["compose", "-p", composeProject, "-f", composeFile, "ps", "-q", service],
+                TimeSpan.FromSeconds(15), env, token);
+            var containerId = psOutput.Trim();
+            if (psExit != 0 || containerId.Length == 0)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(8), token);
+                continue;
+            }
+
+            var (inspectExit, inspectOutput) = await RunAsync(
+                root, "docker",
+                ["inspect", "-f", "{{.State.Health.Status}}", containerId],
                 TimeSpan.FromSeconds(15), null, token);
-            if (exit == 0 && output.Trim().Equals("healthy", StringComparison.OrdinalIgnoreCase))
+            if (inspectExit == 0 && inspectOutput.Trim().Equals("healthy", StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
@@ -355,6 +443,26 @@ internal static class ProductE2ERunner
         }
 
         return (process.ExitCode, buffer.ToString());
+    }
+
+    private static async Task<string?> DirtyWorktreeAsync(string repositoryRoot, CancellationToken cancellationToken)
+    {
+        var (exit, output) = await RunAsync(
+            repositoryRoot,
+            "git",
+            ["status", "--porcelain=v1"],
+            TimeSpan.FromSeconds(15),
+            null,
+            cancellationToken);
+        if (exit != 0)
+        {
+            return "não foi possível executar git status.";
+        }
+
+        var first = output
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault();
+        return first;
     }
 
     private static string Tail(string value, int size = MaxOutput) =>

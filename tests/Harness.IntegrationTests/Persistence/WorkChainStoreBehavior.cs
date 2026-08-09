@@ -964,6 +964,42 @@ internal static class WorkChainStoreBehavior
         Assert.Equal(WorkChainMutationStatus.IdempotentReplay, completedReplay.Status);
         Assert.Equal(completed.LedgerHash, completedReplay.LedgerHash);
 
+        var proofEvidence = new WorkAttemptEvidenceAppendCommand(
+            chain.TenantId,
+            chain.SolicitationId,
+            chain.TaskId,
+            attemptId,
+            [
+                new WorkEvidenceInput("01ARZ3NDEKTSV4RRFFQ69G5FH0", "product-evidence-set:01ARZ3NDEKTSV4RRFFQ69G5FH1"),
+                new WorkEvidenceInput("01ARZ3NDEKTSV4RRFFQ69G5FH2", "proof-type:browser-e2e"),
+                new WorkEvidenceInput("01ARZ3NDEKTSV4RRFFQ69G5FH3", "proof-result:pass"),
+                new WorkEvidenceInput("01ARZ3NDEKTSV4RRFFQ69G5FH4", "git-commit:0123456789abcdef0123456789abcdef01234567"),
+            ],
+            "work-chain:attempt:evidence:product-e2e",
+            chain.OccurredAt.AddMinutes(2).AddSeconds(30));
+        var proofLinked = await store.AppendAttemptEvidenceAsync(proofEvidence, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.Applied, proofLinked.Status);
+        Assert.Equal(6, proofLinked.TaskVersion);
+        Assert.Equal("awaiting_review", proofLinked.TaskState);
+        Assert.Equal("awaiting_review", proofLinked.AttemptState);
+        Assert.NotNull(proofLinked.LedgerSequence);
+        var proofReplay = await store.AppendAttemptEvidenceAsync(proofEvidence, cancellationToken);
+        Assert.Equal(WorkChainMutationStatus.IdempotentReplay, proofReplay.Status);
+        Assert.Equal(proofLinked.LedgerHash, proofReplay.LedgerHash);
+
+        var withProof = await store.ReadAggregateAsync(
+            chain.TenantId, chain.SolicitationId, cancellationToken);
+        var attemptWithProof = Assert.Single(Assert.Single(Assert.Single(withProof!.Demands).Tasks).Attempts);
+        Assert.Equal(
+            [
+                "tests:green",
+                "product-evidence-set:01ARZ3NDEKTSV4RRFFQ69G5FH1",
+                "proof-type:browser-e2e",
+                "proof-result:pass",
+                "git-commit:0123456789abcdef0123456789abcdef01234567",
+            ],
+            attemptWithProof.Evidence.Select(item => item.Reference));
+
         var selfReview = new WorkAttemptReviewCommand(
             chain.TenantId,
             chain.SolicitationId,
@@ -1140,7 +1176,7 @@ internal static class WorkChainStoreBehavior
         Assert.Equal(correction.InstructionVersionId, final.InstructionVersionId);
         Assert.Equal(2, final.InstructionVersion);
         Assert.Equal(2, final.AttemptCount);
-        Assert.Equal(2, final.EvidenceCount);
+        Assert.Equal(6, final.EvidenceCount);
         Assert.Equal(2, final.ReviewCount);
 
         var aggregate = await store.ReadAggregateAsync(
@@ -1158,7 +1194,12 @@ internal static class WorkChainStoreBehavior
         Assert.Equal(task.Instructions[0].InstructionVersionId, task.Instructions[1].SupersedesId);
         Assert.Equal([1, 2], task.Attempts.Select(item => item.Number));
         Assert.Equal(["rejected", "approved"], task.Attempts.Select(item => item.State));
-        Assert.All(task.Attempts, item => Assert.Single(item.Evidence));
+        Assert.Contains(task.Attempts[0].Evidence, item => item.Reference == "tests:green");
+        Assert.Contains(
+            task.Attempts[0].Evidence,
+            item => item.Reference.StartsWith("product-evidence-set:", StringComparison.Ordinal));
+        Assert.Contains(task.Attempts[0].Evidence, item => item.Reference == "proof-type:browser-e2e");
+        Assert.Single(task.Attempts[1].Evidence);
         Assert.Equal("rejected", task.Attempts[0].Review?.Decision);
         Assert.Equal("approved", task.Attempts[1].Review?.Decision);
         Assert.Null(await store.ReadAggregateAsync(
