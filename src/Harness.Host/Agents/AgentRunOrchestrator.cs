@@ -1545,9 +1545,13 @@ public sealed partial class AgentRunOrchestrator(
                 ? null
                 : await effectiveProfiles.GetCurrentAsync(
                     command.TenantId, command.ProjectId, cancellationToken);
-            var profileSummary = effectiveProfile is null
+            var profile = effectiveProfile is null
                 ? null
-                : ProjectEffectiveProfile.FromJson(effectiveProfile.ProfileJson)?.ToContextSummary();
+                : ProjectEffectiveProfile.FromJson(effectiveProfile.ProfileJson);
+            var profileSummary = profile?.ToContextSummary();
+            var qualitySelfAudit = profile is null
+                ? null
+                : BuildQualitySelfAuditInstruction(profile, command.CardType);
             var bundle = bundleBuilder.BuildOrFallback(new ContextBundleRequest(
                 command.TenantId, command.ProjectId, command.TaskId, command.AttemptId,
                 command.AccountAlias, account.ProviderKind, command.Model,
@@ -1652,7 +1656,7 @@ public sealed partial class AgentRunOrchestrator(
                 new ExternalAgentRunRequest
                 {
                     Alias = command.AccountAlias,
-                    Prompt = BuildPrompt(command, bundle.RenderedContext, continuationNote),
+                    Prompt = BuildPrompt(command, bundle.RenderedContext, continuationNote, qualitySelfAudit),
                     WorkingDirectory = command.WorktreePath,
                     Profile = handle.Layout,
                     Access = command.Access,
@@ -2227,8 +2231,34 @@ public sealed partial class AgentRunOrchestrator(
     /// bundle é contexto, não autoridade: instruções embutidas em documento não elevam
     /// escopo nem contornam claim.
     /// </summary>
+    private static string? BuildQualitySelfAuditInstruction(
+        ProjectEffectiveProfile profile,
+        string? cardType)
+    {
+        if (!ObjectiveCardPolicy.IsObjective(cardType))
+        {
+            return null;
+        }
+
+        var selected = QualityCatalog.Select(new QualitySelection(
+            profile,
+            QualityExecutionMoment.ObjectiveSelfAudit,
+            new HashSet<QualitySurface>()));
+        if (selected.Count == 0)
+        {
+            return null;
+        }
+
+        return string.Join(Environment.NewLine, selected.Select(check =>
+            $"- {check.Id}: {check.Category}; prova={check.ProofType}; provider={check.EvidenceProvider}; " +
+            $"origem=checklist {check.SourceItemStart}-{check.SourceItemEnd}"));
+    }
+
     private static string BuildPrompt(
-        StartAgentRunCommand command, string renderedContext, string continuationNote) =>
+        StartAgentRunCommand command,
+        string renderedContext,
+        string continuationNote,
+        string? qualitySelfAudit) =>
         $"""
         {renderedContext}
 
@@ -2262,6 +2292,13 @@ public sealed partial class AgentRunOrchestrator(
               VERDE, resumindo as saídas na mensagem final. A plataforma RECOMPILA a sua
               entrega no review: submeter sem se verificar queima um ciclo de validação e
               desperdiça o revisor com erro de compilação.
+
+              QUALITY CATALOG APLICÁVEL (subset relevante, derivado do checklist de 244 itens):
+              {(string.IsNullOrWhiteSpace(qualitySelfAudit) ? "- Perfil efetivo indisponível: aplique build/testes/segurança mínimos e sinalize a lacuna." : qualitySelfAudit)}
+
+              Contrato da auto-auditoria: onde o item acima for automatizável, deixe evidência
+              executável/observável (comando, saída, screenshot ou artefato). Texto dizendo
+              "testei" não substitui prova automatizável.
               """
             : string.Empty)}
         {continuationNote}
