@@ -73,12 +73,13 @@ public sealed class BrunaPhotoProcessor
 
     private async Task ProcessAsync(string source, string destination, CancellationToken cancellationToken)
     {
+        Log($"Iniciando processamento de {source}");
         try
         {
             var pythonPath = ResolvePythonWithRembg();
+            Log($"Python com rembg: {pythonPath ?? "nenhum"}");
             if (pythonPath is null)
             {
-                Debug.WriteLine("rembg não encontrado; foto customizada será exibida com máscara oval.");
                 return;
             }
 
@@ -103,25 +104,47 @@ public sealed class BrunaPhotoProcessor
             using var process = Process.Start(startInfo);
             if (process is null)
             {
+                Log("Process.Start retornou null");
                 return;
             }
 
             await process.WaitForExitAsync(cancellationToken);
+            var error = await process.StandardError.ReadToEndAsync(cancellationToken);
+            var output = await process.StandardOutput.ReadToEndAsync(cancellationToken);
+            Log($"ExitCode={process.ExitCode} stdout={output} stderr={error}");
             if (process.ExitCode != 0)
             {
-                var error = await process.StandardError.ReadToEndAsync(cancellationToken);
-                Debug.WriteLine($"rembg falhou: {error}");
                 return;
             }
 
             if (File.Exists(temporary))
             {
                 File.Move(temporary, destination, overwrite: true);
+                Log($"Processada salva em {destination}");
+            }
+            else
+            {
+                Log($"Arquivo temporário não encontrado: {temporary}");
             }
         }
         catch (Exception exception)
         {
-            Debug.WriteLine($"Falha ao processar foto da Bruna: {exception.Message}");
+            Log($"Exceção: {exception}");
+        }
+    }
+
+    private void Log(string message)
+    {
+        try
+        {
+            var logDirectory = Path.Combine(_dataDirectory, "bruna");
+            Directory.CreateDirectory(logDirectory);
+            var logPath = Path.Combine(logDirectory, "photo-processor.log");
+            File.AppendAllText(logPath, $"{DateTimeOffset.UtcNow:O} {message}{Environment.NewLine}");
+        }
+        catch
+        {
+            // Ignora falhas de log.
         }
     }
 
