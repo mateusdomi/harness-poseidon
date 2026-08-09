@@ -43,6 +43,11 @@ public static class ProductE2ERunner
         var apiProcess = default(Process);
         var frontProcess = default(Process);
         var attemptedCompose = false;
+        var databaseFresh = false;
+        var oracleHealthy = false;
+        var apiHealthy = false;
+        var frontendHealthy = false;
+        var playwrightGlobalSetup = "NOT_RUN";
         var startedAt = DateTimeOffset.UtcNow;
         var runId = Guid.NewGuid().ToString("N");
 
@@ -79,6 +84,16 @@ public static class ProductE2ERunner
         // projeto "infra". Nome por execução evita também duas provas simultâneas do MESMO repo
         // compartilharem contêiner/volume por acidente.
         var composeProject = ComposeProjectName(repositoryRoot);
+        var diagnostic = () => EnvironmentDiagnostic(
+            runId,
+            composeProject,
+            harness,
+            env,
+            databaseFresh,
+            oracleHealthy,
+            apiHealthy,
+            frontendHealthy,
+            playwrightGlobalSetup);
 
         try
         {
@@ -99,6 +114,7 @@ public static class ProductE2ERunner
                     repositoryRoot, "docker",
                     ["compose", "-p", composeProject, "-f", compose, "down", "-v"],
                     TimeSpan.FromMinutes(3), env, cancellationToken);
+                databaseFresh = true;
 
                 attemptedCompose = true;
                 var (composeExit, composeOut) = await RunAsync(
@@ -113,13 +129,19 @@ public static class ProductE2ERunner
                         runId);
                 }
 
-                await WaitForHealthyAsync(
+                oracleHealthy = await WaitForHealthyAsync(
                     repositoryRoot,
                     composeProject,
                     compose,
                     harness.ComposeService,
                     env,
                     cancellationToken);
+                if (!oracleHealthy)
+                {
+                    return new ProductE2EResult(
+                        false, false, diagnostic() + "\nServiço do compose não ficou healthy no tempo previsto.",
+                        runId);
+                }
             }
 
             // 2. API, via dotnet run — herda o env efêmero (connection string, jwt, senha).
@@ -134,9 +156,10 @@ public static class ProductE2ERunner
                 if (!healthy)
                 {
                     return new ProductE2EResult(
-                        false, false, "A API do produto não respondeu ao health no tempo previsto.",
+                        false, false, diagnostic() + "\nA API do produto não respondeu ao health no tempo previsto.",
                         runId);
                 }
+                apiHealthy = true;
             }
 
             // 3. Front, quando a config de Playwright do produto NÃO o sobe sozinha (sem webServer).
@@ -151,21 +174,23 @@ public static class ProductE2ERunner
                     if (!frontReady)
                     {
                         return new ProductE2EResult(
-                            false, false, "O front do produto não respondeu no tempo previsto.",
+                            false, false, diagnostic() + "\nO front do produto não respondeu no tempo previsto.",
                             runId);
                     }
+                    frontendHealthy = true;
                 }
             }
 
             // 4. Browser + suíte. A config do produto sobe o próprio front (ou usamos frontCommand).
             var e2eDir = Path.Combine(repositoryRoot, harness.E2eDir);
+            var playwrightInstaller = PlaywrightInstallCommand(e2eDir);
             var install = await RunAsync(
-                e2eDir, "npx", ["playwright", "install", "chromium"],
+                e2eDir, playwrightInstaller.File, playwrightInstaller.Args,
                 TimeSpan.FromMinutes(4), env, cancellationToken);
             if (install.ExitCode != 0)
             {
                 return new ProductE2EResult(
-                    false, false, $"playwright install falhou: {RedactedTail(install.Output, env)}",
+                    false, false, diagnostic() + $"\nplaywright install falhou: {RedactedTail(install.Output, env)}",
                     runId);
             }
 
@@ -174,13 +199,14 @@ public static class ProductE2ERunner
                 E2ETimeout, env, cancellationToken);
             var summary = ParsePlaywrightSummary(e2e.Output);
             var duration = DateTimeOffset.UtcNow - startedAt;
+            playwrightGlobalSetup = InferPlaywrightGlobalSetup(e2e.Output, e2e.ExitCode);
 
             // Exit 0 = todas passaram. Exit != 0 com saída de teste = produto reprovou (prova real).
             return new ProductE2EResult(
                 true, e2e.ExitCode == 0,
                 e2e.ExitCode == 0
-                    ? $"E2E verde: {RedactedTail(e2e.Output, env, 400)}"
-                    : $"E2E reprovou (exit {e2e.ExitCode}): {RedactedTail(e2e.Output, env)}",
+                    ? diagnostic() + $"\nE2E verde: {RedactedTail(e2e.Output, env, 400)}"
+                    : diagnostic() + $"\nE2E reprovou (exit {e2e.ExitCode}): {RedactedTail(e2e.Output, env)}",
                 runId,
                 summary.Passed,
                 summary.Failed,
@@ -190,7 +216,7 @@ public static class ProductE2ERunner
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             return new ProductE2EResult(
-                false, false, $"E2E não executou: {exception.Message}", runId);
+                false, false, diagnostic() + $"\nE2E não executou: {exception.Message}", runId);
         }
         finally
         {
@@ -232,6 +258,74 @@ public static class ProductE2ERunner
         "policyPassword" => "Aa1!" + RandomAlphanumeric(20),
         _ => RandomAlphanumeric(24),
     };
+
+    private static (string File, IReadOnlyList<string> Args) PlaywrightInstallCommand(string e2eDir) =>
+        File.Exists(Path.Combine(e2eDir, "bun.lock")) ||
+        File.Exists(Path.Combine(e2eDir, "bun.lockb"))
+            ? ("bunx", ["playwright", "install", "chromium"])
+            : ("npx", ["playwright", "install", "chromium"]);
+
+    private static string InferPlaywrightGlobalSetup(string output, int exitCode)
+    {
+        if (output.Contains("global setup", StringComparison.OrdinalIgnoreCase) &&
+            exitCode != 0 &&
+            !ParsePlaywrightSummary(output).Failed.HasValue)
+        {
+            return "FAIL";
+        }
+
+        return exitCode == 0 ? "PASS" : "UNKNOWN";
+    }
+
+    private static string EnvironmentDiagnostic(
+        string runId,
+        string composeProject,
+        ProductE2EHarness harness,
+        IReadOnlyDictionary<string, string> env,
+        bool databaseFresh,
+        bool oracleHealthy,
+        bool apiHealthy,
+        bool frontendHealthy,
+        string playwrightGlobalSetup)
+    {
+        static string Status(bool value) => value ? "PASS" : "NOT_CONFIRMED";
+        static string Resolved(IReadOnlyDictionary<string, string> env, string key) =>
+            env.ContainsKey(key) ? "RESOLVED" : "MISSING";
+
+        var runtimeConfig = new SortedDictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["ADMIN_PASSWORD"] = Resolved(env, "ADMIN_PASSWORD"),
+            ["ORACLE_PASSWORD"] = Resolved(env, "ORACLE_PASSWORD"),
+        };
+        if (harness.GeneratedSecrets is { Count: > 0 })
+        {
+            foreach (var key in harness.GeneratedSecrets.Keys)
+            {
+                runtimeConfig[key] = Resolved(env, key);
+            }
+        }
+
+        var ports = env
+            .Where(item => item.Key.EndsWith("PORT", StringComparison.OrdinalIgnoreCase) ||
+                           item.Key.Equals("DB_PORT", StringComparison.Ordinal))
+            .OrderBy(item => item.Key, StringComparer.Ordinal)
+            .Select(item => $"{item.Key}={item.Value}");
+
+        return string.Join(
+            "\n",
+            "[poseidon-e2e-environment]",
+            $"RunId={runId}",
+            $"ComposeProject={composeProject}",
+            $"DatabaseFresh={Status(databaseFresh)}",
+            "SchemaApplied=INFERRED_FROM_SERVICE_READINESS",
+            "SeedExecuted=INFERRED_FROM_PLAYWRIGHT_GLOBAL_SETUP",
+            $"OracleHealthy={Status(oracleHealthy)}",
+            $"ApiHealthy={Status(apiHealthy)}",
+            $"FrontendHealthy={(harness.FrontCommand is { Count: > 0 } ? Status(frontendHealthy) : "MANAGED_BY_PLAYWRIGHT_OR_NOT_DECLARED")}",
+            $"RuntimeConfig={string.Join(",", runtimeConfig.Select(item => $"{item.Key}:{item.Value}"))}",
+            $"Ports={string.Join(",", ports)}",
+            $"PlaywrightGlobalSetup={playwrightGlobalSetup}");
+    }
 
     internal static (int? Passed, int? Failed, int? Skipped) ParsePlaywrightSummary(string output)
     {
@@ -302,7 +396,7 @@ public static class ProductE2ERunner
         }
     }
 
-    private static async Task WaitForHealthyAsync(
+    private static async Task<bool> WaitForHealthyAsync(
         string root,
         string composeProject,
         string composeFile,
@@ -312,7 +406,7 @@ public static class ProductE2ERunner
     {
         if (service is not { Length: > 0 })
         {
-            return;
+            return true;
         }
 
         var deadline = DateTimeOffset.UtcNow.AddMinutes(5);
@@ -336,11 +430,13 @@ public static class ProductE2ERunner
                 TimeSpan.FromSeconds(15), null, token);
             if (inspectExit == 0 && inspectOutput.Trim().Equals("healthy", StringComparison.OrdinalIgnoreCase))
             {
-                return;
+                return true;
             }
 
             await Task.Delay(TimeSpan.FromSeconds(8), token);
         }
+
+        return false;
     }
 
     private static async Task<bool> PollHealthAsync(string url, TimeSpan timeout, CancellationToken token)
