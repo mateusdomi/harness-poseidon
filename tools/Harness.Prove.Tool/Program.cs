@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using Harness.Host.WorkBoard;
 using Harness.Modules.Workflows.Product;
 using Harness.Persistence.Abstractions.Product;
@@ -109,7 +110,7 @@ if (!string.IsNullOrWhiteSpace(taskId) && !string.IsNullOrWhiteSpace(attemptId))
         linked.Status is WorkChainMutationStatus.Applied or WorkChainMutationStatus.IdempotentReplay;
 }
 
-var coverage = await AnalyzeCoverageAsync(databasePath, tenantId, projectId, commitSha);
+var coverage = await AnalyzeCoverageAsync(databasePath, tenantId, projectId, repositoryRoot, commitSha);
 
 Console.WriteLine(JsonSerializer.Serialize(
     new
@@ -128,6 +129,7 @@ Console.WriteLine(JsonSerializer.Serialize(
         taskId,
         attemptId,
         workEvidenceLinked,
+        requirementAudit = coverage.Audit,
         requirementCoverage = coverage,
         Detail = e2e.Detail,
     },
@@ -302,6 +304,7 @@ static async Task<CoverageReport> AnalyzeCoverageAsync(
     string databasePath,
     string tenantId,
     string projectId,
+    string repositoryRoot,
     string commitSha)
 {
     var demands = new List<DemandRow>();
@@ -407,21 +410,102 @@ static async Task<CoverageReport> AnalyzeCoverageAsync(
         tenantId,
         projectId,
         commitSha);
+    var objectives = demands.Select(demand =>
+    {
+        var cards = tasksByDemand.TryGetValue(demand.Id, out var demandCards) ? demandCards : [];
+        var text = string.Join(
+            "\n",
+            demand.Title,
+            string.Join("\n", demand.AcceptanceCriteria));
+        return new ObjectiveBinding(
+            demand.Id,
+            cards.FirstOrDefault()?.Id ?? demand.Id,
+            demand.Title,
+            text,
+            cards);
+    }).ToArray();
+    var canonical = ReadCanonicalRequirements(repositoryRoot, objectives).ToArray();
+    var usingCanonicalCatalog = canonical.Length > 0;
+    var machineRequirements = canonical
+        .Where(item => item.IsMachineApplicable)
+        .ToArray();
+
     var requirements = new List<(string Id, string Title, bool Superseded)>();
     var cardsByRequirement = new Dictionary<string, IReadOnlyList<RequirementCard>>(StringComparer.Ordinal);
-    foreach (var demand in demands)
+    if (usingCanonicalCatalog)
     {
-        var criteria = demand.AcceptanceCriteria.Count > 0 ? demand.AcceptanceCriteria : [demand.Title];
-        for (var index = 0; index < criteria.Count; index++)
+        foreach (var criterion in machineRequirements)
         {
-            var criterionId = CriterionId(demand.Id, index);
+            var title = $"{criterion.SourceRef} :: {criterion.Description}";
             requirements.Add((
-                criterionId,
-                $"{demand.Title} :: {criteria[index]}",
-                string.Equals(demand.State, "superseded", StringComparison.OrdinalIgnoreCase)));
-            cardsByRequirement[criterionId] =
-                tasksByDemand.TryGetValue(demand.Id, out var cards) ? cards : [];
+                criterion.CriterionId,
+                title,
+                false));
+            var cards = new List<RequirementCard>();
+            if (criterion.ObjectiveTaskId is { Length: > 0 } taskId)
+            {
+                cards.Add(new RequirementCard(taskId, criterion.ObjectiveTitle ?? taskId, "completed", false));
+            }
+
+            // The final product browser proof is a real objective/card in these projects. It may
+            // cover only criteria whose canonical matrix names a browser/runtime proof; deterministic
+            // and human criteria remain uncovered unless they have their own compatible evidence.
+            if (criterion.ExpectedProofType == "browser-e2e")
+            {
+                foreach (var task in objectives
+                    .Where(item => IsFinalBrowserProofObjective(item.Title))
+                    .Select(item => new RequirementCard(item.TaskId, item.Title, "completed", false)))
+                {
+                    if (cards.All(existing => existing.Id != task.Id))
+                    {
+                        cards.Add(task);
+                    }
+                }
+            }
+
+            cardsByRequirement[criterion.CriterionId] = cards;
         }
+    }
+    else
+    {
+        foreach (var demand in demands)
+        {
+            var criteria = demand.AcceptanceCriteria.Count > 0 ? demand.AcceptanceCriteria : [demand.Title];
+            for (var index = 0; index < criteria.Count; index++)
+            {
+                var criterionId = CriterionId(demand.Id, index);
+                requirements.Add((
+                    criterionId,
+                    $"{demand.Title} :: {criteria[index]}",
+                    string.Equals(demand.State, "superseded", StringComparison.OrdinalIgnoreCase)));
+                cardsByRequirement[criterionId] =
+                    tasksByDemand.TryGetValue(demand.Id, out var cards) ? cards : [];
+            }
+        }
+    }
+
+    if (usingCanonicalCatalog)
+    {
+        var canonicalProofs = await ReadCanonicalProofsAsync(
+            connection,
+            tenantId,
+            projectId,
+            commitSha,
+            machineRequirements);
+        proofs.AddRange(canonicalProofs);
+        var evidenceByCriterion = canonicalProofs
+            .GroupBy(proof => proof.RequirementId, StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => string.Join(
+                    ",",
+                    group.Select(proof => proof.EvidenceSetId).Distinct(StringComparer.Ordinal)),
+                StringComparer.Ordinal);
+        canonical = [.. canonical.Select(criterion => criterion with
+        {
+            CurrentEvidence = evidenceByCriterion.GetValueOrDefault(criterion.CriterionId)
+        })];
+        machineRequirements = [.. canonical.Where(item => item.IsMachineApplicable)];
     }
 
     var coverage = RequirementCoverageAnalyzer.Analyze(
@@ -442,11 +526,371 @@ static async Task<CoverageReport> AnalyzeCoverageAsync(
             string.Equals(proof.CommitSha, commitSha, StringComparison.OrdinalIgnoreCase)),
         readiness.Ready,
         stalePassingEvidenceSetsIgnored,
+        new RequirementAuditReport(
+            usingCanonicalCatalog,
+            canonical.Length,
+            machineRequirements.Length,
+            canonical.Count(item => item.ExpectedProofType == "human-acceptance"),
+            canonical.Count(item => !item.IsMachineApplicable && item.ExpectedProofType != "human-acceptance"),
+            0,
+            canonical),
         [.. missing.Take(20).Select(item => new MissingCriterion(
             item.RequirementId,
             item.Title,
             item.Status.ToString(),
             item.Reason))]);
+}
+
+static async Task<IReadOnlyList<RequirementProof>> ReadCanonicalProofsAsync(
+    SqliteConnection connection,
+    string tenantId,
+    string projectId,
+    string commitSha,
+    IReadOnlyList<CanonicalCriterion> criteria)
+{
+    var proofs = new List<RequirementProof>();
+    var browserCriteria = criteria
+        .Where(item => item.ExpectedProofType == "browser-e2e")
+        .ToArray();
+    if (browserCriteria.Length == 0)
+    {
+        return proofs;
+    }
+
+    await using var command = connection.CreateCommand();
+    command.CommandText =
+        """
+        SELECT evidence_set_id, task_id, commit_sha
+        FROM product_evidence_sets
+        WHERE tenant_id=$tenant
+          AND project_id=$project
+          AND commit_sha=$commit
+          AND gate_decision='satisfied'
+          AND task_id IS NOT NULL
+          AND collectors LIKE '%product-e2e-runner%'
+        ORDER BY created_at DESC;
+        """;
+    command.Parameters.AddWithValue("$tenant", tenantId);
+    command.Parameters.AddWithValue("$project", projectId);
+    command.Parameters.AddWithValue("$commit", commitSha);
+    await using var reader = await command.ExecuteReaderAsync();
+    while (await reader.ReadAsync())
+    {
+        var evidenceSetId = reader.GetString(0);
+        var objectiveCardId = reader.GetString(1);
+        var proofCommit = reader.GetString(2);
+        foreach (var criterion in browserCriteria)
+        {
+            proofs.Add(new RequirementProof(
+                criterion.CriterionId,
+                objectiveCardId,
+                evidenceSetId,
+                proofCommit,
+                true,
+                [criterion.CriterionId]));
+        }
+    }
+
+    return proofs;
+}
+
+static IReadOnlyList<CanonicalCriterion> ReadCanonicalRequirements(
+    string repositoryRoot,
+    IReadOnlyList<ObjectiveBinding> objectives)
+{
+    var matrixPath = Path.Combine(repositoryRoot, "docs", "RASTREABILIDADE.md");
+    var prismaSourcePath = Path.Combine(repositoryRoot, "docs", "REQUISITOS-FONTE.md");
+    var indicadoresSourcePath = Path.Combine(repositoryRoot, "docs", "REQUISITOS-FONTE.txt");
+    if (!File.Exists(matrixPath))
+    {
+        return [];
+    }
+
+    var matrix = File.ReadAllText(matrixPath);
+    if (File.Exists(prismaSourcePath) &&
+        matrix.Contains("T1", StringComparison.Ordinal) &&
+        matrix.Contains("T26", StringComparison.Ordinal))
+    {
+        return ReadPrismaCanonical(prismaSourcePath, matrix, objectives);
+    }
+
+    if (File.Exists(indicadoresSourcePath) &&
+        matrix.Contains("São 22 itens", StringComparison.OrdinalIgnoreCase))
+    {
+        return ReadIndicadoresCanonical(indicadoresSourcePath, matrix, objectives);
+    }
+
+    return [];
+}
+
+static IReadOnlyList<CanonicalCriterion> ReadPrismaCanonical(
+    string sourcePath,
+    string matrix,
+    IReadOnlyList<ObjectiveBinding> objectives)
+{
+    var source = File.ReadAllText(sourcePath);
+    var criteria = new List<CanonicalCriterion>();
+    foreach (Match match in Regex.Matches(
+        source,
+        @"-\s+\*\*(T\d{1,2})\*\*\s+(?<description>.+)",
+        RegexOptions.CultureInvariant))
+    {
+        var id = match.Groups[1].Value;
+        var description = match.Groups["description"].Value.Trim();
+        var matrixLine = MatrixLine(matrix, id);
+        var proofType = PrismaProofTypeFor(matrixLine);
+        var objective = MatchObjective(id, description, objectives);
+        criteria.Add(new CanonicalCriterion(
+            id,
+            "docs/REQUISITOS-FONTE.md §16",
+            Shorten(description),
+            "Required",
+            objective?.DemandId,
+            objective?.TaskId,
+            objective?.Title,
+            proofType,
+            null,
+            proofType != "human-acceptance"));
+    }
+
+    return [.. criteria.OrderBy(item => int.Parse(item.CriterionId[1..], System.Globalization.CultureInfo.InvariantCulture))];
+}
+
+static IReadOnlyList<CanonicalCriterion> ReadIndicadoresCanonical(
+    string sourcePath,
+    string matrix,
+    IReadOnlyList<ObjectiveBinding> objectives)
+{
+    var source = File.ReadAllText(sourcePath);
+    var sourceItems = ExtractIndicadoresSourceItems(source);
+    var criteria = new List<CanonicalCriterion>();
+    var previousProofType = "deterministic";
+    foreach (Match match in Regex.Matches(
+        matrix,
+        @"(?ms)^###\s+(?<number>\d{1,2})\.\s+(?<title>[^\n]+)\n(?<body>.*?)(?=^###\s+\d{1,2}\.\s+|\n---\n|\\z)",
+        RegexOptions.CultureInvariant))
+    {
+        var number = int.Parse(match.Groups["number"].Value, System.Globalization.CultureInfo.InvariantCulture);
+        var id = $"AC{number:00}";
+        var title = match.Groups["title"].Value.Trim();
+        var body = match.Groups["body"].Value;
+        var proofType = ProofTypeFor(body);
+        if (body.Contains("mesma spec", StringComparison.OrdinalIgnoreCase))
+        {
+            proofType = previousProofType;
+        }
+
+        previousProofType = proofType;
+        var objective = PreferredIndicadoresObjective(number, objectives) ?? MatchObjective(id, title, objectives);
+        var sourceDescription = sourceItems.GetValueOrDefault(number, title);
+        criteria.Add(new CanonicalCriterion(
+            id,
+            "docs/REQUISITOS-FONTE.txt §32",
+            Shorten(sourceDescription),
+            "Required",
+            objective?.DemandId,
+            objective?.TaskId,
+            objective?.Title,
+            proofType,
+            null,
+            proofType != "human-acceptance"));
+    }
+
+    return [.. criteria.OrderBy(item => item.CriterionId, StringComparer.Ordinal)];
+}
+
+static ObjectiveBinding? PreferredIndicadoresObjective(
+    int criterionNumber,
+    IReadOnlyList<ObjectiveBinding> objectives)
+{
+    var fragment = criterionNumber switch
+    {
+        >= 1 and <= 3 => "Fatia vertical",
+        4 or 14 => "Usuários, perfis e permissões",
+        5 or 6 or 22 => "Organização e cadastro",
+        7 or 8 => "Modelos de importação",
+        >= 9 and <= 13 => "Importação completa",
+        15 or 19 or 20 => "Dashboard configurável",
+        16 or 21 => "Rastreabilidade total",
+        17 or 18 => "produto passa na suíte E2E",
+        _ => string.Empty,
+    };
+    return fragment.Length == 0
+        ? null
+        : objectives.FirstOrDefault(item => item.Title.Contains(fragment, StringComparison.OrdinalIgnoreCase));
+}
+
+static Dictionary<int, string> ExtractIndicadoresSourceItems(string source)
+{
+    var start = source.IndexOf("32. CRITÉRIOS DE ACEITE", StringComparison.OrdinalIgnoreCase);
+    if (start < 0)
+    {
+        return [];
+    }
+
+    var end = source.IndexOf("33.", start, StringComparison.OrdinalIgnoreCase);
+    var section = end > start ? source[start..end] : source[start..];
+    var lines = section
+        .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Where(line => line.EndsWith(';') || line.EndsWith('.'))
+        .Where(line => !line.StartsWith("O projeto", StringComparison.OrdinalIgnoreCase))
+        .Select(line => line.TrimEnd(';', '.').Trim())
+        .Where(line => line.Length > 0)
+        .ToArray();
+    var result = new Dictionary<int, string>();
+    for (var index = 0; index < lines.Length; index++)
+    {
+        result[index + 1] = lines[index];
+    }
+
+    return result;
+}
+
+static string MatrixLine(string matrix, string criterionId)
+{
+    return matrix
+        .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .FirstOrDefault(line => line.Contains($"**{criterionId}**", StringComparison.Ordinal)) ??
+        string.Empty;
+}
+
+static string PrismaProofTypeFor(string matrixLine)
+{
+    if (matrixLine.Contains("frontend/e2e", StringComparison.OrdinalIgnoreCase) ||
+        Regex.IsMatch(matrixLine, @"\|\s*idem\s*\|?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+    {
+        return "browser-e2e";
+    }
+
+    if (matrixLine.Contains("Oracle", StringComparison.OrdinalIgnoreCase) ||
+        matrixLine.Contains("gatilho", StringComparison.OrdinalIgnoreCase) ||
+        matrixLine.Contains("banco", StringComparison.OrdinalIgnoreCase))
+    {
+        return "database";
+    }
+
+    return "deterministic";
+}
+
+static string ProofTypeFor(string text)
+{
+    if (text.Contains("passo manual justificado", StringComparison.OrdinalIgnoreCase) &&
+        !text.Contains("navegador", StringComparison.OrdinalIgnoreCase) &&
+        !text.Contains("Playwright", StringComparison.OrdinalIgnoreCase) &&
+        !text.Contains("E2E", StringComparison.OrdinalIgnoreCase))
+    {
+        return "human-acceptance";
+    }
+
+    if (text.Contains("navegador", StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("Playwright", StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("e2e", StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("frontend/e2e", StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("tests/e2e", StringComparison.OrdinalIgnoreCase))
+    {
+        return "browser-e2e";
+    }
+
+    if (text.Contains("Oracle", StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("banco", StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("migration", StringComparison.OrdinalIgnoreCase) ||
+        text.Contains("gatilho", StringComparison.OrdinalIgnoreCase))
+    {
+        return "database";
+    }
+
+    return "deterministic";
+}
+
+static ObjectiveBinding? MatchObjective(
+    string criterionId,
+    string description,
+    IReadOnlyList<ObjectiveBinding> objectives)
+{
+    var best = objectives
+        .Select(item => new { Objective = item, Score = ObjectiveScore(criterionId, description, item.SearchText) })
+        .Where(item => item.Score > 0)
+        .OrderByDescending(item => item.Score)
+        .FirstOrDefault();
+    return best?.Objective;
+}
+
+static int ObjectiveScore(string criterionId, string description, string text)
+{
+    var score = 0;
+    if (criterionId.StartsWith('T') && MentionsPrismaCriterion(text, criterionId))
+    {
+        score += 100;
+    }
+
+    foreach (var token in Tokens(description).Take(14))
+    {
+        if (text.Contains(token, StringComparison.OrdinalIgnoreCase))
+        {
+            score++;
+        }
+    }
+
+    if (IsFinalBrowserProofObjective(text))
+    {
+        score -= 50;
+    }
+
+    return score;
+}
+
+static bool MentionsPrismaCriterion(string text, string criterionId)
+{
+    if (Regex.IsMatch(text, $@"(?<![A-Z0-9]){Regex.Escape(criterionId)}(?![0-9])"))
+    {
+        return true;
+    }
+
+    var number = int.Parse(criterionId[1..], System.Globalization.CultureInfo.InvariantCulture);
+    foreach (Match range in Regex.Matches(
+        text,
+        @"T(?<start>\d{1,2})\s*(?:-|–|—|a|até)\s*T?(?<end>\d{1,2})",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+    {
+        var start = int.Parse(range.Groups["start"].Value, System.Globalization.CultureInfo.InvariantCulture);
+        var end = int.Parse(range.Groups["end"].Value, System.Globalization.CultureInfo.InvariantCulture);
+        if (number >= Math.Min(start, end) && number <= Math.Max(start, end))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool IsFinalBrowserProofObjective(string text) =>
+    text.Contains("E2E de navegador", StringComparison.OrdinalIgnoreCase) ||
+    text.Contains("suíte E2E de navegador", StringComparison.OrdinalIgnoreCase) ||
+    text.Contains("produto passa na suíte E2E", StringComparison.OrdinalIgnoreCase) ||
+    text.Contains("Rastreabilidade total", StringComparison.OrdinalIgnoreCase);
+
+static IEnumerable<string> Tokens(string value)
+{
+    var stop = new HashSet<string>([
+        "para", "com", "uma", "um", "dos", "das", "que", "por", "meio", "sistema",
+        "funcionar", "funcionarem", "conseguir", "conectar", "ficar", "ficarem",
+        "estar", "estiverem", "critério", "aceite", "de", "do", "da", "os", "as",
+        "ao", "no", "na", "o", "a", "e"
+    ], StringComparer.OrdinalIgnoreCase);
+    foreach (Match match in Regex.Matches(value, @"[\p{L}\p{Nd}]{4,}", RegexOptions.CultureInvariant))
+    {
+        var token = match.Value;
+        if (!stop.Contains(token))
+        {
+            yield return token;
+        }
+    }
+}
+
+static string Shorten(string value)
+{
+    value = Regex.Replace(value.Trim(), @"\s+", " ");
+    return value.Length <= 180 ? value : value[..177] + "...";
 }
 
 static async Task<int> CountStalePassingEvidenceSetsAsync(
@@ -584,6 +1028,34 @@ internal sealed record DemandRow(
     string State,
     IReadOnlyList<string> AcceptanceCriteria);
 
+internal sealed record ObjectiveBinding(
+    string DemandId,
+    string TaskId,
+    string Title,
+    string SearchText,
+    IReadOnlyList<RequirementCard> Cards);
+
+internal sealed record CanonicalCriterion(
+    string CriterionId,
+    string SourceRef,
+    string Description,
+    string Binding,
+    string? ObjectiveId,
+    string? ObjectiveTaskId,
+    string? ObjectiveTitle,
+    string ExpectedProofType,
+    string? CurrentEvidence,
+    bool IsMachineApplicable);
+
+internal sealed record RequirementAuditReport(
+    bool UsedCanonicalCatalog,
+    int Canonical,
+    int RequiredApplicable,
+    int HumanAcceptance,
+    int NonApplicable,
+    int Lost,
+    IReadOnlyList<CanonicalCriterion> Criteria);
+
 internal sealed record MissingCriterion(
     string Id,
     string Title,
@@ -598,6 +1070,7 @@ internal sealed record CoverageReport(
     bool EvidenceValidForCurrentCommit,
     bool Ready,
     int StalePassingEvidenceSetsIgnored,
+    RequirementAuditReport Audit,
     IReadOnlyList<MissingCriterion> MissingCriteriaSample);
 
 internal static partial class Program
