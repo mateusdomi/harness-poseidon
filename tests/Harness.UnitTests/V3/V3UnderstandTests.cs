@@ -1,6 +1,7 @@
 using Harness.Host.V3;
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Contracts;
+using Harness.Persistence.Abstractions.Projects;
 
 namespace Harness.UnitTests.V3;
 
@@ -66,12 +67,40 @@ public sealed class V3UnderstandTests : IDisposable
                 "PRIMARY_REQUIREMENTS",
                 "Notificações por e-mail/digest",
                 "PRIMARY_REQUIREMENTS",
+                "Oracle",
+                "PRIMARY_REQUIREMENTS",
                 "ITRC definido",
                 "PRIMARY_REQUIREMENTS",
                 26),
             [Coverage(complete: true)]);
 
         Assert.Equal(["repository"], questions.Select(question => question.QuestionId));
+    }
+
+    [Fact]
+    public void PrimaryRequirementFactsExtractDatabaseForEffectiveStack()
+    {
+        var facts = V3RequirementFactsExtractor.Extract(
+        [
+            new V3SourceCoverage(
+                "artifact-1",
+                "requirements.md",
+                "requirements_source",
+                1,
+                1,
+                100,
+                true,
+                "full-text-read",
+                120,
+                "O backend deve usar Oracle como banco de dados local de desenvolvimento."),
+        ]);
+        var project = Project(description: "Projeto blind sem stack manual.", technologies: []);
+
+        var stack = V3StackResolver.Resolve(project, state: null, [], facts);
+
+        Assert.Equal("Oracle", facts.Database);
+        Assert.Equal("PRIMARY_REQUIREMENTS", facts.DatabaseProvenance);
+        Assert.Equal("Oracle", stack.Database);
     }
 
     [Fact]
@@ -208,6 +237,8 @@ public sealed class V3UnderstandTests : IDisposable
                 "PRIMARY_REQUIREMENTS",
                 "Notificações por e-mail/digest",
                 "PRIMARY_REQUIREMENTS",
+                "Oracle",
+                "PRIMARY_REQUIREMENTS",
                 "ITRC definido",
                 "PRIMARY_REQUIREMENTS",
                 26),
@@ -263,6 +294,29 @@ public sealed class V3UnderstandTests : IDisposable
             null,
             null,
             priority);
+
+    private static ProjectRecord Project(string description, IReadOnlyList<string> technologies) =>
+        new(
+            "tenant",
+            "01K00000000000000000000000",
+            "01K00000000000000000000001",
+            "V3 Understand",
+            "V3UNDERSTAND",
+            description,
+            "active",
+            "normal",
+            null,
+            "local",
+            "main",
+            technologies,
+            new ProjectBrandRecord(null, null, null, null),
+            [],
+            1,
+            "chief",
+            "live",
+            DateTimeOffset.UnixEpoch,
+            DateTimeOffset.UnixEpoch,
+            1);
 
     public void Dispose()
     {

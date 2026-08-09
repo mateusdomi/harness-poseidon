@@ -40,6 +40,7 @@ public sealed partial class ChiefTurnBackgroundService(
     IClock clock,
     ChiefTurnWorkerOptions options,
     ChiefContextComposer contextComposer,
+    IChiefAttachmentNavigator attachmentNavigator,
     ChiefContextStrategyOptions contextStrategyOptions,
     LeadershipProfileStore leadershipProfile,
     ILocalProfileStore localProfiles,
@@ -940,7 +941,9 @@ public sealed partial class ChiefTurnBackgroundService(
         // falha real do intake do Prisma (2026-08-05): a chefe respondeu no vocabulário do brief e
         // o turno caiu por "detalhe técnico não autorizado". Detalhe INTERNO (provider, conta, ID,
         // log) continua exigindo o pedido explícito + autorização abaixo.
-        var userSpokeTechnically = ChiefCommunicationPolicy.SpeaksTechnically(lease.Instruction);
+        var userSpokeTechnically =
+            ChiefCommunicationPolicy.SpeaksTechnically(lease.Instruction) ||
+            await PrimaryRequirementsSpeakTechnicallyAsync(lease, cancellationToken);
         var requested = ChiefCommunicationPolicy.RequestsTechnicalDetails(lease.Instruction);
         if (!requested)
         {
@@ -986,6 +989,33 @@ public sealed partial class ChiefTurnBackgroundService(
             TechnicalDetailsRequested: true,
             TechnicalDetailsAuthorized: authorized,
             UserSpokeTechnically: userSpokeTechnically);
+    }
+
+    private async Task<bool> PrimaryRequirementsSpeakTechnicallyAsync(
+        ChiefTurnLease lease,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var sources = await attachmentNavigator.ListPrimaryRequirementSourcesAsync(
+                lease.Turn.TenantId,
+                lease.Turn.ProjectId,
+                maximumCharacters: 140_000,
+                cancellationToken);
+            return sources.Count > 0;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            LogPrimaryRequirementsCommunicationContextUnavailable(
+                logger,
+                lease.Turn.ProjectId,
+                exception.GetType().Name);
+            return false;
+        }
     }
 
     /// <summary>
@@ -1157,6 +1187,15 @@ public sealed partial class ChiefTurnBackgroundService(
         Level = LogLevel.Warning,
         Message = "Chief: decisão do dono sobre o card {CardId} NÃO foi aplicada ({Reason}).")]
     private static partial void LogCardActionRejected(ILogger logger, string cardId, string reason);
+
+    [LoggerMessage(
+        EventId = 2112,
+        Level = LogLevel.Warning,
+        Message = "Chief: fontes primárias do projeto {ProjectId} não puderam compor o contexto de comunicação ({ErrorType}).")]
+    private static partial void LogPrimaryRequirementsCommunicationContextUnavailable(
+        ILogger logger,
+        string projectId,
+        string errorType);
 
     [LoggerMessage(
         EventId = 2105,

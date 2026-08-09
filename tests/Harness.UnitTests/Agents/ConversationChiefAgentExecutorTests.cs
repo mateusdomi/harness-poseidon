@@ -276,6 +276,31 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
     }
 
     [Fact]
+    public async Task PrimaryRequirementsTechnicalRegisterAllowsProductVocabularyInBlindUnderstand()
+    {
+        const string response =
+            """{"intent":"planejar_demanda","intentConfidence":0.93,"response":"Li os materiais do produto. A stack registrada é backend .NET, banco Oracle e frontend React. Falta apenas o repositório de destino.","demands":[]}""";
+        var fake = new FakeExternalExecutor(response);
+        var navigator = new FakeNavigator(
+            [new ChiefPrimaryRequirementSource(
+                "requisitos.md",
+                "requirements_source",
+                2,
+                2,
+                128,
+                "O produto deve usar backend .NET, banco Oracle, API real e frontend React.")]);
+        var executor = Build(ChiefRegistry(), fake, navigator);
+
+        var result = await executor.ExecuteAsync(
+            Request(instruction:
+                "Bruna, analise os materiais deste projeto e prepare tudo o que for necessário para iniciarmos o desenvolvimento. Não inicie o desenvolvimento sem minha autorização."),
+            CancellationToken.None);
+
+        Assert.Single(fake.Requests);
+        Assert.Contains("banco Oracle", ChiefTurnOutputContract.Parse(result.StructuredOutput).Response);
+    }
+
+    [Fact]
     public async Task TechnicalDetailsRequireBothExplicitRequestAndServerAuthorization()
     {
         const string technical =
@@ -630,7 +655,9 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         }
     }
 
-    private sealed class FakeNavigator : IChiefAttachmentNavigator
+    private sealed class FakeNavigator(
+        IReadOnlyList<ChiefPrimaryRequirementSource>? primaryRequirements = null)
+        : IChiefAttachmentNavigator
     {
         public Task<IReadOnlyList<ChiefAttachmentOutline>> ListOutlinesAsync(
             string tenantId, string projectId, CancellationToken cancellationToken = default) =>
@@ -645,6 +672,13 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
             Task.FromResult(sectionId == "5"
                 ? "## 5. Metodologia de avaliação\n\ncritérios de impacto e a tabela de consulta completa"
                 : null);
+
+        public Task<IReadOnlyList<ChiefPrimaryRequirementSource>> ListPrimaryRequirementSourcesAsync(
+            string tenantId,
+            string projectId,
+            int maximumCharacters,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(primaryRequirements ?? []);
     }
 
     private ConversationChiefAgentExecutor Build(

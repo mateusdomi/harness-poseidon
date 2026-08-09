@@ -13,6 +13,7 @@ using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Harness.Host.V3;
 
@@ -103,7 +104,7 @@ public static class V3FoundationEndpoints
         ILocalProfileStore profiles,
         IProjectStore projects,
         Readiness.ProjectReadinessService readiness,
-        AgentAccountRegistry accounts,
+        [FromServices] AgentAccountRegistry accounts,
         IWorkBoardStore board,
         ISolicitationAttachmentStore attachments,
         IChannelLinkStore channelLinks,
@@ -124,7 +125,7 @@ public static class V3FoundationEndpoints
         }
 
         var state = V3UnderstandStore.ForConfiguration(configuration).ReadProject(project.Id);
-        var stack = V3StackResolver.Resolve(project, state, []);
+        var stack = V3StackResolver.Resolve(project, state, [], V3RequirementSourceFacts.Empty);
         var links = await channelLinks.ListAsync(profile.TenantId, token);
         return Results.Ok(V3Readiness.For(
             project,
@@ -139,7 +140,7 @@ public static class V3FoundationEndpoints
     private static async Task<IResult> GetCapacityAsync(
         HttpRequest request,
         ILocalProfileStore profiles,
-        AgentAccountRegistry accounts,
+        [FromServices] AgentAccountRegistry accounts,
         IClock clock,
         CancellationToken token)
     {
@@ -151,7 +152,7 @@ public static class V3FoundationEndpoints
         HttpRequest request,
         ILocalProfileStore profiles,
         AgentRunSettings settings,
-        AgentAccountRegistry registry,
+        [FromServices] AgentAccountRegistry registry,
         AccountAvailabilityLedger availability,
         IClock clock,
         CancellationToken token)
@@ -173,7 +174,7 @@ public static class V3FoundationEndpoints
         HttpRequest request,
         ILocalProfileStore profiles,
         AgentRunSettings settings,
-        AgentAccountRegistry registry,
+        [FromServices] AgentAccountRegistry registry,
         AccountAvailabilityLedger availability,
         IClock clock,
         CancellationToken token)
@@ -202,7 +203,7 @@ public static class V3FoundationEndpoints
         HttpRequest request,
         ILocalProfileStore profiles,
         AgentRunSettings settings,
-        AgentAccountRegistry registry,
+        [FromServices] AgentAccountRegistry registry,
         AccountProfileProvisioner provisioner,
         IClock clock,
         CancellationToken token)
@@ -229,7 +230,7 @@ public static class V3FoundationEndpoints
         string alias,
         HttpRequest request,
         ILocalProfileStore profiles,
-        AgentAccountRegistry registry,
+        [FromServices] AgentAccountRegistry registry,
         AccountProfileProvisioner provisioner,
         CancellationToken token)
     {
@@ -251,7 +252,7 @@ public static class V3FoundationEndpoints
     private static async Task<IResult> GetChiefAssignmentAsync(
         HttpRequest request,
         ILocalProfileStore profiles,
-        AgentAccountRegistry registry,
+        [FromServices] AgentAccountRegistry registry,
         AgentRunSettings settings,
         CancellationToken token)
     {
@@ -264,7 +265,7 @@ public static class V3FoundationEndpoints
         HttpRequest request,
         ILocalProfileStore profiles,
         AgentRunSettings settings,
-        AgentAccountRegistry registry,
+        [FromServices] AgentAccountRegistry registry,
         CancellationToken token)
     {
         if (await LocalProfileSession.ResolveAsync(request, profiles, token) is null) return SessionRequired();
@@ -385,9 +386,11 @@ public static class V3Readiness
         V3ProjectUnderstandState? v3State = null,
         int artifactCount = 0,
         V3EffectiveStackContract? effectiveStack = null,
-        bool operationalNotificationConfigured = false)
+        bool operationalNotificationConfigured = false,
+        bool? runtimeReadyOverride = null)
     {
         var capacity = V3Capacity.From(accounts, DateTimeOffset.UtcNow);
+        var runtimeReady = runtimeReadyOverride ?? RuntimeReady();
         var confirmedDeadline = v3State?.Deadline ?? project.TargetDeadline;
         var confirmedRepository = string.IsNullOrWhiteSpace(v3State?.Repository)
             ? project.RepositoryUrl
@@ -398,6 +401,10 @@ public static class V3Readiness
             database.Contains("SQL Server", StringComparison.OrdinalIgnoreCase) ||
             database.Contains("database", StringComparison.OrdinalIgnoreCase) &&
             !database.Contains("conforme requisitos", StringComparison.OrdinalIgnoreCase);
+        var stackResolved = project.Technologies.Count > 0 || effectiveStack is not null &&
+            (!effectiveStack.Frontend.Contains("conforme", StringComparison.OrdinalIgnoreCase) ||
+             !effectiveStack.Backend.Contains("conforme", StringComparison.OrdinalIgnoreCase) ||
+             !effectiveStack.Database.Contains("conforme", StringComparison.OrdinalIgnoreCase));
         var items = new List<V3ReadinessItem>
         {
             Item("Requirements", HasText(project.Description) ? "PASS" : "ACTION_REQUIRED", "project.description"),
@@ -405,9 +412,9 @@ public static class V3Readiness
             Item("OpenQuestions", existing.NextActions.Count == 0 ? "PASS" : "ACTION_REQUIRED", "readiness.nextActions"),
             Item("Deadline", confirmedDeadline.HasValue ? "PASS" : "ACTION_REQUIRED", "v3.deadline || project.targetDeadline"),
             Item("Repository", RepositoryReachable(confirmedRepository) ? "PASS" : "BLOCKED", "v3.repository || project.repositoryUrl"),
-            Item("EffectiveStack", project.Technologies.Count > 0 ? "PASS" : "ACTION_REQUIRED", "project.technologies"),
-            Item("RuntimeEnvironment", RuntimeReady() ? "PASS" : "ACTION_REQUIRED", "dotnet/node/git/docker probe"),
-            Item("Database", databaseApplies ? RuntimeReady() ? "PASS" : "ACTION_REQUIRED" : "NOT_APPLICABLE",
+            Item("EffectiveStack", stackResolved ? "PASS" : "ACTION_REQUIRED", stackResolved ? "v3.effectiveStack" : "project.technologies"),
+            Item("RuntimeEnvironment", runtimeReady ? "PASS" : "ACTION_REQUIRED", "dotnet/node/git/docker probe"),
+            Item("Database", databaseApplies ? runtimeReady ? "PASS" : "ACTION_REQUIRED" : "NOT_APPLICABLE",
                 databaseApplies ? $"database applies: {database}" : "project stack does not require local database"),
             Item("Notification", operationalNotificationConfigured ? "PASS" : "NOT_APPLICABLE",
                 operationalNotificationConfigured ? "Poseidon operational channel configured" : "Poseidon operational notification is optional in this personal session"),
@@ -415,8 +422,10 @@ public static class V3Readiness
             Item("Authentication", capacity.ChiefSlots > 0 ? "PASS" : "ACTION_REQUIRED", "chief account availability"),
         };
 
-        var ready = items.All(item => item.Status is "PASS" or "NOT_APPLICABLE") &&
-            existing.OverallState == ConfigurationState.Ready;
+        // Para projetos V3, este read model é a autoridade do READY_TO_START. O snapshot legado
+        // ainda é exposto para auditoria, mas não pode manter um V3 totalmente verde como
+        // NOT_READY só porque a instalação antiga usa "Configured" como teto.
+        var ready = items.All(item => item.Status is "PASS" or "NOT_APPLICABLE");
         return new V3ProjectReadinessResponse(
             project.Id,
             ready ? "READY" : "NOT_READY",

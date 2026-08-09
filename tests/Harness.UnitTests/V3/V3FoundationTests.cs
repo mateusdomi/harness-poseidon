@@ -140,6 +140,38 @@ public sealed class V3FoundationTests : IDisposable
     }
 
     [Fact]
+    public void ReadinessAcceptsEffectiveStackDerivedFromPrimaryRequirements()
+    {
+        var project = Project(database: "none", repository: _directory) with
+        {
+            Technologies = [],
+            TargetDeadline = new DateTimeOffset(2026, 8, 20, 0, 0, 0, TimeSpan.Zero),
+        };
+        Directory.CreateDirectory(_directory);
+
+        var readiness = V3Readiness.For(
+            project,
+            ReadySnapshot(project.Id),
+            [
+                Account("chief-claude-primary", ExecutorCatalog.ClaudeCode, [AgentRoles.ChiefOrchestrator]),
+                Account("worker-codex-project", ExecutorCatalog.Codex, [AgentRoles.ProjectExecutor]),
+            ],
+            artifactCount: 1,
+            effectiveStack: new V3EffectiveStackContract(
+                "Frontend conforme requisitos",
+                "Backend conforme baseline Poseidon",
+                "Oracle",
+                "Clean Architecture",
+                "Playwright",
+                ["PRIMARY_REQUIREMENTS:database"]),
+            operationalNotificationConfigured: true,
+            runtimeReadyOverride: true);
+
+        Assert.Equal("PASS", Item(readiness, "EffectiveStack").Status);
+        Assert.Equal("PASS", Item(readiness, "Database").Status);
+    }
+
+    [Fact]
     public void ReadinessMarksNotificationNotApplicableOnlyWithExplicitOperationalPolicyReason()
     {
         var project = Project(database: "none", repository: _directory) with
@@ -160,11 +192,69 @@ public sealed class V3FoundationTests : IDisposable
                 "Clean Architecture",
                 "Playwright",
                 ["primary requirements"]),
-            operationalNotificationConfigured: false);
+            operationalNotificationConfigured: false,
+            runtimeReadyOverride: true);
 
         Assert.Equal("NOT_APPLICABLE", Item(readiness, "Notification").Status);
         Assert.Contains("operational notification is optional", Item(readiness, "Notification").EvidenceProvider, StringComparison.OrdinalIgnoreCase);
         Assert.Equal("NOT_APPLICABLE", Item(readiness, "Database").Status);
+    }
+
+    [Fact]
+    public void V3ReadinessIgnoresLegacyConfiguredCeilingWhenAllV3ChecksPass()
+    {
+        var project = Project(database: "none", repository: _directory) with
+        {
+            TargetDeadline = new DateTimeOffset(2026, 8, 20, 0, 0, 0, TimeSpan.Zero),
+        };
+        Directory.CreateDirectory(_directory);
+
+        var readiness = V3Readiness.For(
+            project,
+            new ProjectReadinessSnapshot(project.Id, ConfigurationState.Configured, [], []),
+            [
+                Account("chief-claude-primary", ExecutorCatalog.ClaudeCode, [AgentRoles.ChiefOrchestrator]),
+                Account("worker-codex-project", ExecutorCatalog.Codex, [AgentRoles.ProjectExecutor]),
+            ],
+            artifactCount: 1,
+            effectiveStack: new V3EffectiveStackContract(
+                "React + TypeScript + Vite",
+                ".NET",
+                "none",
+                "Clean Architecture",
+                "Playwright",
+                ["primary requirements"]),
+            operationalNotificationConfigured: false,
+            runtimeReadyOverride: true);
+
+        Assert.Equal("READY", readiness.Overall);
+        Assert.Equal("Configured", readiness.LegacyReadinessState);
+    }
+
+    [Fact]
+    public void V3ReadinessRemainsNotReadyWhenARequiredV3CheckIsBlocked()
+    {
+        var project = Project(database: "none", repository: Path.Combine(_directory, "missing")) with
+        {
+            TargetDeadline = new DateTimeOffset(2026, 8, 20, 0, 0, 0, TimeSpan.Zero),
+        };
+
+        var readiness = V3Readiness.For(
+            project,
+            new ProjectReadinessSnapshot(project.Id, ConfigurationState.Ready, [], []),
+            [Account("chief-claude-primary", ExecutorCatalog.ClaudeCode, [AgentRoles.ChiefOrchestrator])],
+            artifactCount: 1,
+            effectiveStack: new V3EffectiveStackContract(
+                "React + TypeScript + Vite",
+                ".NET",
+                "none",
+                "Clean Architecture",
+                "Playwright",
+                ["primary requirements"]),
+            operationalNotificationConfigured: false);
+
+        Assert.Equal("NOT_READY", readiness.Overall);
+        Assert.Equal("BLOCKED", Item(readiness, "Repository").Status);
     }
 
     private static AgentAccountContract Account(

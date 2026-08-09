@@ -18,6 +18,7 @@ using Harness.Persistence.Abstractions.Prototyping;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Harness.Host.V3;
 
@@ -76,7 +77,7 @@ public static class V3UnderstandEndpoints
         IDocumentCatalogStore documents,
         IPrototypeStore prototypes,
         Readiness.ProjectReadinessService readiness,
-        AgentAccountRegistry accounts,
+        [FromServices] AgentAccountRegistry accounts,
         IChannelLinkStore channelLinks,
         IConfiguration configuration,
         CancellationToken token)
@@ -102,7 +103,7 @@ public static class V3UnderstandEndpoints
         IDocumentCatalogStore documents,
         IPrototypeStore prototypes,
         Readiness.ProjectReadinessService readiness,
-        AgentAccountRegistry accounts,
+        [FromServices] AgentAccountRegistry accounts,
         IChannelLinkStore channelLinks,
         IConfiguration configuration,
         IClock clock,
@@ -134,7 +135,7 @@ public static class V3UnderstandEndpoints
         IDocumentCatalogStore documents,
         IPrototypeStore prototypes,
         Readiness.ProjectReadinessService readiness,
-        AgentAccountRegistry accounts,
+        [FromServices] AgentAccountRegistry accounts,
         IChannelLinkStore channelLinks,
         IConfiguration configuration,
         IClock clock,
@@ -192,7 +193,7 @@ public static class V3UnderstandEndpoints
         IDocumentCatalogStore documents,
         IPrototypeStore prototypes,
         Readiness.ProjectReadinessService readiness,
-        AgentAccountRegistry accounts,
+        [FromServices] AgentAccountRegistry accounts,
         IChannelLinkStore channelLinks,
         IConfiguration configuration,
         IClock clock,
@@ -385,7 +386,7 @@ public static class V3ProjectContextBuilder
         IPrototypeStore prototypes,
         SolicitationAttachmentStorage attachmentStorage,
         Readiness.ProjectReadinessService readiness,
-        AgentAccountRegistry accounts,
+        [FromServices] AgentAccountRegistry accounts,
         IChannelLinkStore channelLinks,
         V3UnderstandStore store,
         CancellationToken token)
@@ -423,7 +424,7 @@ public static class V3ProjectContextBuilder
             .Select(value => new V3PrototypeReference(value.Id, value.Name, value.State, value.SourceDocumentId))
             .ToArray();
         var snapshot = await readiness.EvaluateAsync(profile.TenantId, project, profileReady: true, token);
-        var effective = V3StackResolver.Resolve(project, state, artifactRefs);
+        var effective = V3StackResolver.Resolve(project, state, artifactRefs, facts);
         var links = await channelLinks.ListAsync(profile.TenantId, token);
         var v3Readiness = V3Readiness.For(
             project,
@@ -563,6 +564,13 @@ public static partial class V3RequirementFactsExtractor
         var productNotification = ContainsAny(combined, "notificações", "digest", "caixa", "e-mail", "email")
             ? "Notificações do produto por e-mail/digest conforme requisitos"
             : null;
+        var database = ContainsAny(combined, "oracle")
+            ? "Oracle"
+            : ContainsAny(combined, "postgres", "postgresql")
+                ? "PostgreSQL"
+                : ContainsAny(combined, "sql server", "sqlserver")
+                    ? "SQL Server"
+                    : null;
         var itrc = combined.Contains("ITRC", StringComparison.OrdinalIgnoreCase)
             ? "Regras de ITRC definidas na fonte primária"
             : null;
@@ -575,6 +583,8 @@ public static partial class V3RequirementFactsExtractor
             authentication is null ? null : "PRIMARY_REQUIREMENTS",
             productNotification,
             productNotification is null ? null : "PRIMARY_REQUIREMENTS",
+            database,
+            database is null ? null : "PRIMARY_REQUIREMENTS",
             itrc,
             itrc is null ? null : "PRIMARY_REQUIREMENTS",
             acceptance);
@@ -696,9 +706,16 @@ public static class V3StackResolver
     public static V3EffectiveStackContract Resolve(
         ProjectRecord project,
         V3ProjectUnderstandState? state,
-        IReadOnlyList<V3ArtifactReference> artifacts)
+        IReadOnlyList<V3ArtifactReference> artifacts,
+        V3RequirementSourceFacts facts)
     {
-        if (state?.EffectiveStack is not null) return state.EffectiveStack;
+        if (state?.EffectiveStack is { } existing &&
+            (facts.Database is null ||
+             !existing.Database.Contains("conforme", StringComparison.OrdinalIgnoreCase)))
+        {
+            return existing;
+        }
+
         var text = $"{project.Description} {string.Join(' ', project.Technologies)} {string.Join(' ', artifacts.Select(artifact => artifact.Name))}".ToLowerInvariant();
         var frontend = text.Contains("react", StringComparison.Ordinal) || artifacts.Any(artifact =>
             string.Equals(artifact.Role, "provided_frontend", StringComparison.OrdinalIgnoreCase))
@@ -707,7 +724,9 @@ public static class V3StackResolver
         var backend = text.Contains(".net", StringComparison.Ordinal) || text.Contains("dotnet", StringComparison.Ordinal)
             ? ".NET"
             : "Backend conforme baseline Poseidon";
-        var database = text.Contains("oracle", StringComparison.Ordinal)
+        var database = !string.IsNullOrWhiteSpace(facts.Database)
+            ? facts.Database
+            : text.Contains("oracle", StringComparison.Ordinal)
             ? "Oracle"
             : text.Contains("postgres", StringComparison.Ordinal)
                 ? "PostgreSQL"
@@ -1125,12 +1144,14 @@ public sealed record V3RequirementSourceFacts(
     string? AuthenticationProvenance,
     string? ProductNotification,
     string? ProductNotificationProvenance,
+    string? Database,
+    string? DatabaseProvenance,
     string? ItrcRules,
     string? ItrcRulesProvenance,
     int AcceptanceCriteriaCount)
 {
     public static V3RequirementSourceFacts Empty { get; } =
-        new(null, null, null, null, null, null, null, null, 0);
+        new(null, null, null, null, null, null, null, null, null, null, 0);
 }
 
 public sealed record V3EffectiveStackContract(

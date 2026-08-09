@@ -165,9 +165,11 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         }
 
         var started = Stopwatch.GetTimestamp();
-        var communicationContext = request.CommunicationContext ?? ChiefCommunicationPolicy.Business;
         var outlines = await LoadAttachmentOutlinesAsync(request, cancellationToken);
         var primaryRequirements = await LoadPrimaryRequirementSourcesAsync(request, cancellationToken);
+        var communicationContext = ResolveTurnCommunicationContext(
+            request.CommunicationContext ?? ChiefCommunicationPolicy.Business,
+            primaryRequirements);
         var prompt = BuildPrompt(request, communicationContext, outlines, primaryRequirements);
         var attempts = Math.Min(candidates.Count, 2);
 
@@ -492,6 +494,23 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
             LogAttachmentNavigationFailed(_logger, exception);
             return [];
         }
+    }
+
+    private static ChiefCommunicationContext ResolveTurnCommunicationContext(
+        ChiefCommunicationContext context,
+        IReadOnlyList<ChiefPrimaryRequirementSource> primaryRequirements)
+    {
+        if (context.MayMirrorTechnicalRegister || primaryRequirements.Count == 0)
+        {
+            return context;
+        }
+
+        // O registro técnico de produto pode vir do MATERIAL anexado, não só da última frase do
+        // usuário. Uma PRIMARY_REQUIREMENTS lida integralmente é, por definição, a língua do
+        // produto que a Bruna precisa espelhar no UNDERSTAND blind. A validação de detalhe
+        // INTERNO (provider, conta, IDs, logs, reason codes) continua separada e segue exigindo
+        // autorização explícita.
+        return context with { UserSpokeTechnically = true };
     }
 
     /// <summary>
