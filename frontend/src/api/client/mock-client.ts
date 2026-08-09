@@ -110,7 +110,11 @@ import {
   type GovernanceDocContent,
   type AgentAccountRoster,
   type V3AccountAuthInstruction,
+  type V3AuthorizeBuildInput,
+  type V3BuildMission,
   type V3ChiefAssignment,
+  type V3ProjectContext,
+  type V3UnderstandAnalyzeInput,
   type ChannelLink,
   type ChannelMessagePage,
   type CreateChannelLinkInput,
@@ -2459,6 +2463,69 @@ export class MockApiClient implements ApiClient {
     };
   }
 
+  async getV3ProjectContext(projectId: string): Promise<V3ProjectContext> {
+    await this.#simulate();
+    const project = this.#table('projects').get(projectId);
+    if (!project) throw this.#notFound('projects', projectId);
+    return this.#v3Context(project, 'AWAITING_INPUT');
+  }
+
+  async analyzeV3Project(
+    projectId: string,
+    _input: V3UnderstandAnalyzeInput = {},
+  ): Promise<V3ProjectContext> {
+    await this.#simulate();
+    const project = this.#table('projects').get(projectId);
+    if (!project) throw this.#notFound('projects', projectId);
+    return this.#v3Context(project, project.targetDeadline && project.repositoryUrl ? 'READY_TO_START' : 'AWAITING_INPUT');
+  }
+
+  async authorizeV3Build(
+    projectId: string,
+    _input: V3AuthorizeBuildInput,
+  ): Promise<V3ProjectContext> {
+    await this.#simulate();
+    const project = this.#table('projects').get(projectId);
+    if (!project) throw this.#notFound('projects', projectId);
+    return this.#v3Context(project, 'BUILDING');
+  }
+
+  async compileV3BuildMission(projectId: string): Promise<V3BuildMission> {
+    await this.#simulate();
+    const project = this.#table('projects').get(projectId);
+    if (!project) throw this.#notFound('projects', projectId);
+    const context = this.#v3Context(project, 'BUILDING');
+    return {
+      missionId: '01J0V3MISSIONBUILD0000000001',
+      projectId,
+      missionType: 'BUILD',
+      version: 1,
+      createdAt: this.#options.now(),
+      createdBy: 'Bruna',
+      targetExecutorCapability: 'write-capable project executor',
+      missionText: `# BUILD MISSION — ${project.name}\n\n## AUTONOMY CONTRACT\nTrabalhe autonomamente.\n\n## DEFINITION OF DONE\nProduto compila e fluxo principal executa.`,
+      approximateCharacters: 150,
+      artifactReferences: context.artifacts,
+      knowledgeReferences: [
+        { path: 'docs/product/frontend-standards.md', reason: 'Frontend' },
+        { path: 'docs/product/backend-standards.md', reason: 'Backend' },
+      ],
+      effectiveStack: context.effectiveStack,
+      deadline: context.deadline,
+      repository: context.repository,
+      status: 'COMPILED',
+      recommendedExecutor: {
+        accountAlias: 'worker-codex-critic',
+        status: 'AVAILABLE',
+        reason: 'AVAILABLE + WRITE_CAPABLE + role compatible.',
+      },
+    };
+  }
+
+  async listV3BuildMissions(projectId: string): Promise<V3BuildMission[]> {
+    return [await this.compileV3BuildMission(projectId)];
+  }
+
   async listChannelLinks(): Promise<ChannelLink[]> {
     await this.#simulate();
     const project = [...this.#table('projects').values()][0] ?? null;
@@ -3067,5 +3134,75 @@ export class MockApiClient implements ApiClient {
       to: state,
       currentTaskId: agent.currentTaskId,
     });
+  }
+
+  #v3Context(project: Project, lifecycle: string): V3ProjectContext {
+    const ready = Boolean(project.targetDeadline && project.repositoryUrl);
+    return {
+      projectId: project.id,
+      projectName: project.name,
+      originalIntent: project.description,
+      artifacts: [],
+      documents: [],
+      prototypes: [],
+      state: null,
+      productGoal: project.description,
+      projectSummary: project.description,
+      requirements: ['Fluxo principal descrito nos requisitos originais'],
+      acceptanceCriteria: ['Fluxo principal executa no produto real.'],
+      decisions: [],
+      assumptions: [],
+      openQuestions: ready
+        ? []
+        : [
+            ...(project.targetDeadline
+              ? []
+              : [
+                  {
+                    questionId: 'deadline',
+                    question: 'Qual o prazo final do projeto?',
+                    reason: 'required_before_authorization',
+                  },
+                ]),
+            ...(project.repositoryUrl
+              ? []
+              : [
+                  {
+                    questionId: 'repository',
+                    question: 'Qual repositório deve receber o código?',
+                    reason: 'required_before_authorization',
+                  },
+                ]),
+          ],
+      effectiveStack: {
+        frontend: project.technologies.includes('React') ? 'React + TypeScript + Vite' : 'Frontend conforme requisitos',
+        backend: project.technologies.includes('.NET') ? '.NET' : 'Backend conforme baseline Poseidon',
+        database: project.description.toLowerCase().includes('oracle') ? 'Oracle' : 'Database conforme requisitos',
+        architecture: 'Clean Architecture / modular full-stack',
+        testing: 'Playwright + unit/integration tests',
+        provenance: ['mock project fields'],
+      },
+      deadline: project.targetDeadline ?? null,
+      repository: project.repositoryUrl ?? null,
+      runtimeEnvironment: 'host-api-and-frontend; database container only when stack requires it',
+      notificationChannel: 'existing notification channels',
+      executionCapacity: {
+        asOf: this.#options.now(),
+        chiefSlots: 1,
+        writeExecutorSlots: 2,
+        reviewValidationSlots: 1,
+        effectiveExecutionSlots: 2,
+        accounts: [],
+      },
+      readiness: [
+        { category: 'Requirements', status: 'PASS', evidenceProvider: 'project.description' },
+        {
+          category: 'ExecutionCapacity',
+          status: 'PASS',
+          evidenceProvider: 'account capacity',
+        },
+      ],
+      currentLifecycleState: lifecycle,
+    };
   }
 }

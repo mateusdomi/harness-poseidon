@@ -91,6 +91,10 @@ import type {
   AgentAccountRoster,
   V3AccountAuthInstruction,
   V3ChiefAssignment,
+  V3AuthorizeBuildInput,
+  V3BuildMission,
+  V3ProjectContext,
+  V3UnderstandAnalyzeInput,
   ChannelLink,
   ChannelMessagePage,
   CreateChannelLinkInput,
@@ -438,6 +442,11 @@ export interface ApiClient {
   prepareAgentAccountAuth(alias: string): Promise<V3AccountAuthInstruction>;
   setChiefPrimary(alias: string): Promise<V3ChiefAssignment>;
   getChiefAssignment(): Promise<V3ChiefAssignment>;
+  getV3ProjectContext(projectId: Ulid): Promise<V3ProjectContext>;
+  analyzeV3Project(projectId: Ulid, input?: V3UnderstandAnalyzeInput): Promise<V3ProjectContext>;
+  authorizeV3Build(projectId: Ulid, input: V3AuthorizeBuildInput): Promise<V3ProjectContext>;
+  compileV3BuildMission(projectId: Ulid): Promise<V3BuildMission>;
+  listV3BuildMissions(projectId: Ulid): Promise<V3BuildMission[]>;
 
   /** Canais externos vinculados (ex.: Telegram) do tenant. */
   listChannelLinks(): Promise<ChannelLink[]>;

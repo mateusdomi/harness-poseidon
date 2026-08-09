@@ -125,12 +125,19 @@ import {
   governanceDocContentSchema,
   agentAccountRosterSchema,
   v3AccountAuthInstructionSchema,
+  v3BuildMissionSchema,
   v3ChiefAssignmentSchema,
+  v3MissionPageSchema,
+  v3ProjectContextSchema,
   channelLinkSchema,
   channelMessagePageSchema,
   type AgentAccountRoster,
   type V3AccountAuthInstruction,
+  type V3AuthorizeBuildInput,
+  type V3BuildMission,
   type V3ChiefAssignment,
+  type V3ProjectContext,
+  type V3UnderstandAnalyzeInput,
   type ChannelLink,
   type ChannelMessagePage,
   type CreateChannelLinkInput,
@@ -808,6 +815,55 @@ export class HttpApiClient implements ApiClient {
   async getChiefAssignment(): Promise<V3ChiefAssignment> {
     const response = await this.#request<unknown>('GET', '/v3/chief-assignment');
     return v3ChiefAssignmentSchema.parse(response);
+  }
+
+  async getV3ProjectContext(projectId: string): Promise<V3ProjectContext> {
+    const response = await this.#request<unknown>(
+      'GET',
+      `/v3/projects/${encodeURIComponent(projectId)}/context`,
+    );
+    return v3ProjectContextSchema.parse(response);
+  }
+
+  async analyzeV3Project(
+    projectId: string,
+    input: V3UnderstandAnalyzeInput = {},
+  ): Promise<V3ProjectContext> {
+    const response = await this.#request<unknown>(
+      'POST',
+      `/v3/projects/${encodeURIComponent(projectId)}/understand`,
+      input,
+    );
+    return v3ProjectContextSchema.parse(response);
+  }
+
+  async authorizeV3Build(
+    projectId: string,
+    input: V3AuthorizeBuildInput,
+  ): Promise<V3ProjectContext> {
+    const response = await this.#request<unknown>(
+      'POST',
+      `/v3/projects/${encodeURIComponent(projectId)}/authorize`,
+      input,
+    );
+    return v3ProjectContextSchema.parse(response);
+  }
+
+  async compileV3BuildMission(projectId: string): Promise<V3BuildMission> {
+    const response = await this.#request<unknown>(
+      'POST',
+      `/v3/projects/${encodeURIComponent(projectId)}/missions/build/compile`,
+      {},
+    );
+    return v3BuildMissionSchema.parse(response);
+  }
+
+  async listV3BuildMissions(projectId: string): Promise<V3BuildMission[]> {
+    const response = await this.#request<unknown>(
+      'GET',
+      `/v3/projects/${encodeURIComponent(projectId)}/missions`,
+    );
+    return v3MissionPageSchema.parse(response).items;
   }
 
   async listChannelLinks(): Promise<ChannelLink[]> {

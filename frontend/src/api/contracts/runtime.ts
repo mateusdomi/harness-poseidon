@@ -72,6 +72,145 @@ export const v3ChiefAssignmentSchema = z.object({
 });
 export type V3ChiefAssignment = z.infer<typeof v3ChiefAssignmentSchema>;
 
+export const v3ArtifactReferenceSchema = z.object({
+  artifactId: z.string(),
+  name: z.string(),
+  contentType: z.string(),
+  role: z.string(),
+  source: z.string(),
+  pathReference: z.string(),
+  sha256: z.string(),
+  state: z.string(),
+});
+export type V3ArtifactReference = z.infer<typeof v3ArtifactReferenceSchema>;
+
+export const v3DocumentReferenceSchema = z.object({
+  documentId: z.string(),
+  title: z.string(),
+  kind: z.string(),
+  state: z.string(),
+  currentVersion: z.number().int(),
+  classifications: z.array(z.string()),
+});
+export type V3DocumentReference = z.infer<typeof v3DocumentReferenceSchema>;
+
+export const v3EffectiveStackSchema = z.object({
+  frontend: z.string(),
+  backend: z.string(),
+  database: z.string(),
+  architecture: z.string(),
+  testing: z.string(),
+  provenance: z.array(z.string()),
+});
+export type V3EffectiveStack = z.infer<typeof v3EffectiveStackSchema>;
+
+export const v3OpenQuestionSchema = z.object({
+  questionId: z.string(),
+  question: z.string(),
+  reason: z.string(),
+});
+export type V3OpenQuestion = z.infer<typeof v3OpenQuestionSchema>;
+
+export const v3ReadinessItemSchema = z.object({
+  category: z.string(),
+  status: z.string(),
+  evidenceProvider: z.string(),
+});
+export type V3ReadinessItem = z.infer<typeof v3ReadinessItemSchema>;
+
+export const v3ExecutionCapacitySchema = z.object({
+  asOf: isoDateTimeSchema,
+  chiefSlots: z.number().int(),
+  writeExecutorSlots: z.number().int(),
+  reviewValidationSlots: z.number().int(),
+  effectiveExecutionSlots: z.number().int(),
+  accounts: z.array(z.unknown()),
+});
+export type V3ExecutionCapacity = z.infer<typeof v3ExecutionCapacitySchema>;
+
+export const v3ProjectContextSchema = z.object({
+  projectId: z.string(),
+  projectName: z.string(),
+  originalIntent: z.string().nullable(),
+  artifacts: z.array(v3ArtifactReferenceSchema),
+  documents: z.array(v3DocumentReferenceSchema),
+  prototypes: z.array(z.unknown()),
+  state: z.unknown().nullable(),
+  productGoal: z.string().nullable(),
+  projectSummary: z.string().nullable(),
+  requirements: z.array(z.string()),
+  acceptanceCriteria: z.array(z.string()),
+  decisions: z.array(z.string()),
+  assumptions: z.array(z.string()),
+  openQuestions: z.array(v3OpenQuestionSchema),
+  effectiveStack: v3EffectiveStackSchema,
+  deadline: isoDateTimeSchema.nullable(),
+  repository: z.string().nullable(),
+  runtimeEnvironment: z.string(),
+  notificationChannel: z.string(),
+  executionCapacity: v3ExecutionCapacitySchema,
+  readiness: z.array(v3ReadinessItemSchema),
+  currentLifecycleState: z.string(),
+});
+export type V3ProjectContext = z.infer<typeof v3ProjectContextSchema>;
+
+export const v3KnowledgeReferenceSchema = z.object({
+  path: z.string(),
+  reason: z.string(),
+});
+export type V3KnowledgeReference = z.infer<typeof v3KnowledgeReferenceSchema>;
+
+export const v3RecommendedExecutorSchema = z.object({
+  accountAlias: z.string().nullable(),
+  status: z.string(),
+  reason: z.string(),
+});
+export type V3RecommendedExecutor = z.infer<typeof v3RecommendedExecutorSchema>;
+
+export const v3BuildMissionSchema = z.object({
+  missionId: z.string(),
+  projectId: z.string(),
+  missionType: z.string(),
+  version: z.number().int(),
+  createdAt: isoDateTimeSchema,
+  createdBy: z.string(),
+  targetExecutorCapability: z.string(),
+  missionText: z.string(),
+  approximateCharacters: z.number().int(),
+  artifactReferences: z.array(v3ArtifactReferenceSchema),
+  knowledgeReferences: z.array(v3KnowledgeReferenceSchema),
+  effectiveStack: v3EffectiveStackSchema,
+  deadline: isoDateTimeSchema.nullable(),
+  repository: z.string().nullable(),
+  status: z.string(),
+  recommendedExecutor: v3RecommendedExecutorSchema,
+});
+export type V3BuildMission = z.infer<typeof v3BuildMissionSchema>;
+
+export const v3MissionPageSchema = z.object({
+  items: z.array(v3BuildMissionSchema),
+});
+export type V3MissionPage = z.infer<typeof v3MissionPageSchema>;
+
+export interface V3UnderstandAnalyzeInput {
+  originalIntent?: string;
+  brunaSummary?: string;
+  productGoal?: string;
+  primaryUsers?: string[];
+  coreCapabilities?: string[];
+  acceptanceCriteria?: string[];
+  importantConstraints?: string[];
+  assumptions?: string[];
+  deadline?: string | null;
+  repository?: string | null;
+}
+
+export interface V3AuthorizeBuildInput {
+  response: string;
+  deadline?: string | null;
+  repository?: string | null;
+}
+
 /** Tipos de canal externo suportados pelo gateway (conjunto fechado). */
 export const channelKindSchema = z.enum(['terminal', 'telegram', 'teams', 'whatsapp', 'email']);
 export type ChannelKind = z.infer<typeof channelKindSchema>;

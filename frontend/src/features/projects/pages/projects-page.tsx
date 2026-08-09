@@ -9,6 +9,7 @@ import { useApi } from '@/app/api-context';
 import { useOrganizations } from '@/features/organizations/hooks/use-organizations';
 import { ProjectList } from '@/features/projects/components/project-list';
 import { ProjectForm, type ProjectFormValues } from '@/features/projects/components/project-form';
+import { V3UnderstandPanel } from '@/features/projects/components/v3-understand-panel';
 import { BackLink } from '@/features/shared/components/back-link';
 import { Breadcrumb } from '@/features/shared/components/breadcrumb';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
@@ -271,6 +272,7 @@ export default function ProjectsPage() {
             onSubmit={(values, logoFile) => void handleUpdate(view.project, values, logoFile)}
             onCancel={() => setView({ kind: 'list' })}
           />
+          <V3UnderstandPanel project={view.project} />
         </div>
       ) : (
         <ProjectList
