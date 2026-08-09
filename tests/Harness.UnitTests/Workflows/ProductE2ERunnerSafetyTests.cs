@@ -87,6 +87,51 @@ public sealed class ProductE2ERunnerSafetyTests
     }
 
     [Fact]
+    public async Task RunnerRecusaEndpointGerenciadoJaOcupado()
+    {
+        var root = Directory.CreateTempSubdirectory("poseidon-e2e-port-").FullName;
+        var listener = new System.Net.Sockets.TcpListener(
+            System.Net.IPAddress.Parse("127.0.0.1"),
+            0);
+        listener.Start();
+        try
+        {
+            RunGit(root, "init");
+            var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+
+            var result = await ProductE2ERunner.RunAsync(
+                root,
+                new ProductE2EHarness(
+                    null,
+                    null,
+                    "src/Fake.Api",
+                    "/health",
+                    $"http://127.0.0.1:{port}",
+                    null,
+                    ".",
+                    ["npm", "test"],
+                    new Dictionary<string, string>()),
+                CancellationToken.None);
+
+            Assert.False(result.Ran);
+            Assert.False(result.Passed);
+            Assert.Contains("endpoint gerenciado já está em uso", result.Detail, StringComparison.Ordinal);
+            Assert.Contains($"apiUrl=http://127.0.0.1:{port}", result.Detail, StringComparison.Ordinal);
+        }
+        finally
+        {
+            listener.Stop();
+            try
+            {
+                Directory.Delete(root, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
+        }
+    }
+
+    [Fact]
     public void SumarioDoPlaywrightExtraiContadoresSemDecidirOGate()
     {
         var summary = ProductE2ERunner.ParsePlaywrightSummary(

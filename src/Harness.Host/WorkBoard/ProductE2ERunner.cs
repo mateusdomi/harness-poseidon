@@ -95,6 +95,18 @@ public static class ProductE2ERunner
             frontendHealthy,
             playwrightGlobalSetup);
 
+        var occupiedEndpoints = await OccupiedManagedEndpointsAsync(harness, cancellationToken);
+        if (occupiedEndpoints.Count > 0)
+        {
+            return new ProductE2EResult(
+                false,
+                false,
+                "Porta/endpoint gerenciado já está em uso antes do E2E; a plataforma não pode " +
+                "aceitar health de processo pré-existente como prova efêmera. Endpoints: " +
+                string.Join(", ", occupiedEndpoints),
+                runId);
+        }
+
         try
         {
             // 1. Banco, via o compose DO PRODUTO. Sem Docker, a prova não roda (não reprova).
@@ -454,12 +466,62 @@ public static class ProductE2ERunner
                     return true;
                 }
             }
-            catch (Exception exception) when (exception is not OperationCanceledException) { }
+            catch (Exception exception) when (
+                exception is not OperationCanceledException ||
+                !token.IsCancellationRequested)
+            {
+            }
 
             await Task.Delay(TimeSpan.FromSeconds(3), token);
         }
 
         return false;
+    }
+
+    private static async Task<IReadOnlyList<string>> OccupiedManagedEndpointsAsync(
+        ProductE2EHarness harness,
+        CancellationToken token)
+    {
+        var occupied = new List<string>();
+        if (harness.ApiProject is { Length: > 0 } &&
+            harness.ApiUrl is { Length: > 0 } apiUrl &&
+            await TcpEndpointIsOpenAsync(apiUrl, token))
+        {
+            occupied.Add($"apiUrl={apiUrl}");
+        }
+
+        if (harness.FrontCommand is { Count: > 0 } &&
+            harness.FrontUrl is { Length: > 0 } frontUrl &&
+            await TcpEndpointIsOpenAsync(frontUrl, token))
+        {
+            occupied.Add($"frontUrl={frontUrl}");
+        }
+
+        return occupied;
+    }
+
+    private static async Task<bool> TcpEndpointIsOpenAsync(string url, CancellationToken token)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        using var client = new System.Net.Sockets.TcpClient();
+        try
+        {
+            await client.ConnectAsync(uri.Host, uri.Port)
+                .WaitAsync(TimeSpan.FromMilliseconds(500), token);
+            return true;
+        }
+        catch (Exception exception) when (
+            exception is TimeoutException ||
+            exception is IOException ||
+            exception is System.Net.Sockets.SocketException ||
+            exception is OperationCanceledException && !token.IsCancellationRequested)
+        {
+            return false;
+        }
     }
 
     private static Process StartDetached(
