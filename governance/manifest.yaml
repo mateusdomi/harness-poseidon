@@ -82,6 +82,8 @@ markdownAllowlist:
   reason: Registro de riscos fechado produzido para a auditoria da Bruna; não constitui norma canônica.
 - path: docs/architecture/audits/bruna/BRUNA-AVALIACAO-DE-MATURIDADE.md
   reason: Avaliação de maturidade fechada produzida para a auditoria da Bruna; não constitui norma canônica.
+- path: docs/architecture/bruna-desktop.md
+  reason: Documentação da arquitetura do Bruna Desktop Companion; guia técnico do componente visual, não norma canônica do repositório.
 - path: docs/architecture/audits/bruna/BRUNA-RECOMENDACOES-TO-BE.md
   reason: Recomendações de auditoria, ainda não aprovadas como arquitetura canônica.
 - path: docs/architecture/audits/bruna/BRUNA-ROADMAP-ARQUITETURAL.md
