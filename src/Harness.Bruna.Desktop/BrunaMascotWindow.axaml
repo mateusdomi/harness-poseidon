@@ -17,9 +17,7 @@
 
   <Panel Name="RootPanel"
          Background="Transparent"
-         PointerPressed="OnPointerPressed"
-         PointerMoved="OnPointerMoved"
-         PointerReleased="OnPointerReleased">
+         PointerPressed="OnPointerPressed">
 
     <!-- Indicador de estado (pequeno círculo no canto inferior direito) -->
     <Ellipse Name="StatusIndicator"

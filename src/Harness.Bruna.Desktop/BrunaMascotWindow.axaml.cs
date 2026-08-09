@@ -24,9 +24,6 @@ public sealed partial class BrunaMascotWindow : Window, IDisposable
     private readonly BrunaStateManager _stateManager;
     private readonly DispatcherTimer _animationTimer = new();
 
-    private bool _isDragging;
-    private Point _dragStart;
-    private PixelPoint _windowStart;
     private CancellationTokenSource? _startupCts;
     private bool _disposed;
 
@@ -191,43 +188,17 @@ public sealed partial class BrunaMascotWindow : Window, IDisposable
     {
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
-            _isDragging = true;
-            _dragStart = e.GetPosition(this);
-            _windowStart = Position;
+            // BeginMoveDrag move a janela nativamente; nao misturamos com atualizacao
+            // manual de Position para evitar travamentos/lag no arraste.
             BeginMoveDrag(e);
-        }
-    }
-
-    private void OnPointerMoved(object? sender, PointerEventArgs e)
-    {
-        if (!_isDragging)
-        {
-            return;
-        }
-
-        var current = e.GetPosition(this);
-        var offset = current - _dragStart;
-        Position = new PixelPoint(
-            _windowStart.X + (int)offset.X,
-            _windowStart.Y + (int)offset.Y);
-    }
-
-    private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        if (_isDragging)
-        {
-            _isDragging = false;
-            SaveConfiguration();
         }
     }
 
     private void OnPositionChanged(object? sender, EventArgs e)
     {
-        if (_isDragging)
-        {
-            _configuration.X = Position.X;
-            _configuration.Y = Position.Y;
-        }
+        _configuration.X = Position.X;
+        _configuration.Y = Position.Y;
+        SaveConfiguration();
     }
 
     private void OnOpenPoseidon(object? sender, RoutedEventArgs e)
