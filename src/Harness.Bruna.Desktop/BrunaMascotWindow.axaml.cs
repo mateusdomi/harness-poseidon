@@ -1,0 +1,361 @@
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
+using Avalonia.Threading;
+
+namespace Harness.Bruna.Desktop;
+
+public sealed partial class BrunaMascotWindow : Window, IDisposable
+{
+    private const double WindowSize = 160;
+
+    private readonly BrunaConfiguration _configuration;
+    private readonly PoseidonDiscovery _discovery;
+    private readonly PoseidonLauncher _launcher;
+    private readonly BrunaStateManager _stateManager;
+    private readonly DispatcherTimer _animationTimer = new();
+
+    private bool _isDragging;
+    private Point _dragStart;
+    private PixelPoint _windowStart;
+    private CancellationTokenSource? _startupCts;
+    private bool _disposed;
+
+    public BrunaMascotWindow(
+        BrunaConfiguration configuration,
+        PoseidonDiscovery discovery,
+        PoseidonLauncher launcher,
+        BrunaStateManager stateManager)
+    {
+        InitializeComponent();
+        _configuration = configuration;
+        _discovery = discovery;
+        _launcher = launcher;
+        _stateManager = stateManager;
+
+        RestorePosition();
+        ApplyDpiScaling();
+        SetupContextMenu();
+        SetupAnimations();
+
+        _stateManager.StateChanged += OnStateChanged;
+        OnStateChanged(this, _stateManager.State);
+
+        PositionChanged += OnPositionChanged;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _startupCts?.Cancel();
+        _startupCts?.Dispose();
+        _animationTimer.Stop();
+        _stateManager.StateChanged -= OnStateChanged;
+        _stateManager.Dispose();
+        _discovery.Dispose();
+        SaveConfiguration();
+    }
+
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        Dispose();
+        base.OnClosing(e);
+    }
+
+    private void RestorePosition()
+    {
+        var screen = Screens.ScreenFromPoint(new PixelPoint((int)_configuration.X, (int)_configuration.Y))
+                     ?? Screens.Primary;
+        if (screen is null)
+        {
+            return;
+        }
+
+        var workingArea = screen.WorkingArea;
+        var x = Math.Max(workingArea.X, Math.Min(workingArea.Right - (int)WindowSize, (int)_configuration.X));
+        var y = Math.Max(workingArea.Y, Math.Min(workingArea.Bottom - (int)WindowSize, (int)_configuration.Y));
+        Position = new PixelPoint(x, y);
+    }
+
+    private void ApplyDpiScaling()
+    {
+        var scaling = Screens.ScreenFromWindow(this)?.Scaling ?? 1.0;
+        var assetName = scaling >= 1.5
+            ? "avares://Harness.Bruna.Desktop/Assets/bruna-idle@2x.png"
+            : "avares://Harness.Bruna.Desktop/Assets/bruna-idle.png";
+
+        try
+        {
+            var uri = new Uri(assetName);
+            using var stream = AssetLoader.Open(uri);
+            BrunaImage.Source = new Bitmap(stream);
+        }
+        catch (Exception exception)
+        {
+            Debug.WriteLine($"Falha ao carregar asset: {exception.Message}");
+        }
+    }
+
+    private void SetupContextMenu()
+    {
+        var menu = new ContextMenu();
+        menu.Items.Add(CreateMenuItem("Abrir Poseidon", OnOpenPoseidon));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(CreateMenuItem("Mostrar/Ocultar Bruna", OnToggleVisibility));
+        menu.Items.Add(CreateMenuItem("Reposicionar", OnReposition));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(CreateMenuItem("Sobre o Poseidon", OnAbout));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(CreateMenuItem("Sair", OnExit));
+        RootPanel.ContextMenu = menu;
+    }
+
+    private static MenuItem CreateMenuItem(string header, EventHandler<RoutedEventArgs> handler)
+    {
+        var item = new MenuItem { Header = header };
+        item.Click += handler;
+        return item;
+    }
+
+    private void SetupAnimations()
+    {
+        _animationTimer.Interval = TimeSpan.FromMilliseconds(16);
+
+        var startTime = DateTimeOffset.UtcNow;
+        _animationTimer.Tick += (_, _) =>
+        {
+            var elapsed = (DateTimeOffset.UtcNow - startTime).TotalSeconds;
+            Animate(elapsed);
+        };
+        _animationTimer.Start();
+    }
+
+    private void Animate(double elapsed)
+    {
+        var state = _stateManager.State;
+        var scale = state switch
+        {
+            BrunaVisualState.Idle => 1.0 + Math.Sin(elapsed * 1.5) * 0.015,
+            BrunaVisualState.Starting => 1.0 + Math.Sin(elapsed * 8.0) * 0.04,
+            BrunaVisualState.Working => 1.0 + Math.Sin(elapsed * 6.0) * 0.03,
+            BrunaVisualState.Waiting => 1.0 + Math.Sin(elapsed * 2.0) * 0.02,
+            BrunaVisualState.Error => 1.0,
+            _ => 1.0,
+        };
+
+        var rotate = state switch
+        {
+            BrunaVisualState.Starting => Math.Sin(elapsed * 6.0) * 3.0,
+            BrunaVisualState.Working => Math.Sin(elapsed * 4.0) * 2.0,
+            _ => 0.0,
+        };
+
+        var transform = new TransformGroup();
+        transform.Children.Add(new ScaleTransform(scale, scale));
+        transform.Children.Add(new RotateTransform(rotate));
+        BrunaImage.RenderTransform = transform;
+        BrunaImage.RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
+    }
+
+    private void OnStateChanged(object? sender, BrunaVisualState state)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            StatusIndicator.Fill = state switch
+            {
+                BrunaVisualState.Idle => Brushes.MediumSeaGreen,
+                BrunaVisualState.Starting => Brushes.Gold,
+                BrunaVisualState.Working => Brushes.DodgerBlue,
+                BrunaVisualState.Waiting => Brushes.Orange,
+                BrunaVisualState.Error => Brushes.Crimson,
+                _ => Brushes.Gray,
+            };
+        });
+    }
+
+    private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            _isDragging = true;
+            _dragStart = e.GetPosition(this);
+            _windowStart = Position;
+            BeginMoveDrag(e);
+        }
+    }
+
+    private void OnPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (!_isDragging)
+        {
+            return;
+        }
+
+        var current = e.GetPosition(this);
+        var offset = current - _dragStart;
+        Position = new PixelPoint(
+            _windowStart.X + (int)offset.X,
+            _windowStart.Y + (int)offset.Y);
+    }
+
+    private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_isDragging)
+        {
+            _isDragging = false;
+            SaveConfiguration();
+        }
+    }
+
+    private void OnPositionChanged(object? sender, EventArgs e)
+    {
+        if (_isDragging)
+        {
+            _configuration.X = Position.X;
+            _configuration.Y = Position.Y;
+        }
+    }
+
+    private void OnOpenPoseidon(object? sender, RoutedEventArgs e)
+    {
+        _ = OpenPoseidonAsync();
+    }
+
+    private async Task OpenPoseidonAsync()
+    {
+        _stateManager.SetUserInteractionState(BrunaVisualState.Working);
+        _startupCts?.Cancel();
+        _startupCts?.Dispose();
+        _startupCts = new CancellationTokenSource();
+
+        try
+        {
+            var instance = await _discovery.ProbeAsync(_startupCts.Token).ConfigureAwait(false);
+            if (instance.Status == PoseidonStatus.Healthy && instance.Address is not null)
+            {
+                OpenBrowser(instance.Address);
+                return;
+            }
+
+            _stateManager.SetUserInteractionState(BrunaVisualState.Starting);
+            var result = await _launcher.StartAsync(_startupCts.Token).ConfigureAwait(false);
+            if (result.Success && result.Address is not null)
+            {
+                OpenBrowser(result.Address);
+            }
+            else
+            {
+                _stateManager.SetUserInteractionState(BrunaVisualState.Error);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _stateManager.SetUserInteractionState(BrunaVisualState.Waiting);
+        }
+        finally
+        {
+            _stateManager.ResetToObservedState();
+        }
+    }
+
+    private static void OpenBrowser(Uri address)
+    {
+        try
+        {
+            var startInfo = OperatingSystem.IsMacOS()
+                ? new ProcessStartInfo("/usr/bin/open", address.ToString())
+                : OperatingSystem.IsWindows()
+                    ? new ProcessStartInfo("cmd", $"/c start {address}")
+                    : new ProcessStartInfo("xdg-open", address.ToString());
+            startInfo.UseShellExecute = false;
+            using var process = Process.Start(startInfo);
+        }
+        catch (Exception exception)
+        {
+            Debug.WriteLine($"Falha ao abrir navegador: {exception.Message}");
+        }
+    }
+
+    private void OnToggleVisibility(object? sender, RoutedEventArgs e)
+    {
+        if (IsVisible)
+        {
+            Hide();
+            _configuration.Visible = false;
+        }
+        else
+        {
+            Show();
+            _configuration.Visible = true;
+        }
+
+        SaveConfiguration();
+    }
+
+    private void OnReposition(object? sender, RoutedEventArgs e)
+    {
+        var screen = Screens.Primary;
+        if (screen is null)
+        {
+            return;
+        }
+
+        var workingArea = screen.WorkingArea;
+        Position = new PixelPoint(
+            workingArea.X + workingArea.Width - (int)WindowSize - 20,
+            workingArea.Y + workingArea.Height - (int)WindowSize - 20);
+        _configuration.X = Position.X;
+        _configuration.Y = Position.Y;
+        SaveConfiguration();
+    }
+
+    private void OnAbout(object? sender, RoutedEventArgs e)
+    {
+        var installDir = _configuration.InstallDirectory ?? "desconhecido";
+        var message = $"Bruna Desktop Companion para Poseidon.\nInstalação: {installDir}";
+        var dialog = new Window
+        {
+            Title = "Sobre",
+            Width = 360,
+            Height = 160,
+            Content = new TextBlock
+            {
+                Text = message,
+                Margin = new Thickness(20),
+                TextWrapping = TextWrapping.Wrap,
+            },
+        };
+        dialog.ShowDialog(this);
+    }
+
+    private void OnExit(object? sender, RoutedEventArgs e)
+    {
+        Close();
+    }
+
+    private void SaveConfiguration()
+    {
+        try
+        {
+            _configuration.Save();
+        }
+        catch (Exception exception)
+        {
+            Debug.WriteLine($"Falha ao salvar configuração: {exception.Message}");
+        }
+    }
+}

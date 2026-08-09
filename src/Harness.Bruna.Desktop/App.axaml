@@ -1,0 +1,9 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:Harness.Bruna.Desktop"
+             x:Class="Harness.Bruna.Desktop.App"
+             RequestedThemeVariant="Default">
+  <Application.Styles>
+    <SimpleTheme />
+  </Application.Styles>
+</Application>

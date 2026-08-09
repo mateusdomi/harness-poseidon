@@ -1,0 +1,43 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="using:Harness.Bruna.Desktop"
+        mc:Ignorable="d"
+        x:Class="Harness.Bruna.Desktop.BrunaMascotWindow"
+        Title="Bruna"
+        Width="160" Height="160"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        CanResize="False"
+        WindowStartupLocation="Manual">
+
+  <Panel Name="RootPanel"
+         Background="Transparent"
+         PointerPressed="OnPointerPressed"
+         PointerMoved="OnPointerMoved"
+         PointerReleased="OnPointerReleased">
+
+    <!-- Indicador de estado (pequeno círculo no canto inferior direito) -->
+    <Ellipse Name="StatusIndicator"
+             Width="14" Height="14"
+             HorizontalAlignment="Right"
+             VerticalAlignment="Bottom"
+             Margin="0,0,8,8"
+             Fill="Gray"
+             Stroke="White"
+             StrokeThickness="1.5"
+             IsHitTestVisible="False"
+             Opacity="0.9" />
+
+    <!-- Imagem da Bruna -->
+    <Image Name="BrunaImage"
+           Source="avares://Harness.Bruna.Desktop/Assets/bruna-idle.png"
+           Stretch="Uniform"
+           Margin="8"
+           IsHitTestVisible="False" />
+  </Panel>
+</Window>

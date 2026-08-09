@@ -33,5 +33,11 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
+    <!-- Bruna Desktop Companion: UI nativa cross-platform (macOS/Windows), janela transparente, sem bordas, HiDPI. -->
+    <PackageVersion Include="Avalonia" Version="11.2.5" />
+    <PackageVersion Include="Avalonia.Desktop" Version="11.2.5" />
+    <PackageVersion Include="Avalonia.Themes.Simple" Version="11.2.5" />
+    <!-- Transitive pin: corrige vulnerabilidade GHSA-xrw6-gwf8-vvr9 em Tmds.DBus.Protocol 0.20.0. -->
+    <PackageVersion Include="Tmds.DBus.Protocol" Version="0.21.3" />
   </ItemGroup>
 </Project>
