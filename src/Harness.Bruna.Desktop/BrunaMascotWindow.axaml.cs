@@ -45,9 +45,10 @@ public sealed partial class BrunaMascotWindow : Window, IDisposable
         _discovery = discovery;
         _launcher = launcher;
         _stateManager = stateManager;
-        _photoProcessor = new BrunaPhotoProcessor(configuration.FilePath is { Length: > 0 } filepath
+        var dataDirectory = configuration.FilePath is { Length: > 0 } filepath
             ? Path.GetDirectoryName(Path.GetDirectoryName(filepath))!
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".harness-poseidon"));
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".harness-poseidon");
+        _photoProcessor = new BrunaPhotoProcessor(dataDirectory, configuration.InstallDirectory);
 
         RestorePosition();
         ApplyDpiScaling();

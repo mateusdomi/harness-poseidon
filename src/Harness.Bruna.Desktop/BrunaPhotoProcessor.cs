@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
@@ -15,10 +16,13 @@ public sealed class BrunaPhotoProcessor
 {
     private readonly string _dataDirectory;
 
-    public BrunaPhotoProcessor(string dataDirectory)
+    private readonly string? _installDirectory;
+
+    public BrunaPhotoProcessor(string dataDirectory, string? installDirectory = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(dataDirectory);
         _dataDirectory = dataDirectory;
+        _installDirectory = installDirectory;
     }
 
     /// <summary>
@@ -67,10 +71,17 @@ public sealed class BrunaPhotoProcessor
         return null;
     }
 
-    private static async Task ProcessAsync(string source, string destination, CancellationToken cancellationToken)
+    private async Task ProcessAsync(string source, string destination, CancellationToken cancellationToken)
     {
         try
         {
+            var pythonPath = ResolvePythonWithRembg();
+            if (pythonPath is null)
+            {
+                Debug.WriteLine("rembg não encontrado; foto customizada será exibida com máscara oval.");
+                return;
+            }
+
             var temporary = destination + ".tmp";
             var script =
                 "from rembg import remove;" +
@@ -81,7 +92,7 @@ public sealed class BrunaPhotoProcessor
 
             var startInfo = new ProcessStartInfo
             {
-                FileName = "python3",
+                FileName = pythonPath,
                 Arguments = $"-c \"{script}\"",
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -112,6 +123,80 @@ public sealed class BrunaPhotoProcessor
         {
             Debug.WriteLine($"Falha ao processar foto da Bruna: {exception.Message}");
         }
+    }
+
+    /// <summary>
+    /// Procura um interpretador Python que tenha o pacote <c>rembg</c> instalado.
+    /// </summary>
+    private string? ResolvePythonWithRembg()
+    {
+        var candidates = new List<string>();
+
+        if (!string.IsNullOrEmpty(_installDirectory))
+        {
+            candidates.Add(Path.Combine(_installDirectory, ".venv-bruna", "bin", "python"));
+            candidates.Add(Path.Combine(_installDirectory, ".venv-bruna", "bin", "python3"));
+        }
+
+        candidates.Add(Path.Combine(_dataDirectory, ".venv-bruna", "bin", "python"));
+        candidates.Add(Path.Combine(_dataDirectory, ".venv-bruna", "bin", "python3"));
+
+        var executableDirectory = AppContext.BaseDirectory;
+        candidates.Add(Path.Combine(executableDirectory, ".venv-bruna", "bin", "python"));
+        candidates.Add(Path.Combine(executableDirectory, ".venv-bruna", "bin", "python3"));
+        candidates.Add(Path.Combine(executableDirectory, "..", ".venv-bruna", "bin", "python"));
+        candidates.Add(Path.Combine(executableDirectory, "..", ".venv-bruna", "bin", "python3"));
+
+        candidates.Add("python3");
+        candidates.Add("python");
+
+        foreach (var candidate in candidates)
+        {
+            var resolved = candidate;
+            try
+            {
+                resolved = Path.GetFullPath(resolved);
+            }
+            catch
+            {
+                // Ignora caminhos relativos inválidos.
+            }
+
+            if (!File.Exists(resolved) && candidate != "python3" && candidate != "python")
+            {
+                continue;
+            }
+
+            try
+            {
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = resolved,
+                    Arguments = "-c \"import rembg; print('ok')\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                };
+                using var process = Process.Start(startInfo);
+                if (process is null)
+                {
+                    continue;
+                }
+
+                process.WaitForExit(TimeSpan.FromSeconds(5));
+                if (process.ExitCode == 0)
+                {
+                    return resolved;
+                }
+            }
+            catch
+            {
+                // Tenta o próximo candidato.
+            }
+        }
+
+        return null;
     }
 
     private static string EscapeForPythonOneLine(string path) =>
