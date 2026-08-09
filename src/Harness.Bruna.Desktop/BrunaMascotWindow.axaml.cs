@@ -90,6 +90,13 @@ public sealed partial class BrunaMascotWindow : Window, IDisposable
 
     private void ApplyDpiScaling()
     {
+        var customPhoto = _configuration.ResolveCustomPhotoPath();
+        if (!string.IsNullOrEmpty(customPhoto))
+        {
+            LoadCustomPhoto(customPhoto);
+            return;
+        }
+
         var scaling = Screens.ScreenFromWindow(this)?.Scaling ?? 1.0;
         var assetName = scaling >= 1.5
             ? "avares://Harness.Bruna.Desktop/Assets/bruna-idle@2x.png"
@@ -100,10 +107,30 @@ public sealed partial class BrunaMascotWindow : Window, IDisposable
             var uri = new Uri(assetName);
             using var stream = AssetLoader.Open(uri);
             BrunaImage.Source = new Bitmap(stream);
+            BrunaImage.Clip = null;
         }
         catch (Exception exception)
         {
             Debug.WriteLine($"Falha ao carregar asset: {exception.Message}");
+        }
+    }
+
+    private void LoadCustomPhoto(string path)
+    {
+        try
+        {
+            using var stream = File.OpenRead(path);
+            BrunaImage.Source = new Bitmap(stream);
+            // Fotos customizadas geralmente tem fundo; aplicamos uma mascara oval
+            // suave para manter a sensacao de mascote flutuante.
+            var bounds = new Rect(0, 0, WindowSize, WindowSize);
+            var margin = WindowSize * 0.06;
+            BrunaImage.Clip = new EllipseGeometry(new Rect(margin, margin, WindowSize - margin * 2, WindowSize - margin * 2));
+        }
+        catch (Exception exception)
+        {
+            Debug.WriteLine($"Falha ao carregar foto customizada: {exception.Message}");
+            ApplyDpiScaling();
         }
     }
 

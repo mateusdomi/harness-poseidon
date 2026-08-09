@@ -27,6 +27,36 @@ public sealed class BrunaConfiguration
 
     public string FilePath => _filePath;
 
+    /// <summary>
+    /// Procura uma foto personalizada da Bruna no data-dir (ex.: upload via
+    /// perfil de liderança do Poseidon). Retorna o caminho se encontrar.
+    /// </summary>
+    public string? ResolveCustomPhotoPath()
+    {
+        var dataDirectory = Path.GetDirectoryName(Path.GetDirectoryName(_filePath));
+        if (string.IsNullOrEmpty(dataDirectory))
+        {
+            return null;
+        }
+
+        var assetsDirectory = Path.Combine(dataDirectory, "assets");
+        if (!Directory.Exists(assetsDirectory))
+        {
+            return null;
+        }
+
+        foreach (var extension in new[] { ".png", ".jpg", ".jpeg", ".webp" })
+        {
+            var path = Path.Combine(assetsDirectory, $"bruna-magalhaes{extension}");
+            if (File.Exists(path))
+            {
+                return path;
+            }
+        }
+
+        return null;
+    }
+
     // Construtor parameterless necessário para deserialization JSON.
     public BrunaConfiguration()
     {
