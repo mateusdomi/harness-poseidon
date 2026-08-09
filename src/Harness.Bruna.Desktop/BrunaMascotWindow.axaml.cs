@@ -23,6 +23,8 @@ public sealed partial class BrunaMascotWindow : Window, IDisposable
     private readonly PoseidonLauncher _launcher;
     private readonly BrunaStateManager _stateManager;
     private readonly DispatcherTimer _animationTimer = new();
+    private readonly ScaleTransform _scaleTransform = new();
+    private readonly RotateTransform _rotateTransform = new();
 
     private CancellationTokenSource? _startupCts;
     private bool _disposed;
@@ -157,7 +159,14 @@ public sealed partial class BrunaMascotWindow : Window, IDisposable
 
     private void SetupAnimations()
     {
-        _animationTimer.Interval = TimeSpan.FromMilliseconds(16);
+        // 30 fps é suficiente para microanimações discretas e reduz carga na UI thread.
+        _animationTimer.Interval = TimeSpan.FromMilliseconds(33);
+
+        var transform = new TransformGroup();
+        transform.Children.Add(_scaleTransform);
+        transform.Children.Add(_rotateTransform);
+        BrunaImage.RenderTransform = transform;
+        BrunaImage.RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
 
         var startTime = DateTimeOffset.UtcNow;
         _animationTimer.Tick += (_, _) =>
@@ -188,11 +197,9 @@ public sealed partial class BrunaMascotWindow : Window, IDisposable
             _ => 0.0,
         };
 
-        var transform = new TransformGroup();
-        transform.Children.Add(new ScaleTransform(scale, scale));
-        transform.Children.Add(new RotateTransform(rotate));
-        BrunaImage.RenderTransform = transform;
-        BrunaImage.RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
+        _scaleTransform.ScaleX = scale;
+        _scaleTransform.ScaleY = scale;
+        _rotateTransform.Angle = rotate;
     }
 
     private void OnStateChanged(object? sender, BrunaVisualState state)
