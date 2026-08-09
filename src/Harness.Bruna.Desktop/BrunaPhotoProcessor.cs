@@ -184,7 +184,7 @@ public sealed class BrunaPhotoProcessor
                     continue;
                 }
 
-                process.WaitForExit(TimeSpan.FromSeconds(5));
+                process.WaitForExit(TimeSpan.FromSeconds(30));
                 if (process.ExitCode == 0)
                 {
                     return resolved;
