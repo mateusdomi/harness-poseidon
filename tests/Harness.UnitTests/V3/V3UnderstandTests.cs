@@ -1,0 +1,208 @@
+using Harness.Host.V3;
+using Harness.Modules.Agents.Application.Accounts;
+using Harness.Modules.Agents.Contracts;
+
+namespace Harness.UnitTests.V3;
+
+public sealed class V3UnderstandTests : IDisposable
+{
+    private readonly string _directory = Path.Combine(
+        Path.GetTempPath(), $"poseidon-v3-understand-{Guid.NewGuid():N}");
+
+    [Fact]
+    public void OpenQuestionPolicyRequiresOnlyDeadlineAndRepositoryBeforeAuthorization()
+    {
+        var questions = V3OpenQuestionPolicy.RequiredQuestions("01K00000000000000000000000", null, null);
+
+        Assert.Equal(["deadline", "repository"], questions.Select(question => question.QuestionId));
+    }
+
+    [Fact]
+    public void AnalyzeInfersLowRiskCapabilitiesButKeepsRequiredQuestions()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        var context = Context(deadline: null, repository: null);
+
+        var result = V3UnderstandAnalyzer.Analyze(context, new V3UnderstandAnalyzeRequest
+        {
+            OriginalIntent = "Sistema de riscos com aprovações, auditoria e dashboard.",
+            Assumptions = ["React fornecido será preservado quando existir."],
+        }, now);
+
+        Assert.Equal("AWAITING_INPUT", result.State.LifecycleState);
+        Assert.Contains("Gestão de riscos corporativos", result.State.Requirements);
+        Assert.Contains("Fluxo de aprovação por perfis", result.State.Requirements);
+        Assert.Equal(["deadline", "repository"], result.OpenQuestions.Select(question => question.QuestionId));
+    }
+
+    [Fact]
+    public void AnalyzeRequiresRepositoryConfirmationInsteadOfAcceptingGeneratedProjectRepository()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        var context = Context(deadline: now.AddDays(10), repository: null) with
+        {
+            Repository = "/Users/mateus/.harness-poseidon/repositories/tenant/generated-project",
+        };
+
+        var result = V3UnderstandAnalyzer.Analyze(context, new V3UnderstandAnalyzeRequest(), now);
+
+        Assert.Equal("AWAITING_INPUT", result.State.LifecycleState);
+        Assert.Equal(["repository"], result.OpenQuestions.Select(question => question.QuestionId));
+        Assert.Null(result.State.Repository);
+    }
+
+    [Theory]
+    [InlineData("sim")]
+    [InlineData("pode iniciar")]
+    [InlineData("autorizado")]
+    [InlineData("comece")]
+    public void AuthorizationAcceptsNaturalLanguageApproval(string response)
+    {
+        Assert.True(V3AuthorizationPolicy.IsAuthorized(response));
+    }
+
+    [Fact]
+    public void MissionCompilerPersistsArtifactAndKnowledgeReferences()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        var store = new V3UnderstandStore(_directory);
+        var context = Context(deadline: now.AddDays(10), repository: "/tmp/prisma");
+        var recommended = new V3RecommendedExecutor("worker-codex-project", "AVAILABLE", "AVAILABLE + WRITE_CAPABLE + role compatible.");
+
+        var mission = V3MissionCompiler.CompileBuildMission(context, recommended, null, now);
+        store.WriteMission(mission);
+        var saved = store.ReadMission(mission.MissionId);
+
+        Assert.NotNull(saved);
+        Assert.Equal("COMPILED", saved!.Status);
+        Assert.Contains(saved.ArtifactReferences, artifact => artifact.ArtifactId == "artifact-1");
+        Assert.Contains(saved.KnowledgeReferences, reference => reference.Path == "docs/product/frontend-standards.md");
+        Assert.Contains(saved.KnowledgeReferences, reference => reference.Path == "docs/product/oracle-data-standards.md");
+        Assert.Contains("AUTONOMY CONTRACT", saved.MissionText, StringComparison.Ordinal);
+        Assert.Contains("DEFINITION OF DONE", saved.MissionText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExecutorPreviewChoosesUniqueAvailableWriteCapableAccount()
+    {
+        var selected = V3ExecutorPreview.Select(
+        [
+            Account("chief", [AgentRoles.ChiefOrchestrator], priority: 10),
+            Account("worker-low", [AgentRoles.ProjectExecutor], priority: 10),
+            Account("worker-high", [AgentRoles.ProjectExecutor, AgentRoles.FrontendSpecialist], priority: 90),
+            Account("worker-disabled", [AgentRoles.ProjectExecutor], AgentAccountState.Disabled, priority: 100),
+        ]);
+
+        Assert.Equal("worker-high", selected.AccountAlias);
+        Assert.Equal("AVAILABLE", selected.Status);
+    }
+
+    private static V3ProjectContextResponse Context(DateTimeOffset? deadline, string? repository) =>
+        new(
+            "01K00000000000000000000000",
+            "V3-UNDERSTAND-PRISMA-REPLAY",
+            "Sistema de riscos corporativos com React, .NET e Oracle.",
+            [
+                new V3ArtifactReference(
+                    "artifact-1",
+                    "Prisma_Especificacao_Tecnica_MVP.md",
+                    "text/markdown",
+                    "requirements",
+                    "solicitation_attachment",
+                    "tenant/artifact",
+                    "ABC123",
+                    "accepted"),
+                new V3ArtifactReference(
+                    "artifact-2",
+                    "frontend-react.zip",
+                    "application/zip",
+                    "provided_frontend",
+                    "solicitation_attachment",
+                    "tenant/frontend",
+                    "DEF456",
+                    "accepted"),
+            ],
+            [],
+            [],
+            new V3ProjectUnderstandState(
+                "01K00000000000000000000000",
+                "AUTHORIZED",
+                "BUILDING",
+                "Sistema de riscos corporativos com React, .NET e Oracle.",
+                "Construir o Prisma.",
+                "Construir o Prisma.",
+                ["GRC", "Diretor", "Gerente", "Coordenador", "Ponto Focal"],
+                ["Gestão de riscos corporativos", "Fluxo de aprovação por perfis"],
+                ["Login por perfis funciona", "Risco completo persiste"],
+                [],
+                ["Preservar frontend fornecido."],
+                [],
+                true,
+                [],
+                new V3EffectiveStackContract(
+                    "React + TypeScript + Vite",
+                    ".NET",
+                    "Oracle",
+                    "Clean Architecture / modular full-stack",
+                    "Playwright + unit/integration tests",
+                    ["restrição explícita do usuário/documento"]),
+                deadline,
+                repository,
+                DateTimeOffset.UnixEpoch,
+                DateTimeOffset.UnixEpoch,
+                DateTimeOffset.UnixEpoch,
+                DateTimeOffset.UnixEpoch),
+            "Construir o Prisma.",
+            "Construir o Prisma.",
+            ["Gestão de riscos corporativos", "Fluxo de aprovação por perfis"],
+            ["Login por perfis funciona", "Risco completo persiste"],
+            [],
+            ["Preservar frontend fornecido."],
+            V3OpenQuestionPolicy.RequiredQuestions("01K00000000000000000000000", deadline, repository),
+            new V3EffectiveStackContract(
+                "React + TypeScript + Vite",
+                ".NET",
+                "Oracle",
+                "Clean Architecture / modular full-stack",
+                "Playwright + unit/integration tests",
+                ["restrição explícita do usuário/documento"]),
+            deadline,
+            repository,
+            "host-api-and-frontend; database container only when stack requires it",
+            "existing notification channels",
+            new V3ExecutionCapacityResponse(DateTimeOffset.UnixEpoch, 1, 1, 1, 1, []),
+            [],
+            deadline is null || repository is null ? "AWAITING_INPUT" : "BUILDING");
+
+    private static AgentAccountContract Account(
+        string alias,
+        IReadOnlyList<string> roles,
+        AgentAccountState state = AgentAccountState.Available,
+        int priority = 100) =>
+        new(
+            alias,
+            "openai",
+            ExecutorCatalog.Codex,
+            $"keychain://poseidon/{alias}",
+            $"confighome://{alias}",
+            roles,
+            [.. roles.SelectMany(AgentRoles.PathScopesFor).Distinct(StringComparer.Ordinal)],
+            state,
+            state == AgentAccountState.Available ? AgentAccountHealth.Healthy : AgentAccountHealth.Unknown,
+            1,
+            0,
+            null,
+            null,
+            null,
+            null,
+            null,
+            priority);
+
+    public void Dispose()
+    {
+        if (Directory.Exists(_directory))
+        {
+            Directory.Delete(_directory, recursive: true);
+        }
+    }
+}

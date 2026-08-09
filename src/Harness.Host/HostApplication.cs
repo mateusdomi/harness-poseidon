@@ -1086,6 +1086,7 @@ public static class HostApplication
         app.MapProjectActivity();
         app.MapReadiness();
         app.MapV3Foundation();
+        app.MapV3Understand();
         app.MapAgents();
         app.MapReliability();
         app.MapTeamSpecialtyCatalog();

@@ -80,6 +80,7 @@ public static class V3FoundationEndpoints
         ILocalProfileStore profiles,
         IProjectStore projects,
         Readiness.ProjectReadinessService readiness,
+        IConfiguration configuration,
         CancellationToken token)
     {
         if (!UlidValue.TryParse(projectId, out _)) return Problem(400, "invalid_project_id", "Project ID must be a ULID.");
@@ -89,7 +90,8 @@ public static class V3FoundationEndpoints
         if (project is null) return NotFound("project");
 
         var snapshot = await readiness.EvaluateAsync(profile.TenantId, project, profileReady: true, token);
-        return Results.Ok(V3Lifecycle.For(project, snapshot));
+        var saved = V3UnderstandStore.ForConfiguration(configuration).ReadProject(project.Id);
+        return Results.Ok(V3Lifecycle.For(project, snapshot, saved?.LifecycleState));
     }
 
     private static async Task<IResult> GetProjectReadinessAsync(
@@ -309,9 +311,12 @@ public static class V3Lifecycle
 
     public static V3ProjectLifecycleResponse For(
         Harness.Persistence.Abstractions.Projects.ProjectRecord project,
-        ProjectReadinessSnapshot readiness)
+        ProjectReadinessSnapshot readiness,
+        string? persistedStage = null)
     {
-        var stage = project.State switch
+        var stage = States.Contains(persistedStage ?? string.Empty, StringComparer.Ordinal)
+            ? persistedStage!
+            : project.State switch
         {
             "archived" => "HUMAN_ACCEPTED",
             "paused" => "BLOCKED",
@@ -353,16 +358,21 @@ public static class V3Readiness
     public static V3ProjectReadinessResponse For(
         Harness.Persistence.Abstractions.Projects.ProjectRecord project,
         ProjectReadinessSnapshot existing,
-        IReadOnlyList<AgentAccountContract> accounts)
+        IReadOnlyList<AgentAccountContract> accounts,
+        V3ProjectUnderstandState? v3State = null)
     {
         var capacity = V3Capacity.From(accounts, DateTimeOffset.UtcNow);
+        var confirmedDeadline = v3State?.Deadline ?? project.TargetDeadline;
+        var confirmedRepository = string.IsNullOrWhiteSpace(v3State?.Repository)
+            ? project.RepositoryUrl
+            : v3State.Repository;
         var items = new List<V3ReadinessItem>
         {
             Item("Requirements", HasText(project.Description) ? "PASS" : "ACTION_REQUIRED", "project.description"),
             Item("Artifacts", "NOT_APPLICABLE", "artifact upload is optional at foundation level"),
             Item("OpenQuestions", existing.NextActions.Count == 0 ? "PASS" : "ACTION_REQUIRED", "readiness.nextActions"),
-            Item("Deadline", project.TargetDeadline.HasValue ? "PASS" : "ACTION_REQUIRED", "project.targetDeadline"),
-            Item("Repository", RepositoryReachable(project.RepositoryUrl) ? "PASS" : "BLOCKED", "project.repositoryUrl"),
+            Item("Deadline", confirmedDeadline.HasValue ? "PASS" : "ACTION_REQUIRED", "v3.deadline || project.targetDeadline"),
+            Item("Repository", RepositoryReachable(confirmedRepository) ? "PASS" : "BLOCKED", "v3.repository || project.repositoryUrl"),
             Item("EffectiveStack", project.Technologies.Count > 0 ? "PASS" : "ACTION_REQUIRED", "project.technologies"),
             Item("RuntimeEnvironment", RuntimeReady() ? "PASS" : "ACTION_REQUIRED", "dotnet/node/git/docker probe"),
             Item("Database", "NOT_APPLICABLE", "database requirement depends on project stack"),
