@@ -480,6 +480,7 @@ public static class DesktopLifecycleManager
         var required = new[]
         {
             $"Harness.Launcher{executableSuffix}",
+            $"Harness.Bruna.Desktop{executableSuffix}",
             "Harness.Host.dll",
             $"runner/Harness.Runner{executableSuffix}",
             "wwwroot/index.html",

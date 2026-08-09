@@ -43,13 +43,18 @@ rm -rf "${OUTPUT}"
   --self-contained true \
   -p:PublishSingleFile=false \
   --output "${OUTPUT}/runner"
+"${DOTNET}" publish src/Harness.Bruna.Desktop/Harness.Bruna.Desktop.csproj \
+  --configuration Release \
+  --runtime "${RID}" \
+  --self-contained true \
+  -p:PublishSingleFile=false \
+  --output "${OUTPUT}"
 rsync -a --delete "${REPOSITORY_ROOT}/src/Harness.Host/wwwroot/" "${OUTPUT}/wwwroot/"
 cp "${REPOSITORY_ROOT}/poseidon" "${OUTPUT}/poseidon"
 chmod 0755 "${OUTPUT}/poseidon"
 mkdir -p "${OUTPUT}/docs"
-cp "${REPOSITORY_ROOT}/docs/backend/operations/INSTALLATION.md" "${OUTPUT}/docs/INSTALLATION.md"
-cp "${REPOSITORY_ROOT}/docs/backend/operations/HOMOLOGATION.md" "${OUTPUT}/docs/HOMOLOGATION.md"
-cp "${REPOSITORY_ROOT}/docs/backend/release/RELEASE_NOTES.md" "${OUTPUT}/docs/RELEASE_NOTES.md"
+cp "${REPOSITORY_ROOT}/README.md" "${OUTPUT}/docs/README.md"
+cp "${REPOSITORY_ROOT}/docs/INDEX.md" "${OUTPUT}/docs/INDEX.md"
 
 "${DOTNET}" "${LAUNCHER_DLL}" package-manifest \
   --package-dir "${OUTPUT}" \
