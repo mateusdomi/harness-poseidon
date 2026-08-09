@@ -229,6 +229,7 @@ public sealed class DesktopLifecycleTests
         Directory.CreateDirectory(Path.Combine(package, "runner"));
         Directory.CreateDirectory(Path.Combine(package, "wwwroot"));
         await File.WriteAllTextAsync(Path.Combine(package, "Harness.Launcher"), "binário", cancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(package, "Harness.Bruna.Desktop"), "bruna", cancellationToken);
         await File.WriteAllTextAsync(Path.Combine(package, "Harness.Host.dll"), "host", cancellationToken);
         await File.WriteAllTextAsync(Path.Combine(package, "runner", "Harness.Runner"), "runner", cancellationToken);
         await File.WriteAllTextAsync(Path.Combine(package, "wwwroot", "index.html"), "spa", cancellationToken);
