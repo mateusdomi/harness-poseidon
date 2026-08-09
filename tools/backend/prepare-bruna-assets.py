@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
 """Prepara os assets transparentes da Bruna a partir da foto oficial.
 
-A imagem oficial (frontend/public/people/bruna-magalhaes.jpg) tem fundo real.
-Este script remove o fundo com rembg, redimensiona para uso em DPI/Retina e
-aplica uma máscara suave nas bordas para que a personagem flutue sobre o desktop.
+A imagem padrão é frontend/public/people/bruna-magalhaes.jpg. Também é possível
+passar uma foto customizada via --source (por exemplo, a foto atualizada do
+perfil de liderança). O script remove o fundo com rembg, redimensiona para uso
+em DPI/Retina e aplica uma máscara suave nas bordas para que a personagem flutue
+sobre o desktop.
 
 Uso:
     python3 tools/backend/prepare-bruna-assets.py
+    python3 tools/backend/prepare-bruna-assets.py --source /caminho/nova-bruna.jpg
+    python3 tools/backend/prepare-bruna-assets.py --auto --data-dir ~/.harness-poseidon
 """
 from __future__ import annotations
 
+import argparse
 import os
 import sys
 from pathlib import Path
@@ -23,14 +28,49 @@ except ImportError as exc:
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SOURCE = REPO_ROOT / "frontend" / "public" / "people" / "bruna-magalhaes.jpg"
+DEFAULT_SOURCE = REPO_ROOT / "frontend" / "public" / "people" / "bruna-magalhaes.jpg"
 TARGET_DIR = REPO_ROOT / "src" / "Harness.Bruna.Desktop" / "Assets"
 TARGET_SIZE = 512  # pixels lógicos; em @2x fica 1024 físicos
 
 
-def ensure_source() -> None:
-    if not SOURCE.exists():
-        sys.exit(f"Imagem oficial não encontrada: {SOURCE}")
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Prepara assets transparentes da Bruna.")
+    parser.add_argument(
+        "--source",
+        type=Path,
+        help="Caminho da foto de origem (padrao: frontend/public/people/bruna-magalhaes.jpg)",
+    )
+    parser.add_argument(
+        "--auto",
+        action="store_true",
+        help="Procura uma foto customizada em <data-dir>/assets/bruna-magalhaes.*",
+    )
+    parser.add_argument(
+        "--data-dir",
+        type=Path,
+        default=Path.home() / ".harness-poseidon",
+        help="Diretorio de dados do Poseidon (usado com --auto)",
+    )
+    return parser.parse_args()
+
+
+def resolve_source(args: argparse.Namespace) -> Path:
+    if args.source:
+        return args.source
+
+    if args.auto:
+        assets_dir = args.data_dir / "assets"
+        for extension in (".png", ".jpg", ".jpeg", ".webp"):
+            candidate = assets_dir / f"bruna-magalhaes{extension}"
+            if candidate.exists():
+                return candidate
+
+    return DEFAULT_SOURCE
+
+
+def ensure_source(path: Path) -> None:
+    if not path.exists():
+        sys.exit(f"Imagem de origem não encontrada: {path}")
 
 
 def remove_background(source: Image.Image) -> Image.Image:
@@ -81,9 +121,11 @@ def save_variants(base: Image.Image) -> None:
 
 
 def main() -> int:
-    ensure_source()
-    print(f"Processando {SOURCE} ...")
-    source = Image.open(SOURCE)
+    args = parse_args()
+    source_path = resolve_source(args)
+    ensure_source(source_path)
+    print(f"Processando {source_path} ...")
+    source = Image.open(source_path)
     print("Removendo fundo (pode levar alguns segundos) ...")
     no_bg = remove_background(source)
     print("Cortando e redimensionando ...")
