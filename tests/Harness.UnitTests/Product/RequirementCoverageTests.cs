@@ -16,6 +16,8 @@ public sealed class RequirementCoverageTests
 {
     private const string Requisito = "01REQ-INTERFACE";
     private const string Titulo = "Uma pessoa da equipe consegue registrar e consultar empréstimos";
+    private const string CommitA = "aaaaaaaa11111111222222223333333344444444";
+    private const string CommitB = "bbbbbbbb11111111222222223333333344444444";
 
     private static IReadOnlyList<(string, string, bool)> Requisitos() =>
         [(Requisito, Titulo, false)];
@@ -120,6 +122,69 @@ public sealed class RequirementCoverageTests
 
         Assert.Equal(RequirementCoverageStatus.Satisfied, coverage.Status);
         Assert.True(coverage.IsCovered);
+    }
+
+    [Fact]
+    public void RequisitoObrigatorioSemEvidenceValidaMantemProjetoNaoReady()
+    {
+        var coverage = RequirementCoverageAnalyzer.Analyze(
+            Requisitos(),
+            Cards(new RequirementCard("card", "FEAT/T02", "completed", false)),
+            proofs: [],
+            expectedCommitSha: CommitA);
+
+        var readiness = HumanAcceptanceReadinessGate.Evaluate(coverage);
+
+        Assert.False(readiness.Ready);
+        var blocking = Assert.Single(readiness.BlockingRequirements);
+        Assert.Equal(RequirementCoverageStatus.Implemented, blocking.Status);
+        Assert.Contains("não há evidência PASS válida", blocking.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EvidenceDeShaAntigoNaoProvaHeadNovo()
+    {
+        var coverage = RequirementCoverageAnalyzer.Analyze(
+            Requisitos(),
+            Cards(new RequirementCard("card", "FEAT/T02", "completed", false)),
+            [
+                new RequirementProof(
+                    Requisito,
+                    "card",
+                    "evidence-set-a",
+                    CommitA,
+                    Passed: true,
+                    AcceptanceCriteriaCovered: ["AC-1"]),
+            ],
+            expectedCommitSha: CommitB);
+
+        Assert.Equal(RequirementCoverageStatus.Implemented, coverage.Single().Status);
+        Assert.False(HumanAcceptanceReadinessGate.Evaluate(coverage).Ready);
+    }
+
+    [Fact]
+    public void CemPorCentoDeCoverageObrigatorioComEvidenceValidaPermiteReadyForHumanAcceptance()
+    {
+        var coverage = RequirementCoverageAnalyzer.Analyze(
+            [
+                ("req-1", "Login funciona", false),
+                ("req-2", "Cadastro persiste", false),
+            ],
+            new Dictionary<string, IReadOnlyList<RequirementCard>>(StringComparer.Ordinal)
+            {
+                ["req-1"] = [new RequirementCard("card-1", "OBJ/Login", "completed", false)],
+                ["req-2"] = [new RequirementCard("card-2", "OBJ/Cadastro", "completed", false)],
+            },
+            [
+                new RequirementProof("req-1", "card-1", "evidence-1", CommitA, true, ["AC-login"]),
+                new RequirementProof("req-2", "card-2", "evidence-2", CommitA, true, ["AC-cadastro"]),
+            ],
+            expectedCommitSha: CommitA);
+
+        var readiness = HumanAcceptanceReadinessGate.Evaluate(coverage);
+
+        Assert.True(readiness.Ready);
+        Assert.Empty(readiness.BlockingRequirements);
     }
 
     [Fact]

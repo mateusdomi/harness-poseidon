@@ -62,6 +62,19 @@ public sealed record RequirementCard(string Id, string Title, string State, bool
     public bool HasStarted => !string.Equals(State, "ready", StringComparison.OrdinalIgnoreCase);
 }
 
+/// <summary>
+/// Prova que liga um requisito/critério ao objetivo que o implementou e ao conjunto de evidência
+/// que passou sobre o commit exato avaliado.
+/// </summary>
+public sealed record RequirementProof(
+    string RequirementId,
+    string ObjectiveCardId,
+    string EvidenceSetId,
+    string CommitSha,
+    bool Passed,
+    IReadOnlyList<string> AcceptanceCriteriaCovered,
+    ProductEvidenceProvenance Provenance = ProductEvidenceProvenance.Verified);
+
 /// <summary>O requisito e tudo o que se sabe sobre quem cuida dele.</summary>
 public sealed record RequirementCoverage(
     string RequirementId,
@@ -111,6 +124,32 @@ public static class RequirementCoverageAnalyzer
         ArgumentNullException.ThrowIfNull(requirements);
         ArgumentNullException.ThrowIfNull(cardsByRequirement);
 
+        var compatibilityProofs = deliverySatisfied
+            ? requirements.SelectMany(requirement =>
+                cardsByRequirement.TryGetValue(requirement.Id, out var cards)
+                    ? cards.Where(card => card.IsDone).Select(card => new RequirementProof(
+                        requirement.Id, card.Id, "legacy-global-product-verdict", "", true,
+                        [requirement.Id]))
+                    : [])
+            : [];
+        return Analyze(requirements, cardsByRequirement, compatibilityProofs.ToArray(), null);
+    }
+
+    /// <summary>
+    /// Cruza requisitos, objetivos/cards e provas. Este é o caminho usado para prontidão de
+    /// produto: requisito obrigatório só fica <see cref="RequirementCoverageStatus.Satisfied"/>
+    /// quando existe evidência PASS válida, vinculada ao card objetivo e ao commit avaliado.
+    /// </summary>
+    public static IReadOnlyList<RequirementCoverage> Analyze(
+        IReadOnlyList<(string Id, string Title, bool Superseded)> requirements,
+        IReadOnlyDictionary<string, IReadOnlyList<RequirementCard>> cardsByRequirement,
+        IReadOnlyList<RequirementProof> proofs,
+        string? expectedCommitSha)
+    {
+        ArgumentNullException.ThrowIfNull(requirements);
+        ArgumentNullException.ThrowIfNull(cardsByRequirement);
+        ArgumentNullException.ThrowIfNull(proofs);
+
         return [.. requirements.Select(requirement =>
         {
             if (requirement.Superseded)
@@ -124,6 +163,7 @@ public static class RequirementCoverageAnalyzer
             var alive = cards.Where(card => card.IsAlive).ToArray();
             var done = cards.Where(card => card.IsDone).ToArray();
             var blocked = alive.Where(card => card.IsBlocked).ToArray();
+            var doneIds = done.Select(card => card.Id).ToHashSet(StringComparer.Ordinal);
 
             // NENHUM card vivo e NENHUM concluído: o requisito está descoberto. É exatamente o que
             // aconteceu com a interface — dois cards, ambos cancelados, requisito órfão e fase
@@ -158,14 +198,26 @@ public static class RequirementCoverageAnalyzer
 
             // Trabalho concluído. Só vira Satisfied quando o portão do produto também aprovou —
             // card fechado com entrega reprovada é trabalho feito e produto quebrado.
-            return deliverySatisfied
+            var validProofs = proofs.Where(proof =>
+                    string.Equals(proof.RequirementId, requirement.Id, StringComparison.Ordinal) &&
+                    doneIds.Contains(proof.ObjectiveCardId) &&
+                    proof.Passed &&
+                    proof.Provenance >= ProductEvidenceProvenance.Verified &&
+                    !string.IsNullOrWhiteSpace(proof.EvidenceSetId) &&
+                    proof.AcceptanceCriteriaCovered.Count > 0 &&
+                    (string.IsNullOrWhiteSpace(expectedCommitSha) ||
+                        string.Equals(proof.CommitSha, expectedCommitSha, StringComparison.OrdinalIgnoreCase)))
+                .ToArray();
+
+            return validProofs.Length > 0
                 ? new RequirementCoverage(
                     requirement.Id, requirement.Title, RequirementCoverageStatus.Satisfied, [],
-                    $"{done.Length} card(s) concluído(s) e o portão do produto aprovou a entrega.")
+                    $"{done.Length} card(s) concluído(s) e {validProofs.Length} evidência(s) PASS " +
+                    "válida(s) cobrem o requisito no commit avaliado.")
                 : new RequirementCoverage(
                     requirement.Id, requirement.Title, RequirementCoverageStatus.Implemented, [],
-                    $"{done.Length} card(s) concluído(s), mas o portão do produto ainda não aprovou " +
-                    "a entrega: trabalho feito não é produto funcionando.");
+                    $"{done.Length} card(s) concluído(s), mas não há evidência PASS válida ligada " +
+                    "ao requisito, ao objetivo e ao commit avaliado: trabalho feito não é produto funcionando.");
         })];
     }
 
@@ -180,5 +232,27 @@ public static class RequirementCoverageAnalyzer
         ArgumentNullException.ThrowIfNull(coverage);
         return [.. coverage.Where(item => item.Status is
             RequirementCoverageStatus.Unplanned or RequirementCoverageStatus.Blocked)];
+    }
+}
+
+public sealed record HumanAcceptanceReadinessVerdict(
+    bool Ready,
+    IReadOnlyList<RequirementCoverage> BlockingRequirements)
+{
+    public const string ReadyState = "READY_FOR_HUMAN_ACCEPTANCE";
+}
+
+/// <summary>
+/// Gate final de prontidão humana. Diferente do gate de fase, aqui qualquer requisito obrigatório
+/// que não esteja coberto por evidência válida impede o estado READY_FOR_HUMAN_ACCEPTANCE.
+/// </summary>
+public static class HumanAcceptanceReadinessGate
+{
+    public static HumanAcceptanceReadinessVerdict Evaluate(
+        IReadOnlyList<RequirementCoverage> coverage)
+    {
+        ArgumentNullException.ThrowIfNull(coverage);
+        var blocking = coverage.Where(item => !item.IsCovered).ToArray();
+        return new HumanAcceptanceReadinessVerdict(blocking.Length == 0, blocking);
     }
 }

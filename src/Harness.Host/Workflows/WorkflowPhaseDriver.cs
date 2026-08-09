@@ -430,6 +430,8 @@ public sealed class WorkflowPhaseDriver(
         // perfil efetivo do projeto e a EVIDÊNCIA CONSTATADA da árvore entregue — não o que o
         // executor escreveu sobre ela.
         ProductDeliveryVerdict? productVerdict = null;
+        ProductDeliveryEvaluator.Outcome? productOutcome = null;
+        string? verifiedCommitForCoverage = null;
         if (productDelivery is not null)
         {
             // O COMMIT REALMENTE VERIFICADO, não o id da execução. Sem isso, a correlação de
@@ -437,6 +439,7 @@ public sealed class WorkflowPhaseDriver(
             // aprova o commit B" nunca teria efeito.
             var verifiedCommit = await ResolveVerifiedCommitAsync(
                 tenantId, page.Items, phase.Name, cancellationToken) ?? running.Id;
+            verifiedCommitForCoverage = verifiedCommit;
             var outcome = await productDelivery.EvaluateAsync(
                 tenantId, project.Id, project.RepositoryUrl, verifiedCommit, phase.Order, cancellationToken,
                 // A prosa do usuário é a entrada da resolução: é dela que sai a modalidade, e é a
@@ -444,6 +447,7 @@ public sealed class WorkflowPhaseDriver(
                 string.Join(
                     '\n',
                     demands.Select(demand => $"{demand.Title}\n{demand.Description}")));
+            productOutcome = outcome;
             productVerdict = outcome.Verdict;
             if (outcome.Failure is { Length: > 0 } productFailure &&
                 !string.Equals(productFailure, ProductDeliveryFailures.LegacyProjectExempt, StringComparison.Ordinal))
@@ -494,27 +498,57 @@ public sealed class WorkflowPhaseDriver(
         // Quando os cards foram cancelados, o requisito ficou órfão e a fase fechou.
         if (phase.Order >= ActivePhaseResolver.DevelopmentPhaseOrder)
         {
+            var cardsByDemand = page.Items
+                .Where(task => task.DemandId is { Length: > 0 })
+                .GroupBy(task => task.DemandId!)
+                .ToDictionary(
+                    group => group.Key,
+                    group => (IReadOnlyList<RequirementCard>)[.. group.Select(task =>
+                        new RequirementCard(
+                            task.Id, task.Title, task.InternalState, task.ArchivedAt is not null))]);
+            var requirementProofs =
+                productOutcome?.Verdict?.Satisfied == true &&
+                productOutcome.EvidenceSetId is { Length: > 0 } evidenceSetId &&
+                verifiedCommitForCoverage is { Length: > 0 } commit
+                    ? page.Items
+                        .Where(task => task.DemandId is { Length: > 0 } &&
+                            new RequirementCard(
+                                task.Id, task.Title, task.InternalState, task.ArchivedAt is not null).IsDone)
+                        .Select(task => new RequirementProof(
+                            task.DemandId!,
+                            task.Id,
+                            evidenceSetId,
+                            commit,
+                            Passed: true,
+                            AcceptanceCriteriaCovered: [task.DemandId!]))
+                        .ToArray()
+                    : [];
             var coverage = RequirementCoverageAnalyzer.Analyze(
                 [.. demands.Where(demand => !demand.Internal)
                     .Select(demand => (
                         demand.Id,
                         demand.Title,
                         Superseded: string.Equals(demand.State, "superseded", StringComparison.OrdinalIgnoreCase)))],
-                page.Items
-                    .Where(task => task.DemandId is { Length: > 0 })
-                    .GroupBy(task => task.DemandId!)
-                    .ToDictionary(
-                        group => group.Key,
-                        group => (IReadOnlyList<RequirementCard>)[.. group.Select(task =>
-                            new RequirementCard(
-                                task.Id, task.Title, task.InternalState, task.ArchivedAt is not null))]),
-                productVerdict?.Satisfied ?? false);
+                cardsByDemand,
+                requirementProofs,
+                verifiedCommitForCoverage);
 
             foreach (var uncovered in RequirementCoverageAnalyzer.Blocking(coverage))
             {
                 _failures.Add(
                     $"phase:{phase.Key}:{RequirementCoverageAnalyzer.UncoveredReasonCode}:" +
                     $"{uncovered.Status.ToString().ToLowerInvariant()}:{uncovered.RequirementId}");
+            }
+
+            var readiness = HumanAcceptanceReadinessGate.Evaluate(coverage);
+            if (!readiness.Ready && productVerdict?.Satisfied == true)
+            {
+                foreach (var uncovered in readiness.BlockingRequirements)
+                {
+                    _failures.Add(
+                        $"phase:{phase.Key}:product:human_acceptance_not_ready:" +
+                        $"{uncovered.Status.ToString().ToLowerInvariant()}:{uncovered.RequirementId}");
+                }
             }
         }
 

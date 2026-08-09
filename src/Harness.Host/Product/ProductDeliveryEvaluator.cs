@@ -16,6 +16,9 @@ public static class ProductDeliveryFailures
     /// <summary>O projeto tem perfil, mas a entrega não satisfaz a Definition of Done do produto.</summary>
     public const string DeliveryIncomplete = "product:definition_of_done_failed";
 
+    /// <summary>O produto até pode ter passado nos gates, mas a prova não ficou durável.</summary>
+    public const string EvidenceNotPersisted = "product:evidence_not_persisted";
+
     /// <summary>
     /// O perfil existe mas não decidiu a modalidade: ninguém definiu que produto é este, e sem isso
     /// "pronto" não tem critério.
@@ -213,6 +216,19 @@ public sealed class ProductDeliveryEvaluator(
         var evidenceSetId = await PersistEvidenceAsync(
             tenantId, projectId, record, plan, evidence, verdict, commitSha, attemptId, cardId,
             cancellationToken);
+        if (evidenceSets is not null && evidenceSetId is null)
+        {
+            return new Outcome(
+                verdict,
+                ProductDeliveryFailures.EvidenceNotPersisted,
+                record,
+                evidence,
+                plan,
+                null,
+                progress,
+                noProgress,
+                ProductGapCorrections.From(verdict, profile));
+        }
 
         // PONTE RECIBO → EVIDÊNCIA. O recibo do turno nasceu antes de existir portão para decidir;
         // é aqui, com a decisão tomada e o conjunto gravado, que ele passa a apontar para a prova.
