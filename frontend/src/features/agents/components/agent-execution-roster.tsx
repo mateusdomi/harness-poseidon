@@ -1,9 +1,15 @@
 import { useTranslation } from 'react-i18next';
 import { ServerCog } from 'lucide-react';
+import { useState } from 'react';
 
-import { Badge, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
 import { AgentIdentity } from '@/features/shared/components/agent-identity';
-import { useAgentRoster } from '@/features/agents/hooks/use-agent-roster';
+import {
+  useAgentRoster,
+  useChiefAssignment,
+  usePrepareAgentAccountAuth,
+  useSetChiefPrimary,
+} from '@/features/agents/hooks/use-agent-roster';
 import { usePresentationMode } from '@/app/presentation';
 
 const STATE_VARIANT: Record<string, 'warning' | 'default' | 'success' | 'info' | 'error'> = {
@@ -26,7 +32,16 @@ export function AgentExecutionRoster() {
   const { t } = useTranslation();
   const { showTechnicalDetails } = usePresentationMode();
   const rosterQuery = useAgentRoster();
+  const chiefAssignment = useChiefAssignment();
+  const prepareAuth = usePrepareAgentAccountAuth();
+  const setChief = useSetChiefPrimary();
+  const [authCommand, setAuthCommand] = useState<string | null>(null);
   const accounts = rosterQuery.data ?? [];
+
+  async function prepare(alias: string) {
+    const result = await prepareAuth.mutateAsync(alias);
+    setAuthCommand(result.shellCommand);
+  }
 
   return (
     <Card>
@@ -71,6 +86,9 @@ export function AgentExecutionRoster() {
                     {t(`agents.roster.state.${account.state}`, { defaultValue: account.state })}
                   </Badge>
                 </div>
+                {chiefAssignment.data?.primaryAlias === account.alias ? (
+                  <Badge variant="info">{t('agents.roster.chiefPrimary')}</Badge>
+                ) : null}
                 {showTechnicalDetails ? (
                   <dl className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm text-foreground-muted">
                     <dt>{t('agents.roster.provider')}</dt>
@@ -87,10 +105,42 @@ export function AgentExecutionRoster() {
                     </dd>
                   </dl>
                 ) : null}
+                {showTechnicalDetails ? (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={prepareAuth.isPending}
+                      onClick={() => void prepare(account.alias)}
+                    >
+                      {t('agents.roster.actions.auth')}
+                    </Button>
+                    {account.roles.includes('chief-orchestrator') ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={setChief.isPending}
+                        onClick={() => void setChief.mutateAsync(account.alias)}
+                      >
+                        {t('agents.roster.actions.setChief')}
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>
         )}
+        {authCommand ? (
+          <div className="mt-4 rounded-md border border-border bg-surface-subtle p-3">
+            <p className="text-sm font-medium">{t('agents.roster.authCommand')}</p>
+            <pre className="mt-2 overflow-auto rounded bg-background p-2 text-xs">
+              <code>{authCommand}</code>
+            </pre>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

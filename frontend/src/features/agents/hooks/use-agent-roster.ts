@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { AgentAccountRoster } from '@/api';
 import { useApi } from '@/app/api-context';
@@ -16,5 +16,32 @@ export function useAgentRoster() {
   return useQuery({
     queryKey: agentRosterKey,
     queryFn: async (): Promise<AgentAccountRoster[]> => api.listAgentAccounts(),
+  });
+}
+
+export function usePrepareAgentAccountAuth() {
+  const api = useApi();
+  return useMutation({
+    mutationFn: (alias: string) => api.prepareAgentAccountAuth(alias),
+  });
+}
+
+export function useChiefAssignment() {
+  const api = useApi();
+  return useQuery({
+    queryKey: ['agents', 'chief-assignment'] as const,
+    queryFn: () => api.getChiefAssignment(),
+  });
+}
+
+export function useSetChiefPrimary() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (alias: string) => api.setChiefPrimary(alias),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: agentRosterKey });
+      void queryClient.invalidateQueries({ queryKey: ['agents', 'chief-assignment'] });
+    },
   });
 }

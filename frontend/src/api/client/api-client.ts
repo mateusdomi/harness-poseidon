@@ -89,6 +89,8 @@ import type {
   GovernanceDocTree,
   GovernanceDocContent,
   AgentAccountRoster,
+  V3AccountAuthInstruction,
+  V3ChiefAssignment,
   ChannelLink,
   ChannelMessagePage,
   CreateChannelLinkInput,
@@ -433,6 +435,9 @@ export interface ApiClient {
    * ou token. São as identidades de execução da fleet, distintas das personas/definições.
    */
   listAgentAccounts(): Promise<AgentAccountRoster[]>;
+  prepareAgentAccountAuth(alias: string): Promise<V3AccountAuthInstruction>;
+  setChiefPrimary(alias: string): Promise<V3ChiefAssignment>;
+  getChiefAssignment(): Promise<V3ChiefAssignment>;
 
   /** Canais externos vinculados (ex.: Telegram) do tenant. */
   listChannelLinks(): Promise<ChannelLink[]>;

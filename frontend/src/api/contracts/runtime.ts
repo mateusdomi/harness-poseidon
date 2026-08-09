@@ -49,6 +49,29 @@ export const agentAccountRosterSchema = z.object({
 });
 export type AgentAccountRoster = z.infer<typeof agentAccountRosterSchema>;
 
+export const v3AccountAuthInstructionSchema = z.object({
+  alias: z.string(),
+  providerKind: z.string(),
+  executorId: z.string(),
+  configHomePath: z.string(),
+  configHomeEnvironmentVariable: z.string().nullable().optional(),
+  command: z.string(),
+  arguments: z.array(z.string()),
+  shellCommand: z.string(),
+  instruction: z.string(),
+  accountsFilePath: z.string().nullable().optional(),
+});
+export type V3AccountAuthInstruction = z.infer<typeof v3AccountAuthInstructionSchema>;
+
+export const v3ChiefAssignmentSchema = z.object({
+  primaryAlias: z.string().nullable(),
+  providerKind: z.string().nullable().optional(),
+  executorId: z.string().nullable().optional(),
+  state: z.string().nullable().optional(),
+  accountsFilePath: z.string(),
+});
+export type V3ChiefAssignment = z.infer<typeof v3ChiefAssignmentSchema>;
+
 /** Tipos de canal externo suportados pelo gateway (conjunto fechado). */
 export const channelKindSchema = z.enum(['terminal', 'telegram', 'teams', 'whatsapp', 'email']);
 export type ChannelKind = z.infer<typeof channelKindSchema>;

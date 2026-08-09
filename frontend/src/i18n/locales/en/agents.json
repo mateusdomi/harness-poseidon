@@ -7,6 +7,12 @@
       "provider": "Provider",
       "executor": "Executor",
       "roles": "Roles",
+      "chiefPrimary": "Chief primary",
+      "authCommand": "Run this command in a terminal to authenticate the isolated account:",
+      "actions": {
+        "auth": "Authenticate",
+        "setChief": "Set Chief"
+      },
       "state": {
         "working": "Working",
         "idle": "Idle",

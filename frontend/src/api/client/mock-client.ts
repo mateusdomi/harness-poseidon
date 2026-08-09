@@ -109,6 +109,8 @@ import {
   type GovernanceDocTree,
   type GovernanceDocContent,
   type AgentAccountRoster,
+  type V3AccountAuthInstruction,
+  type V3ChiefAssignment,
   type ChannelLink,
   type ChannelMessagePage,
   type CreateChannelLinkInput,
@@ -2407,6 +2409,54 @@ export class MockApiClient implements ApiClient {
   async listAgentAccounts(): Promise<AgentAccountRoster[]> {
     await this.#simulate();
     return MOCK_AGENT_ROSTER.map((account) => ({ ...account, roles: [...account.roles] }));
+  }
+
+  async prepareAgentAccountAuth(alias: string): Promise<V3AccountAuthInstruction> {
+    await this.#simulate();
+    const account = MOCK_AGENT_ROSTER.find((entry) => entry.alias === alias);
+    if (!account) throw ApiError.of(404, 'agent_account_not_found', 'The account does not exist.');
+    const env = account.executorId === 'codex' ? 'CODEX_HOME' : 'CLAUDE_CONFIG_DIR';
+    const configHomePath = `/tmp/poseidon-mock/accounts/${alias}/config`;
+    const args = account.executorId === 'codex' ? ['login', '--device-auth'] : [];
+    return {
+      alias,
+      providerKind: account.providerKind,
+      executorId: account.executorId,
+      configHomePath,
+      configHomeEnvironmentVariable: env,
+      command: account.executorId === 'codex' ? 'codex' : 'claude',
+      arguments: args,
+      shellCommand: `${env}='${configHomePath}' ${account.executorId === 'codex' ? 'codex login --device-auth' : 'claude'}`,
+      instruction: 'Mock auth instruction.',
+      accountsFilePath: '/tmp/poseidon-mock/agent-accounts.json',
+    };
+  }
+
+  async setChiefPrimary(alias: string): Promise<V3ChiefAssignment> {
+    await this.#simulate();
+    const account = MOCK_AGENT_ROSTER.find((entry) => entry.alias === alias);
+    if (!account) throw ApiError.of(404, 'agent_account_not_found', 'The account does not exist.');
+    return {
+      primaryAlias: account.alias,
+      providerKind: account.providerKind,
+      executorId: account.executorId,
+      state: account.state,
+      accountsFilePath: '/tmp/poseidon-mock/agent-accounts.json',
+    };
+  }
+
+  async getChiefAssignment(): Promise<V3ChiefAssignment> {
+    await this.#simulate();
+    const account =
+      MOCK_AGENT_ROSTER.find((entry) => entry.alias === 'chief-claude-primary') ??
+      MOCK_AGENT_ROSTER[0]!;
+    return {
+      primaryAlias: account.alias,
+      providerKind: account.providerKind,
+      executorId: account.executorId,
+      state: account.state,
+      accountsFilePath: '/tmp/poseidon-mock/agent-accounts.json',
+    };
   }
 
   async listChannelLinks(): Promise<ChannelLink[]> {

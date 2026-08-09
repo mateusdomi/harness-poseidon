@@ -124,9 +124,13 @@ import {
   governanceDocTreeSchema,
   governanceDocContentSchema,
   agentAccountRosterSchema,
+  v3AccountAuthInstructionSchema,
+  v3ChiefAssignmentSchema,
   channelLinkSchema,
   channelMessagePageSchema,
   type AgentAccountRoster,
+  type V3AccountAuthInstruction,
+  type V3ChiefAssignment,
   type ChannelLink,
   type ChannelMessagePage,
   type CreateChannelLinkInput,
@@ -784,6 +788,26 @@ export class HttpApiClient implements ApiClient {
   async listAgentAccounts(): Promise<AgentAccountRoster[]> {
     const response = await this.#request<{ accounts?: unknown }>('GET', '/agent-accounts');
     return agentAccountRosterSchema.array().parse(response?.accounts ?? []);
+  }
+
+  async prepareAgentAccountAuth(alias: string): Promise<V3AccountAuthInstruction> {
+    const response = await this.#request<unknown>(
+      'POST',
+      `/v3/agent-accounts/${encodeURIComponent(alias)}/prepare-auth`,
+    );
+    return v3AccountAuthInstructionSchema.parse(response);
+  }
+
+  async setChiefPrimary(alias: string): Promise<V3ChiefAssignment> {
+    const response = await this.#request<unknown>('PUT', '/v3/chief-assignment', {
+      primaryAlias: alias,
+    });
+    return v3ChiefAssignmentSchema.parse(response);
+  }
+
+  async getChiefAssignment(): Promise<V3ChiefAssignment> {
+    const response = await this.#request<unknown>('GET', '/v3/chief-assignment');
+    return v3ChiefAssignmentSchema.parse(response);
   }
 
   async listChannelLinks(): Promise<ChannelLink[]> {

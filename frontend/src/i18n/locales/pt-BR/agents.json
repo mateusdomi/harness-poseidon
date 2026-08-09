@@ -7,6 +7,12 @@
       "provider": "Provedor",
       "executor": "Executor",
       "roles": "Papéis",
+      "chiefPrimary": "Chief principal",
+      "authCommand": "Execute este comando em um terminal para autenticar a conta isolada:",
+      "actions": {
+        "auth": "Autenticar",
+        "setChief": "Definir Chief"
+      },
       "state": {
         "working": "Trabalhando",
         "idle": "Ociosa",
