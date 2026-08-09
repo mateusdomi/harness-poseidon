@@ -419,6 +419,7 @@ public sealed class TrustedProcessRunner(TimeProvider? timeProvider = null)
         info.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
         info.Environment["DOTNET_NOLOGO"] = "1";
         info.Environment["DOTNET_SKIP_FIRST_TIME_EXPERIENCE"] = "1";
+        info.Environment["DOTNET_ROLL_FORWARD"] = "Major";
         info.Environment["npm_config_offline"] = "true";
         info.Environment["npm_config_audit"] = "false";
         info.Environment["npm_config_fund"] = "false";
@@ -445,6 +446,25 @@ public sealed class TrustedProcessRunner(TimeProvider? timeProvider = null)
 
     private static string? ResolveExecutable(string name)
     {
+        if (string.Equals(name, "dotnet", StringComparison.Ordinal))
+        {
+            var configuredHost = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH");
+            if (!string.IsNullOrWhiteSpace(configuredHost) && File.Exists(configuredHost))
+            {
+                return configuredHost;
+            }
+
+            var configuredRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+            if (!string.IsNullOrWhiteSpace(configuredRoot))
+            {
+                var configuredDotnet = Path.Combine(configuredRoot, "dotnet");
+                if (File.Exists(configuredDotnet))
+                {
+                    return configuredDotnet;
+                }
+            }
+        }
+
         var directories = (Environment.GetEnvironmentVariable("PATH")?
                 .Split(':', StringSplitOptions.RemoveEmptyEntries) ?? [])
             .Concat(FallbackBinDirectories);

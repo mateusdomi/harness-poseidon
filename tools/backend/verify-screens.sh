@@ -21,8 +21,24 @@ readonly FRONTEND_DIR="${REPOSITORY_ROOT}/frontend"
 
 cd "${FRONTEND_DIR}"
 
+# `build-frontend.sh` instala dependências em uma cópia temporária para não sujar a árvore fonte.
+# Este gate roda na árvore fonte porque precisa dos specs Playwright e, portanto, deve preparar
+# explicitamente o node_modules local. Sem isso uma worktree limpa falha antes de executar a suíte.
+npm ci --no-audit --loglevel=error
+
+preview_port="$(
+  python3 - <<'PY'
+import socket
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    sock.bind(("127.0.0.1", 0))
+    print(sock.getsockname()[1])
+PY
+)"
+
 # O navegador pode não estar instalado numa máquina limpa. Instalar é barato e idempotente;
 # falhar por ausência de binário seria reprovar o código por um problema de ambiente.
 NODE_NO_WARNINGS=1 npx playwright install chromium >/dev/null 2>&1 || true
 
-NODE_NO_WARNINGS=1 npm run test:e2e -- --reporter=line
+CI=1 PLAYWRIGHT_PREVIEW_PORT="${preview_port}" NODE_NO_WARNINGS=1 \
+  npm run test:e2e -- --reporter=line --workers=1
