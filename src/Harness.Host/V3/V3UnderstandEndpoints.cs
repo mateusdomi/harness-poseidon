@@ -2,10 +2,14 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using Harness.Host.Profiles;
+using Harness.Host.WorkBoard;
 using Harness.Modules.Agents.Application.Accounts;
+using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Agents.Contracts;
 using Harness.Modules.Readiness.Contracts;
+using Harness.Persistence.Abstractions.Conversations;
 using Harness.Persistence.Abstractions.Coordination;
 using Harness.Persistence.Abstractions.Documents;
 using Harness.Persistence.Abstractions.Identity;
@@ -68,10 +72,12 @@ public static class V3UnderstandEndpoints
         IProjectStore projects,
         IWorkBoardStore board,
         ISolicitationAttachmentStore attachments,
+        SolicitationAttachmentStorage attachmentStorage,
         IDocumentCatalogStore documents,
         IPrototypeStore prototypes,
         Readiness.ProjectReadinessService readiness,
         AgentAccountRegistry accounts,
+        IChannelLinkStore channelLinks,
         IConfiguration configuration,
         CancellationToken token)
     {
@@ -79,7 +85,8 @@ public static class V3UnderstandEndpoints
         if (resolved.Result is not null) return resolved.Result;
         var context = await V3ProjectContextBuilder.BuildAsync(
             resolved.Profile!, resolved.Project!, board, attachments, documents, prototypes,
-            readiness, accounts, V3UnderstandStore.ForConfiguration(configuration), token);
+            attachmentStorage, readiness, accounts, channelLinks,
+            V3UnderstandStore.ForConfiguration(configuration), token);
         return Results.Ok(context);
     }
 
@@ -91,10 +98,12 @@ public static class V3UnderstandEndpoints
         IProjectStore projects,
         IWorkBoardStore board,
         ISolicitationAttachmentStore attachments,
+        SolicitationAttachmentStorage attachmentStorage,
         IDocumentCatalogStore documents,
         IPrototypeStore prototypes,
         Readiness.ProjectReadinessService readiness,
         AgentAccountRegistry accounts,
+        IChannelLinkStore channelLinks,
         IConfiguration configuration,
         IClock clock,
         CancellationToken token)
@@ -104,12 +113,12 @@ public static class V3UnderstandEndpoints
         var store = V3UnderstandStore.ForConfiguration(configuration);
         var current = await V3ProjectContextBuilder.BuildAsync(
             resolved.Profile!, resolved.Project!, board, attachments, documents, prototypes,
-            readiness, accounts, store, token);
+            attachmentStorage, readiness, accounts, channelLinks, store, token);
         var analyzed = V3UnderstandAnalyzer.Analyze(current, input, clock.UtcNow);
         store.WriteProject(analyzed.State);
         var refreshed = await V3ProjectContextBuilder.BuildAsync(
             resolved.Profile!, resolved.Project!, board, attachments, documents, prototypes,
-            readiness, accounts, store, token);
+            attachmentStorage, readiness, accounts, channelLinks, store, token);
         return Results.Ok(refreshed);
     }
 
@@ -121,10 +130,12 @@ public static class V3UnderstandEndpoints
         IProjectStore projects,
         IWorkBoardStore board,
         ISolicitationAttachmentStore attachments,
+        SolicitationAttachmentStorage attachmentStorage,
         IDocumentCatalogStore documents,
         IPrototypeStore prototypes,
         Readiness.ProjectReadinessService readiness,
         AgentAccountRegistry accounts,
+        IChannelLinkStore channelLinks,
         IConfiguration configuration,
         IClock clock,
         CancellationToken token)
@@ -134,7 +145,7 @@ public static class V3UnderstandEndpoints
         var store = V3UnderstandStore.ForConfiguration(configuration);
         var context = await V3ProjectContextBuilder.BuildAsync(
             resolved.Profile!, resolved.Project!, board, attachments, documents, prototypes,
-            readiness, accounts, store, token);
+            attachmentStorage, readiness, accounts, channelLinks, store, token);
         if (!V3AuthorizationPolicy.IsAuthorized(input.Response))
         {
             return Problem(400, "authorization_not_recognized", "A autorização precisa ser explícita.");
@@ -145,6 +156,11 @@ public static class V3UnderstandEndpoints
         if (deadline is null || string.IsNullOrWhiteSpace(repository))
         {
             return Problem(409, "project_not_ready_to_authorize", "Deadline and repository are required before BUILD authorization.");
+        }
+
+        if (context.PrimaryRequirementsCoverage.Any(source => !source.Complete))
+        {
+            return Problem(409, "primary_requirements_incomplete", "BUILD authorization requires 100% coverage of primary requirement sources.");
         }
 
         var state = (context.State ?? V3ProjectUnderstandState.Create(resolved.Project!.Id, clock.UtcNow)) with
@@ -160,7 +176,7 @@ public static class V3UnderstandEndpoints
         store.WriteProject(state);
         var refreshed = await V3ProjectContextBuilder.BuildAsync(
             resolved.Profile!, resolved.Project!, board, attachments, documents, prototypes,
-            readiness, accounts, store, token);
+            attachmentStorage, readiness, accounts, channelLinks, store, token);
         return Results.Ok(refreshed);
     }
 
@@ -172,10 +188,12 @@ public static class V3UnderstandEndpoints
         IProjectStore projects,
         IWorkBoardStore board,
         ISolicitationAttachmentStore attachments,
+        SolicitationAttachmentStorage attachmentStorage,
         IDocumentCatalogStore documents,
         IPrototypeStore prototypes,
         Readiness.ProjectReadinessService readiness,
         AgentAccountRegistry accounts,
+        IChannelLinkStore channelLinks,
         IConfiguration configuration,
         IClock clock,
         CancellationToken token)
@@ -185,10 +203,18 @@ public static class V3UnderstandEndpoints
         var store = V3UnderstandStore.ForConfiguration(configuration);
         var context = await V3ProjectContextBuilder.BuildAsync(
             resolved.Profile!, resolved.Project!, board, attachments, documents, prototypes,
-            readiness, accounts, store, token);
+            attachmentStorage, readiness, accounts, channelLinks, store, token);
         if (context.State?.AuthorizedAt is null)
         {
             return Problem(409, "build_not_authorized", "BUILD mission compilation requires explicit authorization.");
+        }
+
+        if (context.PrimaryRequirementsCoverage.Any(source => !source.Complete))
+        {
+            return Problem(
+                409,
+                "primary_requirements_incomplete",
+                "BUILD mission compilation requires 100% coverage of primary requirement sources.");
         }
 
         var mission = V3MissionCompiler.CompileBuildMission(
@@ -357,8 +383,10 @@ public static class V3ProjectContextBuilder
         ISolicitationAttachmentStore attachments,
         IDocumentCatalogStore documents,
         IPrototypeStore prototypes,
+        SolicitationAttachmentStorage attachmentStorage,
         Readiness.ProjectReadinessService readiness,
         AgentAccountRegistry accounts,
+        IChannelLinkStore channelLinks,
         V3UnderstandStore store,
         CancellationToken token)
     {
@@ -379,6 +407,9 @@ public static class V3ProjectContextBuilder
                 value.State)));
         }
 
+        var coverage = await V3SourceCoverageAnalyzer.AnalyzeAsync(
+            artifactRefs, attachmentStorage, token);
+        var facts = V3RequirementFactsExtractor.Extract(coverage);
         var documentRefs = (await documents.ListDocumentsAsync(profile.TenantId, project.Id, null, 200, token))
             .Select(value => new V3DocumentReference(
                 value.Id,
@@ -392,10 +423,23 @@ public static class V3ProjectContextBuilder
             .Select(value => new V3PrototypeReference(value.Id, value.Name, value.State, value.SourceDocumentId))
             .ToArray();
         var snapshot = await readiness.EvaluateAsync(profile.TenantId, project, profileReady: true, token);
-        var v3Readiness = V3Readiness.For(project, snapshot, accounts.List(), state);
         var effective = V3StackResolver.Resolve(project, state, artifactRefs);
+        var links = await channelLinks.ListAsync(profile.TenantId, token);
+        var v3Readiness = V3Readiness.For(
+            project,
+            snapshot,
+            accounts.List(),
+            state,
+            artifactRefs.Count,
+            effective,
+            links.Count > 0);
         var capacity = V3Capacity.From(accounts.List(), DateTimeOffset.UtcNow);
-        var openQuestions = V3OpenQuestionPolicy.RequiredQuestions(project, state);
+        var openQuestions = V3OpenQuestionPolicy.RequiredQuestions(
+            project.Id,
+            state?.Deadline ?? facts.Deadline ?? project.TargetDeadline,
+            state?.Repository,
+            facts,
+            coverage);
         var lifecycleState = state?.LifecycleState ??
             (openQuestions.Count == 0 ? "READY_TO_START" : "AWAITING_INPUT");
 
@@ -413,9 +457,11 @@ public static class V3ProjectContextBuilder
             state?.AcceptanceCriteria ?? [],
             state?.Decisions ?? [],
             state?.Assumptions ?? [],
+            coverage,
+            facts,
             openQuestions,
             effective,
-            state?.Deadline ?? project.TargetDeadline,
+            state?.Deadline ?? facts.Deadline ?? project.TargetDeadline,
             state?.Repository ?? project.RepositoryUrl,
             "host-api-and-frontend; database container only when stack requires it",
             "existing notification channels; no new notification system",
@@ -423,6 +469,140 @@ public static class V3ProjectContextBuilder
             v3Readiness.Items,
             lifecycleState);
     }
+}
+
+public static class V3SourceCoverageAnalyzer
+{
+    private const int MaxPrimaryRequirementCharacters = 180_000;
+
+    public static async Task<IReadOnlyList<V3SourceCoverage>> AnalyzeAsync(
+        IReadOnlyList<V3ArtifactReference> artifacts,
+        SolicitationAttachmentStorage storage,
+        CancellationToken token)
+    {
+        var values = new List<V3SourceCoverage>();
+        foreach (var artifact in artifacts.Where(IsPrimaryRequirement))
+        {
+            var coverage = await AnalyzeOneAsync(artifact, storage, token);
+            values.Add(coverage);
+        }
+
+        return values;
+    }
+
+    private static async Task<V3SourceCoverage> AnalyzeOneAsync(
+        V3ArtifactReference artifact,
+        SolicitationAttachmentStorage storage,
+        CancellationToken token)
+    {
+        string text;
+        try
+        {
+            var path = storage.Resolve(artifact.PathReference);
+            var info = new FileInfo(path);
+            if (!info.Exists || info.Length > MaxPrimaryRequirementCharacters)
+            {
+                return Empty(artifact, "primary requirement source is missing or exceeds safe full-read budget");
+            }
+
+            var bytes = await File.ReadAllBytesAsync(path, token);
+            if (Array.IndexOf(bytes, (byte)0) >= 0)
+            {
+                return Empty(artifact, "primary requirement source is binary and cannot be fully consumed as text");
+            }
+
+            text = Encoding.UTF8.GetString(bytes);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return Empty(artifact, "primary requirement source could not be read");
+        }
+
+        var sections = AttachmentSectionizer.Split(text);
+        return new V3SourceCoverage(
+            artifact.ArtifactId,
+            artifact.Name,
+            artifact.Role,
+            sections.Count,
+            sections.Count,
+            100,
+            true,
+            "full-text-read",
+            text.Length,
+            text);
+    }
+
+    private static V3SourceCoverage Empty(V3ArtifactReference artifact, string provider) =>
+        new(artifact.ArtifactId, artifact.Name, artifact.Role, 0, 0, 0, false, provider, 0, null);
+
+    private static bool IsPrimaryRequirement(V3ArtifactReference artifact) =>
+        string.Equals(artifact.Role, "requirements_source", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(artifact.Role, "requirements", StringComparison.OrdinalIgnoreCase) ||
+        artifact.Name.Contains("requis", StringComparison.OrdinalIgnoreCase) ||
+        artifact.Name.Contains("especifica", StringComparison.OrdinalIgnoreCase) ||
+        artifact.Name.Contains("spec", StringComparison.OrdinalIgnoreCase);
+}
+
+public static partial class V3RequirementFactsExtractor
+{
+    private static readonly Regex DatePattern = new(
+        @"(?i)(?:prazo(?:-alvo)?|deadline)[^\n\r]{0,80}?(\d{1,2})/(\d{1,2})/(\d{4})",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    public static V3RequirementSourceFacts Extract(IReadOnlyList<V3SourceCoverage> coverages)
+    {
+        var texts = coverages
+            .Where(coverage => coverage.Complete && !string.IsNullOrWhiteSpace(coverage.ContentPreview))
+            .Select(coverage => (coverage.ArtifactId, Text: coverage.ContentPreview!))
+            .ToArray();
+        var combined = string.Join("\n\n", texts.Select(item => item.Text));
+        var deadline = ExtractDeadline(texts);
+        var authentication = ContainsAny(combined, "autenticação própria", "sem sso")
+            ? "Autenticação própria, sem SSO"
+            : null;
+        var productNotification = ContainsAny(combined, "notificações", "digest", "caixa", "e-mail", "email")
+            ? "Notificações do produto por e-mail/digest conforme requisitos"
+            : null;
+        var itrc = combined.Contains("ITRC", StringComparison.OrdinalIgnoreCase)
+            ? "Regras de ITRC definidas na fonte primária"
+            : null;
+        var acceptance = Regex.Count(combined, @"(?m)^\s*-\s+\*\*T\d{1,2}\*\*");
+
+        return new V3RequirementSourceFacts(
+            deadline?.Value,
+            deadline?.Provenance,
+            authentication,
+            authentication is null ? null : "PRIMARY_REQUIREMENTS",
+            productNotification,
+            productNotification is null ? null : "PRIMARY_REQUIREMENTS",
+            itrc,
+            itrc is null ? null : "PRIMARY_REQUIREMENTS",
+            acceptance);
+    }
+
+    private static (DateTimeOffset Value, string Provenance)? ExtractDeadline(
+        IReadOnlyList<(string ArtifactId, string Text)> texts)
+    {
+        foreach (var (artifactId, text) in texts)
+        {
+            var match = DatePattern.Match(text);
+            if (!match.Success)
+            {
+                continue;
+            }
+
+            var day = int.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+            var month = int.Parse(match.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture);
+            var year = int.Parse(match.Groups[3].Value, System.Globalization.CultureInfo.InvariantCulture);
+            return (new DateTimeOffset(year, month, day, 0, 0, 0, TimeSpan.Zero),
+                $"PRIMARY_REQUIREMENTS:{artifactId}:deadline");
+        }
+
+        return null;
+    }
+
+    private static bool ContainsAny(string text, params string[] values) =>
+        values.Any(value => text.Contains(value, StringComparison.OrdinalIgnoreCase));
 }
 
 public static class V3UnderstandAnalyzer
@@ -449,11 +629,16 @@ public static class V3UnderstandAnalyzer
             : state.AcceptanceCriteria.Count > 0
                 ? state.AcceptanceCriteria
                 : capabilities.Select(capability => $"A funcionalidade '{capability}' funciona pelo fluxo real do produto.").ToArray();
-        var deadline = input.Deadline ?? state.Deadline ?? context.Deadline;
+        var sourceComplete = context.PrimaryRequirementsCoverage.All(source => source.Complete);
+        var deadline = input.Deadline ?? state.Deadline ?? context.SourceFacts.Deadline ?? context.Deadline;
         var repository = FirstNonBlank(input.Repository, state.Repository);
-        var nextState = V3OpenQuestionPolicy.RequiredQuestions(context.ProjectId, deadline, repository).Count == 0
-            ? "READY_TO_START"
-            : "AWAITING_INPUT";
+        var questions = V3OpenQuestionPolicy.RequiredQuestions(
+            context.ProjectId, deadline, repository, context.SourceFacts, context.PrimaryRequirementsCoverage);
+        var nextState = !sourceComplete
+            ? "UNDERSTANDING"
+            : questions.Count == 0
+                ? "READY_TO_START"
+                : "AWAITING_INPUT";
         var updated = state with
         {
             OriginalIntent = intent,
@@ -470,11 +655,13 @@ public static class V3UnderstandAnalyzer
             Deadline = deadline,
             Repository = repository,
             EffectiveStack = context.EffectiveStack,
+            PrimaryRequirementsCoverage = context.PrimaryRequirementsCoverage,
+            SourceFacts = context.SourceFacts,
             LifecycleState = nextState,
-            Status = "UNDERSTOOD",
+            Status = sourceComplete ? "UNDERSTOOD" : "READING_PRIMARY_REQUIREMENTS",
             UpdatedAt = now,
         };
-        return new V3UnderstandAnalysis(updated, V3OpenQuestionPolicy.RequiredQuestions(context.ProjectId, deadline, repository));
+        return new V3UnderstandAnalysis(updated, questions);
     }
 
     private static string Summarize(string projectName, string? intent) =>
@@ -543,12 +730,23 @@ public static class V3StackResolver
 public static class V3OpenQuestionPolicy
 {
     public static IReadOnlyList<V3OpenQuestion> RequiredQuestions(ProjectRecord project, V3ProjectUnderstandState? state) =>
-        RequiredQuestions(project.Id, state?.Deadline ?? project.TargetDeadline, state?.Repository);
+        RequiredQuestions(project.Id, state?.Deadline ?? project.TargetDeadline, state?.Repository, state?.SourceFacts, state?.PrimaryRequirementsCoverage ?? []);
 
-    public static IReadOnlyList<V3OpenQuestion> RequiredQuestions(string projectId, DateTimeOffset? deadline, string? repository)
+    public static IReadOnlyList<V3OpenQuestion> RequiredQuestions(
+        string projectId,
+        DateTimeOffset? deadline,
+        string? repository,
+        V3RequirementSourceFacts? facts = null,
+        IReadOnlyList<V3SourceCoverage>? sourceCoverage = null)
     {
         var questions = new List<V3OpenQuestion>();
-        if (deadline is null)
+        var primarySources = sourceCoverage ?? [];
+        if (primarySources.Any(source => !source.Complete))
+        {
+            return questions;
+        }
+
+        if (deadline is null && facts?.Deadline is null)
         {
             questions.Add(new V3OpenQuestion("deadline", "Qual o prazo final do projeto?", "required_before_authorization"));
         }
@@ -673,7 +871,10 @@ public static class V3MissionCompiler
             context.Deadline,
             context.Repository,
             "COMPILED",
-            executor);
+            executor)
+        {
+            PrimaryRequirementsCoverage = context.PrimaryRequirementsCoverage,
+        };
     }
 
     private static string ComposeMissionText(
@@ -695,6 +896,8 @@ public static class V3MissionCompiler
             "## ORIGINAL REQUIREMENTS",
             "- Fonte primária: documentos e anexos originais associados ao projeto.",
             "- Não substitua os originais por este resumo; consulte os artefatos quando houver dúvida.",
+            $"- PrimaryRequirementsCoverage: {PrimaryCoveragePercent(context.PrimaryRequirementsCoverage)}%.",
+            "- Antes de implementar, leia integralmente os artefatos originais referenciados quando forem fontes primárias de requisitos.",
         };
         lines.AddRange((state?.Requirements ?? context.Requirements).Select(item => $"- {item}"));
         lines.Add("");
@@ -797,6 +1000,9 @@ public static class V3MissionCompiler
         ]);
         return string.Join(Environment.NewLine, lines);
     }
+
+    private static int PrimaryCoveragePercent(IReadOnlyList<V3SourceCoverage> coverage) =>
+        coverage.Count == 0 ? 100 : (int)Math.Round(coverage.Average(item => item.CoveragePercent));
 }
 
 public sealed record V3UnderstandAnalyzeRequest
@@ -831,6 +1037,8 @@ public sealed record V3ProjectContextResponse(
     IReadOnlyList<string> AcceptanceCriteria,
     IReadOnlyList<string> Decisions,
     IReadOnlyList<string> Assumptions,
+    IReadOnlyList<V3SourceCoverage> PrimaryRequirementsCoverage,
+    V3RequirementSourceFacts SourceFacts,
     IReadOnlyList<V3OpenQuestion> OpenQuestions,
     V3EffectiveStackContract EffectiveStack,
     DateTimeOffset? Deadline,
@@ -867,6 +1075,9 @@ public sealed record V3ProjectUnderstandState(
     public static V3ProjectUnderstandState Create(string projectId, DateTimeOffset now) =>
         new(projectId, "DRAFT", "UNDERSTANDING", null, null, null, [], [], [], [], [], [],
             false, [], null, null, null, null, null, now, now);
+
+    public IReadOnlyList<V3SourceCoverage> PrimaryRequirementsCoverage { get; init; } = [];
+    public V3RequirementSourceFacts? SourceFacts { get; init; }
 }
 
 public sealed record V3UnderstandAnalysis(
@@ -895,6 +1106,33 @@ public sealed record V3PrototypeReference(string PrototypeId, string Name, strin
 
 public sealed record V3OpenQuestion(string QuestionId, string Question, string Reason);
 
+public sealed record V3SourceCoverage(
+    string ArtifactId,
+    string Name,
+    string Role,
+    int TotalSections,
+    int ConsumedSections,
+    int CoveragePercent,
+    bool Complete,
+    string EvidenceProvider,
+    int CharacterCount,
+    [property: JsonIgnore] string? ContentPreview);
+
+public sealed record V3RequirementSourceFacts(
+    DateTimeOffset? Deadline,
+    string? DeadlineProvenance,
+    string? Authentication,
+    string? AuthenticationProvenance,
+    string? ProductNotification,
+    string? ProductNotificationProvenance,
+    string? ItrcRules,
+    string? ItrcRulesProvenance,
+    int AcceptanceCriteriaCount)
+{
+    public static V3RequirementSourceFacts Empty { get; } =
+        new(null, null, null, null, null, null, null, null, 0);
+}
+
 public sealed record V3EffectiveStackContract(
     string Frontend,
     string Backend,
@@ -922,7 +1160,10 @@ public sealed record V3BuildMissionRecord(
     DateTimeOffset? Deadline,
     string? Repository,
     string Status,
-    V3RecommendedExecutor RecommendedExecutor);
+    V3RecommendedExecutor RecommendedExecutor)
+{
+    public IReadOnlyList<V3SourceCoverage> PrimaryRequirementsCoverage { get; init; } = [];
+}
 
 public sealed record V3BuildMissionResponse(
     string MissionId,
@@ -940,7 +1181,8 @@ public sealed record V3BuildMissionResponse(
     DateTimeOffset? Deadline,
     string? Repository,
     string Status,
-    V3RecommendedExecutor RecommendedExecutor)
+    V3RecommendedExecutor RecommendedExecutor,
+    IReadOnlyList<V3SourceCoverage> PrimaryRequirementsCoverage)
 {
     public static V3BuildMissionResponse From(V3BuildMissionRecord value) =>
         new(
@@ -959,7 +1201,8 @@ public sealed record V3BuildMissionResponse(
             value.Deadline,
             value.Repository,
             value.Status,
-            value.RecommendedExecutor);
+            value.RecommendedExecutor,
+            value.PrimaryRequirementsCoverage);
 }
 
 public sealed record V3MissionPageResponse(IReadOnlyList<V3BuildMissionResponse> Items);

@@ -1,5 +1,6 @@
 import type { Project } from '@/api';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
+import { useTranslation } from 'react-i18next';
 import {
   useAnalyzeV3Project,
   useAuthorizeV3Build,
@@ -9,6 +10,7 @@ import {
 } from '@/features/projects/hooks/use-v3-understand';
 
 export function V3UnderstandPanel({ project }: { project: Project }) {
+  const { t } = useTranslation();
   const context = useV3ProjectContext(project.id);
   const missions = useV3BuildMissions(project.id);
   const analyze = useAnalyzeV3Project(project.id);
@@ -20,7 +22,7 @@ export function V3UnderstandPanel({ project }: { project: Project }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>V3 — Understand + Mission Compiler</CardTitle>
+        <CardTitle>{t('features.projects.v3Understand.title')}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {context.isLoading ? (
@@ -29,27 +31,32 @@ export function V3UnderstandPanel({ project }: { project: Project }) {
             <Skeleton className="h-20 w-full" />
           </div>
         ) : context.isError || !data ? (
-          <p className="text-sm text-error">Não foi possível carregar o contexto V3.</p>
+          <p className="text-sm text-error">{t('features.projects.v3Understand.loadError')}</p>
         ) : (
           <>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="info">{data.currentLifecycleState}</Badge>
               <span className="text-sm text-foreground-muted">
-                Artifacts: {data.artifacts.length} · Docs: {data.documents.length} · Slots:{' '}
-                {data.executionCapacity.effectiveExecutionSlots}
+                {t('features.projects.v3Understand.summary', {
+                  artifacts: data.artifacts.length,
+                  documents: data.documents.length,
+                  slots: data.executionCapacity.effectiveExecutionSlots,
+                })}
               </span>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
               <div>
-                <p className="text-sm font-medium">Stack</p>
+                <p className="text-sm font-medium">{t('features.projects.v3Understand.stack')}</p>
                 <p className="text-sm text-foreground-muted">
                   {data.effectiveStack.frontend} / {data.effectiveStack.backend} /{' '}
                   {data.effectiveStack.database}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium">Repository / Deadline</p>
+                <p className="text-sm font-medium">
+                  {t('features.projects.v3Understand.repositoryDeadline')}
+                </p>
                 <p className="text-sm text-foreground-muted">
                   {data.repository ?? 'ACTION_REQUIRED'} · {data.deadline ?? 'ACTION_REQUIRED'}
                 </p>
@@ -58,7 +65,9 @@ export function V3UnderstandPanel({ project }: { project: Project }) {
 
             {data.openQuestions.length > 0 ? (
               <div>
-                <p className="text-sm font-medium">Open questions</p>
+                <p className="text-sm font-medium">
+                  {t('features.projects.v3Understand.openQuestions')}
+                </p>
                 <ul className="list-disc pl-5 text-sm text-foreground-muted">
                   {data.openQuestions.map((question) => (
                     <li key={question.questionId}>{question.question}</li>
@@ -68,7 +77,7 @@ export function V3UnderstandPanel({ project }: { project: Project }) {
             ) : null}
 
             <div>
-              <p className="text-sm font-medium">Readiness</p>
+              <p className="text-sm font-medium">{t('features.projects.v3Understand.readiness')}</p>
               <div className="mt-2 grid gap-2 md:grid-cols-2">
                 {data.readiness.map((item) => (
                   <div key={item.category} className="rounded-md border border-border p-2 text-sm">
@@ -81,11 +90,16 @@ export function V3UnderstandPanel({ project }: { project: Project }) {
             {latestMission ? (
               <div className="rounded-md border border-border p-3">
                 <p className="text-sm font-medium">
-                  BuildMission {latestMission.missionId} — {latestMission.status}
+                  {t('features.projects.v3Understand.buildMission', {
+                    missionId: latestMission.missionId,
+                    status: latestMission.status,
+                  })}
                 </p>
                 <p className="text-sm text-foreground-muted">
-                  {latestMission.approximateCharacters} chars · executor:{' '}
-                  {latestMission.recommendedExecutor.accountAlias ?? 'BLOCKED'}
+                  {t('features.projects.v3Understand.missionMeta', {
+                    chars: latestMission.approximateCharacters,
+                    executor: latestMission.recommendedExecutor.accountAlias ?? 'BLOCKED',
+                  })}
                 </p>
                 <pre className="mt-2 max-h-64 overflow-auto rounded bg-surface-subtle p-2 text-xs">
                   <code>{latestMission.missionText}</code>
@@ -100,7 +114,7 @@ export function V3UnderstandPanel({ project }: { project: Project }) {
                 disabled={analyze.isPending}
                 onClick={() => analyze.mutate({})}
               >
-                Analyze
+                {t('features.projects.v3Understand.actions.analyze')}
               </Button>
               <Button
                 type="button"
@@ -108,14 +122,14 @@ export function V3UnderstandPanel({ project }: { project: Project }) {
                 disabled={authorize.isPending || data.openQuestions.length > 0}
                 onClick={() => authorize.mutate({ response: 'pode iniciar' })}
               >
-                Authorize BUILD
+                {t('features.projects.v3Understand.actions.authorize')}
               </Button>
               <Button
                 type="button"
                 disabled={compile.isPending || data.currentLifecycleState !== 'BUILDING'}
                 onClick={() => compile.mutate()}
               >
-                Compile BuildMission
+                {t('features.projects.v3Understand.actions.compile')}
               </Button>
             </div>
           </>

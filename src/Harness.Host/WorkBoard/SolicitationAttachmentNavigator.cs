@@ -88,6 +88,51 @@ public sealed class SolicitationAttachmentNavigator(
         return null;
     }
 
+    public async Task<IReadOnlyList<ChiefPrimaryRequirementSource>> ListPrimaryRequirementSourcesAsync(
+        string tenantId,
+        string projectId,
+        int maximumCharacters,
+        CancellationToken cancellationToken = default)
+    {
+        if (maximumCharacters <= 0)
+        {
+            return [];
+        }
+
+        var sources = new List<ChiefPrimaryRequirementSource>();
+        var remaining = maximumCharacters;
+        foreach (var record in await ListAttachmentsAsync(tenantId, projectId, cancellationToken))
+        {
+            if (!string.Equals(record.Role, "requirements_source", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var text = await TryReadTextAsync(record, cancellationToken);
+            if (string.IsNullOrWhiteSpace(text) || text.Length > remaining)
+            {
+                continue;
+            }
+
+            var sections = AttachmentSectionizer.Split(text);
+            sources.Add(new ChiefPrimaryRequirementSource(
+                record.FileName,
+                record.Role,
+                sections.Count,
+                sections.Count,
+                text.Length,
+                text));
+            remaining -= text.Length;
+        }
+
+        return sources;
+    }
+
+    internal async Task<string?> ReadAttachmentTextAsync(
+        SolicitationAttachmentRecord record,
+        CancellationToken cancellationToken) =>
+        await TryReadTextAsync(record, cancellationToken);
+
     /// <summary>
     /// Anexos ACEITOS do projeto, mais recentes primeiro — no duplo upload do mesmo nome, a
     /// versão nova é a que vale para a conversa.

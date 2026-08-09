@@ -33,6 +33,18 @@ public interface IChiefAttachmentNavigator
         string fileName,
         string sectionId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fontes primárias de requisitos em texto integral, quando couberem no orçamento seguro do
+    /// turno. V3 UNDERSTAND não pode tratar índice/resumo como leitura; este caminho permite ao
+    /// sistema entregar o documento inteiro antes de a Bruna perguntar ao humano.
+    /// </summary>
+    Task<IReadOnlyList<ChiefPrimaryRequirementSource>> ListPrimaryRequirementSourcesAsync(
+        string tenantId,
+        string projectId,
+        int maximumCharacters,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<ChiefPrimaryRequirementSource>>([]);
 }
 
 public sealed record ChiefAttachmentOutline(
@@ -40,6 +52,14 @@ public sealed record ChiefAttachmentOutline(
     IReadOnlyList<ChiefAttachmentSectionRef> Sections);
 
 public sealed record ChiefAttachmentSectionRef(string Id, string Title);
+
+public sealed record ChiefPrimaryRequirementSource(
+    string FileName,
+    string Role,
+    int TotalSections,
+    int ConsumedSections,
+    int CharacterCount,
+    string Content);
 
 /// <summary>
 /// Divide um documento de texto em seções endereçáveis, sem perder um caractere: a concatenação

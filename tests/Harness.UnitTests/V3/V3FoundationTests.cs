@@ -1,6 +1,8 @@
 using Harness.Host.V3;
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Contracts;
+using Harness.Modules.Readiness.Contracts;
+using Harness.Persistence.Abstractions.Projects;
 
 namespace Harness.UnitTests.V3;
 
@@ -106,6 +108,65 @@ public sealed class V3FoundationTests : IDisposable
         Assert.DoesNotContain("@", File.ReadAllText(path), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ReadinessTreatsArtifactsDatabaseAndOperationalNotificationAsApplicableWhenPresent()
+    {
+        var project = Project(database: "Oracle", repository: _directory) with
+        {
+            TargetDeadline = new DateTimeOffset(2026, 8, 20, 0, 0, 0, TimeSpan.Zero),
+        };
+        Directory.CreateDirectory(_directory);
+
+        var readiness = V3Readiness.For(
+            project,
+            ReadySnapshot(project.Id),
+            [Account("chief-claude-primary", ExecutorCatalog.ClaudeCode, [AgentRoles.ChiefOrchestrator])],
+            v3State: null,
+            artifactCount: 1,
+            effectiveStack: new V3EffectiveStackContract(
+                "React + TypeScript + Vite",
+                ".NET",
+                "Oracle",
+                "Clean Architecture",
+                "Playwright",
+                ["primary requirements"]),
+            operationalNotificationConfigured: true);
+
+        Assert.Equal("PASS", Item(readiness, "Artifacts").Status);
+        Assert.NotEqual("NOT_APPLICABLE", Item(readiness, "Database").Status);
+        Assert.Contains("Oracle", Item(readiness, "Database").EvidenceProvider, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("PASS", Item(readiness, "Notification").Status);
+        Assert.Contains("operational", Item(readiness, "Notification").EvidenceProvider, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ReadinessMarksNotificationNotApplicableOnlyWithExplicitOperationalPolicyReason()
+    {
+        var project = Project(database: "none", repository: _directory) with
+        {
+            TargetDeadline = new DateTimeOffset(2026, 8, 20, 0, 0, 0, TimeSpan.Zero),
+        };
+        Directory.CreateDirectory(_directory);
+
+        var readiness = V3Readiness.For(
+            project,
+            ReadySnapshot(project.Id),
+            [Account("chief-claude-primary", ExecutorCatalog.ClaudeCode, [AgentRoles.ChiefOrchestrator])],
+            artifactCount: 1,
+            effectiveStack: new V3EffectiveStackContract(
+                "React + TypeScript + Vite",
+                ".NET",
+                "none",
+                "Clean Architecture",
+                "Playwright",
+                ["primary requirements"]),
+            operationalNotificationConfigured: false);
+
+        Assert.Equal("NOT_APPLICABLE", Item(readiness, "Notification").Status);
+        Assert.Contains("operational notification is optional", Item(readiness, "Notification").EvidenceProvider, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("NOT_APPLICABLE", Item(readiness, "Database").Status);
+    }
+
     private static AgentAccountContract Account(
         string alias,
         string executorId,
@@ -130,6 +191,35 @@ public sealed class V3FoundationTests : IDisposable
             null,
             null,
             100);
+
+    private static V3ReadinessItem Item(V3ProjectReadinessResponse readiness, string category) =>
+        readiness.Items.Single(item => item.Category == category);
+
+    private static ProjectReadinessSnapshot ReadySnapshot(string projectId) =>
+        new(projectId, ConfigurationState.Ready, [], []);
+
+    private static ProjectRecord Project(string database, string repository) =>
+        new(
+            "tenant",
+            "01K00000000000000000000000",
+            "01K00000000000000000000001",
+            "V3 Readiness",
+            "V3READY",
+            "Sistema com requisitos anexados.",
+            "active",
+            "normal",
+            repository,
+            "local",
+            "develop",
+            database.Equals("none", StringComparison.OrdinalIgnoreCase) ? ["React", ".NET"] : ["React", ".NET", database],
+            new ProjectBrandRecord(null, null, null, null),
+            [],
+            1,
+            "chief",
+            "live",
+            DateTimeOffset.UnixEpoch,
+            DateTimeOffset.UnixEpoch,
+            1);
 
     public void Dispose()
     {

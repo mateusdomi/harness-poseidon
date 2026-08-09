@@ -104,6 +104,32 @@ export const v3EffectiveStackSchema = z.object({
 });
 export type V3EffectiveStack = z.infer<typeof v3EffectiveStackSchema>;
 
+export const v3SourceCoverageSchema = z.object({
+  artifactId: z.string(),
+  fileName: z.string(),
+  role: z.string(),
+  totalSections: z.number().int(),
+  consumedSections: z.number().int(),
+  coveragePercent: z.number().int(),
+  complete: z.boolean(),
+  evidenceProvider: z.string(),
+  characterCount: z.number().int(),
+});
+export type V3SourceCoverage = z.infer<typeof v3SourceCoverageSchema>;
+
+export const v3RequirementSourceFactsSchema = z.object({
+  deadline: isoDateTimeSchema.nullable(),
+  deadlineProvenance: z.string().nullable(),
+  authentication: z.string().nullable(),
+  authenticationProvenance: z.string().nullable(),
+  productNotification: z.string().nullable(),
+  productNotificationProvenance: z.string().nullable(),
+  itrcRules: z.string().nullable(),
+  itrcRulesProvenance: z.string().nullable(),
+  acceptanceCriteriaCount: z.number().int(),
+});
+export type V3RequirementSourceFacts = z.infer<typeof v3RequirementSourceFactsSchema>;
+
 export const v3OpenQuestionSchema = z.object({
   questionId: z.string(),
   question: z.string(),
@@ -142,6 +168,8 @@ export const v3ProjectContextSchema = z.object({
   acceptanceCriteria: z.array(z.string()),
   decisions: z.array(z.string()),
   assumptions: z.array(z.string()),
+  primaryRequirementsCoverage: z.array(v3SourceCoverageSchema),
+  sourceFacts: v3RequirementSourceFactsSchema,
   openQuestions: z.array(v3OpenQuestionSchema),
   effectiveStack: v3EffectiveStackSchema,
   deadline: isoDateTimeSchema.nullable(),
@@ -184,6 +212,7 @@ export const v3BuildMissionSchema = z.object({
   repository: z.string().nullable(),
   status: z.string(),
   recommendedExecutor: v3RecommendedExecutorSchema,
+  primaryRequirementsCoverage: z.array(v3SourceCoverageSchema),
 });
 export type V3BuildMission = z.infer<typeof v3BuildMissionSchema>;
 

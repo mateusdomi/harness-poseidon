@@ -51,6 +51,45 @@ public sealed class V3UnderstandTests : IDisposable
         Assert.Null(result.State.Repository);
     }
 
+    [Fact]
+    public void PrimaryRequirementFactsSuppressDeadlineQuestion()
+    {
+        var deadline = new DateTimeOffset(2026, 8, 20, 0, 0, 0, TimeSpan.Zero);
+        var questions = V3OpenQuestionPolicy.RequiredQuestions(
+            "01K00000000000000000000000",
+            null,
+            null,
+            new V3RequirementSourceFacts(
+                deadline,
+                "PRIMARY_REQUIREMENTS:artifact-1:deadline",
+                "Autenticação própria, sem SSO",
+                "PRIMARY_REQUIREMENTS",
+                "Notificações por e-mail/digest",
+                "PRIMARY_REQUIREMENTS",
+                "ITRC definido",
+                "PRIMARY_REQUIREMENTS",
+                26),
+            [Coverage(complete: true)]);
+
+        Assert.Equal(["repository"], questions.Select(question => question.QuestionId));
+    }
+
+    [Fact]
+    public void IncompletePrimaryRequirementsKeepUnderstandReadingWithoutQuestions()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        var context = Context(deadline: null, repository: null) with
+        {
+            PrimaryRequirementsCoverage = [Coverage(complete: false)],
+        };
+
+        var result = V3UnderstandAnalyzer.Analyze(context, new V3UnderstandAnalyzeRequest(), now);
+
+        Assert.Equal("UNDERSTANDING", result.State.LifecycleState);
+        Assert.Equal("READING_PRIMARY_REQUIREMENTS", result.State.Status);
+        Assert.Empty(result.OpenQuestions);
+    }
+
     [Theory]
     [InlineData("sim")]
     [InlineData("pode iniciar")]
@@ -78,6 +117,9 @@ public sealed class V3UnderstandTests : IDisposable
         Assert.Contains(saved.ArtifactReferences, artifact => artifact.ArtifactId == "artifact-1");
         Assert.Contains(saved.KnowledgeReferences, reference => reference.Path == "docs/product/frontend-standards.md");
         Assert.Contains(saved.KnowledgeReferences, reference => reference.Path == "docs/product/oracle-data-standards.md");
+        Assert.Contains(saved.PrimaryRequirementsCoverage, source => source.Complete);
+        Assert.Contains("PrimaryRequirementsCoverage: 100%", saved.MissionText, StringComparison.Ordinal);
+        Assert.Contains("leia integralmente", saved.MissionText, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("AUTONOMY CONTRACT", saved.MissionText, StringComparison.Ordinal);
         Assert.Contains("DEFINITION OF DONE", saved.MissionText, StringComparison.Ordinal);
     }
@@ -158,6 +200,17 @@ public sealed class V3UnderstandTests : IDisposable
             ["Login por perfis funciona", "Risco completo persiste"],
             [],
             ["Preservar frontend fornecido."],
+            [Coverage(complete: true)],
+            new V3RequirementSourceFacts(
+                deadline,
+                deadline is null ? null : "PRIMARY_REQUIREMENTS:artifact-1:deadline",
+                "Autenticação própria, sem SSO",
+                "PRIMARY_REQUIREMENTS",
+                "Notificações por e-mail/digest",
+                "PRIMARY_REQUIREMENTS",
+                "ITRC definido",
+                "PRIMARY_REQUIREMENTS",
+                26),
             V3OpenQuestionPolicy.RequiredQuestions("01K00000000000000000000000", deadline, repository),
             new V3EffectiveStackContract(
                 "React + TypeScript + Vite",
@@ -173,6 +226,19 @@ public sealed class V3UnderstandTests : IDisposable
             new V3ExecutionCapacityResponse(DateTimeOffset.UnixEpoch, 1, 1, 1, 1, []),
             [],
             deadline is null || repository is null ? "AWAITING_INPUT" : "BUILDING");
+
+    private static V3SourceCoverage Coverage(bool complete) =>
+        new(
+            "artifact-1",
+            "Prisma_Especificacao_Tecnica_MVP.md",
+            "requirements_source",
+            complete ? 18 : 18,
+            complete ? 18 : 3,
+            complete ? 100 : 17,
+            complete,
+            complete ? "full-text-read" : "partial",
+            33790,
+            null);
 
     private static AgentAccountContract Account(
         string alias,

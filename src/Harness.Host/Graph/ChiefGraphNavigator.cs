@@ -130,4 +130,28 @@ public sealed class CompositeChiefNavigator(
 
         return null;
     }
+
+    public async Task<IReadOnlyList<ChiefPrimaryRequirementSource>> ListPrimaryRequirementSourcesAsync(
+        string tenantId,
+        string projectId,
+        int maximumCharacters,
+        CancellationToken cancellationToken = default)
+    {
+        var sources = new List<ChiefPrimaryRequirementSource>();
+        var remaining = maximumCharacters;
+        foreach (var navigator in _navigators)
+        {
+            if (remaining <= 0)
+            {
+                break;
+            }
+
+            var values = await navigator.ListPrimaryRequirementSourcesAsync(
+                tenantId, projectId, remaining, cancellationToken);
+            sources.AddRange(values);
+            remaining -= values.Sum(value => value.CharacterCount);
+        }
+
+        return sources;
+    }
 }

@@ -6,8 +6,11 @@ using Harness.Host.Profiles;
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Contracts;
 using Harness.Modules.Readiness.Contracts;
+using Harness.Persistence.Abstractions.Conversations;
+using Harness.Persistence.Abstractions.Coordination;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
+using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
 
@@ -101,6 +104,10 @@ public static class V3FoundationEndpoints
         IProjectStore projects,
         Readiness.ProjectReadinessService readiness,
         AgentAccountRegistry accounts,
+        IWorkBoardStore board,
+        ISolicitationAttachmentStore attachments,
+        IChannelLinkStore channelLinks,
+        IConfiguration configuration,
         CancellationToken token)
     {
         if (!UlidValue.TryParse(projectId, out _)) return Problem(400, "invalid_project_id", "Project ID must be a ULID.");
@@ -110,7 +117,23 @@ public static class V3FoundationEndpoints
         if (project is null) return NotFound("project");
 
         var snapshot = await readiness.EvaluateAsync(profile.TenantId, project, profileReady: true, token);
-        return Results.Ok(V3Readiness.For(project, snapshot, accounts.List()));
+        var artifactCount = 0;
+        foreach (var solicitation in await board.ListSolicitationsAsync(profile.TenantId, project.Id, null, 200, token))
+        {
+            artifactCount += (await attachments.ListAsync(profile.TenantId, solicitation.Id, token)).Count;
+        }
+
+        var state = V3UnderstandStore.ForConfiguration(configuration).ReadProject(project.Id);
+        var stack = V3StackResolver.Resolve(project, state, []);
+        var links = await channelLinks.ListAsync(profile.TenantId, token);
+        return Results.Ok(V3Readiness.For(
+            project,
+            snapshot,
+            accounts.List(),
+            state,
+            artifactCount,
+            stack,
+            links.Count > 0));
     }
 
     private static async Task<IResult> GetCapacityAsync(
@@ -359,24 +382,35 @@ public static class V3Readiness
         Harness.Persistence.Abstractions.Projects.ProjectRecord project,
         ProjectReadinessSnapshot existing,
         IReadOnlyList<AgentAccountContract> accounts,
-        V3ProjectUnderstandState? v3State = null)
+        V3ProjectUnderstandState? v3State = null,
+        int artifactCount = 0,
+        V3EffectiveStackContract? effectiveStack = null,
+        bool operationalNotificationConfigured = false)
     {
         var capacity = V3Capacity.From(accounts, DateTimeOffset.UtcNow);
         var confirmedDeadline = v3State?.Deadline ?? project.TargetDeadline;
         var confirmedRepository = string.IsNullOrWhiteSpace(v3State?.Repository)
             ? project.RepositoryUrl
             : v3State.Repository;
+        var database = effectiveStack?.Database ?? string.Join(' ', project.Technologies);
+        var databaseApplies = database.Contains("Oracle", StringComparison.OrdinalIgnoreCase) ||
+            database.Contains("Postgre", StringComparison.OrdinalIgnoreCase) ||
+            database.Contains("SQL Server", StringComparison.OrdinalIgnoreCase) ||
+            database.Contains("database", StringComparison.OrdinalIgnoreCase) &&
+            !database.Contains("conforme requisitos", StringComparison.OrdinalIgnoreCase);
         var items = new List<V3ReadinessItem>
         {
             Item("Requirements", HasText(project.Description) ? "PASS" : "ACTION_REQUIRED", "project.description"),
-            Item("Artifacts", "NOT_APPLICABLE", "artifact upload is optional at foundation level"),
+            Item("Artifacts", artifactCount > 0 ? "PASS" : "ACTION_REQUIRED", artifactCount > 0 ? $"project artifacts: {artifactCount}" : "no project artifacts associated"),
             Item("OpenQuestions", existing.NextActions.Count == 0 ? "PASS" : "ACTION_REQUIRED", "readiness.nextActions"),
             Item("Deadline", confirmedDeadline.HasValue ? "PASS" : "ACTION_REQUIRED", "v3.deadline || project.targetDeadline"),
             Item("Repository", RepositoryReachable(confirmedRepository) ? "PASS" : "BLOCKED", "v3.repository || project.repositoryUrl"),
             Item("EffectiveStack", project.Technologies.Count > 0 ? "PASS" : "ACTION_REQUIRED", "project.technologies"),
             Item("RuntimeEnvironment", RuntimeReady() ? "PASS" : "ACTION_REQUIRED", "dotnet/node/git/docker probe"),
-            Item("Database", "NOT_APPLICABLE", "database requirement depends on project stack"),
-            Item("Notification", "NOT_APPLICABLE", "notification channel is not mandatory for foundation readiness"),
+            Item("Database", databaseApplies ? RuntimeReady() ? "PASS" : "ACTION_REQUIRED" : "NOT_APPLICABLE",
+                databaseApplies ? $"database applies: {database}" : "project stack does not require local database"),
+            Item("Notification", operationalNotificationConfigured ? "PASS" : "NOT_APPLICABLE",
+                operationalNotificationConfigured ? "Poseidon operational channel configured" : "Poseidon operational notification is optional in this personal session"),
             Item("ExecutionCapacity", capacity.EffectiveExecutionSlots > 0 ? "PASS" : "ACTION_REQUIRED", "account capacity"),
             Item("Authentication", capacity.ChiefSlots > 0 ? "PASS" : "ACTION_REQUIRED", "chief account availability"),
         };

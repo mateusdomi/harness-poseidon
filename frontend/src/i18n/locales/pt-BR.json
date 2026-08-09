@@ -1693,7 +1693,23 @@
     },
     "projects": {
       "title": "Projetos",
-      "description": "Lista e detalhes dos projetos entregues pela equipe."
+      "description": "Lista e detalhes dos projetos entregues pela equipe.",
+      "v3Understand": {
+        "title": "V3 — Understand + Mission Compiler",
+        "loadError": "Não foi possível carregar o contexto V3.",
+        "summary": "Artifacts: {{artifacts}} · Docs: {{documents}} · Slots: {{slots}}",
+        "stack": "Stack",
+        "repositoryDeadline": "Local do código / Prazo",
+        "openQuestions": "Open questions",
+        "readiness": "Readiness",
+        "buildMission": "BuildMission {{missionId}} — {{status}}",
+        "missionMeta": "{{chars}} chars · executor: {{executor}}",
+        "actions": {
+          "analyze": "Analyze",
+          "authorize": "Authorize BUILD",
+          "compile": "Compile BuildMission"
+        }
+      }
     },
     "cockpit": {
       "title": "Dashboard",

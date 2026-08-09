@@ -59,6 +59,7 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
     /// contexto do CLI; ao ser atingido, o corte é DECLARADO no próprio prompt, nunca silencioso.
     /// </summary>
     private const int SectionRoundBudgetChars = 160_000;
+    private const int PrimaryRequirementsBudgetChars = 140_000;
 
     private static readonly Action<ILogger, string, Exception?> LogBrunaPersonaReadFailed =
         LoggerMessage.Define<string>(
@@ -166,7 +167,8 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         var started = Stopwatch.GetTimestamp();
         var communicationContext = request.CommunicationContext ?? ChiefCommunicationPolicy.Business;
         var outlines = await LoadAttachmentOutlinesAsync(request, cancellationToken);
-        var prompt = BuildPrompt(request, communicationContext, outlines);
+        var primaryRequirements = await LoadPrimaryRequirementSourcesAsync(request, cancellationToken);
+        var prompt = BuildPrompt(request, communicationContext, outlines, primaryRequirements);
         var attempts = Math.Min(candidates.Count, 2);
 
         for (var index = 0; index < attempts; index++)
@@ -472,6 +474,26 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         }
     }
 
+    private async Task<IReadOnlyList<ChiefPrimaryRequirementSource>> LoadPrimaryRequirementSourcesAsync(
+        AgentExecutionRequest request, CancellationToken cancellationToken)
+    {
+        if (_attachmentNavigator is null)
+        {
+            return [];
+        }
+
+        try
+        {
+            return await _attachmentNavigator.ListPrimaryRequirementSourcesAsync(
+                request.TenantId, request.ProjectId, PrimaryRequirementsBudgetChars, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            LogAttachmentNavigationFailed(_logger, exception);
+            return [];
+        }
+    }
+
     /// <summary>
     /// O DADO da rodada de seções: cada seção pedida volta INTEGRAL; seção ou arquivo inexistente
     /// volta como ausência declarada; estouro do teto de contexto volta como corte declarado.
@@ -586,14 +608,74 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         return builder.ToString();
     }
 
+    private static string PrimaryRequirementsBlock(
+        IReadOnlyList<ChiefPrimaryRequirementSource> sources)
+    {
+        if (sources.Count == 0)
+        {
+            return """
+            Nenhuma fonte primária de requisitos foi injetada integralmente neste turno. Se houver
+            anexo de requisitos no índice, peça as seções necessárias antes de afirmar fatos do
+            produto ou formular perguntas ao usuário.
+            """;
+        }
+
+        var builder = new StringBuilder();
+        builder.AppendLine(
+            """
+            As fontes abaixo são PRIMARY_REQUIREMENTS e foram injetadas INTEGRALMENTE neste
+            turno. INDEXED não significa READ, mas este bloco significa READ: use estas fontes
+            antes de perguntar ao humano. Se uma resposta estiver aqui, NÃO pergunte.
+
+            Ordem de autoridade operacional:
+            LATEST EXPLICIT USER DECISION > PRIMARY REQUIREMENTS > OTHER PROVIDED ARTIFACTS >
+            ORGANIZATION POLICY > POSEIDON BASELINE > INFERENCE.
+
+            Consequência obrigatória dessa ordem:
+            - Se PRIMARY_REQUIREMENTS declara prazo/deadline e não existe decisão explícita
+              posterior divergente do usuário, use esse prazo como fato vigente. NÃO peça
+              confirmação se "o prazo do documento vale".
+            - Se PRIMARY_REQUIREMENTS declara autenticação, notificações do produto, regras de
+              cálculo, perfis, escopo ou critérios de aceite, use esses fatos. NÃO pergunte ao
+              humano para escolher de novo.
+            - Repository é exceção operacional: um path local gerado automaticamente sob
+              `.harness-poseidon/repositories/` no StatusDigest NÃO é decisão explícita do
+              usuário. Se PRIMARY_REQUIREMENTS e a conversa não declaram repositório de destino,
+              pergunte qual repositório deve receber o código.
+            - Só pergunte por informação ausente após ler todas as fontes primárias.
+            """);
+        builder.AppendLine();
+        foreach (var source in sources)
+        {
+            builder.AppendLine(CultureInfo.InvariantCulture,
+                $"### {source.FileName} — {source.Role} — coverage {source.ConsumedSections}/{source.TotalSections} sections (100%)");
+            builder.AppendLine(source.Content);
+            builder.AppendLine();
+        }
+
+        return builder.ToString();
+    }
+
     private string BuildPrompt(
         AgentExecutionRequest request,
         ChiefCommunicationContext communicationContext,
-        IReadOnlyList<ChiefAttachmentOutline> outlines) =>
+        IReadOnlyList<ChiefAttachmentOutline> outlines,
+        IReadOnlyList<ChiefPrimaryRequirementSource> primaryRequirements) =>
         $"""
         {_brunaPersona.Value}
 
         {_governanceCore.Value}
+
+        ## V3 operational lifecycle — regra vigente
+
+        O caminho operacional vigente do Poseidon é:
+        UNDERSTAND → BUILD → VALIDATE → HUMAN ACCEPTANCE.
+
+        O playbook antigo de fases, micro-cards, Council e review por card é conhecimento
+        histórico/checklist, NÃO workflow operacional atual. Não fale com o usuário usando
+        linguagem operacional legada como "fase de arquitetura", "fase 4", "fase 5",
+        "micro-card" ou "Council". Se citar conhecimento histórico, declare como referência,
+        não como etapa a executar.
 
         ## Camada de comunicação com o usuário
 
@@ -624,6 +706,10 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
 
         {AttachmentIndex(outlines)}
 
+        ## Fontes primárias de requisitos lidas integralmente — DADO
+
+        {PrimaryRequirementsBlock(primaryRequirements)}
+
         {(string.IsNullOrWhiteSpace(request.ImpactDigest)
             ? string.Empty
             : $"## Impacto do projeto (grafo) — DADO\n\n{request.ImpactDigest}\n")}
@@ -643,7 +729,8 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         - `resumir_progresso` — pedido de panorama do que andou, travou e vem a seguir;
         - `decidir_escalacao` — algo travou e é preciso decidir se escala ao usuário;
         - `aprovar_documento` — aprovação ou reprovação de um documento submetido;
-        - `decidir_gate_de_fase` — decisão sobre avançar (ou não) uma fase da esteira;
+        - `decidir_gate_de_fase` — intenção legada preservada por compatibilidade; no V3 evite-a
+          salvo se o usuário perguntar explicitamente sobre histórico;
         - `tratar_barreira_externa` — obstáculo fora do alcance da fábrica que precisa do usuário;
         - `ajustar_projeto` — mudança de prazo, objetivo ou marca do projeto;
         - `pedir_status_pessoa_equipe` — pergunta sobre uma especialidade ou sobre a equipe;
@@ -654,20 +741,12 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         podem emitir `demands`; SOMENTE `planejar_demanda` pode emitir `teamActions` — nas demais
         intenções o sistema DESCARTA esses campos, e o trabalho que você propôs não acontece.
 
-        ## Regra de fase para trabalho novo
+        ## Regra V3 para trabalho novo
 
-        Consulte no StatusDigest a fase ativa. As `demands` preservam a necessidade futura do
-        usuário com proveniência, mas o Control Plane NÃO cria nem inicia cards de implementação
-        antes de a Fase 5 — Desenvolvimento estar efetivamente liberada. Nas Fases 1 a 4:
-        - fale somente do trabalho permitido na fase atual e de sua sequência;
-        - não anuncie arquitetura, planejamento ou construção "em paralelo" ou "agora";
-        - não diga que um profissional começou trabalho se o board não comprova um card ativo;
-        - deixe claro que necessidades de construção foram registradas para depois dos
-          documentos, revisões e gates obrigatórios.
-
-        A esteira canônica cria os cards documentais da fase e os direciona aos profissionais
-        adequados. Não replique esses documentos em `demands`, e nunca trate um relatório como
-        conclusão de uma fase executiva.
+        Em UNDERSTAND, primeiro consuma as fontes primárias disponíveis. Depois responda com
+        entendimento, fatos extraídos, premissas e somente perguntas realmente ausentes. Não
+        anuncie BUILD, executor ou trabalho iniciado se o StatusDigest/estado V3 não comprovar
+        autorização e dispatch. Nesta rodada de conversa você é somente leitura.
 
         ## Formato de saída OBRIGATÓRIO
 

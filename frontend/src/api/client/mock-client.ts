@@ -2475,6 +2475,7 @@ export class MockApiClient implements ApiClient {
     _input: V3UnderstandAnalyzeInput = {},
   ): Promise<V3ProjectContext> {
     await this.#simulate();
+    void _input;
     const project = this.#table('projects').get(projectId);
     if (!project) throw this.#notFound('projects', projectId);
     return this.#v3Context(project, project.targetDeadline && project.repositoryUrl ? 'READY_TO_START' : 'AWAITING_INPUT');
@@ -2485,6 +2486,7 @@ export class MockApiClient implements ApiClient {
     _input: V3AuthorizeBuildInput,
   ): Promise<V3ProjectContext> {
     await this.#simulate();
+    void _input;
     const project = this.#table('projects').get(projectId);
     if (!project) throw this.#notFound('projects', projectId);
     return this.#v3Context(project, 'BUILDING');
@@ -2519,6 +2521,7 @@ export class MockApiClient implements ApiClient {
         status: 'AVAILABLE',
         reason: 'AVAILABLE + WRITE_CAPABLE + role compatible.',
       },
+      primaryRequirementsCoverage: context.primaryRequirementsCoverage,
     };
   }
 
@@ -3152,6 +3155,30 @@ export class MockApiClient implements ApiClient {
       acceptanceCriteria: ['Fluxo principal executa no produto real.'],
       decisions: [],
       assumptions: [],
+      primaryRequirementsCoverage: [
+        {
+          artifactId: 'mock-requirements',
+          fileName: 'requirements.md',
+          role: 'requirements_source',
+          totalSections: 1,
+          consumedSections: 1,
+          coveragePercent: 100,
+          complete: true,
+          evidenceProvider: 'mock-full-text-read',
+          characterCount: project.description.length,
+        },
+      ],
+      sourceFacts: {
+        deadline: project.targetDeadline ?? null,
+        deadlineProvenance: project.targetDeadline ? 'mock project field' : null,
+        authentication: null,
+        authenticationProvenance: null,
+        productNotification: null,
+        productNotificationProvenance: null,
+        itrcRules: null,
+        itrcRulesProvenance: null,
+        acceptanceCriteriaCount: 1,
+      },
       openQuestions: ready
         ? []
         : [
