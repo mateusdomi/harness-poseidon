@@ -1,0 +1,141 @@
+using Harness.Host.V3;
+using Harness.Modules.Agents.Application.Accounts;
+using Harness.Modules.Agents.Contracts;
+
+namespace Harness.UnitTests.V3;
+
+public sealed class V3FoundationTests : IDisposable
+{
+    private readonly string _directory = Path.Combine(
+        Path.GetTempPath(), $"poseidon-v3-foundation-{Guid.NewGuid():N}");
+
+    [Fact]
+    public void LifecycleStatesAreTheSimplifiedV3Contract()
+    {
+        Assert.Equal(
+            [
+                "DRAFT",
+                "UNDERSTANDING",
+                "AWAITING_INPUT",
+                "READY_TO_START",
+                "BUILDING",
+                "PAUSED_QUOTA",
+                "BLOCKED",
+                "VALIDATING",
+                "READY_FOR_HUMAN_ACCEPTANCE",
+                "HUMAN_ACCEPTED",
+            ],
+            V3Lifecycle.States);
+
+        Assert.Equal(15, V3Lifecycle.Weights["UNDERSTAND"]);
+        Assert.Equal(55, V3Lifecycle.Weights["BUILD"]);
+        Assert.Equal(25, V3Lifecycle.Weights["VALIDATE"]);
+        Assert.Equal(5, V3Lifecycle.Weights["HUMAN_ACCEPTANCE"]);
+    }
+
+    [Fact]
+    public void CapacityCountsOnlyAuthenticatedWriteCapableSlotsAsExecutionSlots()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        var response = V3Capacity.From(
+            [
+                Account("chief-claude-primary", ExecutorCatalog.ClaudeCode, [AgentRoles.ChiefOrchestrator]),
+                Account("worker-codex-project", ExecutorCatalog.Codex, [AgentRoles.ProjectExecutor], concurrency: 2),
+                Account("worker-claude-fullstack", ExecutorCatalog.ClaudeCode,
+                    [AgentRoles.ProjectExecutor, AgentRoles.BackendSpecialist, AgentRoles.FrontendSpecialist], concurrency: 2),
+                Account("worker-codex-review", ExecutorCatalog.Codex, [AgentRoles.Critic]),
+                Account("worker-codex-disabled", ExecutorCatalog.Codex, [AgentRoles.ProjectExecutor], state: AgentAccountState.Disabled),
+            ],
+            now);
+
+        Assert.Equal(1, response.ChiefSlots);
+        Assert.Equal(4, response.WriteExecutorSlots);
+        Assert.Equal(1, response.ReviewValidationSlots);
+        Assert.Equal(4, response.EffectiveExecutionSlots);
+    }
+
+    [Fact]
+    public void AuthInstructionUsesTheIsolatedExecutorConfigHome()
+    {
+        var layout = new AccountProfileLayout(
+            "chief-claude-primary",
+            "/tmp/accounts/chief-claude-primary",
+            "/tmp/accounts/chief-claude-primary/config",
+            "/tmp/accounts/chief-claude-primary/work",
+            "/tmp/accounts/chief-claude-primary/sessions",
+            "/tmp/accounts/chief-claude-primary/logs",
+            "/tmp/accounts/chief-claude-primary/profile.json",
+            "/tmp/accounts/chief-claude-primary/profile.lock");
+
+        var instruction = V3AccountAuthInstruction.For(
+            Account("chief-claude-primary", ExecutorCatalog.ClaudeCode, [AgentRoles.ChiefOrchestrator]),
+            ExecutorCatalog.Find(ExecutorCatalog.ClaudeCode)!,
+            layout,
+            "/tmp/agent-accounts.json");
+
+        Assert.Contains("CLAUDE_CONFIG_DIR=", instruction.ShellCommand);
+        Assert.Contains(layout.ConfigHomePath, instruction.ShellCommand);
+        Assert.DoesNotContain("@", instruction.ShellCommand);
+        Assert.DoesNotContain("keychain://", instruction.ShellCommand);
+    }
+
+    [Fact]
+    public void ChiefAssignmentPersistsAsPrimaryPriorityWithoutSecrets()
+    {
+        var path = Path.Combine(_directory, "agent-accounts.json");
+        Directory.CreateDirectory(_directory);
+
+        var backup = new AgentAccountDefinition
+        {
+            Alias = "chief-claude-backup",
+            ProviderKind = "anthropic",
+            ExecutorId = ExecutorCatalog.ClaudeCode,
+            CredentialRef = "keychain://poseidon/chief-claude-backup",
+            AllowedRoles = [AgentRoles.ChiefOrchestrator],
+            AllowedPathScopes = [],
+            ConcurrencyLimit = 1,
+            Priority = 100,
+        };
+        AgentAccountConfigurationWriter.Upsert(path, backup);
+
+        _ = V3ChiefAssignmentStore.Write(path, "chief-claude-backup");
+        var definitions = AgentAccountConfigurationLoader.LoadDefinitions(path);
+
+        Assert.Equal(10_000, definitions.Single(account => account.Alias == "chief-claude-backup").Priority);
+        Assert.True(definitions.Single(account => account.Alias == "chief-claude-primary").Priority < 10_000);
+        Assert.DoesNotContain("@", File.ReadAllText(path), StringComparison.Ordinal);
+    }
+
+    private static AgentAccountContract Account(
+        string alias,
+        string executorId,
+        IReadOnlyList<string> roles,
+        AgentAccountState state = AgentAccountState.Available,
+        int concurrency = 1) =>
+        new(
+            alias,
+            executorId == ExecutorCatalog.Codex ? "openai" : "anthropic",
+            executorId,
+            $"keychain://poseidon/{alias}",
+            $"confighome://{alias}",
+            roles,
+            [.. roles.SelectMany(AgentRoles.PathScopesFor).Distinct(StringComparer.Ordinal)],
+            state,
+            state == AgentAccountState.Available ? AgentAccountHealth.Healthy : AgentAccountHealth.Unknown,
+            concurrency,
+            0,
+            null,
+            null,
+            null,
+            null,
+            null,
+            100);
+
+    public void Dispose()
+    {
+        if (Directory.Exists(_directory))
+        {
+            Directory.Delete(_directory, recursive: true);
+        }
+    }
+}

@@ -30,6 +30,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Harness.Host.WorkBoard;
 using Harness.Host.Workflows;
 using Harness.Host.Tools;
+using Harness.Host.V3;
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Application.Execution.External;
 using Harness.Modules.Agents.Application.Execution;
@@ -1084,6 +1085,7 @@ public static class HostApplication
         app.MapProjects();
         app.MapProjectActivity();
         app.MapReadiness();
+        app.MapV3Foundation();
         app.MapAgents();
         app.MapReliability();
         app.MapTeamSpecialtyCatalog();
