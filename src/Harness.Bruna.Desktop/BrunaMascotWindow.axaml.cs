@@ -17,11 +17,16 @@ namespace Harness.Bruna.Desktop;
 public sealed partial class BrunaMascotWindow : Window, IDisposable
 {
     private const double WindowSize = 160;
+    private const double ClipWidth = 128;
+    private const double ClipHeight = 152;
+    private const double ClipMarginX = (WindowSize - ClipWidth) / 2.0;
+    private const double ClipMarginY = 4;
 
     private readonly BrunaConfiguration _configuration;
     private readonly PoseidonDiscovery _discovery;
     private readonly PoseidonLauncher _launcher;
     private readonly BrunaStateManager _stateManager;
+    private readonly BrunaPhotoProcessor _photoProcessor;
     private readonly DispatcherTimer _animationTimer = new();
     private readonly ScaleTransform _scaleTransform = new();
     private readonly RotateTransform _rotateTransform = new();
@@ -40,6 +45,9 @@ public sealed partial class BrunaMascotWindow : Window, IDisposable
         _discovery = discovery;
         _launcher = launcher;
         _stateManager = stateManager;
+        _photoProcessor = new BrunaPhotoProcessor(configuration.FilePath is { Length: > 0 } filepath
+            ? Path.GetDirectoryName(Path.GetDirectoryName(filepath))!
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".harness-poseidon"));
 
         RestorePosition();
         ApplyDpiScaling();
@@ -92,10 +100,19 @@ public sealed partial class BrunaMascotWindow : Window, IDisposable
 
     private void ApplyDpiScaling()
     {
+        var processedPhoto = _photoProcessor.TryGetProcessedPhoto();
+        if (!string.IsNullOrEmpty(processedPhoto))
+        {
+            LoadCustomPhoto(processedPhoto, hasTransparentBackground: true);
+            return;
+        }
+
+        // Ainda não há foto processada em cache; usa o asset embutido enquanto o
+        // processamento da foto customizada (se houver) acontece em background.
         var customPhoto = _configuration.ResolveCustomPhotoPath();
         if (!string.IsNullOrEmpty(customPhoto))
         {
-            LoadCustomPhoto(customPhoto);
+            LoadCustomPhoto(customPhoto, hasTransparentBackground: false);
             return;
         }
 
@@ -117,17 +134,15 @@ public sealed partial class BrunaMascotWindow : Window, IDisposable
         }
     }
 
-    private void LoadCustomPhoto(string path)
+    private void LoadCustomPhoto(string path, bool hasTransparentBackground)
     {
         try
         {
             using var stream = File.OpenRead(path);
             BrunaImage.Source = new Bitmap(stream);
-            // Fotos customizadas geralmente tem fundo; aplicamos uma mascara oval
-            // suave para manter a sensacao de mascote flutuante.
-            var bounds = new Rect(0, 0, WindowSize, WindowSize);
-            var margin = WindowSize * 0.06;
-            BrunaImage.Clip = new EllipseGeometry(new Rect(margin, margin, WindowSize - margin * 2, WindowSize - margin * 2));
+            // Elipse vertical para acomodar fotos de retrato sem cortar a cabeça.
+            BrunaImage.Clip = new EllipseGeometry(new Rect(
+                ClipMarginX, ClipMarginY, ClipWidth, ClipHeight));
         }
         catch (Exception exception)
         {
@@ -235,9 +250,14 @@ public sealed partial class BrunaMascotWindow : Window, IDisposable
         SaveConfiguration();
     }
 
-    private void OnOpenPoseidon(object? sender, RoutedEventArgs e)
+    public void OpenPoseidon()
     {
         _ = OpenPoseidonAsync();
+    }
+
+    private void OnOpenPoseidon(object? sender, RoutedEventArgs e)
+    {
+        OpenPoseidon();
     }
 
     private async Task OpenPoseidonAsync()

@@ -29,7 +29,7 @@ rotate_host_log() {
 
 usage() {
   echo "Uso: ./poseidon {start|status|stop|restart|doctor|logs|check-update|update|bruna|agent|graph|release-candidate} [opções]"
-  echo "  start [--no-browser] [--port PORT] [--demo]"
+  echo "  start [--no-browser] [--no-bruna] [--port PORT] [--demo]"
   echo "  check-update [--source <dir-do-pacote-novo>]"
   echo "  update [--source <dir-do-pacote-novo>]"
   echo "  logs [--follow]"
@@ -175,6 +175,10 @@ resolve_launcher() {
   echo "${candidate}"
 }
 
+bruna_is_running() {
+  pgrep -f "Harness\.Bruna\.Desktop.*--data-dir ${POSEIDON_DATA_DIR}" >/dev/null 2>&1
+}
+
 start_poseidon() {
   [[ "$(uname -s)" == "Darwin" ]] || { echo "Este candidato suporta inicialização local no macOS." >&2; exit 2; }
   if [[ -x "${POSEIDON_ROOT}/Harness.Launcher" && "$(uname -m)" != "arm64" ]]; then
@@ -184,12 +188,14 @@ start_poseidon() {
   recover_stale_state
   if is_running; then
     echo "Poseidon já está em execução em $(json_string address)"
+    bruna_is_running || bruna_poseidon
     return
   fi
-  local open_browser=true port="" demo=false
+  local open_browser=true port="" demo=false no_bruna=false
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --no-browser) open_browser=false ;;
+      --no-bruna) no_bruna=true ;;
       --demo) demo=true ;;
       --port) [[ $# -ge 2 ]] || { echo "--port exige um valor." >&2; exit 2; }; port="$2"; shift ;;
       *) echo "Opção desconhecida: $1" >&2; exit 2 ;;
@@ -237,6 +243,7 @@ start_poseidon() {
         echo "Dados: ${POSEIDON_DATA_DIR}"
         echo "Logs: ${POSEIDON_LOG_DIR}"
         [[ "${open_browser}" != true ]] || /usr/bin/open "${address}"
+        [[ "${no_bruna}" == true ]] || bruna_is_running || bruna_poseidon
         return
       fi
     fi
