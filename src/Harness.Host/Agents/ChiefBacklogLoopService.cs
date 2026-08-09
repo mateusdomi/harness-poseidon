@@ -3064,7 +3064,7 @@ public sealed partial class ChiefBacklogLoopService(
                 if (harness is not null)
                 {
                     var e2e = await ProductE2ERunner.RunAsync(validationWorktree, harness, token);
-                    if (e2e is { Ran: true, Passed: false })
+                    if (ProductE2EGatePolicy.Decide(e2e) == ProductE2EGateDecision.Failed)
                     {
                         var e2eResult = new CriticReviewResult(
                             UlidValue.New(now).ToString(), awaiting.Id, "deterministic-e2e-gate",

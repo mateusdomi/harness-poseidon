@@ -74,6 +74,35 @@ public sealed class ProductE2EEnvironmentTests
     }
 
     [Fact]
+    public void ManifestoComPlaceholderSemProvedorFalhaAntesDeSubirAmbiente()
+    {
+        var harness = Harness(
+            secrets: null, dbPortVar: null,
+            new Dictionary<string, string>
+            {
+                ["ConnectionStrings__Default"] = "User Id=APP;Password=${DB_PASSWORD}",
+            });
+
+        var missing = ProductE2EEnvironment.MissingPlaceholders(harness);
+
+        Assert.Equal(["DB_PASSWORD"], missing);
+    }
+
+    [Fact]
+    public void ManifestoComSegredoGeradoNaoReportaPlaceholderAusente()
+    {
+        var harness = Harness(
+            new Dictionary<string, string> { ["DB_PASSWORD"] = "password" },
+            dbPortVar: "ORACLE_PORT",
+            new Dictionary<string, string>
+            {
+                ["ConnectionStrings__Default"] = "Password=${DB_PASSWORD};Port=${DB_PORT}",
+            });
+
+        Assert.Empty(ProductE2EEnvironment.MissingPlaceholders(harness));
+    }
+
+    [Fact]
     public void SemSegredosNemPortaEhSoOEnvLiteral()
     {
         var harness = Harness(

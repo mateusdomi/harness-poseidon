@@ -36,15 +36,26 @@ internal static class ProductE2ERunner
         var frontProcess = default(Process);
         var startedCompose = false;
 
+        var missingPlaceholders = ProductE2EEnvironment.MissingPlaceholders(harness);
+        if (missingPlaceholders.Count > 0)
+        {
+            return new ProductE2EResult(
+                false,
+                false,
+                "Manifesto E2E referencia variável sem provedor runtime: " +
+                string.Join(',', missingPlaceholders) +
+                ". Declare em generatedSecrets/dbPortVar; valores secretos não podem ir para Git.");
+        }
+
         // AMBIENTE EFÊMERO: gera os segredos declarados e resolve os templates ${VAR} de `env`.
         // É o mesmo env para compose, API e E2E — cada rodada com credenciais próprias, que somem
         // no teardown. Sem isto o compose/API subiam sem senha e o gate devolvia "unavailable".
         var env = ProductE2EEnvironment.Materialize(harness, GenerateSecret, AllocateFreePort);
 
-        // PROJECT NAME ISOLADO. Sem `-p`, o docker-compose usa o nome do DIRETÓRIO do compose como
-        // project name — e dois produtos com o compose em `infra/` viram ambos o projeto "infra".
-        // Um `down -v` de um apagava o contêiner do outro (perda de dados observada 2026-08-08). Um
-        // nome próprio e único por repositório isola o gate de qualquer ambiente de desenvolvimento.
+        // PROJECT NAME ISOLADO POR EXECUÇÃO. Sem `-p`, o docker-compose usa o nome do DIRETÓRIO do
+        // compose como project name — e dois produtos com o compose em `infra/` viram ambos o
+        // projeto "infra". Nome por execução evita também duas provas simultâneas do MESMO repo
+        // compartilharem contêiner/volume por acidente.
         var composeProject = ComposeProjectName(repositoryRoot);
 
         try
@@ -74,7 +85,7 @@ internal static class ProductE2ERunner
                 if (composeExit != 0)
                 {
                     return new ProductE2EResult(
-                        false, false, $"compose up falhou (exit {composeExit}): {Tail(composeOut)}");
+                        false, false, $"compose up falhou (exit {composeExit}): {RedactedTail(composeOut, env)}");
                 }
 
                 startedCompose = true;
@@ -122,7 +133,7 @@ internal static class ProductE2ERunner
             if (install.ExitCode != 0)
             {
                 return new ProductE2EResult(
-                    false, false, $"playwright install falhou: {Tail(install.Output)}");
+                    false, false, $"playwright install falhou: {RedactedTail(install.Output, env)}");
             }
 
             var e2e = await RunAsync(
@@ -133,8 +144,8 @@ internal static class ProductE2ERunner
             return new ProductE2EResult(
                 true, e2e.ExitCode == 0,
                 e2e.ExitCode == 0
-                    ? $"E2E verde: {Tail(e2e.Output, 400)}"
-                    : $"E2E reprovou (exit {e2e.ExitCode}): {Tail(e2e.Output)}");
+                    ? $"E2E verde: {RedactedTail(e2e.Output, env, 400)}"
+                    : $"E2E reprovou (exit {e2e.ExitCode}): {RedactedTail(e2e.Output, env)}");
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -193,16 +204,15 @@ internal static class ProductE2ERunner
         return new string(chars);
     }
 
-    /// <summary>
-    /// Nome de projeto docker-compose ISOLADO e estável por repositório: <c>poseidon-e2e-</c> +
-    /// hash curto do caminho. Não colide com o project name padrão (nome do diretório do compose,
-    /// que para dois produtos em <c>infra/</c> seria o mesmo "infra") nem com ambientes de dev.
-    /// </summary>
-    private static string ComposeProjectName(string repositoryRoot)
+    /// <summary>Nome de projeto docker-compose isolado por execução.</summary>
+    internal static string ComposeProjectName(string repositoryRoot)
     {
         var hash = System.Security.Cryptography.SHA256.HashData(
             Encoding.UTF8.GetBytes(Path.GetFullPath(repositoryRoot)));
-        return "poseidon-e2e-" + Convert.ToHexString(hash)[..12].ToLowerInvariant();
+        return "poseidon-e2e-" +
+            Convert.ToHexString(hash)[..8].ToLowerInvariant() +
+            "-" +
+            Guid.NewGuid().ToString("N")[..8];
     }
 
     /// <summary>Acha uma porta TCP livre pedindo a porta 0 ao SO e devolvendo a que ele atribuiu.</summary>
@@ -349,4 +359,24 @@ internal static class ProductE2ERunner
 
     private static string Tail(string value, int size = MaxOutput) =>
         value.Length <= size ? value : value[^size..];
+
+    internal static string RedactedTail(
+        string value,
+        IReadOnlyDictionary<string, string> env,
+        int size = MaxOutput) =>
+        Tail(Redact(value, env), size);
+
+    internal static string Redact(string value, IReadOnlyDictionary<string, string> env)
+    {
+        var redacted = value;
+        foreach (var secret in env.Values
+            .Where(item => item.Length >= 4)
+            .Distinct(StringComparer.Ordinal)
+            .OrderByDescending(item => item.Length))
+        {
+            redacted = redacted.Replace(secret, "[REDACTED]", StringComparison.Ordinal);
+        }
+
+        return redacted;
+    }
 }

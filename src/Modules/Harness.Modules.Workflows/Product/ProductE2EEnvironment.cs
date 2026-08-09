@@ -15,6 +15,40 @@ namespace Harness.Modules.Workflows.Product;
 /// </summary>
 public static class ProductE2EEnvironment
 {
+    public static IReadOnlyList<string> MissingPlaceholders(ProductE2EHarness harness)
+    {
+        ArgumentNullException.ThrowIfNull(harness);
+
+        var available = new HashSet<string>(StringComparer.Ordinal);
+        if (harness.GeneratedSecrets is { Count: > 0 })
+        {
+            foreach (var key in harness.GeneratedSecrets.Keys)
+            {
+                available.Add(key);
+            }
+        }
+
+        if (harness.DbPortVar is { Length: > 0 } portVariable)
+        {
+            available.Add(portVariable);
+            available.Add("DB_PORT");
+        }
+
+        var missing = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var template in harness.Env.Values)
+        {
+            foreach (var placeholder in Placeholders(template))
+            {
+                if (!available.Contains(placeholder))
+                {
+                    missing.Add(placeholder);
+                }
+            }
+        }
+
+        return [.. missing.OrderBy(static item => item, StringComparer.Ordinal)];
+    }
+
     /// <summary>
     /// Produz o env resolvido. <paramref name="generateSecret"/> recebe o TIPO declarado
     /// ("password", "hex32", "policyPassword", …) e devolve um valor; <paramref name="allocatePort"/>
@@ -88,5 +122,25 @@ public static class ProductE2EEnvironment
         }
 
         return builder.ToString();
+    }
+
+    private static IEnumerable<string> Placeholders(string template)
+    {
+        for (var index = 0; index < template.Length; index++)
+        {
+            if (template[index] != '$' || index + 1 >= template.Length || template[index + 1] != '{')
+            {
+                continue;
+            }
+
+            var close = template.IndexOf('}', index + 2);
+            if (close <= index + 2)
+            {
+                continue;
+            }
+
+            yield return template[(index + 2)..close];
+            index = close;
+        }
     }
 }
