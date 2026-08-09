@@ -32,7 +32,9 @@ public sealed class BrunaPhotoProcessor
     /// </summary>
     public string? TryGetProcessedPhoto()
     {
+        Log($"TryGetProcessedPhoto dataDir={_dataDirectory}");
         var source = ResolveCustomPhotoSource();
+        Log($"source={source ?? "nenhuma"}");
         if (source is null)
         {
             return null;
@@ -44,9 +46,11 @@ public sealed class BrunaPhotoProcessor
 
         if (File.Exists(processed) && File.GetLastWriteTimeUtc(processed) >= File.GetLastWriteTimeUtc(source))
         {
+            Log($"usando cache {processed}");
             return processed;
         }
 
+        Log("iniciando ProcessAsync em background");
         _ = Task.Run(() => ProcessAsync(source, processed, CancellationToken.None));
         return null;
     }
@@ -54,6 +58,7 @@ public sealed class BrunaPhotoProcessor
     public string? ResolveCustomPhotoSource()
     {
         var assetsDirectory = Path.Combine(_dataDirectory, "assets");
+        Log($"ResolveCustomPhotoSource assetsDir={assetsDirectory} exists={Directory.Exists(assetsDirectory)}");
         if (!Directory.Exists(assetsDirectory))
         {
             return null;
@@ -62,6 +67,7 @@ public sealed class BrunaPhotoProcessor
         foreach (var extension in new[] { ".png", ".jpg", ".jpeg", ".webp" })
         {
             var path = Path.Combine(assetsDirectory, $"bruna-magalhaes{extension}");
+            Log($"procurando {path} exists={File.Exists(path)}");
             if (File.Exists(path))
             {
                 return path;
