@@ -81,3 +81,35 @@ Um screenshot bonito de desktop **não aprova frontend**. A prova mínima de um 
 O aceite do usuário é fase própria, com roteiro derivado dos critérios de aceite — não uma demo.
 O que o UAT encontra vira card com o critério violado citado; "não gostei" sem critério é feedback
 de produto, e entra pelo funil de requisito.
+
+## 8. Toolchain local de navegador
+
+Executores devem assumir que a máquina de desenvolvimento pode ter browsers e ferramentas E2E
+locais, mas a disponibilidade real é sempre verificada pelo doctor determinístico:
+
+```bash
+./poseidon tools e2e
+```
+
+Baseline conhecido da instalação local:
+
+- Node/global: `playwright`, `@playwright/test`, `@playwright/mcp`, `puppeteer`, `cypress`,
+  `selenium-webdriver`, `webdriver-manager`, `taiko`, `nightwatch`, `codeceptjs`.
+- Python: `playwright`, `pytest-playwright`, `selenium`, `selenium-wire`, `pyppeteer`,
+  `robotframework`, `robotframework-seleniumlibrary`, `requests-html`, `beautifulsoup4`.
+- Browsers:
+  - Google Chrome: `/opt/homebrew/bin/google-chrome`
+  - Chromium: `/opt/homebrew/bin/chromium`
+  - Firefox: `/opt/homebrew/bin/firefox`
+- Drivers: `chromedriver`, `geckodriver`.
+- Cache Playwright: `~/Library/Caches/ms-playwright/`.
+- Cache Puppeteer: `~/.cache/puppeteer/`.
+
+Preferência para validação funcional de UI:
+
+1. Playwright.
+2. Puppeteer.
+3. Selenium.
+
+Se uma funcionalidade é usada pelo cliente na interface, ela precisa ser validada em navegador real.
+API e banco podem diagnosticar defeitos, mas não substituem a prova funcional pela UI.

@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using Harness.Host.Profiles;
 using Harness.Host.WorkBoard;
 using Harness.Modules.Agents.Application.Accounts;
+using Harness.Modules.Agents.Application.Execution;
 using Harness.Modules.Agents.Application.Execution.External;
 using Harness.Modules.Agents.Contracts;
 using Harness.Modules.Readiness.Contracts;
@@ -19,6 +20,8 @@ using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Harness.Host.V3;
 
@@ -40,6 +43,14 @@ public static class V3BuildRuntimeEndpoints
             .ProducesProblem(400)
             .ProducesProblem(401)
             .ProducesProblem(404);
+
+        var validate = endpoints.MapGroup("/api/v1/v3/projects/{projectId}/validate").WithTags("v3-validation-runtime");
+        validate.MapPost("/dispatch", DispatchValidationAsync)
+            .Produces<V3BuildExecutionResponse>()
+            .ProducesProblem(400)
+            .ProducesProblem(401)
+            .ProducesProblem(404)
+            .ProducesProblem(409);
 
         endpoints.MapGet("/api/v1/v3/build-executions/{executionId}", GetExecutionAsync)
             .WithTags("v3-build-runtime")
@@ -83,7 +94,7 @@ public static class V3BuildRuntimeEndpoints
         var context = await V3ProjectContextBuilder.BuildAsync(
             resolved.Profile!, resolved.Project!, board, attachments, documents, prototypes,
             attachmentStorage, readiness, accounts, channelLinks, understandStore, token);
-        var mission = ResolveMission(understandStore, context.ProjectId, input.MissionId);
+        var mission = ResolveMission(understandStore, context.ProjectId, input.MissionId, "BUILD");
         if (mission is null) return Problem(404, "mission_not_found", "The requested BUILD mission does not exist.");
 
         var readinessOverall = context.Readiness.All(item => item.Status is "PASS" or "NOT_APPLICABLE")
@@ -91,6 +102,40 @@ public static class V3BuildRuntimeEndpoints
             : "NOT_READY";
         var result = await runtime.DispatchAsync(
             new V3BuildDispatchCommand(context.ProjectId, context.State, mission, readinessOverall, accounts.List()),
+            token);
+        return result.Result is not null ? result.Result : Results.Ok(V3BuildExecutionResponse.From(result.Execution!));
+    }
+
+    private static async Task<IResult> DispatchValidationAsync(
+        string projectId,
+        V3BuildDispatchRequest input,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IProjectStore projects,
+        IWorkBoardStore board,
+        ISolicitationAttachmentStore attachments,
+        SolicitationAttachmentStorage attachmentStorage,
+        IDocumentCatalogStore documents,
+        IPrototypeStore prototypes,
+        Readiness.ProjectReadinessService readiness,
+        [FromServices] AgentAccountRegistry accounts,
+        IChannelLinkStore channelLinks,
+        IConfiguration configuration,
+        V3BuildRuntimeService runtime,
+        CancellationToken token)
+    {
+        var resolved = await ResolveAsync(projectId, request, profiles, projects, token);
+        if (resolved.Result is not null) return resolved.Result;
+
+        var understandStore = V3UnderstandStore.ForConfiguration(configuration);
+        var context = await V3ProjectContextBuilder.BuildAsync(
+            resolved.Profile!, resolved.Project!, board, attachments, documents, prototypes,
+            attachmentStorage, readiness, accounts, channelLinks, understandStore, token);
+        var mission = ResolveMission(understandStore, context.ProjectId, input.MissionId, "VALIDATE");
+        if (mission is null) return Problem(404, "mission_not_found", "The requested VALIDATE mission does not exist.");
+
+        var result = await runtime.DispatchAsync(
+            new V3BuildDispatchCommand(context.ProjectId, context.State, mission, "READY", accounts.List()),
             token);
         return result.Result is not null ? result.Result : Results.Ok(V3BuildExecutionResponse.From(result.Execution!));
     }
@@ -140,15 +185,22 @@ public static class V3BuildRuntimeEndpoints
         return result.Result is not null ? result.Result : Results.Ok(V3BuildExecutionResponse.From(result.Execution!));
     }
 
-    private static V3BuildMissionRecord? ResolveMission(V3UnderstandStore store, string projectId, string? missionId)
+    private static V3BuildMissionRecord? ResolveMission(
+        V3UnderstandStore store,
+        string projectId,
+        string? missionId,
+        string missionType)
     {
         if (!string.IsNullOrWhiteSpace(missionId))
         {
-            return store.ReadMission(missionId.Trim());
+            var mission = store.ReadMission(missionId.Trim());
+            return string.Equals(mission?.MissionType, missionType, StringComparison.OrdinalIgnoreCase)
+                ? mission
+                : null;
         }
 
         return store.ListMissions(projectId).FirstOrDefault(mission =>
-            string.Equals(mission.MissionType, "BUILD", StringComparison.OrdinalIgnoreCase));
+            string.Equals(mission.MissionType, missionType, StringComparison.OrdinalIgnoreCase));
     }
 
     private static async Task<(IResult? Result, LocalProfileRecord? Profile, ProjectRecord? Project)> ResolveAsync(
@@ -189,20 +241,32 @@ public sealed class V3BuildRuntimeService(
     public async Task<V3BuildRuntimeResult> DispatchAsync(V3BuildDispatchCommand command, CancellationToken token)
     {
         ArgumentNullException.ThrowIfNull(command);
-        if (command.State?.AuthorizedAt is null)
+        var missionType = command.Mission.MissionType.ToUpperInvariant();
+        if (missionType is not "BUILD" and not "VALIDATE")
+        {
+            return Conflict("mission_type_unsupported", "Mission execution supports BUILD and VALIDATE only.");
+        }
+
+        if (missionType == "BUILD" && command.State?.AuthorizedAt is null)
         {
             return Conflict("build_not_authorized", "BUILD dispatch requires explicit authorization.");
         }
 
-        if (!string.Equals(command.ReadinessOverall, "READY", StringComparison.OrdinalIgnoreCase))
+        if (missionType == "BUILD" &&
+            !string.Equals(command.ReadinessOverall, "READY", StringComparison.OrdinalIgnoreCase))
         {
             return Conflict("build_readiness_not_ready", "BUILD dispatch requires V3 readiness READY.");
         }
 
-        if (!string.Equals(command.Mission.MissionType, "BUILD", StringComparison.OrdinalIgnoreCase) ||
-            !string.Equals(command.Mission.Status, "COMPILED", StringComparison.OrdinalIgnoreCase))
+        if (missionType == "VALIDATE" &&
+            !string.Equals(command.State?.LifecycleState, "VALIDATING", StringComparison.OrdinalIgnoreCase))
         {
-            return Conflict("build_mission_not_compiled", "BUILD dispatch requires a COMPILED BUILD mission.");
+            return Conflict("validation_not_reached", "VALIDATION dispatch requires lifecycle VALIDATING.");
+        }
+
+        if (!string.Equals(command.Mission.Status, "COMPILED", StringComparison.OrdinalIgnoreCase))
+        {
+            return Conflict("mission_not_compiled", $"{missionType} dispatch requires a COMPILED mission.");
         }
 
         if (command.Mission.PrimaryRequirementsCoverage.Any(source => !source.Complete))
@@ -229,7 +293,7 @@ public sealed class V3BuildRuntimeService(
             UlidValue.New(now).ToString(),
             command.Mission.MissionId,
             command.ProjectId,
-            "BUILD",
+            missionType,
             selected.Account.Alias,
             selected.Account.ProviderKind,
             "DISPATCHED",
@@ -249,18 +313,84 @@ public sealed class V3BuildRuntimeService(
             null,
             [],
             [
-                new V3BuildExecutionEvent("BUILD_DISPATCHED", now, selected.Account.Alias, "Initial BUILD mission dispatch."),
+                new V3BuildExecutionEvent($"{missionType}_DISPATCHED", now, selected.Account.Alias, $"Initial {missionType} mission dispatch."),
             ]);
         store.WriteExecution(execution);
-        UpdateLifecycle(command.State, "BUILDING", "BUILDING");
+        UpdateLifecycle(command.State, missionType == "BUILD" ? "BUILDING" : "VALIDATING", $"{missionType}_RUNNING");
         var running = execution with
         {
             Status = "RUNNING",
-            Events = Append(execution.Events, "BUILD_STARTED", selected.Account.Alias, "Executor started."),
+            Events = Append(execution.Events, $"{missionType}_STARTED", selected.Account.Alias, "Executor started."),
         };
         store.WriteExecution(running);
         understandStore.WriteMission(command.Mission with { Status = "RUNNING" });
         return await RunLoopAsync(running, command.Mission, selected.Account, command.Accounts, command.State, null, token);
+    }
+
+    public async Task<IReadOnlyList<V3BuildExecutionRecord>> RecoverRunningExecutionsAsync(
+        IReadOnlyList<AgentAccountContract> accounts,
+        CancellationToken token)
+    {
+        var recovered = new List<V3BuildExecutionRecord>();
+        foreach (var execution in store.ListExecutions()
+                     .Where(item => string.Equals(item.Status, "RUNNING", StringComparison.OrdinalIgnoreCase)))
+        {
+            token.ThrowIfCancellationRequested();
+            var mission = understandStore.ReadMission(execution.MissionId);
+            var state = understandStore.ReadProject(execution.ProjectId);
+            var now = clock.UtcNow;
+            if (mission is null ||
+                string.IsNullOrWhiteSpace(mission.Repository) ||
+                !Directory.Exists(mission.Repository))
+            {
+                var blocked = execution with
+                {
+                    Status = "BLOCKED",
+                    CompletedAt = now,
+                    LastFailureCode = mission is null ? "mission_not_found" : "repository_unreachable",
+                    Events = Append(execution.Events, "BUILD_RECOVERY_BLOCKED", null,
+                        mission is null
+                            ? "Startup recovery found a RUNNING execution without its original mission."
+                            : "Startup recovery found a RUNNING execution with an unreachable repository."),
+                };
+                store.WriteExecution(blocked);
+                UpdateLifecycle(state, "BLOCKED", "RECOVERY_BLOCKED");
+                recovered.Add(blocked);
+                continue;
+            }
+
+            var selected = V3BuildExecutorSelector.Select(accounts, execution.ExecutorAccountId);
+            if (selected.Account is null)
+            {
+                var paused = execution with
+                {
+                    Status = "PAUSED_QUOTA",
+                    LastActivityAt = now,
+                    LastFailureCode = "executor_not_available",
+                    QuotaState = "NO_EXECUTOR",
+                    Events = Append(execution.Events, "BUILD_RECOVERY_PAUSED", null,
+                        "Startup recovery found a RUNNING execution but no compatible executor is available."),
+                };
+                store.WriteExecution(paused);
+                UpdateLifecycle(state, "PAUSED_QUOTA", "RECOVERY_PAUSED");
+                recovered.Add(paused);
+                continue;
+            }
+
+            var stalled = execution with
+            {
+                Status = "STALLED",
+                LastActivityAt = now,
+                LastFailureCode = "startup_recovery_requires_explicit_resume",
+                Events = Append(execution.Events, "BUILD_RECOVERY_STALLED", selected.Account.Alias,
+                    "Startup recovery found a persisted RUNNING execution without a live process. It was reconciled as STALLED to avoid phantom RUNNING state during Host boot."),
+            };
+            store.WriteExecution(stalled);
+            UpdateLifecycle(state, "BLOCKED", "RECOVERY_STALLED");
+            recovered.Add(stalled);
+        }
+
+        return recovered;
     }
 
     public Task<V3BuildRuntimeResult> ContinueWithHumanAnswerAsync(
@@ -301,11 +431,11 @@ public sealed class V3BuildRuntimeService(
             Status = "RUNNING",
             HumanBlocker = null,
             LastActivityAt = clock.UtcNow,
-            Events = Append(execution.Events, "BUILD_CONTINUED", account.Alias, "Human answer registered; execution continued."),
+                Events = Append(execution.Events, $"{execution.MissionType.ToUpperInvariant()}_CONTINUED", account.Alias, "Human answer registered; execution continued."),
         };
         store.WriteExecution(resumed);
-        UpdateLifecycle(state, "BUILDING", "BUILDING");
-        return RunLoopAsync(resumed, mission, account, accounts, state, BuildHumanAnswerPrompt(answer), token);
+        UpdateLifecycle(state, execution.MissionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase) ? "VALIDATING" : "BUILDING", $"{execution.MissionType.ToUpperInvariant()}_RUNNING");
+        return RunLoopAsync(resumed, mission, account, accounts, state, BuildHumanAnswerPrompt(answer, mission.MissionType), token);
     }
 
     private async Task<V3BuildRuntimeResult> RunLoopAsync(
@@ -326,7 +456,7 @@ public sealed class V3BuildRuntimeService(
             token.ThrowIfCancellationRequested();
             var prompt = continuationPrompt ?? (execution.ContinueCount == 0
                 ? BuildInitialPrompt(mission)
-                : BuildContinuePrompt());
+                : BuildContinuePrompt(mission.MissionType));
             continuationPrompt = null;
             var outcome = await executor.RunAsync(
                 active,
@@ -346,8 +476,17 @@ public sealed class V3BuildRuntimeService(
                 SessionId = outcome.SessionId ?? execution.SessionId,
                 LastCheckpointSummary = ExtractCheckpoint(lastOutput) ?? execution.LastCheckpointSummary,
             };
+            var statusForClassification = outcome.FailureKind == ExternalFailureKind.Unknown
+                ? outcome.Status
+                : ExternalAgentRunStatus.Failed;
+            var classifiedOutcome = AgentRunOutcomeClassifier.Classify(
+                statusForClassification,
+                outcome.FailureKind,
+                outcome.FailureCode,
+                lastOutput,
+                now);
 
-            if (outcome.FailureKind == ExternalFailureKind.QuotaExhausted)
+            if (classifiedOutcome.Kind == AgentRunOutcomeKind.QuotaExhausted)
             {
                 var failover = V3BuildExecutorSelector.Select(accounts, excludeAliases: [active.Alias]);
                 if (failover.Account is null)
@@ -355,9 +494,9 @@ public sealed class V3BuildRuntimeService(
                     execution = execution with
                     {
                         Status = "PAUSED_QUOTA",
-                        LastFailureCode = outcome.FailureCode ?? "executor.quota_exhausted",
+                        LastFailureCode = outcome.FailureCode ?? classifiedOutcome.ReasonCode,
                         QuotaState = "EXHAUSTED",
-                        Events = Append(execution.Events, "BUILD_QUOTA_PAUSED", active.Alias, "Quota exhausted; no alternate executor available."),
+                        Events = Append(execution.Events, $"{MissionPrefix(mission)}_QUOTA_PAUSED", active.Alias, "Quota exhausted; no alternate executor available."),
                     };
                     store.WriteExecution(execution);
                     if (state is not null) UpdateLifecycle(state, "PAUSED_QUOTA", "PAUSED_QUOTA");
@@ -374,7 +513,7 @@ public sealed class V3BuildRuntimeService(
                     ContinueCount = execution.ContinueCount + 1,
                     ConsecutiveNoProgressCount = 0,
                     Continuations = [.. execution.Continuations, continuation],
-                    Events = Append(execution.Events, "BUILD_FAILOVER", active.Alias, "Quota failover continued on another executor."),
+                    Events = Append(execution.Events, $"{MissionPrefix(mission)}_FAILOVER", active.Alias, "Quota failover continued on another executor."),
                 };
                 store.WriteExecution(execution);
                 continuationPrompt = BuildQuotaFailoverPrompt(mission, execution.LastOutput, previousSnapshot, currentSnapshot);
@@ -382,14 +521,14 @@ public sealed class V3BuildRuntimeService(
                 continue;
             }
 
-            if (outcome.FailureKind == ExternalFailureKind.AuthenticationRequired)
+            if (classifiedOutcome.Kind == AgentRunOutcomeKind.AuthenticationRequired)
             {
                 execution = execution with
                 {
                     Status = "PAUSED_QUOTA",
-                    LastFailureCode = outcome.FailureCode ?? "executor.authentication_required",
+                    LastFailureCode = outcome.FailureCode ?? classifiedOutcome.ReasonCode,
                     QuotaState = "AUTH_REQUIRED",
-                    Events = Append(execution.Events, "BUILD_QUOTA_PAUSED", active.Alias, "Executor authentication required."),
+                    Events = Append(execution.Events, $"{MissionPrefix(mission)}_QUOTA_PAUSED", active.Alias, "Executor authentication required."),
                 };
                 store.WriteExecution(execution);
                 if (state is not null) UpdateLifecycle(state, "PAUSED_QUOTA", "PAUSED_QUOTA");
@@ -403,26 +542,54 @@ public sealed class V3BuildRuntimeService(
                     Status = "BLOCKED",
                     CompletedAt = now,
                     HumanBlocker = ExtractAfterMarker(lastOutput, "POSEIDON_HUMAN_BLOCKER"),
-                    Events = Append(execution.Events, "BUILD_HUMAN_BLOCKED", active.Alias, "Executor declared a human blocker."),
+                    Events = Append(execution.Events, $"{MissionPrefix(mission)}_HUMAN_BLOCKED", active.Alias, "Executor declared a human blocker."),
                 };
                 store.WriteExecution(execution);
                 if (state is not null) UpdateLifecycle(state, "BLOCKED", "BLOCKED");
                 return new V3BuildRuntimeResult(execution, null);
             }
 
-            if (lastOutput.Contains("POSEIDON_MISSION_COMPLETE", StringComparison.Ordinal))
+            var completionMarker = CompletionMarker(mission.MissionType);
+            if (lastOutput.Contains(completionMarker, StringComparison.Ordinal))
             {
+                var validationReport = mission.MissionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase)
+                    ? V3ValidationReport.Parse(lastOutput, currentSnapshot.Head)
+                    : null;
+                if (validationReport is not null && validationReport.HasBlockingFailures)
+                {
+                    execution = execution with
+                    {
+                        Status = "BLOCKED",
+                        CompletedAt = now,
+                        LastFailureCode = "validation_failures_remaining",
+                        ValidationReport = validationReport,
+                        Events = Append(execution.Events, "VALIDATION_BLOCKED", active.Alias, "Validation completion marker included blocking failures."),
+                    };
+                    store.WriteExecution(execution);
+                    if (state is not null) UpdateLifecycle(state, "BLOCKED", "VALIDATION_BLOCKED");
+                    return new V3BuildRuntimeResult(execution, null);
+                }
+
                 execution = execution with
                 {
                     Status = "COMPLETED",
                     CompletedAt = now,
                     FinalReport = lastOutput,
+                    ValidationReport = validationReport,
                     ConsecutiveNoProgressCount = 0,
-                    Events = Append(execution.Events, "BUILD_COMPLETED", active.Alias, "Executor declared BUILD complete."),
+                    Events = Append(execution.Events, $"{MissionPrefix(mission)}_COMPLETED", active.Alias, $"Executor declared {mission.MissionType.ToUpperInvariant()} complete."),
                 };
                 store.WriteExecution(execution);
                 understandStore.WriteMission(mission with { Status = "COMPLETED" });
-                if (state is not null) UpdateLifecycle(state, "VALIDATING", "BUILD_COMPLETED");
+                if (state is not null)
+                {
+                    UpdateLifecycle(
+                        state,
+                        mission.MissionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase)
+                            ? "READY_FOR_HUMAN_ACCEPTANCE"
+                            : "VALIDATING",
+                        $"{mission.MissionType.ToUpperInvariant()}_COMPLETED");
+                }
                 return new V3BuildRuntimeResult(execution, null);
             }
 
@@ -436,7 +603,7 @@ public sealed class V3BuildRuntimeService(
                     Status = "STALLED",
                     CompletedAt = now,
                     ConsecutiveNoProgressCount = noProgressCount,
-                    Events = Append(execution.Events, "BUILD_STALLED", active.Alias, "Two consecutive continuations ended without completion, blocker, quota or repository progress."),
+                    Events = Append(execution.Events, $"{MissionPrefix(mission)}_STALLED", active.Alias, "Two consecutive continuations ended without completion, blocker, quota or repository progress."),
                 };
                 store.WriteExecution(execution);
                 if (state is not null) UpdateLifecycle(state, "BLOCKED", "STALLED");
@@ -448,7 +615,7 @@ public sealed class V3BuildRuntimeService(
                 Status = "RUNNING",
                 ContinueCount = execution.ContinueCount + 1,
                 ConsecutiveNoProgressCount = noProgressCount,
-                Events = Append(execution.Events, "BUILD_CONTINUED", active.Alias, progressed
+                Events = Append(execution.Events, $"{MissionPrefix(mission)}_CONTINUED", active.Alias, progressed
                     ? "Execution ended without completion marker but repository progress was detected."
                     : "Execution ended without completion marker; one deterministic continuation queued."),
             };
@@ -477,14 +644,22 @@ public sealed class V3BuildRuntimeService(
         string detail) =>
         [.. events, new V3BuildExecutionEvent(type, clock.UtcNow, actor, detail)];
 
+    private static string MissionPrefix(V3BuildMissionRecord mission) =>
+        mission.MissionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase) ? "VALIDATION" : "BUILD";
+
+    private static string CompletionMarker(string missionType) =>
+        missionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase)
+            ? "POSEIDON_VALIDATION_COMPLETE"
+            : "POSEIDON_MISSION_COMPLETE";
+
     private static string BuildInitialPrompt(V3BuildMissionRecord mission) =>
-        mission.MissionText + Environment.NewLine + Environment.NewLine + ExitContract();
+        mission.MissionText + Environment.NewLine + Environment.NewLine + ExitContract(mission.MissionType);
 
-    private static string BuildContinuePrompt() =>
+    private static string BuildContinuePrompt(string missionType) =>
         """
-        Continue a BuildMission original autonomamente.
+        Continue a missão original autonomamente.
 
-        Você ainda não declarou POSEIDON_MISSION_COMPLETE.
+        Você ainda não declarou o marcador de conclusão correto.
 
         Inspecione o estado atual do repositório e continue de onde parou.
 
@@ -492,7 +667,7 @@ public sealed class V3BuildRuntimeService(
 
         Somente encerre ao satisfazer a Definition of Done ou encontrar um blocker genuinamente humano.
 
-        """ + Environment.NewLine + ExitContract();
+        """ + Environment.NewLine + ExitContract(missionType);
 
     private static string BuildQuotaFailoverPrompt(
         V3BuildMissionRecord mission,
@@ -515,20 +690,56 @@ public sealed class V3BuildRuntimeService(
         Preserve o trabalho válido.
         Continue exatamente de onde o executor anterior parou.
 
-        """ + Environment.NewLine + ExitContract();
+        """ + Environment.NewLine + ExitContract(mission.MissionType);
 
-    private static string BuildHumanAnswerPrompt(string answer) =>
+    private static string BuildHumanAnswerPrompt(string answer, string missionType) =>
         $"""
         O humano respondeu ao blocker anterior:
 
         {answer.Trim()}
 
-        Retome a BuildMission original. Preserve o trabalho válido e continue até POSEIDON_MISSION_COMPLETE ou novo POSEIDON_HUMAN_BLOCKER.
+        Retome a missão original. Preserve o trabalho válido e continue até o marcador de conclusão correto ou novo POSEIDON_HUMAN_BLOCKER.
 
-        """ + Environment.NewLine + ExitContract();
+        """ + Environment.NewLine + ExitContract(missionType);
 
-    public static string ExitContract() =>
+    private static string BuildRecoveryPrompt(V3BuildExecutionRecord execution, string missionType) =>
+        $"""
+        Continue a missão original após recuperação de restart/processo.
+
+        ExecutionId anterior: {execution.MissionExecutionId}
+        Último HEAD observado: {execution.CurrentHead ?? "unknown"}
+        Última saída observada:
+        {execution.LastOutput ?? "(sem saída registrada)"}
+
+        Não recomece o projeto.
+        Inspecione o repositório atual e preserve trabalho válido.
+        Continue até satisfazer a Definition of Done ou encontrar um blocker genuinamente humano.
+
+        """ + Environment.NewLine + ExitContract(missionType);
+
+    public static string ExitContract(string missionType = "BUILD") =>
+        missionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase)
+            ? """
+        ## MACHINE-READABLE EXIT CONTRACT
+
+        Você pode registrar progresso intermediário com:
+        POSEIDON_PROGRESS_CHECKPOINT
+
+        Isso NÃO encerra a missão.
+
+        POSEIDON_MISSION_COMPLETE NÃO conclui uma ValidationMission.
+
+        Somente quando acreditar que a VALIDAÇÃO está concluída, checklist aplicável tem FAIL=0, navegador foi usado quando aplicável e regressão foi realizada, finalize com:
+        POSEIDON_VALIDATION_COMPLETE
+
+        Se existir blocker que depende genuinamente do humano, finalize com:
+        POSEIDON_HUMAN_BLOCKER
+        seguido da descrição objetiva.
+
+        Não aguarde aprovação depois de checkpoints.
+        Continue autonomamente.
         """
+            : """
         ## MACHINE-READABLE EXIT CONTRACT
 
         Você pode registrar progresso intermediário com:
@@ -629,6 +840,27 @@ public interface IV3BuildExecutor
         CancellationToken token);
 }
 
+public sealed partial class V3BuildExecutionRecoveryHostedService(
+    V3BuildRuntimeService runtime,
+    AgentAccountRegistry accounts,
+    ILogger<V3BuildExecutionRecoveryHostedService> logger) : IHostedService
+{
+    public async Task StartAsync(CancellationToken cancellationToken)
+    {
+        var recovered = await runtime.RecoverRunningExecutionsAsync(accounts.List(), cancellationToken);
+        if (recovered.Count > 0)
+        {
+            LogRecovered(logger, recovered.Count);
+        }
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "V3 startup recovery reconciled {Count} persisted RUNNING mission execution(s).")]
+    private static partial void LogRecovered(ILogger logger, int count);
+}
+
 public sealed record V3BuildExecutorOutcome(
     ExternalAgentRunStatus Status,
     string Output,
@@ -698,6 +930,26 @@ public sealed class V3BuildRuntimeStore
             .Select(execution => execution!)
             .OrderByDescending(execution => execution.StartedAt)
             .FirstOrDefault();
+    }
+
+    public V3BuildExecutionRecord? LatestCompletedBuildForProject(string projectId) =>
+        ListExecutions()
+            .Where(execution =>
+                string.Equals(execution.ProjectId, projectId, StringComparison.Ordinal) &&
+                string.Equals(execution.MissionType, "BUILD", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(execution.Status, "COMPLETED", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(execution => execution.CompletedAt ?? execution.LastActivityAt)
+            .FirstOrDefault();
+
+    public IReadOnlyList<V3BuildExecutionRecord> ListExecutions()
+    {
+        var dir = ExecutionsDirectory();
+        if (!Directory.Exists(dir)) return [];
+        return [.. Directory.EnumerateFiles(dir, "*.json")
+            .Select(path => JsonSerializer.Deserialize<V3BuildExecutionRecord>(File.ReadAllText(path), Json))
+            .Where(execution => execution is not null)
+            .Select(execution => execution!)
+            .OrderByDescending(execution => execution.StartedAt)];
     }
 
     private string ExecutionPath(string executionId) => Path.Combine(ExecutionsDirectory(), $"{executionId}.json");
@@ -847,6 +1099,57 @@ public sealed record V3BuildExecutionRecord(
 {
     public string? LastCheckpointSummary { get; init; }
     public string? FinalReport { get; init; }
+    public V3ValidationReport? ValidationReport { get; init; }
+}
+
+public sealed record V3ValidationReport(
+    int RequirementsChecked,
+    int RequirementsPassed,
+    int RequirementsFailed,
+    int ChecklistTotal,
+    int ChecklistPass,
+    int ChecklistFixed,
+    int ChecklistNA,
+    int ChecklistFail,
+    int BrowserTestsPassed,
+    int BrowserTestsFailed,
+    int BrowserTestsSkipped,
+    int BugsFound,
+    int BugsFixed,
+    int BugsRemaining,
+    string? FinalHead)
+{
+    public bool HasBlockingFailures =>
+        RequirementsFailed > 0 ||
+        ChecklistFail > 0 ||
+        BrowserTestsFailed > 0 ||
+        BugsRemaining > 0;
+
+    public static V3ValidationReport Parse(string output, string? finalHead) =>
+        new(
+            Number(output, "RequirementsChecked"),
+            Number(output, "RequirementsPassed"),
+            Number(output, "RequirementsFailed"),
+            Number(output, "ChecklistTotal"),
+            Number(output, "ChecklistPass"),
+            Number(output, "ChecklistFixed"),
+            Number(output, "ChecklistNA"),
+            Number(output, "ChecklistFail"),
+            Number(output, "BrowserTestsPassed"),
+            Number(output, "BrowserTestsFailed"),
+            Number(output, "BrowserTestsSkipped"),
+            Number(output, "BugsFound"),
+            Number(output, "BugsFixed"),
+            Number(output, "BugsRemaining"),
+            finalHead);
+
+    private static int Number(string output, string key)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(
+            output,
+            $@"(?im)^\s*[-*]?\s*{System.Text.RegularExpressions.Regex.Escape(key)}\s*[:=]\s*(\d+)\b");
+        return match.Success && int.TryParse(match.Groups[1].Value, out var value) ? value : 0;
+    }
 }
 
 public sealed record V3BuildContinuationRecord(
@@ -879,6 +1182,7 @@ public sealed record V3BuildExecutionResponse(
     int ContinueCount,
     string? LastCheckpointSummary,
     string? LastOutput,
+    V3ValidationReport? ValidationReport,
     IReadOnlyList<V3BuildContinuationRecord> Continuations,
     IReadOnlyList<V3BuildExecutionEvent> Events)
 {
@@ -901,6 +1205,7 @@ public sealed record V3BuildExecutionResponse(
             execution.ContinueCount,
             execution.LastCheckpointSummary,
             execution.LastOutput,
+            execution.ValidationReport,
             execution.Continuations,
             execution.Events);
 }

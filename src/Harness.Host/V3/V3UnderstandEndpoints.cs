@@ -51,6 +51,12 @@ public static class V3UnderstandEndpoints
             .ProducesProblem(401)
             .ProducesProblem(404)
             .ProducesProblem(409);
+        group.MapPost("/missions/validate/compile", CompileValidationMissionAsync)
+            .Produces<V3BuildMissionResponse>()
+            .ProducesProblem(400)
+            .ProducesProblem(401)
+            .ProducesProblem(404)
+            .ProducesProblem(409);
         group.MapGet("/missions", ListMissionsAsync)
             .Produces<V3MissionPageResponse>()
             .ProducesProblem(400)
@@ -222,6 +228,53 @@ public static class V3UnderstandEndpoints
             context,
             V3ExecutorPreview.Select(accounts.List()),
             input.RecommendedExecutorAlias,
+            clock.UtcNow);
+        store.WriteMission(mission);
+        return Results.Ok(V3BuildMissionResponse.From(mission));
+    }
+
+    private static async Task<IResult> CompileValidationMissionAsync(
+        string projectId,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IProjectStore projects,
+        IWorkBoardStore board,
+        ISolicitationAttachmentStore attachments,
+        SolicitationAttachmentStorage attachmentStorage,
+        IDocumentCatalogStore documents,
+        IPrototypeStore prototypes,
+        Readiness.ProjectReadinessService readiness,
+        [FromServices] AgentAccountRegistry accounts,
+        IChannelLinkStore channelLinks,
+        IConfiguration configuration,
+        IClock clock,
+        CancellationToken token)
+    {
+        var resolved = await ResolveAsync(projectId, request, profiles, projects, token);
+        if (resolved.Result is not null) return resolved.Result;
+        var store = V3UnderstandStore.ForConfiguration(configuration);
+        var context = await V3ProjectContextBuilder.BuildAsync(
+            resolved.Profile!, resolved.Project!, board, attachments, documents, prototypes,
+            attachmentStorage, readiness, accounts, channelLinks, store, token);
+        if (!string.Equals(context.CurrentLifecycleState, "VALIDATING", StringComparison.OrdinalIgnoreCase))
+        {
+            return Problem(409, "validation_not_reached", "VALIDATION mission compilation requires lifecycle VALIDATING.");
+        }
+
+        if (context.PrimaryRequirementsCoverage.Any(source => !source.Complete))
+        {
+            return Problem(
+                409,
+                "primary_requirements_incomplete",
+                "VALIDATION mission compilation requires 100% coverage of primary requirement sources.");
+        }
+
+        var buildExecution = V3BuildRuntimeStore.ForConfiguration(configuration)
+            .LatestCompletedBuildForProject(projectId);
+        var mission = V3MissionCompiler.CompileValidationMission(
+            context,
+            buildExecution,
+            V3ValidationExecutorPreview.Select(accounts.List(), buildExecution?.ExecutorAccountId),
             clock.UtcNow);
         store.WriteMission(mission);
         return Results.Ok(V3BuildMissionResponse.From(mission));
@@ -822,6 +875,19 @@ public static class V3ExecutorPreview
     }
 }
 
+public static class V3ValidationExecutorPreview
+{
+    public static V3RecommendedExecutor Select(
+        IReadOnlyList<AgentAccountContract> accounts,
+        string? previousBuildExecutor)
+    {
+        var selected = V3BuildExecutorSelector.Select(accounts, previousBuildExecutor);
+        return selected.Account is null
+            ? new V3RecommendedExecutor(null, "BLOCKED", selected.Reason)
+            : new V3RecommendedExecutor(selected.Account.Alias, "AVAILABLE", selected.Reason);
+    }
+}
+
 public static class V3KnowledgeSelector
 {
     public static IReadOnlyList<V3KnowledgeReference> Select(V3EffectiveStackContract stack)
@@ -858,6 +924,14 @@ public static class V3KnowledgeSelector
         return refs;
     }
 
+    public static IReadOnlyList<V3KnowledgeReference> SelectForValidation(V3EffectiveStackContract stack)
+    {
+        var refs = Select(stack).ToList();
+        refs.Add(Ref("docs/product/qa-standards.md#8-toolchain-local-de-navegador", "Toolchain E2E local e browser-first"));
+        refs.Add(Ref("~/Downloads/checklist-auto-auditoria-ia.md", "Checklist genérico de qualidade para autoauditoria final"));
+        return [.. refs.DistinctBy(item => item.Path)];
+    }
+
     private static V3KnowledgeReference Ref(string path, string reason) => new(path, reason);
 }
 
@@ -883,6 +957,36 @@ public static class V3MissionCompiler
             now,
             "Bruna",
             "write-capable project executor",
+            text,
+            context.Artifacts,
+            knowledge,
+            context.EffectiveStack,
+            context.Deadline,
+            context.Repository,
+            "COMPILED",
+            executor)
+        {
+            PrimaryRequirementsCoverage = context.PrimaryRequirementsCoverage,
+        };
+    }
+
+    public static V3BuildMissionRecord CompileValidationMission(
+        V3ProjectContextResponse context,
+        V3BuildExecutionRecord? buildExecution,
+        V3RecommendedExecutor executor,
+        DateTimeOffset now)
+    {
+        var missionId = UlidValue.New(now).ToString();
+        var knowledge = V3KnowledgeSelector.SelectForValidation(context.EffectiveStack);
+        var text = ComposeValidationMissionText(context, knowledge, executor, buildExecution);
+        return new V3BuildMissionRecord(
+            missionId,
+            context.ProjectId,
+            "VALIDATE",
+            1,
+            now,
+            "Bruna",
+            "write-capable project executor with browser validation capability",
             text,
             context.Artifacts,
             knowledge,
@@ -944,7 +1048,8 @@ public static class V3MissionCompiler
             "",
             "## ARCHITECTURAL CONSTRAINTS",
             "- Preserve o fluxo V3: UNDERSTAND → BUILD → VALIDATE → HUMAN ACCEPTANCE.",
-            "- Não recrie micro-cards, Council, review por diff ou engine paralela.",
+            "- Use uma única missão ampla e um executor persistente por projeto; não recrie workflows intermediários ou loops de revisão obrigatórios.",
+            "- O executor pode assumir competências de arquitetura, backend, frontend, dados e QA conforme necessário.",
             "- Use decisões técnicas reversíveis sem pedir autorização humana.",
             "- Nunca coloque segredos em Git, logs, prompts ou evidências.",
             "",
@@ -1019,6 +1124,107 @@ public static class V3MissionCompiler
             "- Testes executados.",
             "- Commits.",
             "- Blockers reais, se houver.",
+            "",
+            "## RECOMMENDED EXECUTOR",
+            $"- {executor.AccountAlias ?? "BLOCKED"} — {executor.Reason}",
+        ]);
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private static string ComposeValidationMissionText(
+        V3ProjectContextResponse context,
+        IReadOnlyList<V3KnowledgeReference> knowledge,
+        V3RecommendedExecutor executor,
+        V3BuildExecutionRecord? buildExecution)
+    {
+        var state = context.State;
+        var lines = new List<string>
+        {
+            $"# VALIDATION MISSION — {context.ProjectName}",
+            "",
+            "## VALIDATION OBJECTIVE",
+            "Validar tecnicamente o produto entregue contra os requisitos originais, corrigir bugs encontrados e deixar o projeto pronto para homologação humana.",
+            "",
+            "## ORIGINAL REQUIREMENTS AND ARTIFACTS",
+            "- Leia integralmente os artefatos originais referenciados como fontes primárias antes de validar.",
+            $"- PrimaryRequirementsCoverage: {PrimaryCoveragePercent(context.PrimaryRequirementsCoverage)}%.",
+        };
+        lines.AddRange(context.Artifacts.Select(artifact =>
+            $"- attachment:{artifact.ArtifactId} — {artifact.Name} ({artifact.ContentType}, role={artifact.Role}, sha256={artifact.Sha256})"));
+        lines.AddRange(context.Documents.Select(document =>
+            $"- document:{document.DocumentId} — {document.Title} ({document.Kind}, state={document.State}, version={document.CurrentVersion})"));
+        lines.AddRange([
+            "",
+            "## PRODUCT CONTEXT",
+            state?.ProductGoal ?? context.ProjectSummary ?? context.OriginalIntent ?? $"Validar {context.ProjectName}.",
+            "",
+            "## ACCEPTANCE CRITERIA",
+        ]);
+        lines.AddRange((state?.AcceptanceCriteria ?? context.AcceptanceCriteria).Select(item => $"- {item}"));
+        lines.AddRange([
+            "",
+            "## EFFECTIVE STACK",
+            $"- Frontend: {context.EffectiveStack.Frontend}",
+            $"- Backend: {context.EffectiveStack.Backend}",
+            $"- Database: {context.EffectiveStack.Database}",
+            $"- Testing: {context.EffectiveStack.Testing}",
+            "",
+            "## REPOSITORY AND BUILD RESULT",
+            $"- Repository: {context.Repository}",
+            $"- Current HEAD before validation: {buildExecution?.CurrentHead ?? "unknown"}",
+            $"- BuildExecutionId: {buildExecution?.MissionExecutionId ?? "not recorded"}",
+            $"- Build executor: {buildExecution?.ExecutorAccountId ?? "unknown"}",
+            "",
+            "## RUNTIME",
+            "- Use scripts operacionais do produto quando existirem: scripts/dev-up.sh, scripts/dev-down.sh, scripts/dev-status.sh, scripts/dev-access.sh.",
+            "- API e frontend rodam no host; banco pode usar Docker somente quando necessário.",
+            "- Não crie sandbox ou containers para API/frontend.",
+            "",
+            "## BROWSER-FIRST POLICY",
+            "- Se uma funcionalidade é usada pelo cliente pela interface, valide por navegador real.",
+            "- Prova funcional esperada: Browser → Frontend → API real → Banco real → resultado visível novamente no Browser.",
+            "- API e banco podem ser usados para diagnóstico, mas não substituem prova funcional pelo frontend.",
+            "- Execute ./poseidon tools e2e ou o doctor equivalente antes de alegar falta de navegador.",
+            "",
+            "## QUALITY CHECKLIST",
+            "- Use ~/Downloads/checklist-auto-auditoria-ia.md como checklist genérico obrigatório.",
+            "- Não transforme o checklist em 244 tarefas ou 244 chamadas LLM.",
+            "- Classifique internamente cada item aplicável como PASS, FIXED, N/A ou FAIL.",
+            "- FAIL aplicável final precisa ser ZERO.",
+            "",
+            "## KNOWLEDGE SOURCES",
+        ]);
+        lines.AddRange(knowledge.Select(item => $"- {item.Path} — {item.Reason}"));
+        lines.AddRange([
+            "",
+            "## AUTONOMY CONTRACT",
+            "- Teste como usuário real, encontre problemas, corrija, reteste e faça regressão.",
+            "- Não reporte cada bug ao humano.",
+            "- Não peça autorização entre correções técnicas reversíveis.",
+            "- Faça commits úteis das correções.",
+            "- Continue autonomamente até satisfazer a conclusão de validação ou encontrar blocker genuinamente humano.",
+            "",
+            "## VALIDATION REPORT SUMMARY REQUIRED",
+            "- RequirementsChecked: <n>",
+            "- RequirementsPassed: <n>",
+            "- RequirementsFailed: <n>",
+            "- ChecklistTotal: <n>",
+            "- ChecklistPass: <n>",
+            "- ChecklistFixed: <n>",
+            "- ChecklistNA: <n>",
+            "- ChecklistFail: <n>",
+            "- BrowserTestsPassed: <n>",
+            "- BrowserTestsFailed: <n>",
+            "- BrowserTestsSkipped: <n>",
+            "- BugsFound: <n>",
+            "- BugsFixed: <n>",
+            "- BugsRemaining: <n>",
+            "",
+            "## MACHINE-READABLE EXIT CONTRACT",
+            "- Checkpoints intermediários podem conter POSEIDON_PROGRESS_CHECKPOINT, mas isso NÃO encerra a missão.",
+            "- POSEIDON_MISSION_COMPLETE NÃO conclui uma validação.",
+            "- Somente finalize com POSEIDON_VALIDATION_COMPLETE quando requisitos obrigatórios tiverem sido considerados, browser/E2E tiver sido executado quando aplicável, checklist concluído, FAIL final = 0, regressão realizada e nenhum blocker conhecido existir.",
+            "- Se existir blocker genuinamente humano, finalize com POSEIDON_HUMAN_BLOCKER seguido da descrição objetiva.",
             "",
             "## RECOMMENDED EXECUTOR",
             $"- {executor.AccountAlias ?? "BLOCKED"} — {executor.Reason}",
