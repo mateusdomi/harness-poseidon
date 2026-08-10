@@ -3,6 +3,7 @@ using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Contracts;
 using Harness.Modules.Readiness.Contracts;
 using Harness.Persistence.Abstractions.Projects;
+using Microsoft.Extensions.Configuration;
 
 namespace Harness.UnitTests.V3;
 
@@ -54,6 +55,68 @@ public sealed class V3FoundationTests : IDisposable
         Assert.Equal(4, response.WriteExecutorSlots);
         Assert.Equal(1, response.ReviewValidationSlots);
         Assert.Equal(4, response.EffectiveExecutionSlots);
+    }
+
+    [Fact]
+    public void ReservedAccountsDoNotContributeWriteExecutionSlots()
+    {
+        var response = V3Capacity.From(
+            [
+                Account("worker-kimi-ui", ExecutorCatalog.KimiCode, [AgentRoles.ProjectExecutor], AgentAccountState.Disabled),
+                Account("worker-claude-secondary", ExecutorCatalog.ClaudeCode, [AgentRoles.ProjectExecutor]),
+            ],
+            DateTimeOffset.UnixEpoch);
+
+        Assert.Equal(1, response.WriteExecutorSlots);
+        Assert.Equal("Disabled", response.Accounts.Single(account => account.Alias == "worker-kimi-ui").State);
+    }
+
+    [Fact]
+    public void V3ActiveDisablesLegacyCardDispatcherUnlessExplicitlyReenabled()
+    {
+        var settings = new Harness.Host.Agents.AgentRunSettings
+        {
+            Enabled = true,
+            AutoDispatchEnabled = true,
+            ControlledRoot = _directory,
+        };
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Harness:V3:Active"] = "true",
+            })
+            .Build();
+
+        Assert.False(V3LegacyAutoDispatchPolicy.ShouldStartLegacyCardDispatcher(settings, configuration));
+
+        var overridden = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Harness:V3:Active"] = "true",
+                ["Harness:AgentRuns:LegacyAutoDispatchEnabled"] = "true",
+            })
+            .Build();
+
+        Assert.True(V3LegacyAutoDispatchPolicy.ShouldStartLegacyCardDispatcher(settings, overridden));
+    }
+
+    [Fact]
+    public void AccountUsagePolicyReservedMaterializesAsDisabled()
+    {
+        var definition = new AgentAccountDefinition
+        {
+            Alias = "worker-kimi-ui",
+            ProviderKind = "moonshot",
+            ExecutorId = ExecutorCatalog.KimiCode,
+            CredentialRef = "keychain://poseidon/worker-kimi-ui",
+            AllowedRoles = [AgentRoles.ProjectExecutor],
+            UsagePolicy = AgentAccountUsagePolicies.Reserved,
+        };
+
+        var contract = AgentAccountConfigurationLoader.ToContract(definition);
+
+        Assert.Equal(AgentAccountState.Disabled, contract.State);
+        Assert.Equal("account.reserved", contract.FailureReason);
     }
 
     [Fact]

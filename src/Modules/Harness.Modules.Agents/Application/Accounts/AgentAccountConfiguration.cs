@@ -117,6 +117,18 @@ public sealed record AgentAccountDefinition
 
     [JsonPropertyName("enabled")]
     public bool Enabled { get; init; } = true;
+
+    [JsonPropertyName("usagePolicy")]
+    public string UsagePolicy { get; init; } = AgentAccountUsagePolicies.Automatic;
+}
+
+public static class AgentAccountUsagePolicies
+{
+    public const string Automatic = "AUTOMATIC";
+    public const string Reserved = "RESERVED";
+
+    public static bool IsReserved(string? value) =>
+        string.Equals(value, Reserved, StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>Arquivo de contas do operador (`<home>/.harness/agent-accounts.json`).</summary>
@@ -234,7 +246,10 @@ public static class AgentAccountConfigurationLoader
                 .Distinct(StringComparer.Ordinal)];
         // F-09: contas cujo executor não tem adapter real não podem fingir elegibilidade.
         // Nascem Unavailable para ficar visíveis na frota sem consumir tentativas de despacho.
-        var state = !ExternalAgentExecutorFactory.IsImplemented(definition.ExecutorId)
+        var reserved = AgentAccountUsagePolicies.IsReserved(definition.UsagePolicy);
+        var state = reserved
+            ? AgentAccountState.Disabled
+            : !ExternalAgentExecutorFactory.IsImplemented(definition.ExecutorId)
             ? AgentAccountState.Unavailable
             : definition.Enabled
                 ? AgentAccountState.AuthenticationRequired
@@ -256,7 +271,7 @@ public static class AgentAccountConfigurationLoader
             Quota: null,
             CooldownUntil: null,
             LastSuccessfulSmokeAt: null,
-            FailureReason: null,
+            FailureReason: reserved ? "account.reserved" : null,
             definition.Priority);
     }
 

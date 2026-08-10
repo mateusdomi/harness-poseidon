@@ -28,7 +28,7 @@ rotate_host_log() {
 }
 
 usage() {
-  echo "Uso: ./poseidon {start|status|stop|restart|doctor|logs|check-update|update|bruna|agent|agents|chief|graph|release-candidate} [opções]"
+  echo "Uso: ./poseidon {start|status|stop|restart|doctor|logs|check-update|update|bruna|agent|agents|chief|graph|tools|release-candidate} [opções]"
   echo "  start [--no-browser] [--no-bruna] [--port PORT] [--demo]"
   echo "  check-update [--source <dir-do-pacote-novo>]"
   echo "  update [--source <dir-do-pacote-novo>]"
@@ -49,7 +49,10 @@ usage() {
   echo "  agents logout <account-id>"
   echo "  agents probe <account-id>"
   echo "  agents status <account-id>"
+  echo "  agents disable <account-id>"
+  echo "  agents enable <account-id>"
   echo "  chief set <account-id>"
+  echo "  tools e2e"
 }
 
 json_number() {
@@ -513,6 +516,18 @@ chief_poseidon() {
   esac
 }
 
+tools_poseidon() {
+  local verb="${1:-}"
+  [[ $# -eq 0 ]] || shift
+  case "${verb}" in
+    e2e)
+      [[ -x "${POSEIDON_ROOT}/tools/e2e/doctor.sh" ]] || chmod +x "${POSEIDON_ROOT}/tools/e2e/doctor.sh"
+      "${POSEIDON_ROOT}/tools/e2e/doctor.sh"
+      ;;
+    *) echo "Uso: ./poseidon tools e2e" >&2; return 2 ;;
+  esac
+}
+
 status_poseidon() {
   recover_stale_state
   if ! is_running; then echo "Poseidon: parado"; return 1; fi
@@ -619,6 +634,7 @@ case "${1:-}" in
   agents) shift; agents_poseidon "$@" ;;
   chief) shift; chief_poseidon "$@" ;;
   graph) shift; graph_poseidon "$@" ;;
+  tools) shift; tools_poseidon "$@" ;;
   logs) mkdir -p "${POSEIDON_LOG_DIR}"; [[ "${2:-}" == "--follow" ]] && exec tail -f "${POSEIDON_HOST_LOG}" || { echo "Logs: ${POSEIDON_LOG_DIR}"; tail -n 200 "${POSEIDON_HOST_LOG}" 2>/dev/null || true; } ;;
   bruna) shift; bruna_poseidon "$@" ;;
   release-candidate) [[ -x "${POSEIDON_ROOT}/tools/backend/verify-release-candidate.sh" ]] || { echo "Comando disponível apenas no checkout de desenvolvimento." >&2; exit 2; }; exec "${POSEIDON_ROOT}/tools/backend/verify-release-candidate.sh" ;;

@@ -496,6 +496,10 @@ public static class HostApplication
             .GetSection("Harness:AgentRuns")
             .Get<AgentRunSettings>() ?? new AgentRunSettings();
         builder.Services.AddSingleton(agentRunSettings);
+        var legacyCardAutoDispatchEnabled =
+            V3LegacyAutoDispatchPolicy.ShouldStartLegacyCardDispatcher(
+                agentRunSettings,
+                builder.Configuration);
 
         // Fase 9: especialidades do playbook (§4) como dados no catálogo, por tenant.
         builder.Services.AddSingleton<PlaybookSpecialtySeeder>();
@@ -611,9 +615,12 @@ public static class HostApplication
             // VIVACIDADE do loop: pulso compartilhado (loop escreve, watchdog e /health leem) e o
             // vigia determinístico que derruba o falso verde e denuncia ociosidade indevida. Ordem
             // do dono 2026-08-08: a fábrica nunca pode ficar >5min parada havendo trabalho e executor.
-            builder.Services.AddSingleton(new ChiefLoopHeartbeat(DateTimeOffset.UtcNow));
-            builder.Services.AddHostedService<ChiefBacklogLoopService>();
-            builder.Services.AddHostedService<ChiefLoopWatchdogService>();
+            if (legacyCardAutoDispatchEnabled)
+            {
+                builder.Services.AddSingleton(new ChiefLoopHeartbeat(DateTimeOffset.UtcNow));
+                builder.Services.AddHostedService<ChiefBacklogLoopService>();
+                builder.Services.AddHostedService<ChiefLoopWatchdogService>();
+            }
             builder.Services.AddSingleton(new AttemptArtifactArchive(
                 string.IsNullOrWhiteSpace(agentRunSettings.ArchiveRoot)
                     ? AttemptArtifactArchive.DefaultRoot
@@ -622,6 +629,7 @@ public static class HostApplication
                 services.GetRequiredService<AccountProfileProvisioner>()));
             builder.Services.AddSingleton<Harness.Host.V3.IV3BuildExecutor, Harness.Host.V3.V3ExternalBuildExecutor>();
             builder.Services.AddSingleton<Harness.Host.V3.V3BuildRuntimeService>();
+            builder.Services.AddHostedService<Harness.Host.V3.V3BuildExecutionRecoveryHostedService>();
 
             // GP-06: com AgentRuns habilitado e raiz controlada declarada, o turno de conversa
             // do Chefe passa a ser executado DE VERDADE pela CLI (assinatura Claude Code da

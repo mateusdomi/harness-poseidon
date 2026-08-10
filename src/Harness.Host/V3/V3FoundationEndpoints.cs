@@ -65,6 +65,18 @@ public static class V3FoundationEndpoints
             .ProducesProblem(401)
             .ProducesProblem(404)
             .ProducesProblem(409);
+        group.MapPost("/agent-accounts/{alias}/disable", DisableAccountAsync)
+            .Produces<V3AgentAccountsResponse>()
+            .ProducesProblem(400)
+            .ProducesProblem(401)
+            .ProducesProblem(404)
+            .ProducesProblem(409);
+        group.MapPost("/agent-accounts/{alias}/enable", EnableAccountAsync)
+            .Produces<V3AgentAccountsResponse>()
+            .ProducesProblem(400)
+            .ProducesProblem(401)
+            .ProducesProblem(404)
+            .ProducesProblem(409);
         group.MapGet("/chief-assignment", GetChiefAssignmentAsync)
             .Produces<V3ChiefAssignmentResponse>()
             .ProducesProblem(401);
@@ -246,6 +258,83 @@ public static class V3FoundationEndpoints
         catch (AgentAccountValidationException exception)
         {
             return Problem(400, "invalid_agent_account", exception.Code);
+        }
+    }
+
+    private static async Task<IResult> DisableAccountAsync(
+        string alias,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        AgentRunSettings settings,
+        [FromServices] AgentAccountRegistry registry,
+        AccountAvailabilityLedger availability,
+        IClock clock,
+        CancellationToken token) =>
+        await SetAccountUsagePolicyAsync(
+            alias,
+            AgentAccountUsagePolicies.Reserved,
+            request,
+            profiles,
+            settings,
+            registry,
+            availability,
+            clock,
+            token);
+
+    private static async Task<IResult> EnableAccountAsync(
+        string alias,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        AgentRunSettings settings,
+        [FromServices] AgentAccountRegistry registry,
+        AccountAvailabilityLedger availability,
+        IClock clock,
+        CancellationToken token) =>
+        await SetAccountUsagePolicyAsync(
+            alias,
+            AgentAccountUsagePolicies.Automatic,
+            request,
+            profiles,
+            settings,
+            registry,
+            availability,
+            clock,
+            token);
+
+    private static async Task<IResult> SetAccountUsagePolicyAsync(
+        string alias,
+        string usagePolicy,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        AgentRunSettings settings,
+        AgentAccountRegistry registry,
+        AccountAvailabilityLedger availability,
+        IClock clock,
+        CancellationToken token)
+    {
+        if (await LocalProfileSession.ResolveAsync(request, profiles, token) is null) return SessionRequired();
+        try
+        {
+            AgentAccountRegistry.ValidateAlias(alias);
+            var path = AgentAccountConfigurationWriter.SetUsagePolicy(settings.AccountsFilePath, alias, usagePolicy);
+            foreach (var definition in AgentAccountConfigurationLoader.LoadDefinitions(path))
+            {
+                registry.Register(AgentAccountConfigurationLoader.ToContract(definition));
+            }
+
+            return Results.Ok(V3Accounts.From(
+                AgentAccountConfigurationLoader.LoadDefinitions(path),
+                registry.List(),
+                availability.List(),
+                clock.UtcNow));
+        }
+        catch (AgentAccountValidationException exception)
+        {
+            return Problem(exception.Code == "account.not_found" ? 404 : 400, "invalid_agent_account", exception.Code);
+        }
+        catch (IOException)
+        {
+            return Problem(409, "account_configuration_write_failed", "The local account configuration file could not be written.");
         }
     }
 
@@ -566,6 +655,7 @@ public static class V3Accounts
                     definition.ConcurrencyLimit,
                     definition.Priority,
                     definition.Enabled,
+                    definition.UsagePolicy,
                     state.ToString(),
                     account?.Health.ToString() ?? AgentAccountHealth.Unknown.ToString(),
                     observed?.CooldownUntil,
@@ -598,6 +688,33 @@ public static class AgentAccountConfigurationWriter
             .OrderBy(account => account.Alias, StringComparer.Ordinal)
             .ToArray();
         Write(path, new AgentAccountsFile { Accounts = accounts });
+        return path;
+    }
+
+    public static string SetUsagePolicy(string? configuredPath, string alias, string usagePolicy)
+    {
+        AgentAccountRegistry.ValidateAlias(alias);
+        var path = Path.GetFullPath(string.IsNullOrWhiteSpace(configuredPath)
+            ? AgentAccountConfigurationLoader.DefaultFilePath
+            : configuredPath);
+        var definitions = AgentAccountConfigurationLoader.LoadDefinitions(path);
+        var found = false;
+        var rewritten = definitions.Select(definition =>
+        {
+            if (!string.Equals(definition.Alias, alias, StringComparison.OrdinalIgnoreCase))
+            {
+                return definition;
+            }
+
+            found = true;
+            return definition with { UsagePolicy = usagePolicy };
+        }).ToArray();
+        if (!found)
+        {
+            throw new AgentAccountValidationException("account.not_found");
+        }
+
+        Write(path, new AgentAccountsFile { Accounts = rewritten });
         return path;
     }
 
@@ -708,6 +825,7 @@ public sealed record V3AgentAccountItem(
     int ConcurrencyLimit,
     int Priority,
     bool Enabled,
+    string UsagePolicy,
     string State,
     string Health,
     DateTimeOffset? ReturnsAt,
@@ -771,6 +889,7 @@ public sealed class V3AccountUpsertRequest
     public int ConcurrencyLimit { get; init; } = 1;
     public int Priority { get; init; } = 100;
     public bool Enabled { get; init; } = true;
+    public string UsagePolicy { get; init; } = AgentAccountUsagePolicies.Automatic;
 
     public AgentAccountDefinition ToDefinition()
     {
@@ -786,6 +905,7 @@ public sealed class V3AccountUpsertRequest
             ConcurrencyLimit = Math.Max(1, ConcurrencyLimit),
             Priority = Priority,
             Enabled = Enabled,
+            UsagePolicy = UsagePolicy,
         };
     }
 

@@ -15,6 +15,7 @@ import pathlib
 import shutil
 import subprocess
 import sys
+import re
 from typing import Any
 
 
@@ -122,14 +123,14 @@ def set_availability(alias: str, state: str, reason: str) -> None:
 
 def command_list(_: argparse.Namespace) -> int:
     availability = availability_by_alias()
-    print("ALIAS\tPROVIDER\tEXECUTOR\tROLES\tENABLED\tAVAILABILITY")
+    print("ALIAS\tPROVIDER\tEXECUTOR\tROLES\tENABLED\tUSAGE_POLICY\tAVAILABILITY")
     for account in accounts_doc().get("accounts", []):
         alias = account.get("alias", "")
         state = availability.get(alias, {}).get("State", "Unknown")
         roles = ",".join(account.get("allowedRoles", []))
         print(
             f"{alias}\t{account.get('providerKind','')}\t{account.get('executorId','')}\t"
-            f"{roles}\t{account.get('enabled', False)}\t{state}"
+            f"{roles}\t{account.get('enabled', False)}\t{account.get('usagePolicy', 'AUTOMATIC')}\t{state}"
         )
     return 0
 
@@ -163,6 +164,7 @@ def command_add(args: argparse.Namespace) -> int:
             "concurrencyLimit": 1,
             "priority": priority,
             "enabled": True,
+            "usagePolicy": "AUTOMATIC",
         }
     )
     save_json(ACCOUNTS_FILE, doc)
@@ -186,10 +188,57 @@ def command_add(args: argparse.Namespace) -> int:
     return 0
 
 
+def open_url_if_present(line: str, opened: set[str]) -> None:
+    for match in re.findall(r"https?://[^\s)>\"]+", line):
+        url = match.rstrip(".,;")
+        if url in opened:
+            continue
+        opened.add(url)
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            print(f"Browser aberto para autenticação: {url}", flush=True)
+        else:
+            print(f"Abra no navegador: {url}", flush=True)
+
+
 def run_interactive(account: dict[str, Any], argv: list[str]) -> int:
     ensure_dirs(account)
     env = account_env(account)
     return subprocess.call(argv, env=env)
+
+
+def run_auth_flow(account: dict[str, Any], argv: list[str], timeout_seconds: int = 900) -> int:
+    ensure_dirs(account)
+    env = account_env(account)
+    opened: set[str] = set()
+    process = subprocess.Popen(
+        argv,
+        env=env,
+        cwd=str(account_home(account["alias"])),
+        text=True,
+        stdin=sys.stdin,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        bufsize=1,
+    )
+    deadline = dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=timeout_seconds)
+    assert process.stdout is not None
+    while True:
+        line = process.stdout.readline()
+        if line:
+            print(line, end="", flush=True)
+            open_url_if_present(line, opened)
+        elif process.poll() is not None:
+            return process.returncode or 0
+        elif dt.datetime.now(dt.timezone.utc) >= deadline:
+            process.terminate()
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                process.kill()
+            set_availability(account["alias"], "Unavailable", "availability.auth_expired")
+            print("AUTH_PENDING_EXPIRED: rode auth novamente quando puder concluir no navegador.", flush=True)
+            return 124
 
 
 def command_auth(args: argparse.Namespace) -> int:
@@ -198,18 +247,50 @@ def command_auth(args: argparse.Namespace) -> int:
         print(f"Autenticando Claude isolado: {args.account_id}")
         print(f"CLAUDE_CONFIG_DIR={account_home(args.account_id) / 'config'}")
         print("Use o fluxo nativo do Claude Code no navegador. Não informe senha ao Poseidon.")
-        code = run_interactive(account, ["claude"])
+        set_availability(args.account_id, "Unavailable", "availability.auth_pending")
+        code = run_auth_flow(account, ["claude"])
     elif account["executorId"] == "codex":
         print(f"Autenticando Codex isolado: {args.account_id}")
         print(f"CODEX_HOME={account_home(args.account_id) / 'codex'}")
         print("Use o fluxo nativo do Codex no navegador/device auth. Não informe senha ao Poseidon.")
-        code = run_interactive(account, ["codex", "login", "--device-auth"])
+        set_availability(args.account_id, "Unavailable", "availability.auth_pending")
+        code = run_auth_flow(account, ["codex", "login", "--device-auth"])
     else:
         raise SystemExit(f"Auth nativo não implementado para executor {account['executorId']}")
     if code != 0:
         set_availability(args.account_id, "Unavailable", "availability.auth_failed")
         return code
     return command_probe(args)
+
+
+def set_account_usage_policy(alias: str, usage_policy: str, enabled: bool) -> None:
+    doc = accounts_doc()
+    found = False
+    for account in doc["accounts"]:
+        if account.get("alias") == alias:
+            account["usagePolicy"] = usage_policy
+            account["enabled"] = enabled
+            found = True
+            break
+    if not found:
+        raise SystemExit(f"Conta não encontrada: {alias}")
+    save_json(ACCOUNTS_FILE, doc)
+
+
+def command_disable(args: argparse.Namespace) -> int:
+    find_account(args.account_id)
+    set_account_usage_policy(args.account_id, "RESERVED", False)
+    set_availability(args.account_id, "Unavailable", "account.reserved")
+    print(f"Conta reservada/desabilitada para auto-dispatch: {args.account_id}")
+    return 0
+
+
+def command_enable(args: argparse.Namespace) -> int:
+    find_account(args.account_id)
+    set_account_usage_policy(args.account_id, "AUTOMATIC", True)
+    set_availability(args.account_id, "Unavailable", "availability.not_probed")
+    print(f"Conta reabilitada para uso automático: {args.account_id}")
+    return 0
 
 
 def command_logout(args: argparse.Namespace) -> int:
@@ -302,6 +383,8 @@ def command_status(args: argparse.Namespace) -> int:
     print(f"Provider: {account.get('providerKind')}")
     print(f"Executor: {account.get('executorId')}")
     print(f"Roles: {','.join(account.get('allowedRoles', []))}")
+    print(f"UsagePolicy: {account.get('usagePolicy', 'AUTOMATIC')}")
+    print(f"Enabled: {account.get('enabled', True)}")
     print(f"AuthState: {auth_state}")
     print(f"Availability: {availability.get('State', 'Unknown')}")
     print(f"Reason: {availability.get('ReasonCode', 'unknown')}")
@@ -345,6 +428,8 @@ def build_parser() -> argparse.ArgumentParser:
         ("logout", command_logout),
         ("probe", command_probe),
         ("status", command_status),
+        ("disable", command_disable),
+        ("enable", command_enable),
     ]:
         p = sub.add_parser(name)
         p.add_argument("account_id")
