@@ -242,8 +242,13 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         // Uma primeira resposta que não respeita o schema recebe UMA tentativa de reparo,
         // retomando a mesma sessão. Persistir num loop seria queimar cota sem ganho.
         ChiefTurnOutput? validated = TryParse(
-            result.FinalMessage, communicationContext, out var parseError);
+            result.FinalMessage, communicationContext, out var parseError, out var parseKind);
         var sessionId = result.SessionId;
+        if (validated is null && parseKind == ChiefTurnParseFailureKind.NoJson)
+        {
+            validated = TryParseNaturalChat(result.FinalMessage, communicationContext, out parseError);
+        }
+
         if (validated is null && sessionId is { Length: > 0 })
         {
             var repair = await RunAsync(
@@ -254,7 +259,11 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
                 request with { SessionId = sessionId },
                 cancellationToken);
             sessionId = repair.SessionId ?? sessionId;
-            validated = TryParse(repair.FinalMessage, communicationContext, out parseError);
+            validated = TryParse(repair.FinalMessage, communicationContext, out parseError, out parseKind);
+            if (validated is null && parseKind == ChiefTurnParseFailureKind.NoJson)
+            {
+                validated = TryParseNaturalChat(repair.FinalMessage, communicationContext, out parseError);
+            }
             result = repair;
         }
 
@@ -296,7 +305,15 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
                 request with { SessionId = sessionId },
                 cancellationToken);
             sessionId = sectionRun.SessionId ?? sessionId;
-            var final = TryParse(sectionRun.FinalMessage, communicationContext, out var sectionError);
+            var final = TryParse(
+                sectionRun.FinalMessage,
+                communicationContext,
+                out var sectionError,
+                out var sectionFailure);
+            if (final is null && sectionFailure == ChiefTurnParseFailureKind.NoJson)
+            {
+                final = TryParseNaturalChat(sectionRun.FinalMessage, communicationContext, out sectionError);
+            }
             if (final is null && sessionId is { Length: > 0 })
             {
                 var sectionRepair = await RunAsync(
@@ -307,9 +324,21 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
                     request with { SessionId = sessionId },
                     cancellationToken);
                 sessionId = sectionRepair.SessionId ?? sessionId;
-                final = TryParse(sectionRepair.FinalMessage, communicationContext, out sectionError)
-                    ?? TryParseAcceptingMissingIntent(
-                        sectionRepair.FinalMessage, communicationContext, out sectionError);
+                final = TryParse(
+                        sectionRepair.FinalMessage,
+                        communicationContext,
+                        out sectionError,
+                        out sectionFailure);
+                if (final is null && sectionFailure == ChiefTurnParseFailureKind.NoJson)
+                {
+                    final = TryParseNaturalChat(
+                        sectionRepair.FinalMessage,
+                        communicationContext,
+                        out sectionError);
+                }
+
+                final ??= TryParseAcceptingMissingIntent(
+                    sectionRepair.FinalMessage, communicationContext, out sectionError);
             }
 
             // Rodada de seções que não produziu resposta válida NÃO derruba o turno: a primeira
@@ -959,12 +988,15 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
     private static ChiefTurnOutput? TryParse(
         string? finalMessage,
         ChiefCommunicationContext communicationContext,
-        out string? error)
+        out string? error,
+        out ChiefTurnParseFailureKind failureKind)
     {
         error = null;
+        failureKind = ChiefTurnParseFailureKind.None;
         if (string.IsNullOrWhiteSpace(finalMessage))
         {
             error = "resposta vazia do executor.";
+            failureKind = ChiefTurnParseFailureKind.NoJson;
             return null;
         }
 
@@ -972,6 +1004,7 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         if (candidate is null)
         {
             error = "nenhum objeto JSON encontrado na resposta.";
+            failureKind = ChiefTurnParseFailureKind.NoJson;
             return null;
         }
 
@@ -982,6 +1015,7 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
                     output.Response, communicationContext, out var communicationViolation))
             {
                 error = communicationViolation;
+                failureKind = ChiefTurnParseFailureKind.CommunicationPolicy;
                 return null;
             }
 
@@ -990,13 +1024,48 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         catch (AgentOutputValidationException exception)
         {
             error = exception.Message;
+            failureKind = ChiefTurnParseFailureKind.Schema;
             return null;
         }
         catch (JsonException exception)
         {
             error = exception.Message;
+            failureKind = ChiefTurnParseFailureKind.Schema;
             return null;
         }
+    }
+
+    private static ChiefTurnOutput? TryParseNaturalChat(
+        string? finalMessage,
+        ChiefCommunicationContext communicationContext,
+        out string? error)
+    {
+        error = null;
+        if (string.IsNullOrWhiteSpace(finalMessage))
+        {
+            error = "resposta natural vazia.";
+            return null;
+        }
+
+        var response = finalMessage.Trim();
+        if (!ChiefCommunicationPolicy.TryValidateResponse(
+                response, communicationContext, out var communicationViolation))
+        {
+            error = communicationViolation;
+            return null;
+        }
+
+        // V3 separa CHAT NATURAL de COMANDO ESTRUTURADO: uma resposta textual válida chega ao
+        // usuário, mas não carrega demandas, ações de equipe ou ações de card. Texto nunca executa
+        // efeito por acidente; somente JSON estruturado validado passa pela rota de comandos.
+        return new ChiefTurnOutput(
+            response,
+            [],
+            TeamActions: null,
+            ChiefTurnIntent.Unmatched,
+            0,
+            CardActions: null,
+            ContextRequests: null);
     }
 
     /// <summary>
@@ -1270,6 +1339,14 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
     private sealed record ChiefStructuredDemand(
         string Title, string Description, string RiskTier, IReadOnlyList<string> AcceptanceCriteria,
         string? Specialty, ChiefDemandSurfaces? Surfaces);
+
+    private enum ChiefTurnParseFailureKind
+    {
+        None,
+        NoJson,
+        Schema,
+        CommunicationPolicy,
+    }
 
     /// <summary>
     /// Persona canônica do Chief Orchestrator (fonte: <c>CanonicalAgentDefinitions</c> /

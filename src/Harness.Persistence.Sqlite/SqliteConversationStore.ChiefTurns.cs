@@ -371,7 +371,7 @@ public sealed partial class SqliteConversationStore
         var leaseExpires = command.Now.Add(command.LeaseDuration);
         await ExecuteChiefAsync(connection, tx,
             "UPDATE chief_states SET state='working',lease_owner_id=$owner,lease_fencing_token=$fencing,lease_expires_at=$expires,version=version+1,updated_at=$now WHERE tenant_id=$tenant AND project_id=$project; " +
-            "UPDATE chief_turn_mailbox SET state='processing',attempt_count=attempt_count+1,active_fencing_token=$fencing,started_at=$now,last_error_code=NULL WHERE tenant_id=$tenant AND id=$turn; " +
+            "UPDATE chief_turn_mailbox SET state='processing',attempt_count=attempt_count+1,active_fencing_token=$fencing,started_at=$now,last_error_code=NULL,last_error_detail=NULL WHERE tenant_id=$tenant AND id=$turn; " +
             "UPDATE agents SET state='working',last_heartbeat_at=$now WHERE tenant_id=$tenant AND id=$agent;",
             token, ("$owner", command.OwnerId), ("$fencing", fencing), ("$expires", Store(leaseExpires)),
             ("$now", Store(command.Now)), ("$tenant", command.TenantId), ("$project", turn.ProjectId),
@@ -568,7 +568,7 @@ public sealed partial class SqliteConversationStore
         await EnsureLeaseAsync(connection, tx, command.Lease, command.OccurredAt, token);
         var next = command.Retryable && command.Lease.Turn.AttemptCount < MaxChiefTurnAttempts ? "pending" : "failed";
         await ExecuteChiefAsync(connection, tx,
-            "UPDATE chief_turn_mailbox SET state=$state,active_fencing_token=NULL,last_error_code=$error,completed_at=CASE WHEN $state='failed' THEN $at ELSE NULL END WHERE tenant_id=$tenant AND id=$turn; " +
+            "UPDATE chief_turn_mailbox SET state=$state,active_fencing_token=NULL,last_error_code=$error,last_error_detail=$detail,completed_at=CASE WHEN $state='failed' THEN $at ELSE NULL END WHERE tenant_id=$tenant AND id=$turn; " +
             "UPDATE chief_states SET state=CASE WHEN $state='failed' THEN 'error' ELSE 'idle' END,lease_owner_id=NULL,lease_expires_at=NULL,version=version+1,updated_at=$at WHERE tenant_id=$tenant AND project_id=$project AND lease_fencing_token=$fencing; " +
             // O AGENTE volta a `idle` mesmo quando o turno morre. Ele não está quebrado — quem
             // falhou foi o turno, e isso já fica registrado no mailbox (estado + código do erro),
@@ -578,7 +578,8 @@ public sealed partial class SqliteConversationStore
             // o convite "pode reenviar" que o chefe acabara de publicar era impossível de cumprir
             // sem alguém mexer no banco.
             "UPDATE agents SET state='idle',last_heartbeat_at=$at WHERE tenant_id=$tenant AND id=$agent;",
-            token, ("$state", next), ("$error", command.ErrorCode), ("$at", Store(command.OccurredAt)),
+            token, ("$state", next), ("$error", command.ErrorCode), ("$detail", command.ErrorDetail is null ? DBNull.Value : command.ErrorDetail),
+            ("$at", Store(command.OccurredAt)),
             ("$tenant", command.Lease.Turn.TenantId), ("$turn", command.Lease.Turn.TurnId),
             ("$project", command.Lease.Turn.ProjectId), ("$fencing", command.Lease.FencingToken),
             ("$agent", command.Lease.ChiefAgentId));

@@ -546,7 +546,7 @@ public sealed partial class PostgresConversationStore
             """
             UPDATE harness.chief_turn_mailbox
             SET state='processing',attempt_count=attempt_count+1,active_fencing_token=$1,
-                started_at=$2,last_error_code=NULL
+                started_at=$2,last_error_code=NULL,last_error_detail=NULL
             WHERE tenant_id=$3 AND id=$4;
             """,
             cancellationToken,
@@ -836,12 +836,13 @@ public sealed partial class PostgresConversationStore
             connection, transaction,
             """
             UPDATE harness.chief_turn_mailbox
-            SET state=$1,active_fencing_token=NULL,last_error_code=$2,completed_at=$3
-            WHERE tenant_id=$4 AND id=$5;
+            SET state=$1,active_fencing_token=NULL,last_error_code=$2,last_error_detail=$3,completed_at=$4
+            WHERE tenant_id=$5 AND id=$6;
             """,
             cancellationToken,
             Text(next),
             Text(command.ErrorCode),
+            NullableText(command.ErrorDetail),
             NullableTimestamp(failed ? command.OccurredAt : (DateTimeOffset?)null),
             Text(command.Lease.Turn.TenantId),
             Text(command.Lease.Turn.TurnId));

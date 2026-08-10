@@ -228,10 +228,56 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
     }
 
     [Fact]
+    public async Task NaturalChiefChatIsAcceptedWithoutStructuredActions()
+    {
+        const string natural =
+            "Analisei os materiais. Entendi o objetivo do produto e falta apenas confirmar o repositório de destino.";
+        var executor = Build(ChiefRegistry(), new FakeExternalExecutor(natural));
+
+        var result = await executor.ExecuteAsync(Request(), CancellationToken.None);
+
+        var output = ChiefTurnOutputContract.Parse(result.StructuredOutput);
+        Assert.Equal(natural, output.Response);
+        Assert.Empty(output.Demands);
+        Assert.Null(output.TeamActions);
+        Assert.Null(output.CardActions);
+        Assert.Equal(ChiefTurnIntent.Unmatched, output.Intent);
+    }
+
+    [Fact]
+    public async Task NaturalTextNeverExecutesActionsByAccident()
+    {
+        const string natural =
+            "Vou criar a demanda e acionar a equipe agora com as informações disponíveis.";
+        var executor = Build(ChiefRegistry(), new FakeExternalExecutor(natural));
+
+        var result = await executor.ExecuteAsync(Request(), CancellationToken.None);
+
+        var output = ChiefTurnOutputContract.Parse(result.StructuredOutput);
+        Assert.Equal(natural, output.Response);
+        Assert.Empty(output.Demands);
+        Assert.Null(output.TeamActions);
+        Assert.Null(output.CardActions);
+    }
+
+    [Fact]
+    public async Task InvalidStructuredCommandStillFailsClosed()
+    {
+        const string invalidStructured =
+            """{"response":"Vou criar uma demanda sem o campo obrigatório demands.","teamActions":[{"action":"create_persona","reason":"teste"}]}""";
+        var executor = Build(ChiefRegistry(), new FakeExternalExecutor(invalidStructured));
+
+        var exception = await Assert.ThrowsAsync<AgentOutputValidationException>(
+            () => executor.ExecuteAsync(Request(), CancellationToken.None));
+
+        Assert.Contains("schema obrigatório", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task ItRepairsAnOutOfSchemaResponseByResumingTheSameSession()
     {
-        // Primeira resposta inválida (mas com sessão), segunda válida: reparo em UMA tentativa.
-        var fake = new FakeExternalExecutor("desculpe, não consegui formatar")
+        // Primeira resposta estruturada inválida (mas com sessão), segunda válida: reparo em UMA tentativa.
+        var fake = new FakeExternalExecutor("""{"response":123,"demands":[]}""")
         {
             SessionId = "session-reparo",
             NextMessages = new Queue<string>([ValidChiefJson]),

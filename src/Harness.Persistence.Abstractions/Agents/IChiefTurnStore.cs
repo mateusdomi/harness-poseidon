@@ -172,7 +172,11 @@ public sealed record ChiefDemandSeed(
 }
 
 public sealed record ChiefTurnFailCommand(
-    ChiefTurnLease Lease, string ErrorCode, DateTimeOffset OccurredAt, bool Retryable);
+    ChiefTurnLease Lease,
+    string ErrorCode,
+    DateTimeOffset OccurredAt,
+    bool Retryable,
+    string? ErrorDetail = null);
 
 /// <summary>
 /// Desfecho do registro de falha. <see cref="Terminal"/> é verdadeiro quando o turno não será

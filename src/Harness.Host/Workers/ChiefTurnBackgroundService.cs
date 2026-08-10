@@ -721,7 +721,11 @@ public sealed partial class ChiefTurnBackgroundService(
             var retryable = exception is not AgentOutputValidationException;
             var outcome = await turns.FailAsync(
                 new ChiefTurnFailCommand(
-                    lease, exception.GetType().Name, clock.UtcNow, retryable),
+                    lease,
+                    exception.GetType().Name,
+                    clock.UtcNow,
+                    retryable,
+                    SanitizeErrorDetail(exception.Message)),
                 cancellationToken);
             // A MENSAGEM entra no log, não só o nome do tipo. Um turno que morre por validação
             // de contrato dizia apenas "AgentOutputValidationException", e descobrir QUAL campo o
@@ -1016,6 +1020,17 @@ public sealed partial class ChiefTurnBackgroundService(
                 exception.GetType().Name);
             return false;
         }
+    }
+
+    private static string? SanitizeErrorDetail(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        return trimmed.Length <= 2_000 ? trimmed : trimmed[..2_000];
     }
 
     /// <summary>
