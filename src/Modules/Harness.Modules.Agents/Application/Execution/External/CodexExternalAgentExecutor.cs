@@ -39,7 +39,11 @@ public sealed class CodexExternalAgentExecutor(
         arguments.AddRange(["-C", request.WorkingDirectory]);
         arguments.AddRange([
             "--sandbox",
-            request.Access == ExternalAgentAccess.Workspace ? "workspace-write" : "read-only",
+            // V3 BUILD/VALIDATE requires a real git commit in the explicitly authorized
+            // repository. The Codex CLI workspace-write sandbox can edit worktree files but
+            // rejects .git/index.lock creation, which turns a write-capable executor into a
+            // false human blocker. Read-only requests remain confined.
+            request.Access == ExternalAgentAccess.Workspace ? "danger-full-access" : "read-only",
         ]);
         arguments.AddRange(["--output-last-message", context.LastMessagePath]);
 

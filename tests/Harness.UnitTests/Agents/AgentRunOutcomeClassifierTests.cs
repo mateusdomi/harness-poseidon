@@ -196,6 +196,19 @@ public sealed class AgentRunOutcomeClassifierTests
         Assert.Equal(AgentRunOutcomeClassifier.DefaultQuotaCooldown, outcome.SuggestedCooldown);
     }
 
+    [Fact]
+    public void ProviderResourcePackageExhaustionIsQuotaEvenWithoutClassicQuotaWords()
+    {
+        var outcome = AgentRunOutcomeClassifier.Classify(
+            ExternalAgentRunStatus.Failed,
+            "executor.exit_code_1",
+            "API Error: Request rejected · [1113][Insufficient balance or no resource package. Please recharge.]");
+
+        Assert.Equal(AgentRunOutcomeKind.QuotaExhausted, outcome.Kind);
+        Assert.True(outcome.ShouldWaitForReset);
+        Assert.Equal(AgentRunOutcomeClassifier.DefaultQuotaCooldown, outcome.SuggestedCooldown);
+    }
+
     /// <summary>
     /// Um reset já vencido não vale nada — a cota deveria ter voltado. Confiar no texto
     /// aposentaria a conta por engano; o padrão curto testa de novo.

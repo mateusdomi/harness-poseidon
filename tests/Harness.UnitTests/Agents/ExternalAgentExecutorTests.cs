@@ -58,7 +58,7 @@ public sealed class ExternalAgentExecutorTests : IDisposable
             request, new ExternalAgentRunContext("run-test", Path.Combine(Path.GetTempPath(), "last.txt")))];
 
     [Fact]
-    public void CodexActorRunsWorkspaceWriteAndReadsThePromptFromStandardInput()
+    public void CodexActorRunsWithGitWriteCapabilityAndReadsThePromptFromStandardInput()
     {
         var provisioner = new AccountProfileProvisioner(_root);
         var handle = Provision(provisioner, "worker-codex-frontend", ExecutorCatalog.Codex);
@@ -70,7 +70,7 @@ public sealed class ExternalAgentExecutorTests : IDisposable
         Assert.Equal("exec", arguments[0]);
         Assert.Contains("--json", arguments);
         Assert.Contains("--skip-git-repo-check", arguments);
-        Assert.Equal("workspace-write", arguments[arguments.IndexOf("--sandbox") + 1]);
+        Assert.Equal("danger-full-access", arguments[arguments.IndexOf("--sandbox") + 1]);
         Assert.Equal(_workspace, arguments[arguments.IndexOf("-C") + 1]);
         Assert.Contains("--output-last-message", arguments);
 

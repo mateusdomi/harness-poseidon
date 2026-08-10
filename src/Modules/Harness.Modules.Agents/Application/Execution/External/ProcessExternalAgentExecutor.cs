@@ -371,9 +371,9 @@ public abstract class ProcessExternalAgentExecutor : IExternalAgentExecutor
     /// <summary>
     /// Onde a CLI grava a mensagem final.
     ///
-    /// Precisa ser um caminho que a CLI possa ESCREVER — e o Codex roda com sandbox próprio
-    /// (`--sandbox workspace-write`), cujas raízes graváveis são o diretório de trabalho,
-    /// `/tmp` e `$TMPDIR`. O destino anterior era o `sessions/` do perfil isolado, que fica
+    /// Precisa ser um caminho que a CLI possa ESCREVER — e o Codex roda com política própria
+    /// de escrita, cujas raízes graváveis podem variar por modo de sandbox. O destino anterior
+    /// era o `sessions/` do perfil isolado, que fica
     /// fora dessas raízes: a CLI avisava `Failed to write last message file … (os error 2)`,
     /// gravava conteúdo vazio e o turno morria sem produzir token (2026-08-03, cards SAD,
     /// Observabilidade e C4 da prova limpa).

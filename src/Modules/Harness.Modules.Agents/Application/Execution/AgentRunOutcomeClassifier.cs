@@ -93,6 +93,10 @@ public static class AgentRunOutcomeClassifier
 
     private static readonly string[] QuotaSignals =
         ["quota", "rate_limit", "ratelimit", "rate-limit", "resource_exhausted", "429", "usage_limit", "over_capacity",
+         // GLM/Z.AI can report account capacity as a billing/resource-package message instead
+         // of a classic rate-limit string. This is still an account quota/capacity condition:
+         // retrying the same executor burns time and tokens without project progress.
+         "insufficient balance", "no resource package", "please recharge",
          // O limite de SESSÃO da assinatura não traz código de cota nenhum: a CLI escreve a
          // frase e sai com 1. Ancorado na expressão inteira porque "limit" sozinho aparece em
          // trabalho legítimo sobre limites — e um falso positivo aqui tira uma conta boa da
