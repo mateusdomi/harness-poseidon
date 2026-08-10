@@ -79,8 +79,8 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         Assert.Equal("chief-claude-primary", captured.Alias);
         // Chat NUNCA edita: somente leitura fecha a escrita no processo.
         Assert.Equal(ExternalAgentAccess.ReadOnly, captured.Access);
-        // Working directory é a raiz do repositório, não uma worktree de tentativa.
-        Assert.Equal(Path.GetFullPath(_repositoryRoot), captured.WorkingDirectory);
+        // Working directory é neutro: a Chief recebe contexto explícito e não herda docs do repo.
+        Assert.EndsWith(Path.Combine(".harness-poseidon", "chief-runtime"), captured.WorkingDirectory);
         // Continuidade da conversa: a sessão anterior é retomada.
         Assert.Equal("session-anterior", captured.ResumeSessionId);
         // O perfil da conta é o config home isolado do alias.
