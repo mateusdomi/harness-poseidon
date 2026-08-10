@@ -620,6 +620,8 @@ public static class HostApplication
                     : Path.GetFullPath(agentRunSettings.ArchiveRoot)));
             builder.Services.AddSingleton(services => new ExternalAgentExecutorFactory(
                 services.GetRequiredService<AccountProfileProvisioner>()));
+            builder.Services.AddSingleton<Harness.Host.V3.IV3BuildExecutor, Harness.Host.V3.V3ExternalBuildExecutor>();
+            builder.Services.AddSingleton<Harness.Host.V3.V3BuildRuntimeService>();
 
             // GP-06: com AgentRuns habilitado e raiz controlada declarada, o turno de conversa
             // do Chefe passa a ser executado DE VERDADE pela CLI (assinatura Claude Code da
@@ -924,6 +926,10 @@ public static class HostApplication
         builder.Services.AddSingleton<AgentExecutorCatalog>();
         builder.Services.AddSingleton<ChiefInvocationRoutingService>();
         builder.Services.AddSingleton<Readiness.ProjectReadinessService>();
+        builder.Services.AddSingleton(services => Harness.Host.V3.V3UnderstandStore.ForConfiguration(
+            services.GetRequiredService<IConfiguration>()));
+        builder.Services.AddSingleton(services => Harness.Host.V3.V3BuildRuntimeStore.ForConfiguration(
+            services.GetRequiredService<IConfiguration>()));
         builder.Services.AddHostedService<ChiefTurnBackgroundService>();
         if (builder.Configuration.GetValue<bool>("Harness:Demo:Enabled"))
         {
@@ -1087,6 +1093,7 @@ public static class HostApplication
         app.MapReadiness();
         app.MapV3Foundation();
         app.MapV3Understand();
+        app.MapV3BuildRuntime();
         app.MapAgents();
         app.MapReliability();
         app.MapTeamSpecialtyCatalog();
