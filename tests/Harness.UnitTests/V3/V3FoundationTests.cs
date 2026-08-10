@@ -232,6 +232,49 @@ public sealed class V3FoundationTests : IDisposable
     }
 
     [Fact]
+    public void V3ReadinessUsesV3OpenQuestionsInsteadOfLegacyNextActions()
+    {
+        var project = Project(database: "none", repository: _directory) with
+        {
+            TargetDeadline = new DateTimeOffset(2026, 8, 20, 0, 0, 0, TimeSpan.Zero),
+        };
+        Directory.CreateDirectory(_directory);
+        var state = V3ProjectUnderstandState.Create(project.Id, new DateTimeOffset(2026, 8, 9, 12, 0, 0, TimeSpan.Zero)) with
+        {
+            Deadline = project.TargetDeadline,
+            Repository = _directory,
+            PrimaryRequirementsCoverage =
+            [
+                new V3SourceCoverage("artifact", "requirements.md", "primary_requirements", 1, 1, 100, true, "test", 10, null),
+            ],
+        };
+
+        var readiness = V3Readiness.For(
+            project,
+            new ProjectReadinessSnapshot(project.Id, ConfigurationState.Unconfigured, [], [
+                new ReadinessNextAction("legacy.configure", "/legacy", null),
+            ]),
+            [
+                Account("chief-claude-primary", ExecutorCatalog.ClaudeCode, [AgentRoles.ChiefOrchestrator]),
+                Account("worker-codex-project", ExecutorCatalog.Codex, [AgentRoles.ProjectExecutor]),
+            ],
+            state,
+            artifactCount: 1,
+            effectiveStack: new V3EffectiveStackContract(
+                "React + TypeScript + Vite",
+                ".NET",
+                "none",
+                "Clean Architecture",
+                "Playwright",
+                ["primary requirements"]),
+            operationalNotificationConfigured: true,
+            runtimeReadyOverride: true);
+
+        Assert.Equal("READY", readiness.Overall);
+        Assert.Equal("PASS", Item(readiness, "OpenQuestions").Status);
+    }
+
+    [Fact]
     public void V3ReadinessRemainsNotReadyWhenARequiredV3CheckIsBlocked()
     {
         var project = Project(database: "none", repository: Path.Combine(_directory, "missing")) with

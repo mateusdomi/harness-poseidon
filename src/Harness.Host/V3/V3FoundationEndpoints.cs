@@ -395,6 +395,12 @@ public static class V3Readiness
         var confirmedRepository = string.IsNullOrWhiteSpace(v3State?.Repository)
             ? project.RepositoryUrl
             : v3State.Repository;
+        var openQuestions = V3OpenQuestionPolicy.RequiredQuestions(
+            project.Id,
+            confirmedDeadline,
+            confirmedRepository,
+            v3State?.SourceFacts,
+            v3State?.PrimaryRequirementsCoverage ?? []);
         var database = effectiveStack?.Database ?? string.Join(' ', project.Technologies);
         var databaseApplies = database.Contains("Oracle", StringComparison.OrdinalIgnoreCase) ||
             database.Contains("Postgre", StringComparison.OrdinalIgnoreCase) ||
@@ -409,7 +415,7 @@ public static class V3Readiness
         {
             Item("Requirements", HasText(project.Description) ? "PASS" : "ACTION_REQUIRED", "project.description"),
             Item("Artifacts", artifactCount > 0 ? "PASS" : "ACTION_REQUIRED", artifactCount > 0 ? $"project artifacts: {artifactCount}" : "no project artifacts associated"),
-            Item("OpenQuestions", existing.NextActions.Count == 0 ? "PASS" : "ACTION_REQUIRED", "readiness.nextActions"),
+            Item("OpenQuestions", openQuestions.Count == 0 ? "PASS" : "ACTION_REQUIRED", "v3.openQuestions"),
             Item("Deadline", confirmedDeadline.HasValue ? "PASS" : "ACTION_REQUIRED", "v3.deadline || project.targetDeadline"),
             Item("Repository", RepositoryReachable(confirmedRepository) ? "PASS" : "BLOCKED", "v3.repository || project.repositoryUrl"),
             Item("EffectiveStack", stackResolved ? "PASS" : "ACTION_REQUIRED", stackResolved ? "v3.effectiveStack" : "project.technologies"),
