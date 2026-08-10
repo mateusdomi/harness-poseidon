@@ -491,7 +491,7 @@ public static class V3ProjectContextBuilder
         var openQuestions = V3OpenQuestionPolicy.RequiredQuestions(
             project.Id,
             state?.Deadline ?? facts.Deadline ?? project.TargetDeadline,
-            state?.Repository,
+            state?.Repository ?? project.RepositoryUrl,
             facts,
             coverage);
         var lifecycleState = state?.LifecycleState ??
@@ -694,7 +694,7 @@ public static class V3UnderstandAnalyzer
                 : capabilities.Select(capability => $"A funcionalidade '{capability}' funciona pelo fluxo real do produto.").ToArray();
         var sourceComplete = context.PrimaryRequirementsCoverage.All(source => source.Complete);
         var deadline = input.Deadline ?? state.Deadline ?? context.SourceFacts.Deadline ?? context.Deadline;
-        var repository = FirstNonBlank(input.Repository, state.Repository);
+        var repository = FirstNonBlank(input.Repository, state.Repository, context.Repository);
         var questions = V3OpenQuestionPolicy.RequiredQuestions(
             context.ProjectId, deadline, repository, context.SourceFacts, context.PrimaryRequirementsCoverage);
         var nextState = !sourceComplete
@@ -802,7 +802,7 @@ public static class V3StackResolver
 public static class V3OpenQuestionPolicy
 {
     public static IReadOnlyList<V3OpenQuestion> RequiredQuestions(ProjectRecord project, V3ProjectUnderstandState? state) =>
-        RequiredQuestions(project.Id, state?.Deadline ?? project.TargetDeadline, state?.Repository, state?.SourceFacts, state?.PrimaryRequirementsCoverage ?? []);
+        RequiredQuestions(project.Id, state?.Deadline ?? project.TargetDeadline, state?.Repository ?? project.RepositoryUrl, state?.SourceFacts, state?.PrimaryRequirementsCoverage ?? []);
 
     public static IReadOnlyList<V3OpenQuestion> RequiredQuestions(
         string projectId,
@@ -833,6 +833,23 @@ public static class V3OpenQuestionPolicy
 
     private static string? FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim();
+}
+
+public static partial class V3NaturalUserDecision
+{
+    [GeneratedRegex(@"\b(\d{1,2})/(\d{1,2})/(\d{4})\b")]
+    private static partial Regex DateRegex();
+
+    public static DateTimeOffset? ExtractDeadline(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        var match = DateRegex().Match(text);
+        if (!match.Success) return null;
+        var day = int.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+        var month = int.Parse(match.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture);
+        var year = int.Parse(match.Groups[3].Value, System.Globalization.CultureInfo.InvariantCulture);
+        return new DateTimeOffset(year, month, day, 0, 0, 0, TimeSpan.Zero);
+    }
 }
 
 public static class V3AuthorizationPolicy

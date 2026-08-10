@@ -37,7 +37,7 @@ public sealed class V3UnderstandTests : IDisposable
     }
 
     [Fact]
-    public void AnalyzeRequiresRepositoryConfirmationInsteadOfAcceptingGeneratedProjectRepository()
+    public void AnalyzeAcceptsPersistedProjectRepositoryAsRepositoryDecision()
     {
         var now = DateTimeOffset.UnixEpoch;
         var context = Context(deadline: now.AddDays(10), repository: null) with
@@ -47,9 +47,9 @@ public sealed class V3UnderstandTests : IDisposable
 
         var result = V3UnderstandAnalyzer.Analyze(context, new V3UnderstandAnalyzeRequest(), now);
 
-        Assert.Equal("AWAITING_INPUT", result.State.LifecycleState);
-        Assert.Equal(["repository"], result.OpenQuestions.Select(question => question.QuestionId));
-        Assert.Null(result.State.Repository);
+        Assert.Equal("READY_TO_START", result.State.LifecycleState);
+        Assert.Empty(result.OpenQuestions);
+        Assert.Equal("/Users/mateus/.harness-poseidon/repositories/tenant/generated-project", result.State.Repository);
     }
 
     [Fact]

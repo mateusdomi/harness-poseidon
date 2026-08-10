@@ -1,11 +1,18 @@
 using Harness.Host.Profiles;
+using Harness.Host.V3;
+using Harness.Host.WorkBoard;
+using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Conversations.Application;
 using Harness.Modules.Conversations.Contracts;
 using Harness.Modules.Conversations.Domain;
 using Harness.Persistence.Abstractions.Conversations;
 using Harness.Persistence.Abstractions.Agents;
+using Harness.Persistence.Abstractions.Coordination;
+using Harness.Persistence.Abstractions.Documents;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
+using Harness.Persistence.Abstractions.Prototyping;
+using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
 using Harness.Modules.Readiness.Contracts;
@@ -443,8 +450,17 @@ public static class ConversationEndpoints
         IConversationStore conversations,
         IChiefTurnStore chiefTurns,
         IProjectStore projects,
+        IWorkBoardStore board,
+        ISolicitationAttachmentStore attachments,
+        SolicitationAttachmentStorage attachmentStorage,
+        IDocumentCatalogStore documents,
+        IPrototypeStore prototypes,
         ChiefInvocationRoutingService routing,
         Readiness.ProjectReadinessService readiness,
+        AgentAccountRegistry accounts,
+        IChannelLinkStore channelLinks,
+        IConfiguration configuration,
+        V3BuildRuntimeService v3Runtime,
         IClock clock,
         CancellationToken cancellationToken)
     {
@@ -467,6 +483,33 @@ public static class ConversationEndpoints
                 UlidValue.New(userAt).ToString(), profile.Id,
                 new CreateMessageRequest(conversationId, input.Content), userAt);
             var userRecord = ToRecord(profile.TenantId, conversation.ProjectId, user);
+
+            var v3Decision = await TryApplyV3NaturalDecisionAsync(
+                input.Content,
+                profile,
+                project,
+                conversationId,
+                turnId,
+                correlationId,
+                userRecord,
+                conversations,
+                board,
+                attachments,
+                attachmentStorage,
+                documents,
+                prototypes,
+                readiness,
+                accounts,
+                channelLinks,
+                configuration,
+                v3Runtime,
+                clock,
+                cancellationToken);
+            if (v3Decision is not null)
+            {
+                return v3Decision;
+            }
+
             var snapshot = await readiness.EvaluateAsync(
                 profile.TenantId, project, profileReady: true, cancellationToken);
 
@@ -575,6 +618,138 @@ public static class ConversationEndpoints
         }
 
         return null;
+    }
+
+    private static async Task<IResult?> TryApplyV3NaturalDecisionAsync(
+        string content,
+        LocalProfileRecord profile,
+        ProjectRecord project,
+        string conversationId,
+        string turnId,
+        string correlationId,
+        MessageRecord userRecord,
+        IConversationStore conversations,
+        IWorkBoardStore board,
+        ISolicitationAttachmentStore attachments,
+        SolicitationAttachmentStorage attachmentStorage,
+        IDocumentCatalogStore documents,
+        IPrototypeStore prototypes,
+        Readiness.ProjectReadinessService readiness,
+        AgentAccountRegistry accounts,
+        IChannelLinkStore channelLinks,
+        IConfiguration configuration,
+        V3BuildRuntimeService runtime,
+        IClock clock,
+        CancellationToken cancellationToken)
+    {
+        var deadline = V3NaturalUserDecision.ExtractDeadline(content);
+        var authorized = V3AuthorizationPolicy.IsAuthorized(content);
+        if (deadline is null && !authorized) return null;
+
+        var understandStore = V3UnderstandStore.ForConfiguration(configuration);
+        var context = await V3ProjectContextBuilder.BuildAsync(
+            profile,
+            project,
+            board,
+            attachments,
+            documents,
+            prototypes,
+            attachmentStorage,
+            readiness,
+            accounts,
+            channelLinks,
+            understandStore,
+            cancellationToken);
+        var analyzed = V3UnderstandAnalyzer.Analyze(context, new V3UnderstandAnalyzeRequest
+        {
+            Deadline = deadline,
+            Repository = context.Repository,
+        }, clock.UtcNow);
+        understandStore.WriteProject(analyzed.State);
+
+        if (!authorized) return null;
+
+        var refreshed = await V3ProjectContextBuilder.BuildAsync(
+            profile,
+            project,
+            board,
+            attachments,
+            documents,
+            prototypes,
+            attachmentStorage,
+            readiness,
+            accounts,
+            channelLinks,
+            understandStore,
+            cancellationToken);
+        var ready = refreshed.Readiness.All(item => item.Status is "PASS" or "NOT_APPLICABLE");
+        var sourceComplete = refreshed.PrimaryRequirementsCoverage.All(source => source.Complete);
+        if (!ready || !sourceComplete || refreshed.Deadline is null || string.IsNullOrWhiteSpace(refreshed.Repository))
+        {
+            return null;
+        }
+
+        var now = clock.UtcNow;
+        var state = (refreshed.State ?? V3ProjectUnderstandState.Create(project.Id, now)) with
+        {
+            Deadline = refreshed.Deadline,
+            Repository = refreshed.Repository,
+            AuthorizedAt = now,
+            StartedAt = now,
+            LifecycleState = "BUILDING",
+            Status = "AUTHORIZED",
+            UpdatedAt = now,
+        };
+        understandStore.WriteProject(state);
+        var authorizedContext = await V3ProjectContextBuilder.BuildAsync(
+            profile,
+            project,
+            board,
+            attachments,
+            documents,
+            prototypes,
+            attachmentStorage,
+            readiness,
+            accounts,
+            channelLinks,
+            understandStore,
+            cancellationToken);
+        var mission = V3MissionCompiler.CompileBuildMission(
+            authorizedContext,
+            V3ExecutorPreview.Select(accounts.List()),
+            null,
+            now);
+        understandStore.WriteMission(mission);
+        var persisted = await conversations.CreateMessageAsync(
+            new MessageCreateCommand(profile.TenantId, userRecord, now),
+            cancellationToken);
+        if (persisted.Status is not MessageMutationStatus.Applied and not MessageMutationStatus.AlreadyExists)
+        {
+            return persisted.Status == MessageMutationStatus.ConversationInactive
+                ? Problem(409, "conversation_inactive", "The conversation is not active.")
+                : ConversationNotFound();
+        }
+
+        var dispatchAccounts = accounts.List().ToArray();
+        var dispatchState = state;
+        _ = Task.Run(async () =>
+        {
+            await runtime.DispatchAsync(
+                new V3BuildDispatchCommand(project.Id, dispatchState, mission, "READY", dispatchAccounts),
+                CancellationToken.None);
+        }, CancellationToken.None);
+
+        return Results.Accepted(value: new ChatTurnHandle(
+            turnId,
+            conversationId,
+            "build_dispatched",
+            correlationId,
+            new ChatTurnReadiness("Ready", "Ready"),
+            [],
+            [],
+            new ChatTurnLinks(
+                $"/api/v1/projects/{project.Id}/readiness",
+                $"/api/v1/conversations/{conversationId}")));
     }
 
     private static ConversationRecord ToRecord(string tenantId, ConversationContract value) =>

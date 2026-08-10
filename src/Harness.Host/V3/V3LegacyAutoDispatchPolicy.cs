@@ -8,6 +8,9 @@ public static class V3LegacyAutoDispatchPolicy
     public static bool IsV3Active(IConfiguration configuration) =>
         configuration.GetValue("Harness:V3:Active", true);
 
+    public static bool ShouldAllowChiefConversationWhenAutoDispatchDisabled(IConfiguration configuration) =>
+        IsV3Active(configuration);
+
     public static bool ShouldStartLegacyCardDispatcher(
         AgentRunSettings settings,
         IConfiguration configuration)

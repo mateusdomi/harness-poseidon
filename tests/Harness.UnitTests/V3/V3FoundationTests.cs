@@ -101,6 +101,20 @@ public sealed class V3FoundationTests : IDisposable
     }
 
     [Fact]
+    public void V3ChiefConversationIsAllowedEvenWhenLegacyAutoDispatchIsDisabled()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Harness:V3:Active"] = "true",
+                ["Harness:AgentRuns:AutoDispatchEnabled"] = "false",
+            })
+            .Build();
+
+        Assert.True(V3LegacyAutoDispatchPolicy.ShouldAllowChiefConversationWhenAutoDispatchDisabled(configuration));
+    }
+
+    [Fact]
     public void AccountUsagePolicyReservedMaterializesAsDisabled()
     {
         var definition = new AgentAccountDefinition

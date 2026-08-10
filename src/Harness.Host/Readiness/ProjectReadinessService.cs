@@ -5,6 +5,8 @@ using Harness.Persistence.Abstractions.Organizations;
 using Harness.Persistence.Abstractions.Projects;
 using Harness.Persistence.Abstractions.Providers;
 using Harness.Persistence.Abstractions.Workflows;
+using Harness.Host.V3;
+using Microsoft.Extensions.Configuration;
 
 namespace Harness.Host.Readiness;
 
@@ -21,7 +23,8 @@ public sealed class ProjectReadinessService(
     Agents.AgentRunSettings settings,
     // Opcional para não quebrar quem constrói o serviço em teste: ausente, assume-se o padrão,
     // e a sonda continua sendo a fonte da verdade sobre runtime e imagem.
-    Execution.IsolatedExecutionSettings? executionSettings = null)
+    Execution.IsolatedExecutionSettings? executionSettings = null,
+    IConfiguration? configuration = null)
 {
     // ULIDs do auto-seed de conveniência da RC3 (ADR-018). Enquanto o seed existir (até a
     // Fatia B removê-lo), esses recursos são marcados como Simulated para que a prontidão
@@ -88,6 +91,9 @@ public sealed class ProjectReadinessService(
         var executionRuntimeReady =
             Execution.ContainerRuntimeProbe.IsAvailable() &&
             Execution.ContainerRuntimeProbe.HasImage(isolated.AgentImageName);
+        var dispatchEnabled = settings.AutoDispatchEnabled ||
+            (configuration is not null &&
+             V3LegacyAutoDispatchPolicy.ShouldAllowChiefConversationWhenAutoDispatchDisabled(configuration));
 
         var inputs = new ReadinessInputs(
             profileReady,
@@ -98,7 +104,7 @@ public sealed class ProjectReadinessService(
             modelFact,
             workflowBound,
             chiefFact,
-            settings.AutoDispatchEnabled,
+            dispatchEnabled,
             repositoryReachable,
             executionRuntimeReady);
         return ReadinessEvaluator.Evaluate(inputs);
