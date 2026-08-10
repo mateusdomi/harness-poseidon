@@ -644,15 +644,7 @@ public static class HostApplication
                         services.GetRequiredService<ILogger<ConversationChiefAgentExecutor>>(),
                         // Onda 0.7 + 3.2: anexos navegáveis por seção E o grafo do projeto como
                         // "arquivo" virtual consultável — a chefe consulta, nunca recebe bruto.
-                        new Graph.CompositeChiefNavigator([
-                            new WorkBoard.SolicitationAttachmentNavigator(
-                                services.GetRequiredService<IWorkBoardStore>(),
-                                services.GetRequiredService<ISolicitationAttachmentStore>(),
-                                services.GetRequiredService<SolicitationAttachmentStorage>()),
-                            new Graph.ChiefGraphNavigator(
-                                services.GetRequiredService<Graph.ProjectGraphProjectionService>(),
-                                services.GetService<Harness.Persistence.Abstractions.Graph.IProjectGraphStore>()),
-                        ]))));
+                        services.GetRequiredService<IChiefAttachmentNavigator>())));
 
             builder.Services.AddSingleton(services => new AgentRunOrchestrator(
                 services.GetRequiredService<IAttemptWorkspaceStore>(),
@@ -930,6 +922,16 @@ public static class HostApplication
             services.GetRequiredService<IConfiguration>()));
         builder.Services.AddSingleton(services => Harness.Host.V3.V3BuildRuntimeStore.ForConfiguration(
             services.GetRequiredService<IConfiguration>()));
+        builder.Services.AddSingleton<IChiefAttachmentNavigator>(services =>
+            new Graph.CompositeChiefNavigator([
+                new SolicitationAttachmentNavigator(
+                    services.GetRequiredService<IWorkBoardStore>(),
+                    services.GetRequiredService<ISolicitationAttachmentStore>(),
+                    services.GetRequiredService<SolicitationAttachmentStorage>()),
+                new Graph.ChiefGraphNavigator(
+                    services.GetRequiredService<Graph.ProjectGraphProjectionService>(),
+                    services.GetService<Harness.Persistence.Abstractions.Graph.IProjectGraphStore>()),
+            ]));
         builder.Services.AddHostedService<ChiefTurnBackgroundService>();
         if (builder.Configuration.GetValue<bool>("Harness:Demo:Enabled"))
         {

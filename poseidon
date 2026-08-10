@@ -28,7 +28,7 @@ rotate_host_log() {
 }
 
 usage() {
-  echo "Uso: ./poseidon {start|status|stop|restart|doctor|logs|check-update|update|bruna|agent|graph|release-candidate} [opções]"
+  echo "Uso: ./poseidon {start|status|stop|restart|doctor|logs|check-update|update|bruna|agent|agents|chief|graph|release-candidate} [opções]"
   echo "  start [--no-browser] [--no-bruna] [--port PORT] [--demo]"
   echo "  check-update [--source <dir-do-pacote-novo>]"
   echo "  update [--source <dir-do-pacote-novo>]"
@@ -43,6 +43,13 @@ usage() {
   echo "                [--tests-file <arquivo>] [--scope <glob>] [--criterion <texto>]"
   echo "  agent recover"
   echo "  agent doctor"
+  echo "  agents list"
+  echo "  agents add <claude|codex> <account-id> [--role executor|chief|critic]"
+  echo "  agents auth <account-id>"
+  echo "  agents logout <account-id>"
+  echo "  agents probe <account-id>"
+  echo "  agents status <account-id>"
+  echo "  chief set <account-id>"
 }
 
 json_number() {
@@ -150,12 +157,12 @@ resolve_launcher() {
     exit 2
   }
   "${POSEIDON_ROOT}/tools/backend/dotnet.sh" build \
-    "${POSEIDON_ROOT}/src/Harness.Launcher/Harness.Launcher.csproj" --configuration Release >/dev/null || {
+    "${POSEIDON_ROOT}/src/Harness.Launcher/Harness.Launcher.csproj" --configuration Release -nr:false -p:UseSharedCompilation=false >/dev/null || {
       echo "Falha ao compilar o Launcher." >&2
       exit 2
     }
   "${POSEIDON_ROOT}/tools/backend/dotnet.sh" build \
-    "${POSEIDON_ROOT}/src/Harness.Runner/Harness.Runner.csproj" --configuration Release >/dev/null || {
+    "${POSEIDON_ROOT}/src/Harness.Runner/Harness.Runner.csproj" --configuration Release -nr:false -p:UseSharedCompilation=false >/dev/null || {
       echo "Falha ao compilar o Runner." >&2
       exit 2
     }
@@ -166,7 +173,7 @@ resolve_launcher() {
   # sobe, e o binário em execução é de dias atrás. Foi assim que uma correção de sandbox parecia
   # não funcionar por horas: ela nunca chegou ao processo que estava rodando.
   "${POSEIDON_ROOT}/tools/backend/dotnet.sh" build \
-    "${POSEIDON_ROOT}/src/Harness.Host/Harness.Host.csproj" --configuration Release >/dev/null || {
+    "${POSEIDON_ROOT}/src/Harness.Host/Harness.Host.csproj" --configuration Release -nr:false -p:UseSharedCompilation=false >/dev/null || {
       echo "Falha ao compilar o Host." >&2
       exit 2
     }
@@ -228,12 +235,25 @@ start_poseidon() {
   launcher="$(resolve_launcher)"
   local args=(--data-dir "${POSEIDON_DATA_DIR}" --no-browser)
   [[ -z "${port}" ]] || args+=(--port "${port}")
-  if [[ "${demo}" == true ]]; then
-    Harness__Demo__Enabled=true nohup "${launcher}" "${args[@]}" >>"${POSEIDON_HOST_LOG}" 2>&1 &
+  local process_id="" detached_with_screen=false
+  if command -v screen >/dev/null 2>&1; then
+    local screen_name="poseidon-launcher"
+    screen -S "${screen_name}" -X quit >/dev/null 2>&1 || true
+    if [[ "${demo}" == true ]]; then
+      screen -S "${screen_name}" -dm bash -c 'export Harness__Demo__Enabled=true; log="$1"; shift; exec "$@" </dev/null >>"$log" 2>&1' _ "${POSEIDON_HOST_LOG}" "${launcher}" "${args[@]}"
+    else
+      screen -S "${screen_name}" -dm bash -c 'log="$1"; shift; exec "$@" </dev/null >>"$log" 2>&1' _ "${POSEIDON_HOST_LOG}" "${launcher}" "${args[@]}"
+    fi
+    detached_with_screen=true
   else
-    nohup "${launcher}" "${args[@]}" >>"${POSEIDON_HOST_LOG}" 2>&1 &
+    if [[ "${demo}" == true ]]; then
+      Harness__Demo__Enabled=true nohup "${launcher}" "${args[@]}" </dev/null >>"${POSEIDON_HOST_LOG}" 2>&1 &
+    else
+      nohup "${launcher}" "${args[@]}" </dev/null >>"${POSEIDON_HOST_LOG}" 2>&1 &
+    fi
+    process_id=$!
+    disown "${process_id}" 2>/dev/null || true
   fi
-  local process_id=$!
   for _ in {1..120}; do
     if [[ -s "${POSEIDON_STATE_FILE}" ]]; then
       local address
@@ -247,13 +267,17 @@ start_poseidon() {
         return
       fi
     fi
-    if ! kill -0 "${process_id}" 2>/dev/null; then
+    if [[ "${detached_with_screen}" != true ]] && ! kill -0 "${process_id}" 2>/dev/null; then
       echo "O Launcher encerrou durante a inicialização. Consulte ${POSEIDON_HOST_LOG}." >&2
       exit 2
     fi
     sleep 0.25
   done
-  kill "${process_id}" 2>/dev/null || true
+  if [[ "${detached_with_screen}" == true ]]; then
+    screen -S poseidon-launcher -X quit >/dev/null 2>&1 || true
+  else
+    kill "${process_id}" 2>/dev/null || true
+  fi
   echo "Timeout ao iniciar. Consulte ${POSEIDON_HOST_LOG}." >&2
   exit 2
 }
@@ -472,6 +496,23 @@ agent_poseidon() {
   esac
 }
 
+agents_poseidon() {
+  [[ -x "${POSEIDON_ROOT}/tools/backend/agent_accounts.py" ]] || chmod +x "${POSEIDON_ROOT}/tools/backend/agent_accounts.py"
+  "${POSEIDON_ROOT}/tools/backend/agent_accounts.py" "$@"
+}
+
+chief_poseidon() {
+  local verb="${1:-}"
+  [[ $# -eq 0 ]] || shift
+  case "${verb}" in
+    set)
+      [[ -n "${1:-}" ]] || { echo "Uso: ./poseidon chief set <account-id>" >&2; return 2; }
+      agents_poseidon chief-set "$1"
+      ;;
+    *) echo "Uso: ./poseidon chief set <account-id>" >&2; return 2 ;;
+  esac
+}
+
 status_poseidon() {
   recover_stale_state
   if ! is_running; then echo "Poseidon: parado"; return 1; fi
@@ -575,6 +616,8 @@ case "${1:-}" in
   update) shift; update_poseidon "$@" ;;
   doctor) doctor_poseidon ;;
   agent) shift; agent_poseidon "$@" ;;
+  agents) shift; agents_poseidon "$@" ;;
+  chief) shift; chief_poseidon "$@" ;;
   graph) shift; graph_poseidon "$@" ;;
   logs) mkdir -p "${POSEIDON_LOG_DIR}"; [[ "${2:-}" == "--follow" ]] && exec tail -f "${POSEIDON_HOST_LOG}" || { echo "Logs: ${POSEIDON_LOG_DIR}"; tail -n 200 "${POSEIDON_HOST_LOG}" 2>/dev/null || true; } ;;
   bruna) shift; bruna_poseidon "$@" ;;
