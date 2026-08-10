@@ -1462,6 +1462,14 @@
       "title": "Workflow do projeto",
       "open": "Abrir painel do fluxo de trabalho",
       "close": "Fechar painel do fluxo de trabalho",
+      "v3Lifecycle": {
+        "label": "Lifecycle V3 do projeto",
+        "understand": "Entendimento",
+        "build": "Desenvolvimento",
+        "validate": "Validação",
+        "humanAcceptance": "Aceite Humano",
+        "readyForHumanAcceptance": "Pronto para homologação humana"
+      },
       "phaseProgress": "Progresso da etapa {{phase}}",
       "documentsLabel": "Documentos da etapa {{phase}}",
       "noDocuments": "Nenhum documento produzido ou vinculado a esta etapa.",

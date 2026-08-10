@@ -193,103 +193,67 @@ function renderPanel(bundle: TestBundle = createTestBundle()) {
 }
 
 describe('WorkflowPanel', () => {
-  it('renderiza as fases em ordem, com badge de estado e barra de progresso', async () => {
+  it('renderiza o lifecycle V3 em ordem sem expor fases V1', async () => {
     renderPanel();
 
-    const validacao = await screen.findByRole('button', { name: /Validação/ });
-    const headers = screen
-      .getAllByRole('button')
-      .filter((button) => button.hasAttribute('aria-expanded'));
-    expect(headers.map((button) => button.textContent)).toEqual([
-      expect.stringContaining('Planejamento'),
-      expect.stringContaining('Execução'),
+    const lifecycle = await screen.findByRole('list', { name: 'Lifecycle V3 do projeto' });
+    expect(within(lifecycle).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+      expect.stringContaining('Entendimento'),
+      expect.stringContaining('Desenvolvimento'),
       expect.stringContaining('Validação'),
-      expect.stringContaining('Publicação'),
+      expect.stringContaining('Aceite Humano'),
     ]);
-
-    // Fase ativa abre por padrão; demais fechadas.
-    expect(validacao).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('button', { name: /Planejamento/ })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
-
-    // Uma barra 0–100 por fase, com nome acessível.
-    expect(screen.getAllByRole('progressbar')).toHaveLength(4);
-    expect(
-      screen.getByRole('progressbar', { name: 'Progresso da etapa Validação' }),
-    ).toHaveAttribute('aria-valuenow', '0');
-
-    // Documento da fase ativa com estado como TEXTO (não só cor).
-    expect(screen.getByRole('link', { name: /Nota de arquitetura realtime/ })).toBeInTheDocument();
-    expect(screen.getByText('Em revisão')).toBeInTheDocument();
+    expect(screen.queryByText('Triagem')).toBeNull();
+    expect(screen.queryByText('Descoberta')).toBeNull();
+    expect(screen.queryByText('Planejamento')).toBeNull();
+    expect(screen.queryByText('Publicação')).toBeNull();
   });
 
-  it('acordeão acessível: Enter abre/fecha e setas movem o foco entre fases', async () => {
-    const user = userEvent.setup();
-    renderPanel();
-
-    const planejamento = await screen.findByRole('button', { name: /Planejamento/ });
-    await user.click(planejamento);
-    expect(planejamento).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('link', { name: /PRD do Poseidon Console/ })).toBeInTheDocument();
-
-    // Setas: ↑ da primeira fase dá a volta para a última; ↓ avança.
-    planejamento.focus();
-    await user.keyboard('{ArrowUp}');
-    expect(screen.getByRole('button', { name: /Publicação/ })).toHaveFocus();
-    await user.keyboard('{ArrowDown}');
-    expect(planejamento).toHaveFocus();
-
-    // Enter (click de teclado) fecha.
-    await user.keyboard('{Enter}');
-    expect(planejamento).toHaveAttribute('aria-expanded', 'false');
-  });
-
-  it('filtra os documentos da fase pelos chips de conceito documental', async () => {
-    const user = userEvent.setup();
-    renderPanel();
-
-    const header = await screen.findByRole('button', { name: /Planejamento/ });
-    await user.click(header);
-    // Chips escopados na seção da fase (outras fases têm os mesmos rótulos).
-    const section = header.closest('section')!;
-    expect(within(section).getByRole('link', { name: /PRD do Poseidon Console/ })).toBeInTheDocument();
-    expect(within(section).getByRole('link', { name: /Spec da API v1/ })).toBeInTheDocument();
-
-    await user.click(within(section).getByRole('button', { name: 'Em revisão (1)' }));
-    expect(within(section).queryByRole('link', { name: /PRD do Poseidon Console/ })).toBeNull();
-    expect(within(section).getByRole('link', { name: /Spec da API v1/ })).toBeInTheDocument();
-
-    // Clicar de novo limpa o filtro.
-    await user.click(within(section).getByRole('button', { name: 'Em revisão (1)' }));
-    expect(within(section).getByRole('link', { name: /PRD do Poseidon Console/ })).toBeInTheDocument();
-  });
-
-  it('clique no documento navega para /documents?doc=<id>', async () => {
-    const user = userEvent.setup();
-    renderPanel();
-
-    const nota = fixtures.data.documents.find((d) => d.title === 'Nota de arquitetura realtime')!;
-    await user.click(await screen.findByRole('link', { name: /Nota de arquitetura realtime/ }));
-    expect(await screen.findByText(`DOC ${nota.id}`)).toBeInTheDocument();
-  });
-
-  it('atualiza o estado do documento ao receber document.stateChanged do stream', async () => {
-    const { bundle } = renderPanel();
-
-    const nota = fixtures.data.documents.find((d) => d.title === 'Nota de arquitetura realtime')!;
-    expect(await screen.findByRole('link', { name: /Nota de arquitetura realtime/ })).toBeInTheDocument();
-    expect(screen.getByText('Em revisão')).toBeInTheDocument();
-
-    // Aprovação via API: o mock emite document.stateChanged no stream do
-    // projeto e o painel reage sem reload (invalida e refaz a query).
-    await act(async () => {
-      await bundle.api.transitionDocument(nota.id, { toState: 'approved' });
+  it('marca Desenvolvimento como etapa ativa quando lifecycle está BUILDING', async () => {
+    const bundle = createTestBundle();
+    const originalGetV3ProjectContext = bundle.api.getV3ProjectContext.bind(bundle.api);
+    bundle.api.getV3ProjectContext = async (projectId) => ({
+      ...(await originalGetV3ProjectContext(projectId)),
+      currentLifecycleState: 'BUILDING',
     });
+    renderPanel(bundle);
 
-    expect(await screen.findByText('Aprovado')).toBeInTheDocument();
-    expect(screen.queryByText('Em revisão')).not.toBeInTheDocument();
+    const lifecycle = await screen.findByRole('list', { name: 'Lifecycle V3 do projeto' });
+    expect(within(lifecycle).getByText('Entendimento').closest('li')?.textContent).toContain('✓');
+    expect(within(lifecycle).getByText('Desenvolvimento').closest('li')?.textContent).toContain(
+      '●',
+    );
+  });
+
+  it('mostra pronto para homologação humana sem marcar homologado', async () => {
+    const bundle = createTestBundle();
+    const originalGetV3ProjectContext = bundle.api.getV3ProjectContext.bind(bundle.api);
+    bundle.api.getV3ProjectContext = async (projectId) => ({
+      ...(await originalGetV3ProjectContext(projectId)),
+      currentLifecycleState: 'READY_FOR_HUMAN_ACCEPTANCE',
+    });
+    renderPanel(bundle);
+
+    expect(await screen.findByText('Pronto para homologação humana')).toBeInTheDocument();
+    expect(screen.queryByText('Homologado')).toBeNull();
+  });
+
+  it('usa o painel V3 também quando documentos antigos existem no projeto', async () => {
+    renderPanel();
+
+    expect(await screen.findByRole('list', { name: 'Lifecycle V3 do projeto' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Nota de arquitetura realtime/ })).toBeNull();
+  });
+
+  it('renderiza fallback legado quando contexto V3 não existe', async () => {
+    const bundle = createTestBundle();
+    bundle.api.getV3ProjectContext = async () => {
+      throw new Error('v3_context_not_found');
+    };
+    renderPanel(bundle);
+
+    expect(await screen.findByRole('button', { name: /Validação/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Nota de arquitetura realtime/ })).toBeInTheDocument();
   });
 });
 
@@ -336,10 +300,10 @@ describe('ChatPage — painel de workflow responsivo', () => {
       name: 'Acompanhamento do projeto',
     });
     expect(
-      await within(aside).findByRole('progressbar', { name: 'Andamento de Validação' }),
+      await within(aside).findByRole('list', { name: 'Lifecycle V3 do projeto' }),
     ).toBeInTheDocument();
-    expect(within(aside).getByText('Entregas')).toBeInTheDocument();
-    expect(within(aside).getByText('Pendências')).toBeInTheDocument();
+    expect(within(aside).getByText('Entendimento')).toBeInTheDocument();
+    expect(within(aside).getByText('Desenvolvimento')).toBeInTheDocument();
     expect(within(aside).queryByText(/gate/i)).not.toBeInTheDocument();
 
     // Recolhe e reabre pelo toggle (estado persistido na ui-store).
@@ -371,14 +335,14 @@ describe('ChatPage — painel de workflow responsivo', () => {
     const drawer = await screen.findByRole('dialog', { name: 'Acompanhamento do projeto' });
     expect(drawer).toHaveAttribute('aria-modal', 'true');
     expect(
-      await within(drawer).findByRole('progressbar', { name: 'Andamento de Validação' }),
+      await within(drawer).findByRole('list', { name: 'Lifecycle V3 do projeto' }),
     ).toBeInTheDocument();
 
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog', { name: 'Acompanhamento do projeto' })).toBeNull();
   });
 
-  it('modo técnico preserva o workflow interno no painel', async () => {
+  it('modo técnico também preserva o lifecycle V3 no painel', async () => {
     stubMatchMedia(true);
     const bundle = createTestBundle();
     usePresentationStore
@@ -387,9 +351,9 @@ describe('ChatPage — painel de workflow responsivo', () => {
     renderChat(bundle);
 
     const aside = await screen.findByRole('complementary', { name: 'Workflow do projeto' });
-    expect(await within(aside).findByRole('button', { name: /Validação/ })).toBeInTheDocument();
     expect(
-      within(aside).getByRole('progressbar', { name: 'Progresso da etapa Validação' }),
+      await within(aside).findByRole('list', { name: 'Lifecycle V3 do projeto' }),
     ).toBeInTheDocument();
+    expect(within(aside).getByText('Validação')).toBeInTheDocument();
   });
 });

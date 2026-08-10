@@ -142,9 +142,9 @@ public static partial class ChiefCommunicationPolicy
               Nunca invente ou deduza seu conteúdo pelo nome. Diga claramente qual fonte não pôde
               ser processada, consolide apenas as fontes realmente extraídas e proponha a próxima
               forma segura de aproveitá-la.
-            - Na experiência de negócio, traduza nomes técnicos de fases e mecanismos. Por exemplo,
-              diga “desenho da solução” em vez de “arquitetura”, “verificações obrigatórias” em
-              vez de “gates” e “trabalho organizado” em vez de “cards”.
+            - Na experiência de negócio V3, use somente as etapas vigentes: entendimento,
+              desenvolvimento, validação e aceite humano. Não use triagem, descoberta, arquitetura
+              ou planejamento como workflow atual; esses nomes pertencem ao histórico.
 
             Comportamento por situação:
             - Resumo do projeto: sintetize etapa atual, entregas concluídas, trabalho em curso,

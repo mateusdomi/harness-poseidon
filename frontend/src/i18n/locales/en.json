@@ -1462,6 +1462,14 @@
       "title": "Project workflow",
       "open": "Open workflow panel",
       "close": "Close workflow panel",
+      "v3Lifecycle": {
+        "label": "Project V3 lifecycle",
+        "understand": "Understand",
+        "build": "Build",
+        "validate": "Validate",
+        "humanAcceptance": "Human Acceptance",
+        "readyForHumanAcceptance": "Ready for human acceptance"
+      },
       "phaseProgress": "Progress of stage {{phase}}",
       "documentsLabel": "Documents of stage {{phase}}",
       "noDocuments": "No document has been produced or linked to this stage.",

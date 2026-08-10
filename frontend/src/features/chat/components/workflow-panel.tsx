@@ -52,6 +52,7 @@ import {
 import { formatNumber } from '@/lib/format';
 import { phaseStateVariant } from '@/lib/status';
 import { cn } from '@/lib/utils';
+import { useV3ProjectContext } from '@/features/projects/hooks/use-v3-understand';
 
 /** Texto + ícone + cor por conceito documental (nunca só cor — D-068). */
 const HEALTH_META: Record<DocumentHealth, { Icon: LucideIcon; className: string }> = {
@@ -67,6 +68,68 @@ const HEALTH_META: Record<DocumentHealth, { Icon: LucideIcon; className: string 
 
 /** Eventos do stream do projeto que mantêm o painel fresco (D-069). */
 const PANEL_EVENT_TYPES = ['document.stateChanged', 'gate.changed', 'progress.updated'] as const;
+
+const V3_STAGES = [
+  {
+    id: 'UNDERSTAND',
+    labelKey: 'chat.workflowPanel.v3Lifecycle.understand',
+    states: ['DRAFT', 'UNDERSTANDING', 'AWAITING_INPUT', 'READY_TO_START'],
+  },
+  {
+    id: 'BUILD',
+    labelKey: 'chat.workflowPanel.v3Lifecycle.build',
+    states: ['BUILDING', 'PAUSED_QUOTA', 'BLOCKED'],
+  },
+  {
+    id: 'VALIDATE',
+    labelKey: 'chat.workflowPanel.v3Lifecycle.validate',
+    states: ['VALIDATING'],
+  },
+  {
+    id: 'HUMAN_ACCEPTANCE',
+    labelKey: 'chat.workflowPanel.v3Lifecycle.humanAcceptance',
+    states: ['READY_FOR_HUMAN_ACCEPTANCE', 'HUMAN_ACCEPTED'],
+  },
+] as const;
+
+function V3LifecyclePanel({ lifecycle }: { lifecycle: string }) {
+  const { t } = useTranslation();
+  const activeIndex = Math.max(
+    0,
+    V3_STAGES.findIndex((stage) => stage.states.some((state) => state === lifecycle)),
+  );
+  return (
+    <ol aria-label={t('chat.workflowPanel.v3Lifecycle.label')} className="flex flex-col gap-2">
+      {V3_STAGES.map((stage, index) => {
+        const done = index < activeIndex || lifecycle === 'HUMAN_ACCEPTED';
+        const active = index === activeIndex && lifecycle !== 'HUMAN_ACCEPTED';
+        return (
+          <li
+            key={stage.id}
+            className={cn(
+              'flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-sm',
+              active
+                ? 'border-brand bg-primary/10 text-brand-strong'
+                : done
+                  ? 'border-success/40 bg-success/10 text-success'
+                  : 'border-border bg-surface-elevated/30 text-foreground-muted',
+            )}
+          >
+            <span aria-hidden="true" className="w-5 text-center">
+              {done ? '✓' : active ? '●' : '○'}
+            </span>
+            <span className="font-medium">{t(stage.labelKey)}</span>
+            {active && lifecycle === 'READY_FOR_HUMAN_ACCEPTANCE' && (
+              <Badge variant="success">
+                {t('chat.workflowPanel.v3Lifecycle.readyForHumanAcceptance')}
+              </Badge>
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
 /**
  * Dados do painel: workflow ativo do projeto → run corrente → fases,
@@ -483,9 +546,14 @@ export function WorkflowPanel({
   showTechnicalDetails?: boolean;
 }) {
   const { t } = useTranslation();
+  const v3Context = useV3ProjectContext(projectId);
   const panel = useWorkflowPanel(projectId);
 
-  if (panel.isPending) {
+  if (v3Context.data?.currentLifecycleState) {
+    return <V3LifecyclePanel lifecycle={v3Context.data.currentLifecycleState} />;
+  }
+
+  if (panel.isPending || v3Context.isLoading) {
     return (
       <div className="flex flex-col gap-2" role="status" aria-label={t('common.states.loading')}>
         <Skeleton className="h-16 w-full" />
