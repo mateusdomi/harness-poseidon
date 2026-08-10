@@ -47,16 +47,14 @@ public sealed class AgentAccountConfigurationTests : IDisposable
     }
 
     [Fact]
-    public void UnimplementedExecutorIsBornUnavailable()
+    public void KimiExecutorIsImplementedAndBornAuthenticationRequired()
     {
-        // F-09: contas cujo executor não tem adapter real devem nascer Unavailable, não
-        // AuthenticationRequired (que faria o scheduler recusá-las silenciosamente a cada
-        // tentativa de despacho).
         var registry = AgentAccountConfigurationLoader.Load(
             Path.Combine(_directory, "absent.json"));
 
         var kimi = registry.Get("worker-kimi-ui")!;
-        Assert.Equal(AgentAccountState.Unavailable, kimi.State);
+        Assert.Equal(ExecutorCatalog.KimiCode, kimi.ExecutorId);
+        Assert.Equal(AgentAccountState.AuthenticationRequired, kimi.State);
     }
 
     [Fact]

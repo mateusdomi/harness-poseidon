@@ -49,23 +49,15 @@ public sealed class AgentAccountSchedulerTests
     };
 
     [Fact]
-    public void AdapterMissingIsUnavailableNeverSupportedByAssumption()
+    public void UnknownExecutorIsRejectedBeforeScheduling()
     {
-        // Kimi não tem adapter implementado: é Unavailable, não "suportado por suposição".
-        var registry = RegistryOf(
-            Account("worker-kimi-ui", ExecutorCatalog.KimiCode, AgentRoles.FrontendSpecialist));
+        // Executor desconhecido é recusado no cadastro, antes de qualquer preferência do scheduler.
+        var registry = new AgentAccountRegistry();
 
-        var decision = new AgentAccountScheduler().Select(
-            registry,
-            new AccountSchedulingRequest
-            {
-                Role = AgentRoles.FrontendSpecialist,
-                RequiredCapability = "code",
-                Now = Now,
-            });
+        var exception = Assert.Throws<AgentAccountValidationException>(() =>
+            registry.Register(Account("worker-sem-adapter", "executor-sem-adapter", AgentRoles.FrontendSpecialist)));
 
-        Assert.Null(decision.SelectedAlias);
-        Assert.Equal("account.adapter_not_implemented", Assert.Single(decision.Candidates).ReasonCode);
+        Assert.Equal("account.executor_unknown", exception.Message);
     }
 
     [Fact]

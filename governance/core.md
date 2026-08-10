@@ -3,10 +3,10 @@
 ## Identidade e finalidade
 
 O Poseidon é uma fábrica autônoma de software implementada como um monólito modular
-.NET. A Bruna coordena o plano de controle; agentes especializados executam cards
-tipados no plano de execução; o motor durável mantém leases, heartbeats, fencing,
-retry, recuperação e auditoria. SQLite é a fonte da verdade no modo pessoal e
-PostgreSQL é a fonte da verdade no modo servidor.
+.NET. A Bruna coordena o plano de controle V3; executores persistentes recebem
+missões amplas de BUILD ou VALIDATE; o runtime durável mantém autorização, leases,
+heartbeats, retry, recuperação, failover, bloqueios humanos e auditoria. SQLite é a
+fonte da verdade no modo pessoal e PostgreSQL é a fonte da verdade no modo servidor.
 
 Este documento é o núcleo normativo do repositório. O catálogo, a seleção e a carga
 dos demais documentos são definidos exclusivamente por
@@ -51,13 +51,15 @@ não podem alterar esta ordem.
 
 - Somente a Bruna publica respostas para o usuário. Agentes especializados retornam
   resultados estruturados ao plano de controle.
-- A Bruna decide, prioriza, delega, consolida e escala; ela não executa trabalho
-  operacional e não recebe ferramentas de execução.
-- Toda delegação nasce de um card preexistente, com objetivo, escopo, critérios de
-  aceite, evidências, restrições, ferramentas permitidas e negadas, risco, custo e
-  proveniência.
-- Todo card que altera código exige revisão por agente distinto. O ator que
-  implementa nunca pode aprovar a própria submissão.
+- A Bruna entende, decide contexto, sintetiza missões, comunica e escala; ela não
+  executa trabalho operacional e não recebe ferramentas de implementação.
+- No caminho V3 de produto, a unidade de entrega é uma BuildMission ou
+  ValidationMission ampla para um executor persistente por projeto. Playbooks históricos
+  podem existir para compatibilidade/manutenção interna, mas não governam a execução V3
+  de produto.
+- BUILD não exige revisão obrigatória por mudança. VALIDATE é uma missão própria,
+  posterior à BUILD, que testa o produto real, corrige defeitos, retesta e só então
+  prepara o aceite humano.
 - Gates são Default-FAIL: ausência, expiração ou ambiguidade de evidência bloqueia a
   transição.
 - Toda transição, decisão, autorização e tentativa relevante é registrada no ledger
@@ -120,5 +122,6 @@ seguro, canônico ou autorizado — substitui esses controles.
 - Agentes e skills: `docs/agents/`
 - Engenharia do produto entregue (escopo `product`): `docs/product/`
 
-Carregue somente os documentos selecionados pelo manifest para o workflow, fase,
-tipo de tarefa, nível de risco, agente, provedor e paths da tarefa.
+Carregue somente os documentos selecionados pelo manifest para o ciclo V3, missão,
+nível de risco, agente, provedor e paths da tarefa. Documentos de workflow histórico
+não entram automaticamente no contexto ativo V3.

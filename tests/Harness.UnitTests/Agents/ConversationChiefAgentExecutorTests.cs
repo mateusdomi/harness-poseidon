@@ -29,7 +29,7 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
     public ConversationChiefAgentExecutorTests() => Directory.CreateDirectory(_repositoryRoot);
 
     private const string ValidChiefJson =
-        """{"intent":"planejar_demanda","intentConfidence":0.9,"response":"Plano definido. Vou organizar a próxima entrega com a equipe.","demands":[]}""";
+        """{"intent":"understand_project","intentConfidence":0.9,"response":"Entendimento consolidado. Posso preparar a BuildMission quando houver autorização explícita."}""";
 
     [Fact]
     public async Task WithoutAChiefAccountItFailsHonestlyLikeUnavailable()
@@ -127,54 +127,63 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
     }
 
     [Fact]
-    public async Task ThePromptTiesEscalatedCardsToTheCardActionThatClosesTheLoop()
+    public async Task EffectivePromptDoesNotDuplicateCorePersonaOrV1RuntimeLanguage()
     {
-        // OPS-024: a chefe recebia o card escalado no contexto, respondia "decisão registrada e
-        // aplicada" e não emitia cardActions — a decisão do dono morria como texto e o card
-        // seguia escalado. O prompt precisa apontar ONDE o cardId vive (project.escalatedCards)
-        // e mostrar um exemplo concreto da ação que fecha o laço. Se alguém "simplificar" o
-        // prompt e remover isso, este teste reprova antes de o dono descobrir no chat.
         var fake = new FakeExternalExecutor(ValidChiefJson);
         var executor = Build(ChiefRegistry(), fake);
 
         await executor.ExecuteAsync(Request(), CancellationToken.None);
 
         var prompt = Assert.Single(fake.Requests).Prompt;
-        Assert.Contains("project.escalatedCards", prompt, StringComparison.Ordinal);
-        Assert.Contains("\"action\":\"replan\"", prompt, StringComparison.Ordinal);
-        Assert.Contains("cardActions", prompt, StringComparison.Ordinal);
-        Assert.Contains("voltou a andar", prompt, StringComparison.Ordinal);
+        Assert.Equal(1, CountOccurrences(prompt, "Núcleo de governança do Poseidon"));
+        Assert.Equal(1, CountOccurrences(prompt, "## O princípio determinístico"));
+        Assert.DoesNotContain("Council", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("micro-card", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("microcard", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("cardActions", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("teamActions", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("demands", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task TheActiveV3PromptDoesNotTeachEscalatedCardActions()
+    {
+        var fake = new FakeExternalExecutor(ValidChiefJson);
+        var executor = Build(ChiefRegistry(), fake);
+
+        await executor.ExecuteAsync(Request(), CancellationToken.None);
+
+        var prompt = Assert.Single(fake.Requests).Prompt;
+        Assert.DoesNotContain("project.escalatedCards", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"action\":\"replan\"", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("cardActions", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("micro-card", prompt, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
     public void EveryContractFieldHasACounterpartInTheSerializationBridge()
     {
-        // A ponte já perdeu um campo DUAS vezes (teamActions, depois cardActions — OPS-024): dois
-        // records mantidos em sincronia à mão, e o sintoma é sempre o pior — a Bruna afirmando ao
-        // dono ter feito algo que não fez. Este teste é o alarme do TERCEIRO campo: quem adicionar
-        // uma propriedade ao contrato sem contraparte na ponte reprova aqui, em vez de na
-        // conversa com o dono.
-        var contractProperties = typeof(ChiefTurnOutput)
-            .GetProperties()
-            .Select(property => property.Name)
-            .ToArray();
         var bridge = typeof(ConversationChiefAgentExecutor)
             .GetNestedType("ChiefStructuredOutput", BindingFlags.NonPublic);
         Assert.NotNull(bridge);
         var bridgeProperties = bridge.GetProperties().Select(property => property.Name).ToArray();
 
-        // Exceção DELIBERADA, não esquecimento: `contextRequests` (Onda 0.7) é consumido DENTRO
-        // do executor — o pedido de seção vira uma rodada extra de contexto e é resolvido antes
-        // da resposta final. Ele nunca é uma ação para o worker; atravessar a ponte seria vazar
-        // uma etapa interna do turno como se fosse efeito sobre o mundo.
-        string[] consumedInsideExecutor = [nameof(ChiefTurnOutput.ContextRequests)];
-
-        foreach (var property in contractProperties.Except(consumedInsideExecutor))
+        foreach (var property in new[]
+        {
+            nameof(ChiefTurnOutput.Response),
+            nameof(ChiefTurnOutput.Intent),
+            nameof(ChiefTurnOutput.IntentConfidence),
+            nameof(ChiefTurnOutput.UnderstandingUpdate),
+        })
         {
             Assert.True(
                 bridgeProperties.Contains(property, StringComparer.Ordinal),
-                $"A propriedade '{property}' do contrato não tem contraparte na ponte de serialização.");
+                $"A propriedade V3 '{property}' do contrato não tem contraparte na ponte de serialização.");
         }
+
+        Assert.DoesNotContain(nameof(ChiefTurnOutput.Demands), bridgeProperties);
+        Assert.DoesNotContain(nameof(ChiefTurnOutput.TeamActions), bridgeProperties);
+        Assert.DoesNotContain(nameof(ChiefTurnOutput.CardActions), bridgeProperties);
     }
 
     [Fact]
@@ -188,9 +197,9 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         Assert.Equal("conversation-chief", result.Executor);
         Assert.Equal("session-nova", result.SessionId);
         var output = ChiefTurnOutputContract.Parse(result.StructuredOutput);
-        Assert.Equal("Plano definido. Vou organizar a próxima entrega com a equipe.", output.Response);
+        Assert.Equal("Entendimento consolidado. Posso preparar a BuildMission quando houver autorização explícita.", output.Response);
         Assert.Empty(output.Demands);
-        Assert.Equal(["Plano definido. Vou organizar a próxima entrega com a equipe."], result.Chunks);
+        Assert.Equal(["Entendimento consolidado. Posso preparar a BuildMission quando houver autorização explícita."], result.Chunks);
     }
 
     [Fact]
@@ -224,7 +233,7 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         var result = await executor.ExecuteAsync(Request(), CancellationToken.None);
 
         var output = ChiefTurnOutputContract.Parse(result.StructuredOutput);
-        Assert.Equal("Plano definido. Vou organizar a próxima entrega com a equipe.", output.Response);
+        Assert.Equal("Entendimento consolidado. Posso preparar a BuildMission quando houver autorização explícita.", output.Response);
     }
 
     [Fact]
@@ -290,7 +299,7 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         // A segunda chamada retoma a sessão emitida pela primeira.
         Assert.Equal("session-reparo", fake.Requests[1].ResumeSessionId);
         var output = ChiefTurnOutputContract.Parse(result.StructuredOutput);
-        Assert.Equal("Plano definido. Vou organizar a próxima entrega com a equipe.", output.Response);
+        Assert.Equal("Entendimento consolidado. Posso preparar a BuildMission quando houver autorização explícita.", output.Response);
     }
 
     [Fact]
@@ -409,11 +418,8 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
     }
 
     [Fact]
-    public async Task TheChiefSeesTheSpecialistCatalogSheIsToldToDelegateTo()
+    public async Task TheActiveV3PromptDoesNotExposeSpecialistCatalogForProjectDecomposition()
     {
-        // A persona dela manda "delegue ao especialista cuja persona melhor encaixa". Sem o
-        // catálogo no prompt, essa instrução era irrealizável: a escolha caía numa heurística de
-        // palavra-chave que alcança 5 das 25 personas semeadas.
         var fake = new FakeExternalExecutor(ValidChiefJson);
         var executor = Build(ChiefRegistry(), fake);
 
@@ -426,13 +432,14 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
             CancellationToken.None);
 
         var captured = Assert.Single(fake.Requests);
-        Assert.Contains("architecture-security", captured.Prompt, StringComparison.Ordinal);
-        Assert.Contains("Security Architect", captured.Prompt, StringComparison.Ordinal);
-        Assert.Contains("software-engineer", captured.Prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("architecture-security", captured.Prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("Security Architect", captured.Prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("software-engineer", captured.Prompt, StringComparison.Ordinal);
+        Assert.Contains("UM executor persistente", captured.Prompt, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public async Task AnEmptyCatalogIsDeclaredInsteadOfInvented()
+    public async Task AnEmptySpecialistCatalogIsNotMentionedInTheActiveV3Prompt()
     {
         var fake = new FakeExternalExecutor(ValidChiefJson);
         var executor = Build(ChiefRegistry(), fake);
@@ -440,44 +447,45 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         await executor.ExecuteAsync(Request(), CancellationToken.None);
 
         var captured = Assert.Single(fake.Requests);
-        Assert.Contains(
+        Assert.DoesNotContain(
             "Nenhum especialista disponível no catálogo",
             captured.Prompt,
             StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task TheDeclaredSpecialtyAndSurfacesSurviveIntoTheStructuredOutput()
+    public async Task UnderstandingUpdateSurvivesIntoTheStructuredOutput()
     {
         const string json =
             """
-            {"intent":"planejar_demanda","intentConfidence":0.9,"response":"Só tela.","demands":[{"title":"UI-1 cor do botão","description":"Trocar a cor.",
-            "riskTier":"low","acceptanceCriteria":["O botão fica verde."],
-            "specialty":"software-engineer","surfaces":{"frontend":true,"backend":false}}]}
+            {"intent":"understand_project","intentConfidence":0.91,"response":"Li os requisitos.",
+             "understandingUpdate":{"projectSummary":"Sistema de ocorrências operacionais.",
+               "primaryUsers":["Administrador","Operador"],
+               "requirements":["Criar ocorrência","Filtrar por status"],
+               "acceptanceCriteria":["Login válido funciona.","Filtro por status funciona."],
+               "assumptions":["Stack via baseline Poseidon."]}}
             """;
         var fake = new FakeExternalExecutor(json);
         var executor = Build(ChiefRegistry(), fake);
 
         var result = await executor.ExecuteAsync(Request(), CancellationToken.None);
 
-        var demand = Assert.Single(ChiefTurnOutputContract.Parse(result.StructuredOutput).Demands);
-        Assert.Equal("software-engineer", demand.Specialty);
-        Assert.True(demand.Surfaces!.Frontend);
-        Assert.False(demand.Surfaces.Backend);
-        // "Não declarei" continua distinto de "declarei que não".
-        Assert.Null(demand.Surfaces.Decision);
+        var update = ChiefTurnOutputContract.Parse(result.StructuredOutput).UnderstandingUpdate;
+        Assert.NotNull(update);
+        var nonNullUpdate = update!;
+        Assert.Equal("Sistema de ocorrências operacionais.", nonNullUpdate.ProjectSummary);
+        Assert.Equal(["Administrador", "Operador"], nonNullUpdate.PrimaryUsers);
+        Assert.NotNull(nonNullUpdate.AcceptanceCriteria);
+        Assert.Equal(2, nonNullUpdate.AcceptanceCriteria!.Count);
+        Assert.Empty(ChiefTurnOutputContract.Parse(result.StructuredOutput).Demands);
     }
 
     [Fact]
-    public async Task TeamActionsSurviveIntoTheStructuredOutput()
+    public async Task TeamActionsAreNotASerializedV3ActionSurface()
     {
-        // Achado ao vivo: ela anunciou ao dono ter formado um especialista e o catálogo continuou
-        // igual. O campo existia no contrato e era aceito na leitura, mas a reserialização — a
-        // ÚNICA ponte entre o que o modelo produziu e o que o worker executa — não o reescrevia.
-        // O que não passa por aqui não acontece, por mais convincente que seja a prosa.
         const string json =
             """
-            {"intent":"planejar_demanda","intentConfidence":0.9,"response":"Formei o especialista.","demands":[],
+            {"intent":"understand_project","intentConfidence":0.9,"response":"Formei o especialista.","demands":[],
              "teamActions":[{"action":"create_persona",
                "reason":"Nenhuma persona do catálogo cobre auditoria de acessibilidade WCAG.",
                "persona":{"key":"accessibility-auditor","name":"Auditor de Acessibilidade",
@@ -491,22 +499,16 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         var result = await executor.ExecuteAsync(Request(), CancellationToken.None);
 
         var parsed = ChiefTurnOutputContract.Parse(result.StructuredOutput);
-        var action = Assert.Single(parsed.TeamActions!);
-        Assert.Equal("create_persona", action.Action);
-        Assert.Equal("accessibility-auditor", action.Persona!.Key);
-        Assert.Equal(["repo.read"], action.Persona.RequiredCapabilities);
+        Assert.Null(parsed.TeamActions);
+        Assert.Empty(parsed.Demands);
     }
 
     [Fact]
-    public async Task CardActionsSurviveIntoTheStructuredOutput()
+    public async Task CardActionsAreNotASerializedV3ActionSurface()
     {
-        // OPS-024 (a ponte, de novo): a chefe recebia o card escalado no contexto, emitia a
-        // cardActions correta — e ela NUNCA chegava ao worker, porque a reserialização da saída
-        // estruturada não reescrevia o campo. O dono ouvia "decisão registrada e aplicada" e o
-        // card seguia escalated. O que não passa por aqui não acontece.
         const string json =
             """
-            {"intent":"decidir_escalacao","intentConfidence":0.93,
+            {"intent":"record_user_decision","intentConfidence":0.93,
              "response":"Decisão registrada: vou redirecionar esse trabalho com o escopo menor.",
              "demands":[],
              "cardActions":[{"action":"replan","cardId":"01KZ26X4RN6V96W19ZXTKKGTJE",
@@ -518,9 +520,8 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         var result = await executor.ExecuteAsync(Request(), CancellationToken.None);
 
         var parsed = ChiefTurnOutputContract.Parse(result.StructuredOutput);
-        var action = Assert.Single(parsed.CardActions!);
-        Assert.Equal("replan", action.Action);
-        Assert.Equal("01KZ26X4RN6V96W19ZXTKKGTJE", action.CardId);
+        Assert.Null(parsed.CardActions);
+        Assert.Empty(parsed.Demands);
     }
 
     /// <summary>
@@ -643,7 +644,7 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         Assert.Equal(2, fake.Requests.Count);
         Assert.Equal("chief-claude-primary", fake.Requests[0].Alias);
         Assert.Equal("chief-claude-secondary", fake.Requests[1].Alias);
-        Assert.Contains("Plano definido", result.StructuredOutput, StringComparison.Ordinal);
+        Assert.Contains("Entendimento consolidado", result.StructuredOutput, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -765,6 +766,19 @@ public sealed class ConversationChiefAgentExecutorTests : IDisposable
         var registry = new AgentAccountRegistry();
         registry.Register(ChiefAccount(AgentAccountState.Available));
         return registry;
+    }
+
+    private static int CountOccurrences(string value, string pattern)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = value.IndexOf(pattern, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += pattern.Length;
+        }
+
+        return count;
     }
 
     private static AgentAccountContract ChiefAccount(

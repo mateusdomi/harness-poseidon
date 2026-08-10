@@ -14,10 +14,10 @@ justificativa de que o usuário não informou a stack. Para quem pediu, nada foi
 
 ## Regra de bloqueio
 
-Se o produto é operado por uma pessoa e **não existe interface utilizável**, o card não
-pode ser concluído — salvo escopo aprovado dizendo explicitamente "somente API",
-"backend only" ou equivalente, registrado no perfil efetivo. O revisor independente
-reprova nesse caso: é critério de aceite não atendido, não preferência de estilo.
+Se o produto é operado por uma pessoa e **não existe interface utilizável**, a BUILD não
+pode ser considerada concluída — salvo escopo aprovado dizendo explicitamente "somente API",
+"backend only" ou equivalente, registrado no perfil efetivo. Nesse caso, a validação deve
+tratar como critério de aceite não atendido, não preferência de estilo.
 
 ## Mínimo por modalidade
 
@@ -77,16 +77,16 @@ abrir a aplicação → ver a lista (vazia, com orientação) → cadastrar um e
 `GET /emprestimos → 200` **não** substitui esse teste: prova que o processo subiu, não
 que o produto funciona.
 
-Cobertura é indicador, não objetivo; trecho sem teste é discutido na revisão, não
-escondido por exclusão artificial. Teste instável é corrigido ou colocado em quarentena
-com card de dívida — nunca reexecutado até passar e tratado como sucesso.
+Cobertura é indicador, não objetivo; trecho sem teste precisa ter justificativa objetiva, não
+ser escondido por exclusão artificial. Teste instável é corrigido ou colocado em quarentena
+com dívida técnica registrada — nunca reexecutado até passar e tratado como sucesso.
 
-## Quality gate mínimo do card de implementação
+## Quality gate mínimo da BUILD
 
 Build sem erro; testes relevantes verdes; lint e analyzers verdes; migration validada
 quando existir; OpenAPI gerado sem erro quando houver API; frontend buildando quando
 existir; fluxo principal validado; nenhuma falha crítica de segurança conhecida;
-evidências registradas no card.
+evidências registradas no relatório da missão.
 
 ## Evidências exigidas
 

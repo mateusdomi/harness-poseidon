@@ -1,5 +1,5 @@
 manifestVersion: 2.0.0
-lastGeneratedAt: 2026-08-05T04:27:24.4003080+00:00
+lastGeneratedAt: 2026-08-10T23:14:29.0762220+00:00
 tokenBudget: 24000
 knownOwners:
 - Platform Governance
@@ -182,7 +182,7 @@ documents:
   - '**'
   load: always
   priority: 1000
-  tokenCost: 1304
+  tokenCost: 1361
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -197,7 +197,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:111f9d0f8756f3a1eebaa8fa4bff772fc60c4934fcb608d07c142217c911dd51
+  checksum: sha256:fadd8e7e73955308e2ba4627715b6d4c60a49414f41e2096e59cdd02f08d3c1f
   containsSecrets: false
   generated: false
   sourceOfTruth: governance/core.md
@@ -232,7 +232,7 @@ documents:
   - '**'
   load: bundle
   priority: 900
-  tokenCost: 645
+  tokenCost: 672
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -248,7 +248,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-agent-scope.sh
   - ci:governance
-  checksum: sha256:c0ee4d6c49a88ba5f90b774d6d1fd6d5042b8c0bfa27b9dabd533e431299493a
+  checksum: sha256:03fbaaab9745bede014dbe7f590a2be9a5a674932cbbe5cf1e4254a1474f699d
   containsSecrets: false
   generated: false
   sourceOfTruth: governance/rules/coordination.md
@@ -544,7 +544,7 @@ documents:
   - '**'
   load: bundle
   priority: 975
-  tokenCost: 264
+  tokenCost: 267
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -559,7 +559,7 @@ documents:
   enforcedBy:
   - runtime:output-gateway
   - runtime:audit-ledger
-  checksum: sha256:789a72a9e82dc3609de57822cce79cf4492191e388e2792f79affece420c441e
+  checksum: sha256:8bcd4f544f92df7c408c65b902292e7332b1975b0e87a4c53e25336dd4befced
   containsSecrets: false
   generated: false
   sourceOfTruth: governance/rules/authority.md
@@ -595,7 +595,7 @@ documents:
   - '**'
   load: bundle
   priority: 975
-  tokenCost: 251
+  tokenCost: 315
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -610,7 +610,7 @@ documents:
   enforcedBy:
   - runtime:security-pep
   - runtime:output-gateway
-  checksum: sha256:02c8f2b4e7640964d901ce949f147d80d84811b4dc302be16f959aef9976d15c
+  checksum: sha256:5095ef06712a19147637613e37dab15a7f30f3b82d1d9fcbbf25001d140c72db
   containsSecrets: false
   generated: false
   sourceOfTruth: governance/rules/chief-constraints.md
@@ -830,7 +830,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:a453848c598428c368586971f7f49a891f678dee2d967610891f66e5962e10c5
+  checksum: sha256:52071f3bfc199368869dc6bb86f7a3c064706a59f48831d8c9b97dea6186634b
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/core.md
@@ -891,7 +891,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:5a69ed2148588aa26689ca9002b2d61714fecb2a032c73eb6ea0dc8b5df92cc6
+  checksum: sha256:c9dbecb5a0ce984a9e474656294713ff92858bdeba7ea625c56ff434749aea97
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/core.md
@@ -926,7 +926,7 @@ documents:
   - '**'
   load: always
   priority: 800
-  tokenCost: 2088
+  tokenCost: 2159
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -941,7 +941,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:368378b66320e1f8553aa035e84de7e00f9cd20b14c093566e0ac1ff3f38b816
+  checksum: sha256:b401f66d7c4285e0b4e1b62a29e134849ec25ec0785c34e69e43dc479efda123
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -2169,7 +2169,7 @@ documents:
   - '**'
   load: bundle
   priority: 900
-  tokenCost: 1953
+  tokenCost: 1883
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -2182,7 +2182,7 @@ documents:
   - rule-chief-constraints
   - rule-authority
   enforcedBy: []
-  checksum: sha256:8ef9ad676489ad23ea753f8fccdd11e675e2f6cd44f5fcb7e7d5c41c902de640
+  checksum: sha256:cf356b904764cfdf6da1338db3b7bcd607fc168dd8cf2eb1a2766787fdd18c20
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/agents/bruna.md
@@ -2217,7 +2217,7 @@ documents:
   - '**'
   load: bundle
   priority: 880
-  tokenCost: 1473
+  tokenCost: 1454
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -2233,7 +2233,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:f7421eacd142cd6c6345f15859de4d5c94e732a1625987e32e5255f3b1df96d8
+  checksum: sha256:0c27df487e08c93e6581fb3c3a8c5a80a32cb3a8a10ead9764dc99aa355fdd0f
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/product/baseline.md
@@ -2291,7 +2291,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:c4afca995cba8e06ba348404f8392ce697245f14192e0c846d21e28206ac11fb
+  checksum: sha256:cb6ebeecb5b0766bbb493e834b34110390a4e024883901266b161b55c2164ed4
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/product/backend-standards.md
@@ -2540,7 +2540,7 @@ documents:
   - '**'
   load: on-demand
   priority: 880
-  tokenCost: 936
+  tokenCost: 1301
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -2552,7 +2552,7 @@ documents:
   related:
   - product-frontend-standards
   enforcedBy: []
-  checksum: sha256:4de24a3229ba47d548d7743ce738a8b264e3cee5d2385572a3ba4b2fd5828ad8
+  checksum: sha256:e23709a094e6de9f820416f6390957d866006f50f6cbea3b4708f763306e829d
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/product/provided-artifacts.md
@@ -2592,7 +2592,7 @@ documents:
   - '**'
   load: on-demand
   priority: 875
-  tokenCost: 747
+  tokenCost: 744
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -2604,7 +2604,7 @@ documents:
   related:
   - product-definition-of-done
   enforcedBy: []
-  checksum: sha256:7c026d08ba850134d88faba4329751c3db35c5578a11e4e7e3cd6b4ad136f6da
+  checksum: sha256:79813f5fd1b5b7207741d502381dd899970597e67e27fa4b14f7fb85b93fac85
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/product/full-stack-integration.md
@@ -2644,7 +2644,7 @@ documents:
   - '**'
   load: on-demand
   priority: 872
-  tokenCost: 1109
+  tokenCost: 1298
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -2656,10 +2656,63 @@ documents:
   related:
   - product-definition-of-done
   enforcedBy: []
-  checksum: sha256:70712896f32cfd1a3793a188293ce48e9b463291187e39f491fa3c3bcd2ae9a1
+  checksum: sha256:2f16b5e63459b8b5f9ec45af99504a2d78a40a46d3d4ebce1243b49edb997882
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/product/qa-standards.md
+- id: product-validation-audit-checklist
+  path: docs/product/checklist-auto-auditoria-ia.md
+  title: Checklist genérico de autoauditoria de IA
+  category: product-standard
+  topic: product-validation-audit-checklist
+  authority: canonical
+  scope: product
+  audience:
+  - human
+  - agent
+  - runtime
+  providers:
+  - '*'
+  agents:
+  - '*'
+  roles: []
+  workflows:
+  - '*'
+  phases:
+  - validate
+  taskTypes:
+  - backend-specialist
+  - frontend-specialist
+  - historia
+  - tarefa
+  - bug
+  - adr
+  riskTiers:
+  - low
+  - medium
+  - high
+  - critical
+  pathGlobs:
+  - '**'
+  load: on-demand
+  priority: 860
+  tokenCost: 7218
+  owner: Platform Engineering
+  status: active
+  version: 1.0.0
+  lastVerifiedAt: 2026-08-10T00:00:00-03:00
+  reviewDueAt: 2027-02-10T00:00:00-03:00
+  supersedes: []
+  dependencies:
+  - governance-core
+  related:
+  - product-qa-standards
+  - product-definition-of-done
+  enforcedBy: []
+  checksum: sha256:48bc58a4c1a9b3e9efd19787b5fd9c3beb703d6d8ed2d5df4a3022fa6c8011af
+  containsSecrets: false
+  generated: false
+  sourceOfTruth: docs/product/checklist-auto-auditoria-ia.md
 - id: product-security-operability
   path: docs/product/security-and-operability.md
   title: Segurança e operabilidade do produto entregue
@@ -2698,7 +2751,7 @@ documents:
   - '**'
   load: on-demand
   priority: 875
-  tokenCost: 834
+  tokenCost: 836
   owner: Product Security
   status: active
   version: 1.0.0
@@ -2714,7 +2767,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:d3bebc2a9362ec40425901e847a820130a1878416b107b8baf7e2548528b9784
+  checksum: sha256:ea591c862b97f90c43fb6c465d9d0be4ca6b4f3417984a050bef366ae4fb7ce3
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/product/security-and-operability.md
@@ -2749,7 +2802,7 @@ documents:
   - '**'
   load: bundle
   priority: 885
-  tokenCost: 1037
+  tokenCost: 1040
   owner: Quality Engineering
   status: active
   version: 1.0.0
@@ -2766,7 +2819,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:47540104496b32ab1825731e5d8c308ccfd290ff272d47da4710fe7de5664774
+  checksum: sha256:60169073714d065457d88c14116c06df7a3d00d4993218c9db0d7249a9fdc978
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/product/definition-of-done.md
@@ -3049,7 +3102,7 @@ documents:
   sourceOfTruth: docs/decisions/ADR-0008-semantica-do-conselho-e-o-fim-da-recursao-de-critico.md
 - id: adr-0009-project-graph-projection
   path: docs/decisions/ADR-0009-project-graph-projection.md
-  title: "ADR-0009 — ProjectGraphProjection: um grafo que é projeção, nunca fonte da verdade"
+  title: 'ADR-0009 — ProjectGraphProjection: um grafo que é projeção, nunca fonte da verdade'
   category: decision
   topic: project-graph
   authority: canonical
@@ -3077,7 +3130,7 @@ documents:
   - '**'
   load: on-demand
   priority: 700
-  tokenCost: 1290
+  tokenCost: 1074
   owner: Platform Engineering
   status: active
   version: 1.0.0

@@ -97,8 +97,8 @@ Quando o usuário entrega especificação fechada:
   contradição interna, impossibilidade técnica comprovada ou choque com restrição regulatória.
   Preferência do agente não é conflito.
 - **Lacuna genuína continua sendo lacuna.** O documento responder 80% não dispensa perguntar os 20%.
-- Os gates do playbook **continuam valendo**. Ter especificação pronta acelera a produção do
-  artefato de cada fase; não dispensa a fase.
+- O lifecycle V3 **continua valendo**. Ter especificação pronta acelera o UNDERSTAND e melhora
+  a BuildMission/ValidationMission; não autoriza pular validação.
 
 ## 5. Rastreabilidade
 
@@ -107,15 +107,15 @@ Todo requisito do documento fornecido precisa terminar em evidência:
 ```
 Requisito do documento
   → critério de aceite
-  → card
+  → BuildMission / ValidationMission
   → implementação
   → teste
   → evidência
 ```
 
-Um requisito que existe no documento do usuário e não aparece em nenhum card é um requisito que
-ninguém vai construir. Este é o elo que o run de 2026-08-04 não tinha, e é onde a interface se
-perdeu.
+Um requisito que existe no documento do usuário e não aparece no entendimento persistido, na
+BuildMission ou na ValidationMission é um requisito sob risco real de não ser construído ou validado.
+Este é o elo que o run de 2026-08-04 não tinha, e é onde a interface se perdeu.
 
 ## 6. O que continua igual
 

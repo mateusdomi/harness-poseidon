@@ -108,7 +108,7 @@ sensível sem mascaramento.
 **Contrato é entregável.** Toda API HTTP nasce documentada: OpenAPI habilitado, Swagger
 UI navegável em desenvolvimento e homologação, política explícita para produção. O
 agente não espera o usuário pedir Swagger — uma API sem contrato navegável está
-incompleta, e a geração sem erro é evidência exigida na conclusão do card.
+incompleta, e a geração sem erro é evidência exigida na conclusão da BUILD.
 
 **REST.** Recursos e verbos com semântica (`GET /api/emprestimos`,
 `GET /api/emprestimos/{id}`, `POST`, `PUT`/`PATCH`, `DELETE` quando a exclusão fizer

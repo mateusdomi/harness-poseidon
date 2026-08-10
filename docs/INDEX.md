@@ -1,4 +1,4 @@
-<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=2.0.0 checksum=sha256:5b05eaa8a31139b2a94c58503b7a0f888d5caca85f50d5336211c629d650c123 -->
+<!-- GENERATED FILE — DO NOT EDIT. source=governance/manifest.yaml version=2.0.0 checksum=sha256:b1d9128df65e02d2e31b9c7c78bee0f13a144b7fb6a238d9bc1b21747709d1c0 -->
 # Poseidon documentation index
 
 Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/generate-governance.sh`.
@@ -6,7 +6,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 ## By authority
 
 - `Adapter`: 2
-- `Canonical`: 56
+- `Canonical`: 57
 - `Generated`: 1
 
 ## By domain
@@ -20,7 +20,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `entrypoint`: 1
 - `governance`: 1
 - `index`: 1
-- `product-standard`: 11
+- `product-standard`: 12
 - `rule`: 11
 - `runbook`: 3
 - `security`: 3
@@ -35,15 +35,16 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 - `planning`: 2
 - `sustentation`: 2
 - `triage`: 1
+- `validate`: 1
 
 ## By status
 
-- `Active`: 59
+- `Active`: 60
 
 ## By owner
 
 - `Operations`: 7
-- `Platform Engineering`: 25
+- `Platform Engineering`: 26
 - `Platform Governance`: 14
 - `Product Security`: 8
 - `Quality Engineering`: 5
@@ -52,7 +53,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 - `Always`: 4
 - `Bundle`: 33
-- `OnDemand`: 22
+- `OnDemand`: 23
 
 ## Documents by authority and domain
 
@@ -62,7 +63,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Bruna](agents/bruna.md) | * | Active | Platform Governance | Bundle | 1953 |
+| [Bruna](agents/bruna.md) | * | Active | Platform Governance | Bundle | 1883 |
 
 #### architecture
 
@@ -103,7 +104,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | [ADR-0006 — Baseline de engenharia do produto entregue](decisions/ADR-0006-baseline-de-engenharia-do-produto-entregue.md) | architecture | Active | Platform Engineering | OnDemand | 1932 |
 | [ADR-0007 — Escopo de path vazio na seleção de contexto](decisions/ADR-0007-escopo-de-path-vazio-na-selecao-de-contexto.md) | architecture | Active | Platform Engineering | OnDemand | 1155 |
 | [ADR-0008 — Semântica do Conselho e o fim da recursão de crítico](decisions/ADR-0008-semantica-do-conselho-e-o-fim-da-recursao-de-critico.md) | planning | Active | Platform Engineering | OnDemand | 1562 |
-| [ADR-0009 — ProjectGraphProjection: um grafo que é projeção, nunca fonte da verdade](decisions/ADR-0009-project-graph-projection.md) | architecture | Active | Platform Engineering | OnDemand | 1290 |
+| [ADR-0009 — ProjectGraphProjection: um grafo que é projeção, nunca fonte da verdade](decisions/ADR-0009-project-graph-projection.md) | architecture | Active | Platform Engineering | OnDemand | 1074 |
 
 #### entrypoint
 
@@ -115,34 +116,35 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Núcleo de governança do Poseidon](../governance/core.md) | * | Active | Platform Governance | Always | 1304 |
+| [Núcleo de governança do Poseidon](../governance/core.md) | * | Active | Platform Governance | Always | 1361 |
 
 #### product-standard
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Definition of Done do produto entregue](product/definition-of-done.md) | * | Active | Quality Engineering | Bundle | 1037 |
-| [Baseline técnico do produto entregue](product/baseline.md) | * | Active | Platform Engineering | Bundle | 1473 |
-| [Artefatos fornecidos pelo usuário — protótipo, documento e código existente](product/provided-artifacts.md) | * | Active | Platform Engineering | OnDemand | 936 |
-| [Integração full-stack do produto entregue](product/full-stack-integration.md) | * | Active | Platform Engineering | OnDemand | 747 |
-| [Segurança e operabilidade do produto entregue](product/security-and-operability.md) | * | Active | Product Security | OnDemand | 834 |
-| [QA do produto entregue](product/qa-standards.md) | * | Active | Platform Engineering | OnDemand | 1109 |
+| [Definition of Done do produto entregue](product/definition-of-done.md) | * | Active | Quality Engineering | Bundle | 1040 |
+| [Baseline técnico do produto entregue](product/baseline.md) | * | Active | Platform Engineering | Bundle | 1454 |
+| [Artefatos fornecidos pelo usuário — protótipo, documento e código existente](product/provided-artifacts.md) | * | Active | Platform Engineering | OnDemand | 1301 |
+| [Integração full-stack do produto entregue](product/full-stack-integration.md) | * | Active | Platform Engineering | OnDemand | 744 |
+| [Segurança e operabilidade do produto entregue](product/security-and-operability.md) | * | Active | Product Security | OnDemand | 836 |
+| [QA do produto entregue](product/qa-standards.md) | * | Active | Platform Engineering | OnDemand | 1298 |
 | [Backend do produto entregue — arquitetura, .NET/C# e API](product/backend-standards.md) | * | Active | Platform Engineering | OnDemand | 1476 |
 | [Dados e banco do produto entregue](product/data-standards.md) | * | Active | Platform Engineering | OnDemand | 756 |
 | [Frontend do produto entregue](product/frontend-standards.md) | * | Active | Platform Engineering | OnDemand | 1008 |
 | [Autenticação e sessão do produto entregue](product/authentication-standards.md) | * | Active | Platform Engineering | OnDemand | 977 |
 | [Dados e banco do produto entregue — Oracle](product/oracle-data-standards.md) | * | Active | Platform Engineering | OnDemand | 1539 |
+| [Checklist genérico de autoauditoria de IA](product/checklist-auto-auditoria-ia.md) | validate | Active | Platform Engineering | OnDemand | 7218 |
 
 #### rule
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Autoridade e publicação](../governance/rules/authority.md) | * | Active | Platform Governance | Bundle | 264 |
-| [Restrições da Bruna](../governance/rules/chief-constraints.md) | * | Active | Platform Governance | Bundle | 251 |
+| [Autoridade e publicação](../governance/rules/authority.md) | * | Active | Platform Governance | Bundle | 267 |
+| [Restrições da Bruna](../governance/rules/chief-constraints.md) | * | Active | Platform Governance | Bundle | 315 |
 | [Revisão de código](../governance/rules/code-review.md) | * | Active | Quality Engineering | Bundle | 275 |
 | [Segredos](../governance/rules/secrets.md) | * | Active | Product Security | Bundle | 257 |
 | [Segurança](../governance/rules/security.md) | * | Active | Product Security | Bundle | 305 |
-| [Coordenação](../governance/rules/coordination.md) | * | Active | Platform Governance | Bundle | 645 |
+| [Coordenação](../governance/rules/coordination.md) | * | Active | Platform Governance | Bundle | 672 |
 | [Documentação](../governance/rules/documentation.md) | * | Active | Platform Governance | Bundle | 671 |
 | [Git e integração](../governance/rules/git.md) | * | Active | Platform Engineering | Bundle | 293 |
 | [Testes e gates](../governance/rules/testing.md) | * | Active | Quality Engineering | Bundle | 287 |

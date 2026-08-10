@@ -432,7 +432,7 @@ public sealed class V3BuildRuntimeTests : IDisposable
         Assert.Equal("worker-b", mission.RecommendedExecutor.AccountAlias);
         Assert.Contains("BROWSER-FIRST POLICY", mission.MissionText);
         Assert.Contains("checklist-auto-auditoria-ia.md", mission.MissionText);
-        Assert.Contains("docs/product/qa-standards.md#8-toolchain-local-de-navegador", mission.MissionText);
+        Assert.Contains("docs/product/qa-standards.md", mission.MissionText);
     }
 
     private (V3BuildRuntimeService Service, V3UnderstandStore Understand) Runtime(FakeBuildExecutor fake)

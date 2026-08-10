@@ -1,25 +1,25 @@
 # Coordenação
 
-## Unidade de trabalho
+## Unidade de trabalho V3
 
-Toda execução especializada parte de um card persistido. O card define objetivo,
-escopo, exclusões, entradas, saídas, critérios de aceite, definição de pronto,
-dependências, riscos, evidências obrigatórias, ferramentas, orçamento e
-proveniência. Trabalho sem card é rejeitado.
+No caminho V3 de produto, a execução parte de uma missão persistida. BUILD usa uma
+BuildMission ampla; VALIDATE usa uma ValidationMission ampla. A missão define
+objetivo, escopo, exclusões, entradas, saídas, critérios de aceite, definição de
+pronto, restrições, ferramentas, orçamento, artefatos legíveis e proveniência.
 
-Bruna cria e prioriza cards. O orquestrador atribui a execução somente depois de
-validar prontidão, dependências, capacidade, autorização e isolamento. O agente
-recebe um handoff mínimo e retorna resultado estruturado; histórico interno da
-Bruna e contexto não selecionado não são delegados.
+Bruna entende o projeto e compila a missão. O orquestrador atribui execução somente
+depois de validar prontidão, capacidade, autorização e isolamento. O executor recebe
+o pacote selecionado e retorna resultado estruturado; histórico interno da Bruna e
+contexto não selecionado não são delegados.
 
 ## Execução e concorrência
 
 - Cada tentativa possui lease, heartbeat e fencing token.
-- Lease expirada invalida resultados tardios e reenfileira o card de forma
+- Lease expirada invalida resultados tardios e reenfileira a missão de forma
   idempotente.
 - Cada agente escreve somente nos paths cobertos por seu ScopeClaim.
-- Cards paralelos declaram `provides` e `consumes`; fan-in aguarda a barreira de
-  dependências.
+- O V3 evita paralelismo por fragmentação operacional: um executor persistente permanece dono da
+  missão enquanto houver capacidade/cota.
 - Integrações em `develop` são serializadas pelo coordenador de merge.
 - Bloqueios registram causa, dependência, evidência e condição objetiva de saída.
 - Retry preserva contexto, checkpoints e idempotency key; não duplica efeitos.
@@ -56,6 +56,6 @@ restrições, ferramentas autorizadas, referências de memória e proveniência.
 resultado contém estado, evidências, decisões, riscos, bloqueios, artefatos, custo,
 tokens e proveniência.
 
-Código só avança após revisão por agente distinto. Gates sem evidência válida
-falham. Transições são aplicadas com controle de concorrência e registradas no
-ledger append-only.
+BUILD concluída avança para VALIDATE; VALIDATE concluída avança para aceite humano.
+Gates sem evidência válida falham. Transições são aplicadas com controle de
+concorrência e registradas no ledger append-only.

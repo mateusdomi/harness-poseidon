@@ -43,7 +43,7 @@ dado sensível sem necessidade operacional e proteção.
 controlada; biblioteca abandonada gera risco técnico registrado, não silêncio.
 
 **Threat model** proporcional ao risco, com STRIDE como método default — coerente com o
-que a Fase 3 já cobra.
+que o EffectiveStack/constraint profile da V3 registra.
 
 ## Observabilidade e operabilidade
 

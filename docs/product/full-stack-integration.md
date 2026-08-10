@@ -56,6 +56,6 @@ isso que a medição de tráfego existe e é condição para derivar a evidênci
 > "O backend está pronto e testado; a interface fica para depois."
 
 Backend pronto sem interface, num produto cuja modalidade exige interface, **não é meia entrega — é
-zero entrega**, porque quem pediu não consegue usar nada. A fase de Desenvolvimento não fecha com a
-metade que dá sentido ao produto pendente, e nenhuma decisão de arquitetura tem autoridade para
-transformar essa pendência em escopo reduzido.
+zero entrega**, porque quem pediu não consegue usar nada. A BUILD não fecha com a metade que dá
+sentido ao produto pendente, e nenhuma decisão de arquitetura tem autoridade para transformar essa
+pendência em escopo reduzido.

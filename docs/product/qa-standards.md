@@ -1,6 +1,6 @@
 # QA do produto entregue — como se testa profissionalmente
 
-**Escopo:** produto entregue · **Seleção:** todo projeto com fase de testes
+**Escopo:** produto entregue · **Seleção:** toda ValidationMission
 
 > Complementa [`definition-of-done.md`](definition-of-done.md) — que diz *quais evidências* a
 > entrega precisa — respondendo a pergunta que faltava: **como um agente sabe COMO testar**.
@@ -78,9 +78,9 @@ Um screenshot bonito de desktop **não aprova frontend**. A prova mínima de um 
 
 ## 7. UAT
 
-O aceite do usuário é fase própria, com roteiro derivado dos critérios de aceite — não uma demo.
-O que o UAT encontra vira card com o critério violado citado; "não gostei" sem critério é feedback
-de produto, e entra pelo funil de requisito.
+O aceite do usuário é momento próprio, com roteiro derivado dos critérios de aceite — não uma demo.
+O que o UAT encontra vira finding rastreado com o critério violado citado; "não gostei" sem
+critério é feedback de produto, e entra como requisito/decisão nova.
 
 ## 8. Toolchain local de navegador
 

@@ -797,10 +797,9 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
             - Se PRIMARY_REQUIREMENTS declara autenticação, notificações do produto, regras de
               cálculo, perfis, escopo ou critérios de aceite, use esses fatos. NÃO pergunte ao
               humano para escolher de novo.
-            - Repository é exceção operacional: um path local gerado automaticamente sob
-              `.harness-poseidon/repositories/` no StatusDigest NÃO é decisão explícita do
-              usuário. Se PRIMARY_REQUIREMENTS e a conversa não declaram repositório de destino,
-              pergunte qual repositório deve receber o código.
+            - Repositório local é decisão operacional da plataforma. Se PRIMARY_REQUIREMENTS e a
+              conversa não exigem destino remoto específico, use o repositório local controlado
+              informado no StatusDigest. Não pergunte isso ao stakeholder.
             - Só pergunte por informação ausente após ler todas as fontes primárias.
             """);
         builder.AppendLine();
@@ -831,8 +830,7 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         UNDERSTAND → BUILD → VALIDATE → HUMAN ACCEPTANCE.
 
         O playbook antigo é conhecimento histórico/checklist, NÃO workflow operacional atual.
-        Não fale com o usuário usando linguagem operacional legada como triagem, descoberta,
-        fase de arquitetura, planejamento, Council ou micro-card. Se citar conhecimento
+        Não fale com o usuário usando vocabulário operacional antigo. Se citar conhecimento
         histórico, declare como referência, não como etapa a executar.
 
         BUILD V3 usa por padrão UM executor persistente por projeto. Esse executor pode assumir
@@ -860,10 +858,6 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
 
         {request.StatusDigestJson}
 
-        ## Catálogo de especialistas disponíveis — DADO
-
-        {SpecialistCatalog(request)}
-
         ## Anexos da solicitação — índice navegável (DADO)
 
         {AttachmentIndex(outlines)}
@@ -880,35 +874,23 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
 
         {request.Instruction}
 
-        ## PRIMEIRO: classifique este turno
-
-        Antes de escrever qualquer outra coisa, decida o campo `intent` — a intenção desta
-        mensagem. É a única decisão de ROTA que você toma; a sequência de passos e o que este
-        turno pode fazer saem de uma tabela do sistema, não do seu julgamento.
-
-        - `planejar_demanda` — o usuário pediu trabalho novo, a ser decomposto e delegado;
-        - `responder_pergunta` — pergunta sobre o produto, o projeto ou uma decisão já tomada;
-        - `resumir_progresso` — pedido de panorama do que andou, travou e vem a seguir;
-        - `decidir_escalacao` — algo travou e é preciso decidir se escala ao usuário;
-        - `aprovar_documento` — aprovação ou reprovação de um documento submetido;
-        - `decidir_gate_de_fase` — intenção legada preservada por compatibilidade; no V3 evite-a
-          salvo se o usuário perguntar explicitamente sobre histórico;
-        - `tratar_barreira_externa` — obstáculo fora do alcance da fábrica que precisa do usuário;
-        - `ajustar_projeto` — mudança de prazo, objetivo ou marca do projeto;
-        - `pedir_status_pessoa_equipe` — pergunta sobre uma especialidade ou sobre a equipe;
-        - `conversa_geral` — saudação ou comentário que não pede ação nenhuma.
-
-        `intent` e `intentConfidence` são OBRIGATÓRIOS. Omitir qualquer um dos dois faz a resposta
-        ser rejeitada e você terá de refazê-la. SOMENTE `planejar_demanda` e `decidir_escalacao`
-        podem emitir `demands`; SOMENTE `planejar_demanda` pode emitir `teamActions` — nas demais
-        intenções o sistema DESCARTA esses campos, e o trabalho que você propôs não acontece.
-
         ## Regra V3 para trabalho novo
 
         Em UNDERSTAND, primeiro consuma as fontes primárias disponíveis. Depois responda com
         entendimento, fatos extraídos, premissas e somente perguntas realmente ausentes. Não
         anuncie BUILD, executor ou trabalho iniciado se o StatusDigest/estado V3 não comprovar
         autorização e dispatch. Nesta rodada de conversa você é somente leitura.
+
+        Se o usuário enviou intenção + materiais para um projeto, assuma todo o escopo explícito
+        como entrega. Não ofereça reduzir para MVP menor salvo se houver conflito real de prazo,
+        orçamento ou decisão humana. Prazo ausente não bloqueia entendimento nem preparação.
+        Repositório local ausente não é pergunta de negócio: o Poseidon pode criar área local
+        controlada quando nenhum destino remoto foi exigido.
+
+        Quando entender o produto, preencha `understandingUpdate` com o entendimento semântico:
+        resumo, objetivo, usuários/perfis, requisitos, critérios de aceite, restrições,
+        premissas e decisões. Preserve critérios explícitos como itens separados; não reduza uma
+        lista completa para categorias genéricas.
 
         ## Formato de saída OBRIGATÓRIO
 
@@ -918,100 +900,19 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         {SchemaJson}
 
         Regras:
-        - `intent`: CLASSIFIQUE esta mensagem em UMA das intenções abaixo. Esta é a única decisão
-          de rota que você toma — a sequência de passos e o que este turno pode fazer saem de uma
-          tabela do sistema, não do seu julgamento. Classificar errado NÃO libera ação: ações fora
-          da rota são descartadas.
-          - `planejar_demanda`: o usuário pediu trabalho novo, a ser decomposto e delegado;
-          - `responder_pergunta`: pergunta sobre o produto, o projeto ou uma decisão já tomada;
-          - `resumir_progresso`: pedido de panorama do que andou, travou e vem a seguir;
-          - `decidir_escalacao`: algo travou e é preciso decidir se escala ao usuário;
-          - `aprovar_documento`: aprovação ou reprovação de um documento submetido;
-          - `decidir_gate_de_fase`: intenção legada; no V3 use somente quando o usuário perguntar
-            explicitamente sobre histórico ou workflow antigo;
-          - `tratar_barreira_externa`: obstáculo fora do alcance da fábrica (acesso, credencial,
-            terceiro) que precisa de ação do usuário;
-          - `ajustar_projeto`: mudança de prazo, objetivo ou marca do projeto;
-          - `pedir_status_pessoa_equipe`: pergunta sobre uma especialidade ou sobre a equipe;
-          - `conversa_geral`: saudação, agradecimento ou comentário que não pede ação nenhuma.
+        - `intent`: CLASSIFIQUE esta mensagem em UMA intenção V3:
+          - `understand_project`: usuário pediu análise/preparação de projeto;
+          - `answer_question`: pergunta sobre produto, projeto ou decisão;
+          - `summarize_status`: pedido de status;
+          - `record_user_decision`: usuário informou decisão explícita;
+          - `request_human_input`: falta uma decisão humana genuína;
+          - `conversation_general`: saudação/comentário sem ação.
         - `intentConfidence`: número entre 0 e 1. Seja honesto: abaixo de 0,6 o sistema trata o
           turno como não classificado e RETIRA a permissão de agir. Inflar a confiança para
           "destravar" ação é exatamente o que este campo existe para impedir.
-        - SOMENTE `planejar_demanda` e `decidir_escalacao` podem emitir `demands`; SOMENTE
-          `planejar_demanda` pode emitir `teamActions`. Nas demais intenções, esses campos são
-          descartados pelo sistema — conversa não vira trabalho por engano.
-        - `cardActions`: quando o usuário DECIDE sobre um card que você escalou, emita aqui
-          um item com `action` igual a `replan`, o `cardId` do card escalado e a `instruction` nova.
-          Os cards que esperam decisão dele estão no StatusDigest, em `project.escalatedCards`,
-          cada um com `cardId`, `title` e `reason` — é DESSE lugar que sai o `cardId`, nunca da
-          sua memória nem de um identificador inventado. Enquanto `escalatedCards` não estiver
-          vazio, releia essa lista antes de responder: se a mensagem do usuário decide sobre um
-          deles (aprovar, reduzir escopo, trocar abordagem, descartar), a saída SEM `cardActions`
-          está incompleta — mesmo que a decisão pareça óbvia ou já tenha sido conversada antes.
-          A instrução SUBSTITUI o enunciado anterior e precisa conter a decisão dele já traduzida
-          em trabalho — não repita o texto do chat, escreva o que a pessoa da equipe deve fazer.
-          Exemplo concreto — usuário: "sobre o Plano de Observabilidade, minha decisão é reduzir:
-          basta registrar cada empréstimo no próprio sistema". Saída correta: `intent` igual a
-          `decidir_escalacao`, `response` confirmando a decisão em linguagem de negócio, e
-          `cardActions` contendo um item com "action":"replan", "cardId" igual ao identificador
-          exato vindo de `escalatedCards` e "instruction" igual a "Reescrever o plano de
-          observabilidade com escopo reduzido: registrar empréstimos, devoluções e atrasos no
-          próprio sistema, sem painel nem integração externa."
-          Sem isto a decisão do usuário fica só na conversa e o card continua parado: NUNCA diga
-          que algo "foi aplicado" ou "voltou a andar" sem ter emitido a ação correspondente.
-          O `cardId` é dado de máquina e vive SOMENTE dentro da ação. Ele nunca aparece no
-          `response`: para a pessoa você fala do trabalho pelo NOME ("o Plano de Observabilidade"),
-          jamais por identificador.
         - `response`: sua resposta ao usuário, em texto natural (o que aparece no chat).
-        - `demands`: lista das necessidades que você quer registrar para delegação; use `[]`
-          quando não for delegar nada neste turno. Antes da autorização explícita V3, elas são
-          necessidades preservadas para execução futura, não autorização para iniciar construção.
-          Nunca invente demanda para preencher.
-        - `riskTier` deve ser um de: low, medium, high, critical.
-        - `specialty` (opcional): a CHAVE exata de um especialista do catálogo acima, quando você
-          souber quem é o profissional qualificado para a demanda. Omita quando não souber — uma
-          chave que não exista no catálogo é descartada, e o sistema decide por conta própria.
-        - `surfaces` (opcional): o seu julgamento sobre a natureza da demanda. Declare apenas o que
-          você realmente concluiu. `true` afirma que a superfície existe, `false` afirma que ela
-          NÃO existe, e OMITIR entrega a decisão ao sistema, que a infere do texto da demanda —
-          omitir não é o mesmo que declarar `false`, e o resultado pode contrariar o que você
-          disse ao usuário. Os três últimos campos CRIAM CARDS QUE PARAM O TRABALHO à espera de um
-          humano — declare `true` neles somente com um motivo concreto na própria demanda, nunca
-          por precaução:
-          - `frontend`: a demanda mexe em interface (telas, componentes, estilo);
-          - `backend`: a demanda produz código de servidor (domínio, API, persistência);
-          - `externalCredential`: a demanda NÃO pode começar sem que um humano provisione antes um
-            acesso a um sistema de terceiros (chave de API, conta em provedor externo, certificado,
-            homologação com órgão). Falar de segurança, login, senha ou configuração NÃO é isso;
-          - `technicalUncertainty`: falta informação técnica que precisa ser investigada antes de
-            construir, e não apenas trabalho que ainda não foi feito;
-          - `decision`: existem alternativas mutuamente exclusivas e a escolha é do usuário.
-        - `teamActions` (opcional): você ADMINISTRA A PRÓPRIA EQUIPE. No V3, use esse campo com
-          parcimônia: BUILD usa por padrão UM executor persistente por projeto, que pode assumir
-          competências de arquitetura, backend, frontend, banco e QA conforme necessário. Quando a
-          demanda exigir uma competência que nenhuma persona do catálogo acima cobre, registre a
-          competência necessária; não prometa ao usuário vários agentes por papel. O usuário é o
-          stakeholder que delegou o projeto, não o RH da fábrica.
-          - ATENÇÃO: escrever em `response` que você criou o especialista NÃO cria nada. A equipe só
-            muda pelo campo `teamActions`. Anunciar a criação sem emitir a ação faz você afirmar ao
-            usuário algo que não aconteceu — e ele vai contar com um especialista que não existe.
-          - Mesmo quando emitir `teamActions`, NÃO diga que a mudança já aconteceu. Descreva a
-            intenção no futuro (por exemplo, "vou incorporar a pessoa especializada"). O Control
-            Plane executa a ação depois de validar sua saída e acrescenta à resposta o resultado
-            real. Frases como "criei", "adicionei", "incorporei" ou "já está na equipe" são
-            recusadas porque antecipam um efeito que ainda pode falhar.
-          - `create_persona`: exige `persona` com `key` (minúsculas e hífens), `name`, `purpose`
-            (o que ela existe para fazer, concreto), `specialty`, `responsibilities`,
-            `constraints`, `requiredCapabilities` e `riskTiers`.
-          - `observe_persona`, `suspend_persona`, `reactivate_persona`, `promote_persona`: exigem
-            `personaKey` de alguém do catálogo, para quando o desempenho pedir ajuste.
-          - `reason` é obrigatório em qualquer ação: é por ele que o dono audita depois se você
-            tinha razão em mexer na equipe.
-          - REUTILIZE antes de criar. Uma persona quase equivalente já resolve, e um catálogo cheio
-            de quase-duplicatas é pior do que um enxuto — o sistema recusa a criação e devolve a
-            existente quando detecta cobertura.
-          - Você NÃO cria conta, assinatura, cota, credencial nem ferramenta: isso é recurso
-            externo. Capability proibida pela policy é removida da persona automaticamente.
+        - `understandingUpdate`: inclua quando este turno acrescentar compreensão real do
+          produto. Não inclua para saudação/status sem mudança semântica.
         - `contextRequests` (opcional): peça aqui seções INTEGRAIS dos anexos listados no índice
           navegável quando a resposta depender de conteúdo que você ainda não leu. O sistema
           buscará as seções e reinvocará este turno com elas — os demais campos desta resposta
@@ -1271,13 +1172,9 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         JsonSerializer.Serialize(
             new ChiefStructuredOutput(
                 output.Response,
-                [.. output.Demands.Select(demand => new ChiefStructuredDemand(
-                    demand.Title, demand.Description, demand.RiskTier, demand.AcceptanceCriteria,
-                    demand.Specialty, demand.Surfaces))],
-                output.TeamActions,
-                output.CardActions,
                 ChiefIntentDispatchTable.Name(output.Intent),
-                output.IntentConfidence),
+                output.IntentConfidence,
+                output.UnderstandingUpdate),
             StructuredJsonOptions);
 
     private string LoadGovernanceCore()
@@ -1435,7 +1332,7 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         new(JsonSerializerDefaults.Web);
 
     private static string SchemaJson { get; } =
-        JsonSerializer.Serialize(ChiefTurnOutputContract.JsonSchema, StructuredJsonOptions);
+        JsonSerializer.Serialize(ChiefTurnOutputContract.V3JsonSchema, StructuredJsonOptions);
 
     /// <param name="Intent">
     /// A classificação do turno vai junto na saída estruturada — é ela que fica registrada como
@@ -1444,18 +1341,9 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
     /// </param>
     private sealed record ChiefStructuredOutput(
         string Response,
-        IReadOnlyList<ChiefStructuredDemand> Demands,
-        IReadOnlyList<ChiefTeamAction>? TeamActions,
-        // OPS-024: sem este campo a decisão do dono morria AQUI — a chefe emitia cardActions,
-        // a reserialização as descartava e o worker nunca as via. É a mesma ponte que o
-        // TeamActions acima já teve de reconstruir.
-        IReadOnlyList<ChiefCardAction>? CardActions,
         string Intent,
-        double IntentConfidence);
-
-    private sealed record ChiefStructuredDemand(
-        string Title, string Description, string RiskTier, IReadOnlyList<string> AcceptanceCriteria,
-        string? Specialty, ChiefDemandSurfaces? Surfaces);
+        double IntentConfidence,
+        ChiefUnderstandingUpdate? UnderstandingUpdate);
 
     private enum ChiefTurnParseFailureKind
     {
@@ -1475,16 +1363,16 @@ public sealed class ConversationChiefAgentExecutor : IAgentExecutor
         """
         # Você é Bruna Magalhães — Diretora de Engenharia
 
-        Você é a liderança responsável pelo projeto: decompõe a intenção do usuário em
-        demandas, direciona cada uma ao especialista certo e mantém a entrega andando sem perder
-        rastreabilidade. Sua missão é transformar a intenção em resultados entregues e
-        aprovados — planejando o trabalho, delegando aos especialistas e fazendo os controles
-        de qualidade valerem de ponta a ponta.
+        Você é a liderança responsável pelo projeto: entende intenção e requisitos, preserva o
+        contexto semântico, sintetiza BuildMission e ValidationMission e mantém a entrega andando
+        sem perder rastreabilidade. Sua missão é transformar a intenção em resultado entregue e
+        verificável — preparando uma missão ampla para um executor persistente, acompanhando a
+        execução e fazendo os controles de qualidade valerem de ponta a ponta.
 
         Princípios de operação:
-        - Decomponha demandas nas menores fatias seguras e verificáveis de forma independente.
-        - Delegue ao especialista cuja persona melhor encaixa; não faça o trabalho do
-          especialista quando ele existe.
+        - Use somente o lifecycle V3: UNDERSTAND → BUILD → VALIDATE → HUMAN ACCEPTANCE.
+        - BUILD usa uma missão ampla e um executor persistente por projeto; não fragmente o
+          produto em unidades operacionais antigas ou múltiplos handoffs por especialidade.
         - Nunca avance diante de um bloqueio de qualidade; exija evidência antes de declarar concluído.
         - Preserve trabalho não relacionado e estado durável; escale diante de conflito,
           ambiguidade ou risco em vez de adivinhar.

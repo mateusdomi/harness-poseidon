@@ -11,11 +11,11 @@ public sealed class V3UnderstandTests : IDisposable
         Path.GetTempPath(), $"poseidon-v3-understand-{Guid.NewGuid():N}");
 
     [Fact]
-    public void OpenQuestionPolicyRequiresOnlyDeadlineAndRepositoryBeforeAuthorization()
+    public void OpenQuestionPolicyDoesNotAskDeadlineOrLocalRepositoryByDefault()
     {
         var questions = V3OpenQuestionPolicy.RequiredQuestions("01K00000000000000000000000", null, null);
 
-        Assert.Equal(["deadline", "repository"], questions.Select(question => question.QuestionId));
+        Assert.Empty(questions);
     }
 
     [Fact]
@@ -30,10 +30,10 @@ public sealed class V3UnderstandTests : IDisposable
             Assumptions = ["React fornecido será preservado quando existir."],
         }, now);
 
-        Assert.Equal("AWAITING_INPUT", result.State.LifecycleState);
+        Assert.Equal("READY_TO_START", result.State.LifecycleState);
         Assert.Contains("Gestão de riscos corporativos", result.State.Requirements);
         Assert.Contains("Fluxo de aprovação por perfis", result.State.Requirements);
-        Assert.Equal(["deadline", "repository"], result.OpenQuestions.Select(question => question.QuestionId));
+        Assert.Empty(result.OpenQuestions);
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public sealed class V3UnderstandTests : IDisposable
                 26),
             [Coverage(complete: true)]);
 
-        Assert.Equal(["repository"], questions.Select(question => question.QuestionId));
+        Assert.Empty(questions);
     }
 
     [Fact]
@@ -129,6 +129,18 @@ public sealed class V3UnderstandTests : IDisposable
         Assert.True(V3AuthorizationPolicy.IsAuthorized(response));
     }
 
+    [Theory]
+    [InlineData("quero algo simples")]
+    [InlineData("algo similar ao sistema antigo")]
+    [InlineData("aproximadamente isso")]
+    [InlineData("não pode iniciar")]
+    [InlineData("não inicie ainda")]
+    [InlineData("pode me dizer se está pronto para iniciar?")]
+    public void AuthorizationRejectsSubstringAndQuestionFalsePositives(string response)
+    {
+        Assert.False(V3AuthorizationPolicy.IsAuthorized(response));
+    }
+
     [Fact]
     public void MissionCompilerPersistsArtifactAndKnowledgeReferences()
     {
@@ -151,6 +163,69 @@ public sealed class V3UnderstandTests : IDisposable
         Assert.Contains("leia integralmente", saved.MissionText, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("AUTONOMY CONTRACT", saved.MissionText, StringComparison.Ordinal);
         Assert.Contains("DEFINITION OF DONE", saved.MissionText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildAndValidationMissionsMaterializeReadableContextForFutureExecutors()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        var repo = Path.Combine(_directory, "product-repo");
+        Directory.CreateDirectory(repo);
+        var requirements = Path.Combine(_directory, "GoldenRun_Ocorrencias_Operacionais.md");
+        var frontend = Path.Combine(_directory, "occurrence-hub-main.zip");
+        File.WriteAllText(requirements, OccurrencesRequirements());
+        File.WriteAllText(frontend, "zip-fixture");
+        var context = Context(deadline: null, repository: repo) with
+        {
+            Artifacts =
+            [
+                new V3ArtifactReference(
+                    "artifact-requirements",
+                    "GoldenRun_Ocorrencias_Operacionais.md",
+                    "text/markdown",
+                    "requirements_source",
+                    "solicitation_attachment",
+                    requirements,
+                    "REQSHA",
+                    "accepted"),
+                new V3ArtifactReference(
+                    "artifact-frontend",
+                    "occurrence-hub-main.zip",
+                    "application/zip",
+                    "provided_frontend",
+                    "solicitation_attachment",
+                    frontend,
+                    "ZIPSHA",
+                    "accepted"),
+            ],
+            State = Context(deadline: null, repository: repo).State! with
+            {
+                AcceptanceCriteria = [.. Enumerable.Range(1, 15).Select(index => $"Critério de aceite {index}")],
+            },
+            AcceptanceCriteria = [.. Enumerable.Range(1, 15).Select(index => $"Critério de aceite {index}")],
+            Repository = repo,
+            OpenQuestions = [],
+            CurrentLifecycleState = "READY_TO_START",
+        };
+        var recommended = new V3RecommendedExecutor("worker-codex-project", "AVAILABLE", "AVAILABLE + WRITE_CAPABLE + role compatible.");
+
+        var build = V3MissionCompiler.CompileBuildMission(context, recommended, null, now);
+        var validation = V3MissionCompiler.CompileValidationMission(context, null, recommended, now);
+
+        Assert.All(build.ArtifactReferences, artifact => Assert.True(File.Exists(artifact.ReadablePath), artifact.ReadablePath));
+        Assert.All(build.KnowledgeReferences, reference => Assert.True(File.Exists(reference.ReadablePath), reference.Path));
+        Assert.Contains(build.ArtifactReferences, artifact => artifact.Role == "requirements_source");
+        Assert.Contains(build.ArtifactReferences, artifact => artifact.Role == "provided_frontend");
+        Assert.Equal(15, build.MissionText.Split("Critério de aceite ", StringSplitOptions.None).Length - 1);
+        Assert.DoesNotContain("governance/rules/git.md", build.MissionText, StringComparison.Ordinal);
+        Assert.DoesNotContain("cardActions", build.MissionText, StringComparison.Ordinal);
+        Assert.Contains("POSEIDON_MISSION_COMPLETE", build.MissionText, StringComparison.Ordinal);
+        Assert.All(validation.ArtifactReferences, artifact => Assert.True(File.Exists(artifact.ReadablePath), artifact.ReadablePath));
+        Assert.Contains(validation.KnowledgeReferences, reference =>
+            reference.Path == "docs/product/checklist-auto-auditoria-ia.md" &&
+            File.Exists(reference.ReadablePath));
+        Assert.Contains("BROWSER-FIRST POLICY", validation.MissionText, StringComparison.Ordinal);
+        Assert.Contains("POSEIDON_VALIDATION_COMPLETE", validation.MissionText, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -317,6 +392,30 @@ public sealed class V3UnderstandTests : IDisposable
             DateTimeOffset.UnixEpoch,
             DateTimeOffset.UnixEpoch,
             1);
+
+    private static string OccurrencesRequirements() =>
+        """
+        # Sistema de Gestão de Ocorrências Operacionais
+
+        Criar um sistema web para registrar, acompanhar e encerrar ocorrências operacionais internas.
+
+        Critérios de aceite:
+        1. Login válido funciona.
+        2. Login inválido mostra mensagem adequada.
+        3. Administrador acessa gestão de usuários.
+        4. Operador não acessa gestão de usuários.
+        5. É possível criar ocorrência.
+        6. Ocorrência criada aparece na listagem.
+        7. Alteração persiste.
+        8. Filtros funcionam.
+        9. Dashboard reflete dados reais.
+        10. Histórico registra alterações.
+        11. Administrador consegue encerrar ocorrência.
+        12. Operador não autorizado não consegue encerrar ocorrência de outro usuário.
+        13. Logout funciona.
+        14. Aplicação funciona em desktop.
+        15. Aplicação funciona em mobile.
+        """;
 
     public void Dispose()
     {

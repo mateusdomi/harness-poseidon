@@ -215,15 +215,21 @@ public static class ChiefIntentDispatchTable
     public static ChiefTurnIntent Parse(string? value) => value?.Trim().ToLowerInvariant() switch
     {
         "planejar_demanda" => ChiefTurnIntent.PlanejarDemanda,
+        "understand_project" => ChiefTurnIntent.PlanejarDemanda,
         "responder_pergunta" => ChiefTurnIntent.ResponderPergunta,
+        "answer_question" => ChiefTurnIntent.ResponderPergunta,
         "resumir_progresso" => ChiefTurnIntent.ResumirProgresso,
+        "summarize_status" => ChiefTurnIntent.ResumirProgresso,
         "decidir_escalacao" => ChiefTurnIntent.DecidirEscalacao,
         "aprovar_documento" => ChiefTurnIntent.AprovarDocumento,
         "decidir_gate_de_fase" => ChiefTurnIntent.DecidirGateDeFase,
         "tratar_barreira_externa" => ChiefTurnIntent.TratarBarreiraExterna,
+        "request_human_input" => ChiefTurnIntent.TratarBarreiraExterna,
         "ajustar_projeto" => ChiefTurnIntent.AjustarProjeto,
+        "record_user_decision" => ChiefTurnIntent.AjustarProjeto,
         "pedir_status_pessoa_equipe" => ChiefTurnIntent.PedirStatusPessoaEquipe,
         "conversa_geral" => ChiefTurnIntent.ConversaGeral,
+        "conversation_general" => ChiefTurnIntent.ConversaGeral,
         _ => ChiefTurnIntent.Unmatched,
     };
 

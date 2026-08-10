@@ -12,6 +12,7 @@ using Harness.Modules.Conversations.Domain;
 using Harness.Modules.Coordination.Application;
 using Harness.Host.WorkBoard;
 using Harness.Host.Workflows;
+using Harness.Host.V3;
 using Harness.Modules.Workflows.Product;
 using Harness.Modules.Governance.Context;
 using Harness.Modules.Governance.Evaluation;
@@ -49,6 +50,7 @@ public sealed partial class ChiefTurnBackgroundService(
     IConversationStore conversations,
     ILicenseStore licenses,
     ChiefTeamManager teamManager,
+    V3UnderstandStore v3UnderstandStore,
     IServiceScopeFactory scopes,
     ILogger<ChiefTurnBackgroundService> logger,
     Graph.ProjectGraphProjectionService? graphProjection = null,
@@ -511,6 +513,8 @@ public sealed partial class ChiefTurnBackgroundService(
                     cancellationToken);
             }
 
+            ApplyV3UnderstandingUpdate(lease, output.UnderstandingUpdate, clock.UtcNow);
+
             // O turno é o laço mais quente e era o ÚNICO caminho de execução sem registro de
             // custo ou duração: `model_invocations` cobre os runs de especialista, e o turno da
             // chefe não escrevia lá nem em lugar nenhum. Falha aqui não derruba o turno — perder a
@@ -773,6 +777,68 @@ public sealed partial class ChiefTurnBackgroundService(
     /// pertence a outro projeto, é recusado ali, não aqui. Uma falha isolada não derruba o turno:
     /// a resposta ao dono já foi produzida e o registro do que não pôde ser aplicado fica no log.
     /// </summary>
+    private void ApplyV3UnderstandingUpdate(
+        ChiefTurnLease lease,
+        ChiefUnderstandingUpdate? update,
+        DateTimeOffset now)
+    {
+        if (update is null)
+        {
+            return;
+        }
+
+        var current = v3UnderstandStore.ReadProject(lease.Turn.ProjectId) ??
+            V3ProjectUnderstandState.Create(lease.Turn.ProjectId, now);
+        var sourceComplete = current.PrimaryRequirementsCoverage.Count == 0 ||
+            current.PrimaryRequirementsCoverage.All(source => source.Complete);
+        var nextLifecycle = current.LifecycleState is "BUILDING" or "VALIDATING" or "READY_FOR_HUMAN_ACCEPTANCE" or "HUMAN_ACCEPTED"
+            ? current.LifecycleState
+            : sourceComplete
+                ? "READY_TO_START"
+                : "UNDERSTANDING";
+        var next = current with
+        {
+            ProjectSummary = FirstNonBlank(update.ProjectSummary, current.ProjectSummary),
+            ProductGoal = FirstNonBlank(update.ProductGoal, current.ProductGoal, update.ProjectSummary),
+            PrimaryUsers = MergeReplacingWhenProvided(current.PrimaryUsers, update.PrimaryUsers),
+            Requirements = MergeReplacingWhenProvided(current.Requirements, update.Requirements),
+            AcceptanceCriteria = MergeReplacingWhenProvided(current.AcceptanceCriteria, update.AcceptanceCriteria),
+            ImportantConstraints = MergeReplacingWhenProvided(current.ImportantConstraints, update.ImportantConstraints),
+            Assumptions = MergeDistinct(current.Assumptions, update.Assumptions),
+            Decisions = MergeDistinct(current.Decisions, update.Decisions),
+            Status = sourceComplete ? "UNDERSTOOD" : "READING_PRIMARY_REQUIREMENTS",
+            LifecycleState = nextLifecycle,
+            UpdatedAt = now,
+        };
+        v3UnderstandStore.WriteProject(next);
+    }
+
+    private static IReadOnlyList<string> MergeReplacingWhenProvided(
+        IReadOnlyList<string> current,
+        IReadOnlyList<string>? update)
+    {
+        var values = Clean(update).ToArray();
+        if (values.Length == 0)
+        {
+            return current;
+        }
+
+        return [.. current.Concat(values).Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase)];
+    }
+
+    private static IReadOnlyList<string> MergeDistinct(
+        IReadOnlyList<string> current,
+        IReadOnlyList<string>? update) =>
+        [.. current.Concat(Clean(update)).Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase)];
+
+    private static IEnumerable<string> Clean(IReadOnlyList<string>? values) =>
+        values ?? [];
+
+    private static string? FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim();
+
     private async Task ApplyCardActionsAsync(
         ChiefTurnLease lease,
         IReadOnlyList<ChiefCardAction> actions,

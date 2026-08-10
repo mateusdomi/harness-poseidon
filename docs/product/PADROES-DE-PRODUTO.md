@@ -43,5 +43,5 @@ documento voltado ao usuário final. Versões internas existem no versionamento,
   pacote de acesso da Bruna entrega URL + credencial inicial NO CHAT do projeto — válido
   porque o item 4 torna a credencial inicial descartável.
 
-> Estes padrões entram no contexto de todo card-objetivo. O validador de produto os cobra
+> Estes padrões entram no contexto das missões de produto V3. O validador de produto os cobra
 > item a item; a homologação humana não deveria encontrar violação de nenhum deles.

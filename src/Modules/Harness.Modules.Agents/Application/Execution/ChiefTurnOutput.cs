@@ -18,7 +18,18 @@ public sealed record ChiefTurnOutput(
     ChiefTurnIntent Intent = ChiefTurnIntent.Unmatched,
     double IntentConfidence = 0,
     IReadOnlyList<ChiefCardAction>? CardActions = null,
-    IReadOnlyList<ChiefContextRequest>? ContextRequests = null);
+    IReadOnlyList<ChiefContextRequest>? ContextRequests = null,
+    ChiefUnderstandingUpdate? UnderstandingUpdate = null);
+
+public sealed record ChiefUnderstandingUpdate(
+    string? ProjectSummary = null,
+    string? ProductGoal = null,
+    IReadOnlyList<string>? PrimaryUsers = null,
+    IReadOnlyList<string>? Requirements = null,
+    IReadOnlyList<string>? AcceptanceCriteria = null,
+    IReadOnlyList<string>? ImportantConstraints = null,
+    IReadOnlyList<string>? Assumptions = null,
+    IReadOnlyList<string>? Decisions = null);
 
 /// <summary>
 /// Pedido da chefe por seções INTEGRAIS de um anexo (Onda 0.7). É consumido DENTRO do executor —
@@ -87,7 +98,14 @@ public static class ChiefTurnOutputContract
 {
     private static readonly HashSet<string> RootProperties =
         new(["response", "demands", "teamActions", "cardActions", "intent", "intentConfidence",
-             "contextRequests"],
+             "contextRequests", "understandingUpdate"],
+            StringComparer.Ordinal);
+    private static readonly HashSet<string> V3RootProperties =
+        new(["response", "intent", "intentConfidence", "understandingUpdate", "contextRequests"],
+            StringComparer.Ordinal);
+    private static readonly HashSet<string> UnderstandingUpdateProperties =
+        new(["projectSummary", "productGoal", "primaryUsers", "requirements", "acceptanceCriteria",
+             "importantConstraints", "assumptions", "decisions"],
             StringComparer.Ordinal);
     private static readonly HashSet<string> ContextRequestProperties =
         new(["file", "sections"], StringComparer.Ordinal);
@@ -138,47 +156,51 @@ public static class ChiefTurnOutputContract
             throw new AgentOutputValidationException("Chief output must be a JSON object.");
         }
 
-        EnsureOnlyProperties(root, RootProperties, "chief output");
+        var v3Output = !root.TryGetProperty("demands", out _);
+        EnsureOnlyProperties(root, v3Output ? V3RootProperties : RootProperties, "chief output");
         var response = ReadRequiredText(root, "response", 1, 100_000);
-        if (!root.TryGetProperty("demands", out var demandsNode) ||
-            demandsNode.ValueKind != JsonValueKind.Array ||
-            demandsNode.GetArrayLength() > 20)
-        {
-            throw new AgentOutputValidationException("Chief output demands must be an array with at most 20 items.");
-        }
-
         var demands = new List<ChiefDemandProposal>();
-        foreach (var demand in demandsNode.EnumerateArray())
+        if (!v3Output)
         {
-            if (demand.ValueKind != JsonValueKind.Object)
+            if (!root.TryGetProperty("demands", out var demandsNode) ||
+                demandsNode.ValueKind != JsonValueKind.Array ||
+                demandsNode.GetArrayLength() > 20)
             {
-                throw new AgentOutputValidationException("Every demand proposal must be an object.");
+                throw new AgentOutputValidationException("Chief output demands must be an array with at most 20 items.");
             }
 
-            EnsureOnlyProperties(demand, DemandProperties, "demand proposal");
-            var riskTier = ReadRequiredText(demand, "riskTier", 1, 20);
-            if (!RiskTiers.Contains(riskTier))
+            foreach (var demand in demandsNode.EnumerateArray())
             {
-                throw new AgentOutputValidationException("Demand riskTier is invalid.");
-            }
+                if (demand.ValueKind != JsonValueKind.Object)
+                {
+                    throw new AgentOutputValidationException("Every demand proposal must be an object.");
+                }
 
-            if (!demand.TryGetProperty("acceptanceCriteria", out var criteriaNode) ||
-                criteriaNode.ValueKind != JsonValueKind.Array ||
-                criteriaNode.GetArrayLength() is < 1 or > 30)
-            {
-                throw new AgentOutputValidationException("Demand acceptanceCriteria must contain 1 to 30 items.");
-            }
+                EnsureOnlyProperties(demand, DemandProperties, "demand proposal");
+                var riskTier = ReadRequiredText(demand, "riskTier", 1, 20);
+                if (!RiskTiers.Contains(riskTier))
+                {
+                    throw new AgentOutputValidationException("Demand riskTier is invalid.");
+                }
 
-            var criteria = criteriaNode.EnumerateArray()
-                .Select(item => ReadText(item, "acceptance criterion", 1, 2_000))
-                .ToArray();
-            demands.Add(new ChiefDemandProposal(
-                ReadRequiredText(demand, "title", 1, 200),
-                ReadRequiredText(demand, "description", 1, 10_000),
-                riskTier,
-                criteria,
-                ReadOptionalText(demand, "specialty", 1, 100),
-                ReadSurfaces(demand)));
+                if (!demand.TryGetProperty("acceptanceCriteria", out var criteriaNode) ||
+                    criteriaNode.ValueKind != JsonValueKind.Array ||
+                    criteriaNode.GetArrayLength() is < 1 or > 30)
+                {
+                    throw new AgentOutputValidationException("Demand acceptanceCriteria must contain 1 to 30 items.");
+                }
+
+                var criteria = criteriaNode.EnumerateArray()
+                    .Select(item => ReadText(item, "acceptance criterion", 1, 2_000))
+                    .ToArray();
+                demands.Add(new ChiefDemandProposal(
+                    ReadRequiredText(demand, "title", 1, 200),
+                    ReadRequiredText(demand, "description", 1, 10_000),
+                    riskTier,
+                    criteria,
+                    ReadOptionalText(demand, "specialty", 1, 100),
+                    ReadSurfaces(demand)));
+            }
         }
 
         // Este contrato é COMPARTILHADO: além do turno da chefe, validam por aqui a detecção de
@@ -200,7 +222,33 @@ public static class ChiefTurnOutputContract
             response, demands, ReadTeamActions(root),
             ChiefIntentDispatchTable.Resolve(intent, confidence), confidence,
             ReadCardActions(root),
-            ReadContextRequests(root));
+            ReadContextRequests(root),
+            ReadUnderstandingUpdate(root));
+    }
+
+    private static ChiefUnderstandingUpdate? ReadUnderstandingUpdate(JsonElement root)
+    {
+        if (!root.TryGetProperty("understandingUpdate", out var node) ||
+            node.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (node.ValueKind != JsonValueKind.Object)
+        {
+            throw new AgentOutputValidationException("understandingUpdate must be an object.");
+        }
+
+        EnsureOnlyProperties(node, UnderstandingUpdateProperties, "understanding update");
+        return new ChiefUnderstandingUpdate(
+            ReadOptionalText(node, "projectSummary", 1, 3_000),
+            ReadOptionalText(node, "productGoal", 1, 2_000),
+            ReadOptionalStringArray(node, "primaryUsers", 50, 500),
+            ReadOptionalStringArray(node, "requirements", 200, 1_000),
+            ReadOptionalStringArray(node, "acceptanceCriteria", 300, 2_000),
+            ReadOptionalStringArray(node, "importantConstraints", 100, 1_000),
+            ReadOptionalStringArray(node, "assumptions", 100, 1_000),
+            ReadOptionalStringArray(node, "decisions", 100, 1_000));
     }
 
     /// <summary>
@@ -376,6 +424,28 @@ public static class ChiefTurnOutputContract
         return [.. node.EnumerateArray().Select(item => ReadText(item, property, 1, 500))];
     }
 
+    private static IReadOnlyList<string>? ReadOptionalStringArray(
+        JsonElement parent,
+        string property,
+        int maxItems,
+        int maxItemLength)
+    {
+        if (!parent.TryGetProperty(property, out var node) || node.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (node.ValueKind != JsonValueKind.Array || node.GetArrayLength() > maxItems)
+        {
+            throw new AgentOutputValidationException($"{property} must be an array with at most {maxItems} items.");
+        }
+
+        return [.. node.EnumerateArray()
+            .Select(item => ReadText(item, property, 1, maxItemLength))
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Distinct(StringComparer.OrdinalIgnoreCase)];
+    }
+
     /// <summary>
     /// Lê a superfície declarada. Ausente (ou totalmente nula) devolve nulo — "não declarei" é um
     /// estado legítimo, distinto de "declarei que não existe", e mantém o planner inferindo do
@@ -455,6 +525,8 @@ public static class ChiefTurnOutputContract
 
         return output;
     }
+
+    public static JsonElement V3JsonSchema { get; } = CreateV3Schema();
 
     private static JsonElement CreateSchema()
     {
@@ -568,6 +640,85 @@ public static class ChiefTurnOutputContract
                           "technicalUncertainty": { "type": ["boolean", "null"] },
                           "decision": { "type": ["boolean", "null"] }
                         }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """);
+        return document.RootElement.Clone();
+    }
+
+    private static JsonElement CreateV3Schema()
+    {
+        using var document = JsonDocument.Parse(
+            """
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["response", "intent", "intentConfidence"],
+              "properties": {
+                "intent": {
+                  "type": "string",
+                  "enum": ["understand_project", "answer_question", "summarize_status",
+                           "record_user_decision", "request_human_input",
+                           "conversation_general"]
+                },
+                "intentConfidence": { "type": "number", "minimum": 0, "maximum": 1 },
+                "response": { "type": "string", "minLength": 1, "maxLength": 100000 },
+                "understandingUpdate": {
+                  "type": ["object", "null"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "projectSummary": { "type": ["string", "null"], "maxLength": 3000 },
+                    "productGoal": { "type": ["string", "null"], "maxLength": 2000 },
+                    "primaryUsers": {
+                      "type": ["array", "null"],
+                      "maxItems": 50,
+                      "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+                    },
+                    "requirements": {
+                      "type": ["array", "null"],
+                      "maxItems": 200,
+                      "items": { "type": "string", "minLength": 1, "maxLength": 1000 }
+                    },
+                    "acceptanceCriteria": {
+                      "type": ["array", "null"],
+                      "maxItems": 300,
+                      "items": { "type": "string", "minLength": 1, "maxLength": 2000 }
+                    },
+                    "importantConstraints": {
+                      "type": ["array", "null"],
+                      "maxItems": 100,
+                      "items": { "type": "string", "minLength": 1, "maxLength": 1000 }
+                    },
+                    "assumptions": {
+                      "type": ["array", "null"],
+                      "maxItems": 100,
+                      "items": { "type": "string", "minLength": 1, "maxLength": 1000 }
+                    },
+                    "decisions": {
+                      "type": ["array", "null"],
+                      "maxItems": 100,
+                      "items": { "type": "string", "minLength": 1, "maxLength": 1000 }
+                    }
+                  }
+                },
+                "contextRequests": {
+                  "type": ["array", "null"],
+                  "maxItems": 5,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["file", "sections"],
+                    "properties": {
+                      "file": { "type": "string", "minLength": 1, "maxLength": 200 },
+                      "sections": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 10,
+                        "items": { "type": "string", "minLength": 1, "maxLength": 100 }
                       }
                     }
                   }

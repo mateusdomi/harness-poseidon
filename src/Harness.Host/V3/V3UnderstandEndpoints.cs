@@ -159,10 +159,10 @@ public static class V3UnderstandEndpoints
         }
 
         var deadline = input.Deadline ?? context.Deadline;
-        var repository = FirstNonBlank(input.Repository, context.State?.Repository);
-        if (deadline is null || string.IsNullOrWhiteSpace(repository))
+        var repository = FirstNonBlank(input.Repository, context.Repository);
+        if (string.IsNullOrWhiteSpace(repository))
         {
-            return Problem(409, "project_not_ready_to_authorize", "Deadline and repository are required before BUILD authorization.");
+            return Problem(409, "project_not_ready_to_authorize", "Repository could not be resolved.");
         }
 
         if (context.PrimaryRequirementsCoverage.Any(source => !source.Complete))
@@ -180,6 +180,7 @@ public static class V3UnderstandEndpoints
             Status = "AUTHORIZED",
             UpdatedAt = clock.UtcNow,
         };
+        EnsureLocalRepository(repository);
         store.WriteProject(state);
         var refreshed = await V3ProjectContextBuilder.BuildAsync(
             resolved.Profile!, resolved.Project!, board, attachments, documents, prototypes,
@@ -339,6 +340,16 @@ public static class V3UnderstandEndpoints
     private static string? FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim();
 
+    private static void EnsureLocalRepository(string repository)
+    {
+        if (repository.Contains("://", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(Path.GetFullPath(repository));
+    }
+
     private static IResult Problem(int status, string title, string detail) =>
         Results.Problem(statusCode: status, title: title, detail: detail);
 }
@@ -456,7 +467,7 @@ public static class V3ProjectContextBuilder
                 value.ContentType,
                 value.Role,
                 "solicitation_attachment",
-                value.StoragePath,
+                attachmentStorage.Resolve(value.StoragePath),
                 value.Sha256,
                 value.State)));
         }
@@ -488,10 +499,14 @@ public static class V3ProjectContextBuilder
             effective,
             links.Count > 0);
         var capacity = V3Capacity.From(accounts.List(), DateTimeOffset.UtcNow);
+        var repository = FirstNonBlank(
+            state?.Repository,
+            project.RepositoryUrl,
+            DefaultLocalRepository(profile.TenantId, project.Id));
         var openQuestions = V3OpenQuestionPolicy.RequiredQuestions(
             project.Id,
             state?.Deadline ?? facts.Deadline ?? project.TargetDeadline,
-            state?.Repository ?? project.RepositoryUrl,
+            repository,
             facts,
             coverage);
         var lifecycleState = state?.LifecycleState ??
@@ -516,13 +531,26 @@ public static class V3ProjectContextBuilder
             openQuestions,
             effective,
             state?.Deadline ?? facts.Deadline ?? project.TargetDeadline,
-            state?.Repository ?? project.RepositoryUrl,
+            repository,
             "host-api-and-frontend; database container only when stack requires it",
             "existing notification channels; no new notification system",
             capacity,
             v3Readiness.Items,
             lifecycleState);
     }
+
+    private static string DefaultLocalRepository(string tenantId, string projectId)
+    {
+        var root = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".harness-poseidon",
+            "repositories",
+            tenantId);
+        return Path.Combine(root, projectId);
+    }
+
+    private static string? FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim();
 }
 
 public static class V3SourceCoverageAnalyzer
@@ -818,21 +846,8 @@ public static class V3OpenQuestionPolicy
             return questions;
         }
 
-        if (deadline is null && facts?.Deadline is null)
-        {
-            questions.Add(new V3OpenQuestion("deadline", "Qual o prazo final do projeto?", "required_before_authorization"));
-        }
-
-        if (string.IsNullOrWhiteSpace(repository))
-        {
-            questions.Add(new V3OpenQuestion("repository", "Qual repositório deve receber o código?", "required_before_authorization"));
-        }
-
         return questions;
     }
-
-    private static string? FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim();
 }
 
 public static partial class V3NaturalUserDecision
@@ -854,20 +869,23 @@ public static partial class V3NaturalUserDecision
 
 public static class V3AuthorizationPolicy
 {
-    private static readonly string[] Phrases =
-    [
-        "sim",
-        "pode iniciar",
-        "autorizado",
-        "comece",
-        "inicie",
-        "pode começar",
-        "vamos iniciar",
-    ];
+    private static readonly Regex NegativePattern = new(
+        @"(?i)\b(n[aã]o|nao)\s+(pode\s+)?(inicie|iniciar|comece|começar|comecar)|\bn[aã]o\s+inicie\b|\bn[aã]o\s+comece\b|\bainda\s+n[aã]o\b|\bsem\s+autorizar\b|\bn[aã]o\s+autoriza",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static readonly Regex QuestionPattern = new(
+        @"(?i)\?\s*$|\bpode\s+me\s+dizer\b|\bj[aá]\s+pode\s+iniciar\b|\best[aá]\s+pronto\s+para\s+iniciar\b",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static readonly Regex PositivePattern = new(
+        @"(?i)^\s*(sim|autorizado|autorizo|pode\s+iniciar|pode\s+come[cç]ar|comece|inicie|vamos\s+iniciar|vamos\s+come[cç]ar)\s*[.!]?\s*$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     public static bool IsAuthorized(string? response) =>
         !string.IsNullOrWhiteSpace(response) &&
-        Phrases.Any(phrase => response.Contains(phrase, StringComparison.OrdinalIgnoreCase));
+        !NegativePattern.IsMatch(response) &&
+        !QuestionPattern.IsMatch(response) &&
+        PositivePattern.IsMatch(response);
 }
 
 public static class V3ExecutorPreview
@@ -913,9 +931,7 @@ public static class V3KnowledgeSelector
         {
             Ref("docs/product/definition-of-done.md", "Definition of Done do produto entregue"),
             Ref("docs/product/baseline.md", "Baseline técnico do produto entregue"),
-            Ref("governance/rules/git.md", "Git e integração"),
-            Ref("governance/rules/secrets.md", "Segredos"),
-            Ref("governance/rules/testing.md", "Testes e gates"),
+            Ref("docs/product/security-and-operability.md", "Segurança e operabilidade do produto entregue"),
         };
         if (stack.Frontend.Contains("React", StringComparison.OrdinalIgnoreCase) ||
             !stack.Frontend.Contains("conforme", StringComparison.OrdinalIgnoreCase))
@@ -930,6 +946,7 @@ public static class V3KnowledgeSelector
 
         if (stack.Database.Contains("Oracle", StringComparison.OrdinalIgnoreCase))
         {
+            refs.Add(Ref("docs/product/data-standards.md", "Dados e banco do produto entregue"));
             refs.Add(Ref("docs/product/oracle-data-standards.md", "Dados e banco Oracle"));
         }
         else if (!stack.Database.Contains("conforme", StringComparison.OrdinalIgnoreCase))
@@ -938,18 +955,138 @@ public static class V3KnowledgeSelector
         }
 
         refs.Add(Ref("docs/product/qa-standards.md", "QA do produto entregue"));
+        refs.Add(Ref("docs/product/full-stack-integration.md", "Integração real frontend/API/persistência"));
+        refs.Add(Ref("docs/product/provided-artifacts.md", "Política para artefatos fornecidos pelo usuário"));
+        refs.Add(Ref("docs/product/authentication-standards.md", "Autenticação e autorização do produto entregue"));
         return refs;
     }
 
     public static IReadOnlyList<V3KnowledgeReference> SelectForValidation(V3EffectiveStackContract stack)
     {
         var refs = Select(stack).ToList();
-        refs.Add(Ref("docs/product/qa-standards.md#8-toolchain-local-de-navegador", "Toolchain E2E local e browser-first"));
-        refs.Add(Ref("~/Downloads/checklist-auto-auditoria-ia.md", "Checklist genérico de qualidade para autoauditoria final"));
+        refs.Add(Ref("tools/e2e/doctor.sh", "Doctor determinístico da toolchain E2E local"));
+        refs.Add(Ref("docs/product/checklist-auto-auditoria-ia.md", "Checklist genérico de qualidade para autoauditoria final"));
         return [.. refs.DistinctBy(item => item.Path)];
     }
 
     private static V3KnowledgeReference Ref(string path, string reason) => new(path, reason);
+}
+
+public sealed record V3MaterializedMissionContext(
+    V3ProjectContextResponse Context,
+    IReadOnlyList<V3KnowledgeReference> Knowledge,
+    string? ContextDirectory);
+
+public static class V3MissionContextMaterializer
+{
+    public static V3MaterializedMissionContext Materialize(
+        V3ProjectContextResponse context,
+        string missionId,
+        IReadOnlyList<V3KnowledgeReference> knowledge)
+    {
+        if (string.IsNullOrWhiteSpace(context.Repository) ||
+            context.Repository.Contains("://", StringComparison.Ordinal))
+        {
+            return new V3MaterializedMissionContext(context, knowledge, null);
+        }
+
+        var repository = Path.GetFullPath(context.Repository);
+        var contextDirectory = Path.Combine(repository, ".poseidon", "context", missionId);
+        Directory.CreateDirectory(contextDirectory);
+        Directory.CreateDirectory(Path.Combine(contextDirectory, "artifacts"));
+        Directory.CreateDirectory(Path.Combine(contextDirectory, "knowledge"));
+
+        var artifacts = context.Artifacts.Select((artifact, index) =>
+        {
+            var readable = TryCopyFile(
+                artifact.PathReference,
+                Path.Combine(contextDirectory, "artifacts", $"{index + 1:00}-{SafeFileName(artifact.Name)}"));
+            return artifact with { ReadablePath = readable };
+        }).ToArray();
+
+        var materializedKnowledge = knowledge.Select((reference, index) =>
+        {
+            var source = ResolveKnowledgePath(reference.Path);
+            var extension = Path.GetExtension(source ?? reference.Path);
+            if (string.IsNullOrWhiteSpace(extension)) extension = ".md";
+            var readable = source is null
+                ? null
+                : TryCopyFile(
+                    source,
+                    Path.Combine(contextDirectory, "knowledge", $"{index + 1:00}-{SafeFileName(Path.GetFileNameWithoutExtension(reference.Path))}{extension}"));
+            return reference with { ReadablePath = readable };
+        }).ToArray();
+
+        WriteIndex(contextDirectory, context, artifacts, materializedKnowledge);
+        return new V3MaterializedMissionContext(
+            context with { Artifacts = artifacts },
+            materializedKnowledge,
+            contextDirectory);
+    }
+
+    private static string? TryCopyFile(string sourcePath, string destinationPath)
+    {
+        try
+        {
+            var source = Path.GetFullPath(sourcePath);
+            if (!File.Exists(source))
+            {
+                return null;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+            File.Copy(source, destinationPath, overwrite: true);
+            return destinationPath;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
+    private static string? ResolveKnowledgePath(string path)
+    {
+        var clean = path.Split('#', 2)[0];
+        var candidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, clean.Replace('/', Path.DirectorySeparatorChar)),
+            Path.Combine(Directory.GetCurrentDirectory(), clean.Replace('/', Path.DirectorySeparatorChar)),
+            Path.GetFullPath(clean),
+        };
+        return candidates.FirstOrDefault(File.Exists);
+    }
+
+    private static void WriteIndex(
+        string contextDirectory,
+        V3ProjectContextResponse context,
+        IReadOnlyList<V3ArtifactReference> artifacts,
+        IReadOnlyList<V3KnowledgeReference> knowledge)
+    {
+        var lines = new List<string>
+        {
+            "# Poseidon Mission Context",
+            "",
+            $"ProjectId: {context.ProjectId}",
+            $"Project: {context.ProjectName}",
+            $"GeneratedAt: {DateTimeOffset.UtcNow:O}",
+            "",
+            "## Artifacts",
+        };
+        lines.AddRange(artifacts.Select(artifact =>
+            $"- {artifact.Role} | {artifact.Name} | sha256={artifact.Sha256} | path={artifact.ReadablePath ?? "UNAVAILABLE"}"));
+        lines.Add("");
+        lines.Add("## Knowledge");
+        lines.AddRange(knowledge.Select(item =>
+            $"- {item.Path} | {item.Reason} | path={item.ReadablePath ?? "UNAVAILABLE"}"));
+        File.WriteAllText(Path.Combine(contextDirectory, "INDEX.md"), string.Join(Environment.NewLine, lines));
+    }
+
+    private static string SafeFileName(string name)
+    {
+        var invalid = Path.GetInvalidFileNameChars().ToHashSet();
+        var value = new string(name.Select(character => invalid.Contains(character) ? '-' : character).ToArray()).Trim();
+        return string.IsNullOrWhiteSpace(value) ? "file" : value;
+    }
 }
 
 public static class V3MissionCompiler
@@ -965,7 +1102,8 @@ public static class V3MissionCompiler
         var executor = string.IsNullOrWhiteSpace(overrideExecutor)
             ? recommended
             : new V3RecommendedExecutor(overrideExecutor.Trim(), "OVERRIDDEN", "Human/operator override.");
-        var text = ComposeMissionText(context, knowledge, executor);
+        var package = V3MissionContextMaterializer.Materialize(context, missionId, knowledge);
+        var text = ComposeMissionText(package.Context, package.Knowledge, executor);
         return new V3BuildMissionRecord(
             missionId,
             context.ProjectId,
@@ -975,8 +1113,8 @@ public static class V3MissionCompiler
             "Bruna",
             "write-capable project executor",
             text,
-            context.Artifacts,
-            knowledge,
+            package.Context.Artifacts,
+            package.Knowledge,
             context.EffectiveStack,
             context.Deadline,
             context.Repository,
@@ -995,7 +1133,8 @@ public static class V3MissionCompiler
     {
         var missionId = UlidValue.New(now).ToString();
         var knowledge = V3KnowledgeSelector.SelectForValidation(context.EffectiveStack);
-        var text = ComposeValidationMissionText(context, knowledge, executor, buildExecution);
+        var package = V3MissionContextMaterializer.Materialize(context, missionId, knowledge);
+        var text = ComposeValidationMissionText(package.Context, package.Knowledge, executor, buildExecution);
         return new V3BuildMissionRecord(
             missionId,
             context.ProjectId,
@@ -1005,8 +1144,8 @@ public static class V3MissionCompiler
             "Bruna",
             "write-capable project executor with browser validation capability",
             text,
-            context.Artifacts,
-            knowledge,
+            package.Context.Artifacts,
+            package.Knowledge,
             context.EffectiveStack,
             context.Deadline,
             context.Repository,
@@ -1049,7 +1188,7 @@ public static class V3MissionCompiler
         else
         {
             lines.AddRange(context.Artifacts.Select(artifact =>
-                $"- attachment:{artifact.ArtifactId} — {artifact.Name} ({artifact.ContentType}, role={artifact.Role}, sha256={artifact.Sha256})"));
+                $"- {artifact.Role}: {artifact.Name} ({artifact.ContentType}, sha256={artifact.Sha256}) — path: {artifact.ReadablePath ?? "UNAVAILABLE"}"));
             lines.AddRange(context.Documents.Select(document =>
                 $"- document:{document.DocumentId} — {document.Title} ({document.Kind}, state={document.State}, version={document.CurrentVersion})"));
         }
@@ -1099,7 +1238,7 @@ public static class V3MissionCompiler
         lines.AddRange((state?.AcceptanceCriteria ?? context.AcceptanceCriteria).Select(item => $"- {item}"));
         lines.Add("");
         lines.Add("## QUALITY EXPECTATIONS");
-        lines.AddRange(knowledge.Select(item => $"- Aplicar conhecimento relevante: {item.Path} — {item.Reason}"));
+        lines.AddRange(knowledge.Select(item => $"- Aplicar conhecimento relevante: {item.Path} — {item.Reason} — path: {item.ReadablePath ?? "UNAVAILABLE"}"));
         lines.AddRange([
             "",
             "## REPOSITORY",
@@ -1116,6 +1255,8 @@ public static class V3MissionCompiler
             "- Consulte os artefatos originais quando houver dúvida.",
             "- Execute o sistema real, corrija problemas encontrados e reteste.",
             "- Faça commits/checkpoints úteis.",
+            "- Preserve trabalho existente; não use reset/clean destrutivo.",
+            "- Não faça push sem autorização explícita.",
             "- Só pare quando a Definition of Done estiver satisfeita ou existir blocker genuinamente humano.",
             "- Se completar apenas uma parte, CONTINUE.",
             "",
@@ -1167,7 +1308,7 @@ public static class V3MissionCompiler
             $"- PrimaryRequirementsCoverage: {PrimaryCoveragePercent(context.PrimaryRequirementsCoverage)}%.",
         };
         lines.AddRange(context.Artifacts.Select(artifact =>
-            $"- attachment:{artifact.ArtifactId} — {artifact.Name} ({artifact.ContentType}, role={artifact.Role}, sha256={artifact.Sha256})"));
+            $"- {artifact.Role}: {artifact.Name} ({artifact.ContentType}, sha256={artifact.Sha256}) — path: {artifact.ReadablePath ?? "UNAVAILABLE"}"));
         lines.AddRange(context.Documents.Select(document =>
             $"- document:{document.DocumentId} — {document.Title} ({document.Kind}, state={document.State}, version={document.CurrentVersion})"));
         lines.AddRange([
@@ -1204,14 +1345,14 @@ public static class V3MissionCompiler
             "- Execute ./poseidon tools e2e ou o doctor equivalente antes de alegar falta de navegador.",
             "",
             "## QUALITY CHECKLIST",
-            "- Use ~/Downloads/checklist-auto-auditoria-ia.md como checklist genérico obrigatório.",
+            "- Use o checklist materializado nesta missão como checklist genérico obrigatório.",
             "- Não transforme o checklist em 244 tarefas ou 244 chamadas LLM.",
             "- Classifique internamente cada item aplicável como PASS, FIXED, N/A ou FAIL.",
             "- FAIL aplicável final precisa ser ZERO.",
             "",
             "## KNOWLEDGE SOURCES",
         ]);
-        lines.AddRange(knowledge.Select(item => $"- {item.Path} — {item.Reason}"));
+        lines.AddRange(knowledge.Select(item => $"- {item.Path} — {item.Reason} — path: {item.ReadablePath ?? "UNAVAILABLE"}"));
         lines.AddRange([
             "",
             "## AUTONOMY CONTRACT",
@@ -1340,7 +1481,10 @@ public sealed record V3ArtifactReference(
     string Source,
     string PathReference,
     string Sha256,
-    string State);
+    string State)
+{
+    public string? ReadablePath { get; init; }
+}
 
 public sealed record V3DocumentReference(
     string DocumentId,
@@ -1391,7 +1535,10 @@ public sealed record V3EffectiveStackContract(
     string Testing,
     IReadOnlyList<string> Provenance);
 
-public sealed record V3KnowledgeReference(string Path, string Reason);
+public sealed record V3KnowledgeReference(string Path, string Reason)
+{
+    public string? ReadablePath { get; init; }
+}
 
 public sealed record V3RecommendedExecutor(string? AccountAlias, string Status, string Reason);
 

@@ -80,13 +80,12 @@ cabe num processo.
 
 # Parte 2 — o perfil efetivo do projeto
 
-O perfil efetivo é o **constraint profile** que o gate da Fase 3 já cobra (`aderência ao
-constraint profile — desvio exige ADR`) e que não tinha definição em documento, schema
-ou código.
+O perfil efetivo é o **constraint profile** que a V3 usa para resolver stack,
+restrições e defaults antes da BUILD.
 
 Ele é a resposta única e resolvida sobre o que vale neste projeto: o que foi herdado do
-default acima, o que foi sobrescrito e por quê. Existe para que nenhum agente
-redescubra o projeto ao pegar um card.
+default acima, o que foi sobrescrito e por quê. Existe para que Bruna, Mission Compiler
+e executor persistente não redescubram o projeto em cada etapa.
 
 ## Precedência
 
@@ -103,7 +102,7 @@ requisito, NFR, restrição, compatibilidade ou necessidade operacional — e vi
 
 ## Override
 
-O usuário pode informar outra stack até o fechamento da Fase 3. *"Frontend em Angular"*
+O usuário pode informar outra stack antes da autorização da BUILD. *"Frontend em Angular"*
 → Angular passa a valer e React deixa de valer neste projeto; *"banco PostgreSQL"* →
 PostgreSQL passa a valer; legado corporativo → a compatibilidade vence o default. Os
 demais defaults continuam vigentes.
@@ -120,8 +119,8 @@ demais defaults continuam vigentes.
 3. Stack efetiva — backend, frontend (ou a declaração explícita de que não há), dados,
    autenticação, infraestrutura e operação.
 4. Defaults herdados.
-5. Overrides — área, default, override, motivo e ADR. **Override sem ADR é desvio não
-   rastreável e reprova o gate da Fase 3.**
+5. Overrides — área, default, override, motivo e ADR quando o impacto justificar.
+   **Override sem rastreabilidade é desvio não auditável.**
 6. Restrições específicas — regulatórias, da organização, de legado, de plataforma, de
    licenciamento, de integração.
 7. Documentos locais ativos e ADRs ativos.
@@ -132,10 +131,10 @@ demais defaults continuam vigentes.
 
 ## Ciclo de vida e não duplicação
 
-Artefato da **Fase 3**, conduzido pelo arquiteto; entrada obrigatória das fases
-seguintes; revisado sempre que um ADR alterar stack, arquitetura, persistência,
-autenticação ou modalidade. Perfil desatualizado é pior que ausente: tem aparência de
-verdade.
+Artefato operacional do UNDERSTAND/Mission Compiler; entrada obrigatória da BuildMission
+e da ValidationMission; revisado sempre que uma decisão alterar stack, arquitetura,
+persistência, autenticação ou modalidade. Perfil desatualizado é pior que ausente: tem
+aparência de verdade.
 
 Um projeto **não copia** `docs/product/` para dentro de si — a cópia diverge do original
 na primeira evolução. O projeto declara apenas o que é dele e herda o resto por

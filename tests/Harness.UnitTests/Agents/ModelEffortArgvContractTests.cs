@@ -103,17 +103,19 @@ public sealed class ModelEffortArgvContractTests : IDisposable
     }
 
     /// <summary>
-    /// O caso Kimi da missão: conta cujo executor não tem adapter implementado é RECUSA
+    /// Conta cujo executor não tem adapter implementado é RECUSA
     /// fail-closed com código tipado — nunca um executor improvisado, nunca texto fabricado.
     /// </summary>
     [Fact]
     public void ExecutorSemAdapterERecusadoFailClosed()
     {
-        Assert.False(ExternalAgentExecutorFactory.IsImplemented(ExecutorCatalog.KimiCode));
+        const string unimplementedExecutor = "executor-sem-adapter";
+
+        Assert.False(ExternalAgentExecutorFactory.IsImplemented(unimplementedExecutor));
 
         var factory = new ExternalAgentExecutorFactory(new AccountProfileProvisioner(_root));
         var exception = Assert.Throws<ExternalAgentException>(
-            () => factory.Create(ExecutorCatalog.KimiCode));
+            () => factory.Create(unimplementedExecutor));
         Assert.Equal("executor.adapter_not_implemented", exception.Code);
     }
 
