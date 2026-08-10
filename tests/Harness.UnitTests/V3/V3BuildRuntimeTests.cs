@@ -77,6 +77,31 @@ public sealed class V3BuildRuntimeTests : IDisposable
     }
 
     [Fact]
+    public async Task DispatchUsesRecommendedExecutorWhenEligible()
+    {
+        var repo = CreateGitRepository();
+        var fake = new FakeBuildExecutor(new FakeOutcome("feito\nPOSEIDON_MISSION_COMPLETE"));
+        var (service, understand) = Runtime(fake);
+        var (state, mission, accounts) = ArrangeProject(repo, includeBackup: true);
+        var recommendedMission = mission with
+        {
+            RecommendedExecutor = new V3RecommendedExecutor(
+                "worker-b",
+                "AVAILABLE",
+                "chosen by operator for real dogfood."),
+        };
+        understand.WriteMission(recommendedMission);
+
+        var result = await service.DispatchAsync(Command(state, recommendedMission, accounts), CancellationToken.None);
+
+        Assert.NotNull(result.Execution);
+        Assert.Equal("COMPLETED", result.Execution!.Status);
+        Assert.Equal("worker-b", result.Execution.ExecutorAccountId);
+        Assert.Equal("worker-b", fake.Calls[0].Account.Alias);
+        Assert.Equal("VALIDATING", understand.ReadProject(state.ProjectId)!.LifecycleState);
+    }
+
+    [Fact]
     public async Task QuotaWithoutAlternateExecutorPausesProject()
     {
         var repo = CreateGitRepository();

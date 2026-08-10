@@ -216,7 +216,7 @@ public sealed class V3BuildRuntimeService(
             return Conflict("repository_unreachable", "BUILD dispatch requires a local reachable repository.");
         }
 
-        var selected = V3BuildExecutorSelector.Select(command.Accounts);
+        var selected = V3BuildExecutorSelector.Select(command.Accounts, command.Mission.RecommendedExecutor.AccountAlias);
         if (selected.Account is null)
         {
             UpdateLifecycle(command.State, "PAUSED_QUOTA", "NO_EXECUTOR");
@@ -722,9 +722,20 @@ public static class V3BuildExecutorSelector
 {
     public static (AgentAccountContract? Account, string Reason) Select(
         IReadOnlyList<AgentAccountContract> accounts,
+        string? preferredAlias = null,
         IReadOnlyList<string>? excludeAliases = null)
     {
         var excluded = new HashSet<string>(excludeAliases ?? [], StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(preferredAlias))
+        {
+            var preferred = Eligible(accounts, excluded, onlyProjectExecutor: false)
+                .FirstOrDefault(account => string.Equals(account.Alias, preferredAlias, StringComparison.OrdinalIgnoreCase));
+            if (preferred is not null)
+            {
+                return (preferred, "RECOMMENDED_EXECUTOR + AVAILABLE + WRITE_CAPABLE + role compatible.");
+            }
+        }
+
         var projectExecutors = Eligible(accounts, excluded, onlyProjectExecutor: true).ToArray();
         var selected = projectExecutors.Length > 0
             ? projectExecutors[0]
