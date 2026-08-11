@@ -938,6 +938,9 @@ public static class HostApplication
                     services.GetRequiredService<IWorkBoardStore>(),
                     services.GetRequiredService<ISolicitationAttachmentStore>(),
                     services.GetRequiredService<SolicitationAttachmentStorage>()),
+                new Documents.DocumentCatalogChiefNavigator(
+                    services.GetRequiredService<Harness.Persistence.Abstractions.Documents.IDocumentCatalogStore>(),
+                    services.GetRequiredService<Harness.Persistence.Abstractions.Documents.IDocumentContentCatalog>()),
                 new Graph.ChiefGraphNavigator(
                     services.GetRequiredService<Graph.ProjectGraphProjectionService>(),
                     services.GetService<Harness.Persistence.Abstractions.Graph.IProjectGraphStore>()),
