@@ -315,8 +315,6 @@ export function ProjectForm({
                 htmlFor="project-description"
                 label={t('projects.form.objective.description')}
                 hint={t('projects.form.objective.descriptionHint')}
-                required
-                requiredLabel={t('common.requiredMark')}
                 error={errors.description ? t(errors.description.message!) : undefined}
               >
                 <Textarea
