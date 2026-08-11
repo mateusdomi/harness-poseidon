@@ -189,10 +189,19 @@ export const v3ExecutionCapacitySchema = z.object({
 });
 export type V3ExecutionCapacity = z.infer<typeof v3ExecutionCapacitySchema>;
 
+export const v3ProjectBrandSchema = z.object({
+  logoUrl: z.string().nullable(),
+  primaryColor: z.string().nullable(),
+  secondaryColor: z.string().nullable(),
+  typography: z.string().nullable(),
+});
+export type V3ProjectBrand = z.infer<typeof v3ProjectBrandSchema>;
+
 export const v3ProjectContextSchema = z.object({
   projectId: z.string(),
   projectName: z.string(),
   originalIntent: z.string().nullable(),
+  brand: v3ProjectBrandSchema.nullable().optional(),
   artifacts: z.array(v3ArtifactReferenceSchema),
   documents: z.array(v3DocumentReferenceSchema),
   prototypes: z.array(z.unknown()),

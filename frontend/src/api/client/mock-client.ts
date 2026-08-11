@@ -3266,6 +3266,12 @@ export class MockApiClient implements ApiClient {
       projectId: project.id,
       projectName: project.name,
       originalIntent: objective,
+      brand: {
+        logoUrl: project.brand.logoUrl,
+        primaryColor: project.brand.primaryColor,
+        secondaryColor: project.brand.secondaryColor,
+        typography: project.brand.typography,
+      },
       artifacts: [],
       documents: [],
       prototypes: [],

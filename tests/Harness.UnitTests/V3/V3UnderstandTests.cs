@@ -199,6 +199,29 @@ public sealed class V3UnderstandTests : IDisposable
     }
 
     [Fact]
+    public void MissionCompilerIncludesProjectBrandingWhenDeclared()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        var context = Context(deadline: now.AddDays(10), repository: "/tmp/prisma") with
+        {
+            Brand = new V3ProjectBrandContext(
+                "https://example.test/logo.png",
+                "#123456",
+                "#654321",
+                "Inter"),
+        };
+        var recommended = new V3RecommendedExecutor("worker-codex-project", "AVAILABLE", "AVAILABLE + WRITE_CAPABLE + role compatible.");
+
+        var mission = V3MissionCompiler.CompileBuildMission(context, recommended, null, now);
+
+        Assert.Contains("BRANDING / PROVIDED VISUAL IDENTITY", mission.MissionText, StringComparison.Ordinal);
+        Assert.Contains("https://example.test/logo.png", mission.MissionText, StringComparison.Ordinal);
+        Assert.Contains("#123456", mission.MissionText, StringComparison.Ordinal);
+        Assert.Contains("#654321", mission.MissionText, StringComparison.Ordinal);
+        Assert.Contains("Inter", mission.MissionText, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BuildAndValidationMissionsMaterializeReadableContextForFutureExecutors()
     {
         var now = DateTimeOffset.UnixEpoch;

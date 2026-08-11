@@ -641,6 +641,11 @@ public static class V3ProjectContextBuilder
             lifecycleState);
         return response with
         {
+            Brand = new V3ProjectBrandContext(
+                project.Brand.LogoUrl,
+                project.Brand.PrimaryColor,
+                project.Brand.SecondaryColor,
+                project.Brand.Typography),
             SolutionStrategy = state?.SolutionStrategy ?? V3SolutionStrategyBuilder.Build(response, state),
         };
     }
@@ -1696,6 +1701,20 @@ public static class V3MissionCompiler
                 $"- document:{document.DocumentId} — {document.Title} ({document.Kind}, state={document.State}, version={document.CurrentVersion}, sha256={document.Sha256 ?? "UNKNOWN"}) — path: {document.ReadablePath ?? "UNAVAILABLE"}"));
         }
 
+        if (HasBranding(context.Brand))
+        {
+            lines.AddRange([
+                "",
+                "## BRANDING / PROVIDED VISUAL IDENTITY",
+                "- A marca declarada no cadastro do projeto é contexto explícito do usuário.",
+                "- Preserve essa identidade visual quando houver frontend/UI aplicável.",
+                $"- Logo: {context.Brand?.LogoUrl ?? "not provided"}",
+                $"- Primary color: {context.Brand?.PrimaryColor ?? "not provided"}",
+                $"- Secondary color: {context.Brand?.SecondaryColor ?? "not provided"}",
+                $"- Typography: {context.Brand?.Typography ?? "not provided"}",
+            ]);
+        }
+
         lines.AddRange([
             "",
             "## EFFECTIVE STACK",
@@ -1814,6 +1833,13 @@ public static class V3MissionCompiler
         ]);
         return string.Join(Environment.NewLine, lines);
     }
+
+    private static bool HasBranding(V3ProjectBrandContext? brand) =>
+        brand is not null &&
+        (!string.IsNullOrWhiteSpace(brand.LogoUrl) ||
+         !string.IsNullOrWhiteSpace(brand.PrimaryColor) ||
+         !string.IsNullOrWhiteSpace(brand.SecondaryColor) ||
+         !string.IsNullOrWhiteSpace(brand.Typography));
 
     private static void AddMissionList(List<string> lines, string label, IReadOnlyList<string> values)
     {
@@ -2045,8 +2071,15 @@ public sealed record V3ProjectContextResponse(
     IReadOnlyList<V3ReadinessItem> Readiness,
     string CurrentLifecycleState)
 {
+    public V3ProjectBrandContext? Brand { get; init; }
     public V3SolutionStrategy? SolutionStrategy { get; init; }
 }
+
+public sealed record V3ProjectBrandContext(
+    string? LogoUrl,
+    string? PrimaryColor,
+    string? SecondaryColor,
+    string? Typography);
 
 public sealed record V3ProjectUnderstandState(
     string ProjectId,
