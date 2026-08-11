@@ -245,9 +245,9 @@ public sealed class V3BuildRuntimeService(
     {
         ArgumentNullException.ThrowIfNull(command);
         var missionType = command.Mission.MissionType.ToUpperInvariant();
-        if (missionType is not "BUILD" and not "VALIDATE")
+        if (missionType is not "BUILD" and not "VALIDATE" and not "PLATFORM_MAINTENANCE")
         {
-            return Conflict("mission_type_unsupported", "Mission execution supports BUILD and VALIDATE only.");
+            return Conflict("mission_type_unsupported", "Mission execution supports BUILD, VALIDATE and PLATFORM_MAINTENANCE only.");
         }
 
         if (missionType == "BUILD" && command.State?.AuthorizedAt is null)
@@ -272,7 +272,8 @@ public sealed class V3BuildRuntimeService(
             return Conflict("mission_not_compiled", $"{missionType} dispatch requires a COMPILED mission.");
         }
 
-        if (command.Mission.PrimaryRequirementsCoverage.Any(source => !source.Complete))
+        if (missionType is "BUILD" or "VALIDATE" &&
+            command.Mission.PrimaryRequirementsCoverage.Any(source => !source.Complete))
         {
             return Conflict("primary_requirements_incomplete", "BUILD dispatch requires 100% primary requirement coverage.");
         }
@@ -283,7 +284,10 @@ public sealed class V3BuildRuntimeService(
             return Conflict("repository_unreachable", "BUILD dispatch requires a local reachable repository.");
         }
 
-        var selected = V3BuildExecutorSelector.Select(command.Accounts, command.Mission.RecommendedExecutor.AccountAlias);
+        var selected = V3BuildExecutorSelector.Select(
+            command.Accounts,
+            command.Mission.RecommendedExecutor.AccountAlias,
+            requiredRole: RequiredRoleForMission(missionType));
         if (selected.Account is null)
         {
             UpdateLifecycle(command.State, "PAUSED_QUOTA", "NO_EXECUTOR");
@@ -319,7 +323,7 @@ public sealed class V3BuildRuntimeService(
                 new V3BuildExecutionEvent($"{missionType}_DISPATCHED", now, selected.Account.Alias, $"Initial {missionType} mission dispatch."),
             ]);
         store.WriteExecution(execution);
-        UpdateLifecycle(command.State, missionType == "BUILD" ? "BUILDING" : "VALIDATING", $"{missionType}_RUNNING");
+        UpdateLifecycle(command.State, RunningLifecycleFor(missionType), $"{missionType}_RUNNING");
         var running = execution with
         {
             Status = "RUNNING",
@@ -362,7 +366,10 @@ public sealed class V3BuildRuntimeService(
                 continue;
             }
 
-            var selected = V3BuildExecutorSelector.Select(accounts, execution.ExecutorAccountId);
+            var selected = V3BuildExecutorSelector.Select(
+                accounts,
+                execution.ExecutorAccountId,
+                requiredRole: RequiredRoleForMission(execution.MissionType));
             if (selected.Account is null)
             {
                 var paused = execution with
@@ -422,7 +429,7 @@ public sealed class V3BuildRuntimeService(
             V3ProjectUnderstandState.Create(execution.ProjectId, clock.UtcNow);
         var account = accounts.FirstOrDefault(value =>
             string.Equals(value.Alias, execution.ExecutorAccountId, StringComparison.OrdinalIgnoreCase)) ??
-            V3BuildExecutorSelector.Select(accounts).Account;
+            V3BuildExecutorSelector.Select(accounts, requiredRole: RequiredRoleForMission(execution.MissionType)).Account;
         if (account is null)
         {
             UpdateLifecycle(state, "PAUSED_QUOTA", "PAUSED_QUOTA");
@@ -437,7 +444,7 @@ public sealed class V3BuildRuntimeService(
                 Events = Append(execution.Events, $"{execution.MissionType.ToUpperInvariant()}_CONTINUED", account.Alias, "Human answer registered; execution continued."),
         };
         store.WriteExecution(resumed);
-        UpdateLifecycle(state, execution.MissionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase) ? "VALIDATING" : "BUILDING", $"{execution.MissionType.ToUpperInvariant()}_RUNNING");
+        UpdateLifecycle(state, RunningLifecycleFor(execution.MissionType), $"{execution.MissionType.ToUpperInvariant()}_RUNNING");
         return RunLoopAsync(resumed, mission, account, accounts, state, BuildHumanAnswerPrompt(answer, mission.MissionType), token);
     }
 
@@ -491,7 +498,10 @@ public sealed class V3BuildRuntimeService(
 
             if (classifiedOutcome.Kind == AgentRunOutcomeKind.QuotaExhausted)
             {
-                var failover = V3BuildExecutorSelector.Select(accounts, excludeAliases: [active.Alias]);
+                var failover = V3BuildExecutorSelector.Select(
+                    accounts,
+                    excludeAliases: [active.Alias],
+                    requiredRole: RequiredRoleForMission(mission.MissionType));
                 if (failover.Account is null)
                 {
                     execution = execution with
@@ -563,7 +573,10 @@ public sealed class V3BuildRuntimeService(
                     continue;
                 }
 
-                var failover = V3BuildExecutorSelector.Select(accounts, excludeAliases: [active.Alias]);
+                var failover = V3BuildExecutorSelector.Select(
+                    accounts,
+                    excludeAliases: [active.Alias],
+                    requiredRole: RequiredRoleForMission(mission.MissionType));
                 if (failover.Account is not null)
                 {
                     var continuation = new V3BuildContinuationRecord(active.Alias, failover.Account.Alias, "PROVIDER_TRANSPORT_FAILOVER", now);
@@ -659,7 +672,7 @@ public sealed class V3BuildRuntimeService(
                         state,
                         mission.MissionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase)
                             ? "READY_FOR_HUMAN_ACCEPTANCE"
-                            : "VALIDATING",
+                            : CompletedLifecycleFor(mission.MissionType),
                         $"{mission.MissionType.ToUpperInvariant()}_COMPLETED");
                 }
                 return new V3BuildRuntimeResult(execution, null);
@@ -716,8 +729,7 @@ public sealed class V3BuildRuntimeService(
         string detail) =>
         [.. events, new V3BuildExecutionEvent(type, clock.UtcNow, actor, detail)];
 
-    private static string MissionPrefix(V3BuildMissionRecord mission) =>
-        mission.MissionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase) ? "VALIDATION" : "BUILD";
+    private static string MissionPrefix(V3BuildMissionRecord mission) => MissionPrefix(mission.MissionType);
 
     private static string CompletionMarker(string missionType) =>
         missionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase)
@@ -824,7 +836,31 @@ public sealed class V3BuildRuntimeService(
     }
 
     private static string MissionPrefix(V3BuildExecutionRecord execution) =>
-        execution.MissionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase) ? "VALIDATION" : "BUILD";
+        MissionPrefix(execution.MissionType);
+
+    private static string MissionPrefix(string missionType) =>
+        missionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase)
+            ? "VALIDATION"
+            : missionType.Equals("PLATFORM_MAINTENANCE", StringComparison.OrdinalIgnoreCase)
+                ? "PLATFORM_MAINTENANCE"
+                : "BUILD";
+
+    private static string RequiredRoleForMission(string missionType) =>
+        missionType.Equals("PLATFORM_MAINTENANCE", StringComparison.OrdinalIgnoreCase)
+            ? AgentRoles.PlatformMaintainer
+            : AgentRoles.ProjectExecutor;
+
+    private static string RunningLifecycleFor(string missionType) =>
+        missionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase)
+            ? "VALIDATING"
+            : missionType.Equals("PLATFORM_MAINTENANCE", StringComparison.OrdinalIgnoreCase)
+                ? "PLATFORM_MAINTENANCE"
+                : "BUILDING";
+
+    private static string CompletedLifecycleFor(string missionType) =>
+        missionType.Equals("PLATFORM_MAINTENANCE", StringComparison.OrdinalIgnoreCase)
+            ? "PLATFORM_MAINTENANCE_COMPLETE"
+            : "VALIDATING";
 
     private static string BuildRecoveryPrompt(V3BuildExecutionRecord execution, string missionType) =>
         $"""
@@ -860,6 +896,26 @@ public sealed class V3BuildRuntimeService(
         POSEIDON_HUMAN_BLOCKER
         seguido da descrição objetiva.
 
+        Não aguarde aprovação depois de checkpoints.
+        Continue autonomamente.
+        """
+            : missionType.Equals("PLATFORM_MAINTENANCE", StringComparison.OrdinalIgnoreCase)
+                ? """
+        ## MACHINE-READABLE EXIT CONTRACT
+
+        Você pode registrar progresso intermediário com:
+        POSEIDON_PROGRESS_CHECKPOINT
+
+        Isso NÃO encerra a missão.
+
+        Somente quando acreditar que a manutenção da plataforma foi concluída, testes relevantes passaram e o commit local foi feito, finalize o relatório com:
+        POSEIDON_MISSION_COMPLETE
+
+        Se existir blocker que depende genuinamente do humano, finalize com:
+        POSEIDON_HUMAN_BLOCKER
+        seguido da descrição objetiva.
+
+        Não use POSEIDON_MISSION_COMPLETE em checkpoints.
         Não aguarde aprovação depois de checkpoints.
         Continue autonomamente.
         """
@@ -1099,12 +1155,13 @@ public static class V3BuildExecutorSelector
     public static (AgentAccountContract? Account, string Reason) Select(
         IReadOnlyList<AgentAccountContract> accounts,
         string? preferredAlias = null,
-        IReadOnlyList<string>? excludeAliases = null)
+        IReadOnlyList<string>? excludeAliases = null,
+        string requiredRole = AgentRoles.ProjectExecutor)
     {
         var excluded = new HashSet<string>(excludeAliases ?? [], StringComparer.OrdinalIgnoreCase);
         if (!string.IsNullOrWhiteSpace(preferredAlias))
         {
-            var preferred = Eligible(accounts, excluded, onlyProjectExecutor: false)
+            var preferred = Eligible(accounts, excluded, requiredRole, allowProjectFallback: true)
                 .FirstOrDefault(account => string.Equals(account.Alias, preferredAlias, StringComparison.OrdinalIgnoreCase));
             if (preferred is not null)
             {
@@ -1112,10 +1169,10 @@ public static class V3BuildExecutorSelector
             }
         }
 
-        var projectExecutors = Eligible(accounts, excluded, onlyProjectExecutor: true).ToArray();
-        var selected = projectExecutors.Length > 0
-            ? projectExecutors[0]
-            : Eligible(accounts, excluded, onlyProjectExecutor: false).FirstOrDefault();
+        var exactRole = Eligible(accounts, excluded, requiredRole, allowProjectFallback: false).ToArray();
+        var selected = exactRole.Length > 0
+            ? exactRole[0]
+            : Eligible(accounts, excluded, requiredRole, allowProjectFallback: true).FirstOrDefault();
         return selected is null
             ? (null, "No authenticated quota-available write-capable executor is available.")
             : (selected, "AVAILABLE + WRITE_CAPABLE + role compatible.");
@@ -1124,18 +1181,19 @@ public static class V3BuildExecutorSelector
     private static IEnumerable<AgentAccountContract> Eligible(
         IReadOnlyList<AgentAccountContract> accounts,
         HashSet<string> excluded,
-        bool onlyProjectExecutor) =>
+        string requiredRole,
+        bool allowProjectFallback) =>
         accounts
             .Where(account => !excluded.Contains(account.Alias))
             .Where(account => account.State == AgentAccountState.Available)
             .Where(account => account.Health is AgentAccountHealth.Healthy or AgentAccountHealth.Degraded)
             .Where(account => !account.AllowedRoles.Contains(AgentRoles.ChiefOrchestrator, StringComparer.OrdinalIgnoreCase))
-            .Where(account => onlyProjectExecutor
-                ? account.AllowedRoles.Contains(AgentRoles.ProjectExecutor, StringComparer.OrdinalIgnoreCase)
-                : account.AllowedRoles.Any(role =>
+            .Where(account => account.AllowedRoles.Contains(requiredRole, StringComparer.OrdinalIgnoreCase) ||
+                (allowProjectFallback && string.Equals(requiredRole, AgentRoles.ProjectExecutor, StringComparison.OrdinalIgnoreCase) &&
+                 account.AllowedRoles.Any(role =>
                     string.Equals(role, AgentRoles.ProjectExecutor, StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(role, AgentRoles.BackendSpecialist, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(role, AgentRoles.FrontendSpecialist, StringComparison.OrdinalIgnoreCase)))
+                    string.Equals(role, AgentRoles.FrontendSpecialist, StringComparison.OrdinalIgnoreCase))))
             .Where(account => ExecutorCatalog.Find(account.ExecutorId)?.Capabilities.Capabilities.Contains("code", StringComparer.OrdinalIgnoreCase) == true)
             .OrderBy(account => account.Priority)
             .ThenBy(account => account.ActiveAttempts)

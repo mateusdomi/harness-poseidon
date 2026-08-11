@@ -57,6 +57,12 @@ public static class V3UnderstandEndpoints
             .ProducesProblem(401)
             .ProducesProblem(404)
             .ProducesProblem(409);
+        group.MapPost("/missions/platform-maintenance/compile", CompilePlatformMaintenanceMissionAsync)
+            .Produces<V3BuildMissionResponse>()
+            .ProducesProblem(400)
+            .ProducesProblem(401)
+            .ProducesProblem(404)
+            .ProducesProblem(409);
         group.MapGet("/missions", ListMissionsAsync)
             .Produces<V3MissionPageResponse>()
             .ProducesProblem(400)
@@ -286,6 +292,43 @@ public static class V3UnderstandEndpoints
         return Results.Ok(V3BuildMissionResponse.From(mission));
     }
 
+    private static async Task<IResult> CompilePlatformMaintenanceMissionAsync(
+        string projectId,
+        V3CompilePlatformMaintenanceMissionRequest input,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IProjectStore projects,
+        IConfiguration configuration,
+        [FromServices] AgentAccountRegistry accounts,
+        IClock clock,
+        CancellationToken token)
+    {
+        var resolved = await ResolveAsync(projectId, request, profiles, projects, token);
+        if (resolved.Result is not null) return resolved.Result;
+        if (string.IsNullOrWhiteSpace(input.Issue))
+        {
+            return Problem(400, "issue_required", "Platform maintenance requires a concrete issue.");
+        }
+
+        var repository = string.IsNullOrWhiteSpace(input.Repository)
+            ? FindRepositoryRoot(Directory.GetCurrentDirectory())
+            : Path.GetFullPath(input.Repository.Trim());
+        if (string.IsNullOrWhiteSpace(repository) || !Directory.Exists(repository))
+        {
+            return Problem(409, "repository_unreachable", "Platform maintenance requires a reachable Poseidon repository.");
+        }
+
+        var mission = V3MissionCompiler.CompilePlatformMaintenanceMission(
+            resolved.Project!.Id,
+            resolved.Project.Name,
+            repository,
+            input,
+            V3ExecutorPreview.Select(accounts.List(), AgentRoles.PlatformMaintainer),
+            clock.UtcNow);
+        V3UnderstandStore.ForConfiguration(configuration).WriteMission(mission);
+        return Results.Ok(V3BuildMissionResponse.From(mission));
+    }
+
     private static async Task<IResult> ListMissionsAsync(
         string projectId,
         HttpRequest request,
@@ -344,6 +387,28 @@ public static class V3UnderstandEndpoints
 
     private static string? FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim();
+
+    private static string FindRepositoryRoot(string start)
+    {
+        var current = Path.GetFullPath(start);
+        while (!string.IsNullOrWhiteSpace(current))
+        {
+            if (Directory.Exists(Path.Combine(current, ".git")))
+            {
+                return current;
+            }
+
+            var parent = Directory.GetParent(current)?.FullName;
+            if (string.Equals(parent, current, StringComparison.Ordinal))
+            {
+                break;
+            }
+
+            current = parent ?? string.Empty;
+        }
+
+        return Path.GetFullPath(start);
+    }
 
     private static void EnsureLocalRepository(string repository)
     {
@@ -1212,15 +1277,19 @@ public static class V3AuthorizationPolicy
 
 public static class V3ExecutorPreview
 {
-    public static V3RecommendedExecutor Select(IReadOnlyList<AgentAccountContract> accounts)
+    public static V3RecommendedExecutor Select(
+        IReadOnlyList<AgentAccountContract> accounts,
+        string requiredRole = AgentRoles.ProjectExecutor)
     {
+        var fallbackToLayerRoles = string.Equals(requiredRole, AgentRoles.ProjectExecutor, StringComparison.OrdinalIgnoreCase);
         var candidates = accounts
             .Where(account =>
                 account.State == AgentAccountState.Available &&
-                account.AllowedRoles.Any(role =>
+                (account.AllowedRoles.Contains(requiredRole, StringComparer.OrdinalIgnoreCase) ||
+                 (fallbackToLayerRoles && account.AllowedRoles.Any(role =>
                     string.Equals(role, AgentRoles.ProjectExecutor, StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(role, AgentRoles.BackendSpecialist, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(role, AgentRoles.FrontendSpecialist, StringComparison.OrdinalIgnoreCase)) &&
+                    string.Equals(role, AgentRoles.FrontendSpecialist, StringComparison.OrdinalIgnoreCase)))) &&
                 ExecutorCatalog.Find(account.ExecutorId)?.Capabilities.Capabilities.Contains("code", StringComparer.OrdinalIgnoreCase) == true)
             .OrderByDescending(account => account.Priority)
             .ThenBy(account => account.ActiveAttempts)
@@ -1553,6 +1622,43 @@ public static class V3MissionCompiler
         };
     }
 
+    public static V3BuildMissionRecord CompilePlatformMaintenanceMission(
+        string projectId,
+        string projectName,
+        string repository,
+        V3CompilePlatformMaintenanceMissionRequest request,
+        V3RecommendedExecutor executor,
+        DateTimeOffset now)
+    {
+        var missionId = UlidValue.New(now).ToString();
+        var selectedExecutor = string.IsNullOrWhiteSpace(request.RecommendedExecutorAlias)
+            ? executor
+            : new V3RecommendedExecutor(request.RecommendedExecutorAlias.Trim(), "OVERRIDDEN", "Human/operator override.");
+        var text = ComposePlatformMaintenanceMissionText(projectName, repository, request, selectedExecutor);
+        return new V3BuildMissionRecord(
+            missionId,
+            projectId,
+            "PLATFORM_MAINTENANCE",
+            1,
+            now,
+            "Bruna",
+            AgentRoles.PlatformMaintainer,
+            text,
+            [],
+            [],
+            new V3EffectiveStackContract(
+                "React/TypeScript/Vite",
+                ".NET",
+                "SQLite/PostgreSQL",
+                "Poseidon V3 control plane",
+                "xUnit/Vitest/Playwright",
+                ["PLATFORM_MAINTENANCE_CONTEXT"]),
+            null,
+            repository,
+            "COMPILED",
+            selectedExecutor);
+    }
+
     private static string ComposeMissionText(
         V3ProjectContextResponse context,
         IReadOnlyList<V3KnowledgeReference> knowledge,
@@ -1821,6 +1927,69 @@ public static class V3MissionCompiler
         return string.Join(Environment.NewLine, lines);
     }
 
+    private static string ComposePlatformMaintenanceMissionText(
+        string projectName,
+        string repository,
+        V3CompilePlatformMaintenanceMissionRequest request,
+        V3RecommendedExecutor executor)
+    {
+        var lines = new List<string>
+        {
+            $"# PLATFORM MAINTENANCE MISSION — {projectName}",
+            "",
+            "## OBJECTIVE",
+            "Corrigir um defeito ou lacuna operacional do próprio Poseidon, preservando a arquitetura V3 congelada.",
+            "",
+            "## USER REPORTED ISSUE",
+            request.Issue.Trim(),
+            "",
+            "## SAFE DIAGNOSTIC CONTEXT",
+            string.IsNullOrWhiteSpace(request.Diagnostics) ? "- Nenhum diagnóstico estruturado informado." : request.Diagnostics.Trim(),
+            "",
+            "## REPRODUCTION",
+            string.IsNullOrWhiteSpace(request.Reproduction) ? "- Reproduza pelo caminho mais seguro e local possível antes de alterar código." : request.Reproduction.Trim(),
+            "",
+            "## REPOSITORY",
+            $"- {repository}",
+            "",
+            "## BOUNDARIES",
+            "- Trabalhe somente no repositório Poseidon.",
+            "- Não altere main.",
+            "- Não use force push.",
+            "- Não apague dados, evidências ou histórico.",
+            "- Não exponha segredos.",
+            "- Não altere Prisma ou Indicadores.",
+            "- Não reintroduza Council, cards V1, micro-cards, workflow de 9 fases ou ProductE2ERunner.",
+            "- Preserve trabalho preexistente no worktree.",
+            "",
+            "## EXPECTED WORKFLOW",
+            "- Inspecione estado Git.",
+            "- Reproduza ou prove a causa determinística do problema.",
+            "- Faça o menor fix coerente.",
+            "- Rode testes focados.",
+            "- Rode build/verify proporcional ao risco.",
+            "- Faça commit local coerente.",
+            "- Relate evidência, arquivos alterados, testes e qualquer blocker real.",
+            "",
+            "## DEFINITION OF DONE",
+            "- Causa explicada.",
+            "- Fix implementado.",
+            "- Teste/regressão adicionado ou atualizado quando aplicável.",
+            "- Gates relevantes verdes.",
+            "- Nenhum segredo exposto.",
+            "- Nenhuma fronteira proibida violada.",
+            "",
+            "## MACHINE-READABLE EXIT CONTRACT",
+            "- Checkpoints intermediários podem conter POSEIDON_PROGRESS_CHECKPOINT, mas isso NÃO encerra a missão.",
+            "- Somente finalize com POSEIDON_MISSION_COMPLETE quando a manutenção estiver concluída.",
+            "- Se existir blocker genuinamente humano, finalize com POSEIDON_HUMAN_BLOCKER seguido da descrição objetiva.",
+            "",
+            "## RECOMMENDED EXECUTOR",
+            $"- {executor.AccountAlias ?? "BLOCKED"} — {executor.Reason}",
+        };
+        return string.Join(Environment.NewLine, lines);
+    }
+
     private static int PrimaryCoveragePercent(IReadOnlyList<V3SourceCoverage> coverage) =>
         coverage.Count == 0 ? 100 : (int)Math.Round(coverage.Average(item => item.CoveragePercent));
 }
@@ -1842,6 +2011,13 @@ public sealed record V3UnderstandAnalyzeRequest
 public sealed record V3AuthorizeBuildRequest(string Response, DateTimeOffset? Deadline = null, string? Repository = null);
 
 public sealed record V3CompileBuildMissionRequest(string? RecommendedExecutorAlias = null);
+
+public sealed record V3CompilePlatformMaintenanceMissionRequest(
+    string Issue,
+    string? Diagnostics = null,
+    string? Reproduction = null,
+    string? Repository = null,
+    string? RecommendedExecutorAlias = null);
 
 public sealed record V3ProjectContextResponse(
     string ProjectId,

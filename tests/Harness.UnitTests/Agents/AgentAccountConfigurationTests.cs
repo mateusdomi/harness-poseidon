@@ -120,6 +120,19 @@ public sealed class AgentAccountConfigurationTests : IDisposable
     }
 
     [Fact]
+    public void PlatformMaintainerIsAKnownRoleWithPoseidonMaintenanceScope()
+    {
+        var scopes = AgentRoles.PathScopesFor(AgentRoles.PlatformMaintainer);
+
+        Assert.True(AgentRoles.IsKnown(AgentRoles.PlatformMaintainer));
+        Assert.Contains("src/**", scopes);
+        Assert.Contains("frontend/**", scopes);
+        Assert.Contains("tests/**", scopes);
+        Assert.Contains("governance/rules/**", scopes);
+        Assert.DoesNotContain("governance/**", scopes);
+    }
+
+    [Fact]
     public void TheFrontendRoleIsProviderAgnostic()
     {
         // CA-1: Codex e Kimi Code exercem o MESMO papel lógico com o MESMO escopo.

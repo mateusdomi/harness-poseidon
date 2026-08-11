@@ -24,6 +24,7 @@ public static class AgentRoles
     /// negações canônicas (parecer do conselho, fontes de governança) continuam valendo.
     /// </summary>
     public const string ProjectExecutor = "project-executor";
+    public const string PlatformMaintainer = "platform-maintainer";
 
     /// <summary>
     /// Claims PADRÃO do papel — usados quando o pedido não estreita o escopo. O frontend
@@ -43,7 +44,9 @@ public static class AgentRoles
                     ? CriticDefaultScopes
                     : string.Equals(role, ProjectExecutor, StringComparison.OrdinalIgnoreCase)
                         ? ProjectExecutorDefaultScopes
-                        : [];
+                        : string.Equals(role, PlatformMaintainer, StringComparison.OrdinalIgnoreCase)
+                            ? PlatformMaintainerDefaultScopes
+                            : [];
 
     /// <summary>
     /// União dos escopos de backend e frontend, por SUBRAIZ de docs (nunca `docs/**`: a varredura
@@ -56,6 +59,13 @@ public static class AgentRoles
         "src/**", "frontend/**", "tests/**", "infra/**", "tools/**",
         "docs/backend/**", "docs/frontend/**", "docs/contracts/**",
         "docs/architecture/**", "docs/decisions/**", "docs/product/**",
+    ];
+
+    private static readonly string[] PlatformMaintainerDefaultScopes =
+    [
+        "src/**", "frontend/**", "tests/**", "tools/**", "infra/**",
+        "docs/**", "governance/rules/**", "governance/manifest.yaml",
+        "AGENTS.md", "CLAUDE.md",
     ];
 
     /// <summary>
@@ -82,7 +92,7 @@ public static class AgentRoles
 
     public static bool IsKnown(string role) =>
         role is ChiefOrchestrator or FrontendSpecialist or BackendSpecialist or Critic
-            or ProjectExecutor;
+            or ProjectExecutor or PlatformMaintainer;
 }
 
 /// <summary>

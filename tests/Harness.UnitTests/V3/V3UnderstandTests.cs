@@ -277,6 +277,59 @@ public sealed class V3UnderstandTests : IDisposable
     }
 
     [Fact]
+    public void PlatformMaintenancePreviewRequiresPlatformMaintainerRole()
+    {
+        var selected = V3ExecutorPreview.Select(
+        [
+            Account("worker-project", [AgentRoles.ProjectExecutor], priority: 100),
+            Account("worker-platform", [AgentRoles.PlatformMaintainer], priority: 10),
+        ], AgentRoles.PlatformMaintainer);
+
+        Assert.Equal("worker-platform", selected.AccountAlias);
+        Assert.Equal("AVAILABLE", selected.Status);
+    }
+
+    [Fact]
+    public void PlatformMaintenanceRuntimeSelectorDoesNotFallbackToProjectExecutor()
+    {
+        var selected = V3BuildExecutorSelector.Select(
+        [
+            Account("worker-project", [AgentRoles.ProjectExecutor], priority: 100),
+        ], requiredRole: AgentRoles.PlatformMaintainer);
+
+        Assert.Null(selected.Account);
+        Assert.Contains("No authenticated", selected.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PlatformMaintenanceMissionCarriesSafePoseidonRepairBoundary()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        var repository = Path.Combine(_directory, "poseidon-repo");
+        Directory.CreateDirectory(repository);
+        var executor = new V3RecommendedExecutor("worker-platform", "AVAILABLE", "AVAILABLE + WRITE_CAPABLE + role compatible.");
+
+        var mission = V3MissionCompiler.CompilePlatformMaintenanceMission(
+            "project-platform",
+            "Poseidon",
+            repository,
+            new V3CompilePlatformMaintenanceMissionRequest(
+                "A tela de agentes mistura conta runtime com pessoa pública.",
+                "Health PASS; executor Codex auth pending.",
+                "Abrir /agents e verificar duplicidade de Bruna."),
+            executor,
+            now);
+
+        Assert.Equal("PLATFORM_MAINTENANCE", mission.MissionType);
+        Assert.Equal(AgentRoles.PlatformMaintainer, mission.TargetExecutorCapability);
+        Assert.Equal(repository, mission.Repository);
+        Assert.Contains("Trabalhe somente no repositório Poseidon", mission.MissionText, StringComparison.Ordinal);
+        Assert.Contains("Não altere Prisma ou Indicadores", mission.MissionText, StringComparison.Ordinal);
+        Assert.Contains("Não reintroduza Council", mission.MissionText, StringComparison.Ordinal);
+        Assert.Contains("POSEIDON_MISSION_COMPLETE", mission.MissionText, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SimpleCrudReceivesSimpleSolutionStrategyWithoutArchitectureApproval()
     {
         var now = DateTimeOffset.UnixEpoch;
