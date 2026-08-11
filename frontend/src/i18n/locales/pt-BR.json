@@ -920,7 +920,7 @@
     },
     "empty": {
       "title": "Nenhum projeto ativo",
-      "body": "O Dashboard mostra a equipe, as etapas, o andamento e os bloqueios do projeto. Crie o primeiro projeto para começar.",
+      "body": "O Dashboard mostra a equipe, o lifecycle V3, o andamento e os bloqueios do projeto. Crie o primeiro projeto para começar.",
       "cta": "Criar projeto"
     },
     "phase": {
@@ -940,8 +940,8 @@
       "technicalSubtitle": "Três trilhas independentes — nunca somadas. Passe o mouse em cada uma para entender o que ela mede.",
       "businessLabel": "Trabalho aceito",
       "businessExplanation": "Este número cresce quando uma entrega é conferida e aceita como pronta.",
-      "currentStage": "Etapa atual: {{stage}}",
-      "noCurrentStage": "O projeto ainda não iniciou uma etapa.",
+      "currentStage": "Momento atual: {{stage}}",
+      "noCurrentStage": "O projeto ainda não iniciou o lifecycle V3.",
       "tracks": {
         "executed": "Executado",
         "validated": "Validado",
@@ -970,8 +970,8 @@
       "empty": "Nenhuma pessoa foi adicionada à equipe nesta instalação.",
       "kpis": {
         "online": "Disponíveis",
-        "tasksDone": "Tarefas concluídas",
-        "tasksTodo": "Tarefas a fazer",
+        "running": "Em execução",
+        "total": "Total",
         "withoutCapacity": "Precisam de atenção"
       },
       "businessState": {
@@ -1753,7 +1753,7 @@
     },
     "cockpit": {
       "title": "Dashboard",
-      "description": "Acompanhe sua equipe, as etapas do projeto e o que precisa da sua atenção."
+      "description": "Acompanhe sua equipe, o lifecycle V3 do projeto e o que precisa da sua atenção."
     },
     "chat": {
       "title": "Chat",

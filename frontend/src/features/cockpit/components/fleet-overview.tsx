@@ -1,7 +1,7 @@
 import { Info, UsersRound } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import type { Agent, AgentAccountRoster, TaskState } from '@/api';
+import type { Agent, AgentAccountRoster } from '@/api';
 import {
   Badge,
   Card,
@@ -13,7 +13,6 @@ import {
   type BadgeProps,
 } from '@/design-system';
 import { useAgentRoster } from '@/features/agents/hooks/use-agent-roster';
-import { factoryAgentMetrics } from '@/features/cockpit/lib/cockpit-derive';
 import { AgentIdentity } from '@/features/shared/components/agent-identity';
 import { formatDateTime, formatNumber } from '@/lib/format';
 
@@ -56,19 +55,25 @@ function businessStateKey(
  * restritos ao modo Técnico.
  */
 export function FleetOverview({
-  agents,
-  taskCounts,
+  agents: _agents,
   mode = 'business',
 }: {
   agents: Agent[];
-  taskCounts: Record<TaskState, number>;
   mode?: 'business' | 'technical';
 }) {
   const { t } = useTranslation();
   const rosterQuery = useAgentRoster();
   const accounts = rosterQuery.data ?? [];
-  const metrics = factoryAgentMetrics(agents, taskCounts);
   const technical = mode === 'technical';
+  const availableAccounts = accounts.filter(
+    (account) => account.enabled && account.state === 'idle',
+  ).length;
+  const runningAccounts = accounts.filter(
+    (account) => account.enabled && account.state === 'working',
+  ).length;
+  const attentionAccounts = accounts.filter(
+    (account) => !account.enabled || !CAPACITY_STATES.has(account.state),
+  ).length;
 
   function journeyLabel(account: AgentAccountRoster): string {
     if (account.state === 'working') return t('cockpit.fleet.journey.working');
@@ -112,16 +117,11 @@ export function FleetOverview({
           {[
             [
               'online',
-              accounts.filter((account) => account.enabled && CAPACITY_STATES.has(account.state))
-                .length,
+              availableAccounts,
             ],
-            ['tasksDone', metrics.tasksDone],
-            ['tasksTodo', metrics.tasksTodo],
-            [
-              'withoutCapacity',
-              accounts.filter((account) => !account.enabled || !CAPACITY_STATES.has(account.state))
-                .length,
-            ],
+            ['running', runningAccounts],
+            ['withoutCapacity', attentionAccounts],
+            ['total', accounts.length],
           ].map(([key, value]) => (
             <div key={key} className="rounded-lg border border-border bg-surface-elevated/40 p-3">
               <dt className="text-xs text-foreground-muted">{t(`cockpit.fleet.kpis.${key}`)}</dt>

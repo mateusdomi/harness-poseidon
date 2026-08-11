@@ -920,7 +920,7 @@
     },
     "empty": {
       "title": "No active project",
-      "body": "The Dashboard shows the team, stages, progress, and blockers. Create your first project to get started.",
+      "body": "The Dashboard shows the team, V3 lifecycle, progress, and blockers. Create your first project to get started.",
       "cta": "Create project"
     },
     "phase": {
@@ -940,8 +940,8 @@
       "technicalSubtitle": "Three independent tracks — never summed. Hover each one to see what it measures.",
       "businessLabel": "Accepted work",
       "businessExplanation": "This number grows when a delivery is checked and accepted as ready.",
-      "currentStage": "Current stage: {{stage}}",
-      "noCurrentStage": "The project has not started a stage yet.",
+      "currentStage": "Current moment: {{stage}}",
+      "noCurrentStage": "The project has not started the V3 lifecycle yet.",
       "tracks": {
         "executed": "Executed",
         "validated": "Validated",
@@ -970,8 +970,8 @@
       "empty": "No one has been added to the team in this installation.",
       "kpis": {
         "online": "Available",
-        "tasksDone": "Completed tasks",
-        "tasksTodo": "Tasks to do",
+        "running": "Running",
+        "total": "Total",
         "withoutCapacity": "Need attention"
       },
       "businessState": {
@@ -1753,7 +1753,7 @@
     },
     "cockpit": {
       "title": "Dashboard",
-      "description": "Follow your team, project stages, and anything that needs your attention."
+      "description": "Follow your team, the project V3 lifecycle, and anything that needs your attention."
     },
     "chat": {
       "title": "Chat",

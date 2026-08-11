@@ -10,7 +10,7 @@
     },
     "empty": {
       "title": "Ainda não há execução para medir",
-      "body": "Assim que a fleet executar cards neste projeto, a produtividade por assinatura e o pass@k aparecem aqui."
+      "body": "Assim que a fleet executar missões neste projeto, a produtividade por assinatura e o pass@k aparecem aqui."
     },
     "subscriptions": {
       "title": "Por assinatura",

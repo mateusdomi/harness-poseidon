@@ -68,8 +68,8 @@ export default function CockpitPage() {
     agentsQuery.isLoading ||
     (technical && budgetsQuery.isLoading) ||
     activityQuery.isLoading ||
-    workflowData.isPending ||
-    phaseProgress.isPending;
+    (technical && workflowData.isPending) ||
+    (technical && phaseProgress.isPending);
   const errored =
     isError ||
     tasksQuery.isError ||
@@ -77,7 +77,7 @@ export default function CockpitPage() {
     agentsQuery.isError ||
     (technical && budgetsQuery.isError) ||
     activityQuery.isError ||
-    workflowData.isError;
+    (technical && workflowData.isError);
 
   function retryAll() {
     refetch();
@@ -141,7 +141,6 @@ export default function CockpitPage() {
             {/* O cockpit mostra cotas/orçamento e saúde: quando a origem é fixture,
                 dizemos isso explicitamente em vez de passar por dado real (§15). */}
             <SimulatedModeBadge />
-            <Badge variant="outline">{t(`settings.presentation.modes.${presentation.mode}`)}</Badge>
           </div>
           <p className="text-sm text-foreground-muted">{t('features.cockpit.description')}</p>
         </div>
@@ -182,7 +181,7 @@ export default function CockpitPage() {
         </>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <FleetOverview agents={agents} taskCounts={counts} mode={presentationMode} />
+          <FleetOverview agents={agents} mode={presentationMode} />
           <div className="lg:col-span-2">
             <GoldenPathChecklist hideWhenComplete />
           </div>
@@ -225,13 +224,17 @@ export default function CockpitPage() {
                 progress={displayedProgress}
                 evidence={progressEvidence(tasks)}
                 mode={presentationMode}
-                currentPhaseName={phase?.name}
+                currentPhaseName={
+                  technical
+                    ? phase?.name
+                    : t(V3LifecycleStepLabelKey(v3Context.data?.currentLifecycleState ?? null))
+                }
               />
             </CardContent>
           </Card>
           <NextActionCard actionKey={nextAction} />
-          <TasksByStateChart counts={counts} />
-          <BlockedTasksCard tasks={tasks} mode={presentationMode} />
+          {technical && <TasksByStateChart counts={counts} />}
+          {technical && <BlockedTasksCard tasks={tasks} mode={presentationMode} />}
           {technical && <PendingApprovalsCard approvals={humanApprovals} mode="technical" />}
           {technical && <QuotaCard budgets={budgets} />}
           <div className="lg:col-span-2">
@@ -327,6 +330,14 @@ function V3LifecycleOverview({ lifecycle }: { lifecycle: string | null }) {
       </CardContent>
     </Card>
   );
+}
+
+function V3LifecycleStepLabelKey(value: string | null): string {
+  const current = value ?? 'UNDERSTANDING';
+  const step = V3_LIFECYCLE_STEPS.find((item) =>
+    item.states.some((state) => state === current),
+  );
+  return step?.labelKey ?? 'cockpit.v3Lifecycle.steps.understand';
 }
 
 function V3LifecyclePercent(value: string): number {

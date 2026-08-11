@@ -10,7 +10,7 @@
     },
     "empty": {
       "title": "No executions to measure yet",
-      "body": "Once the fleet runs cards in this project, productivity per subscription and pass@k show up here."
+      "body": "Once the fleet runs missions in this project, productivity per subscription and pass@k show up here."
     },
     "subscriptions": {
       "title": "Per subscription",

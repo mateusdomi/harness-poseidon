@@ -298,7 +298,7 @@ describe('CockpitPage', () => {
     expect(await screen.findAllByRole('progressbar', { name: 'Trabalho aceito' })).toHaveLength(1);
     expect(screen.getByRole('progressbar', { name: 'Trabalho aceito' })).toHaveAttribute(
       'aria-valuenow',
-      '0',
+      '18',
     );
     expect(screen.queryByRole('progressbar', { name: 'Executado' })).not.toBeInTheDocument();
     expect(screen.queryByRole('progressbar', { name: 'Validado' })).not.toBeInTheDocument();
@@ -334,12 +334,23 @@ describe('CockpitPage', () => {
     );
   });
 
-  it('abre no quadro uma tarefa que está bloqueada', async () => {
-    const user = userEvent.setup();
+  it('não expõe tarefa bloqueada como fluxo principal no modo negócio', async () => {
     renderCockpit();
 
+    expect(await screen.findByRole('heading', { name: 'Lifecycle V3' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /publicação em preparação/i })).not.toBeInTheDocument();
+  });
+
+  it('abre no quadro uma tarefa bloqueada somente na visão técnica', async () => {
+    const user = userEvent.setup();
+    const bundle = createTestBundle();
+    usePresentationStore
+      .getState()
+      .requestMode(bundle.fixtures.meta.currentProfileId, 'technical');
+    renderCockpit(bundle);
+
     await user.click(
-      await screen.findByRole('link', { name: /publicação em preparação/i }),
+      await screen.findByRole('link', { name: /Deploy em staging/i }),
     );
     expect(await screen.findByText('BOARD state=')).toBeInTheDocument();
   });
@@ -357,13 +368,15 @@ describe('CockpitPage', () => {
   it('mostra o dashboard de negócio sem vocabulário técnico', async () => {
     renderCockpit();
 
-    // Aguarda o carregamento completo (cards de bloqueio só existem no fim).
-    expect(await screen.findByText('publicação em preparação (sem acesso)')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Lifecycle V3' })).toBeInTheDocument();
+    expect(screen.queryByText('publicação em preparação (sem acesso)')).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/projeto ativo/i)).not.toBeInTheDocument();
-    expect(screen.getByText('Aprovar verificação de Qualidade')).toBeInTheDocument();
     expect(screen.getByText('Quadro da Equipe')).toBeInTheDocument();
     expect(screen.getByText('Disponíveis').tagName).toBe('DT');
-    expect(screen.getByText('58').tagName).toBe('DD');
+    expect(screen.getByText('Em execução').tagName).toBe('DT');
+    expect(screen.getByText('Total').tagName).toBe('DT');
+    expect(screen.queryByText('Tarefas concluídas')).not.toBeInTheDocument();
+    expect(screen.queryByText('Tarefas a fazer')).not.toBeInTheDocument();
     expect((await screen.findAllByText('Em admissão')).length).toBeGreaterThan(0);
     expect(screen.getByText('Produtividade da equipe')).toBeInTheDocument();
     expect(screen.getByText('Capacidade da equipe')).toBeInTheDocument();
