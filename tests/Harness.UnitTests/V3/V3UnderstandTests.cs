@@ -253,6 +253,30 @@ public sealed class V3UnderstandTests : IDisposable
     }
 
     [Fact]
+    public void BuildMissionPreservesExplicitNonScope()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        var baseContext = Context(deadline: now.AddDays(10), repository: "/tmp/equipment");
+        var state = baseContext.State! with
+        {
+            ImportantConstraints =
+            [
+                "Fora de escopo: integração com ERP externo",
+                "Fora de escopo: envio real de e-mail, WhatsApp ou SMS",
+            ],
+        };
+        var context = baseContext with { State = state };
+        var recommended = new V3RecommendedExecutor("worker-codex-project", "AVAILABLE", "AVAILABLE + WRITE_CAPABLE + role compatible.");
+
+        var mission = V3MissionCompiler.CompileBuildMission(context, recommended, null, now);
+
+        Assert.Contains("### 7 NON-SCOPE", mission.MissionText, StringComparison.Ordinal);
+        Assert.Contains("- integração com ERP externo", mission.MissionText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("## NON-SCOPE", mission.MissionText, StringComparison.Ordinal);
+        Assert.Contains("- envio real de e-mail, WhatsApp ou SMS", mission.MissionText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void MissionCompilerIncludesProjectBrandingWhenDeclared()
     {
         var now = DateTimeOffset.UnixEpoch;

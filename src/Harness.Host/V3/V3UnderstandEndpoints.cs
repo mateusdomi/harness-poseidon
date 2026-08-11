@@ -1774,6 +1774,7 @@ public static class V3MissionCompiler
         V3StructuredMissionPlan plan)
     {
         var state = context.State;
+        var nonScope = NonScopeItems(state?.ImportantConstraints);
         var lines = new List<string>
         {
             $"# BUILD MISSION — {context.ProjectName}",
@@ -1812,6 +1813,11 @@ public static class V3MissionCompiler
             "- Antes de implementar, leia integralmente os artefatos originais referenciados quando forem fontes primárias de requisitos.",
         ]);
         lines.AddRange((state?.Requirements ?? context.Requirements).Select(item => $"- {item}"));
+        lines.Add("");
+        lines.Add("## NON-SCOPE");
+        lines.AddRange(nonScope.Length == 0
+            ? ["- Nenhuma exclusão adicional além das fontes originais e decisões explícitas do usuário."]
+            : nonScope.Select(item => $"- {item}"));
         lines.Add("");
         lines.Add("## ORIGINAL ARTIFACTS");
         if (context.Artifacts.Count == 0 && context.Documents.Count == 0)
@@ -1967,6 +1973,7 @@ public static class V3MissionCompiler
         var state = context.State;
         var requirements = state?.Requirements.Count > 0 ? state.Requirements : context.Requirements;
         var criteria = state?.AcceptanceCriteria.Count > 0 ? state.AcceptanceCriteria : context.AcceptanceCriteria;
+        var nonScope = NonScopeItems(state?.ImportantConstraints);
         var hasFrontend = state?.ProvidedFrontend == true ||
             context.Artifacts.Any(artifact =>
                 artifact.Role.Contains("frontend", StringComparison.OrdinalIgnoreCase) ||
@@ -2001,7 +2008,7 @@ public static class V3MissionCompiler
                     .. knowledge.Select(item => $"Knowledge: {item.Path} — path={item.ReadablePath ?? "UNAVAILABLE"}"),
                 ]),
                 Dimension(6, "SCOPE", "Bruna", requirements.Count == 0 ? ["All explicit scope in original sources."] : requirements),
-                Dimension(7, "NON-SCOPE", "Bruna", "No additional exclusion beyond original sources unless explicitly declared by the user."),
+                Dimension(7, "NON-SCOPE", "Bruna", nonScope.Length == 0 ? ["No additional exclusion beyond original sources unless explicitly declared by the user."] : nonScope),
                 Dimension(8, "FUNCTIONAL REQUIREMENTS", "Bruna", requirements.Count == 0 ? ["Derive faithfully from primary requirements before implementing."] : requirements),
                 Dimension(9, "NON-FUNCTIONAL REQUIREMENTS", "Bruna/Governance", [
                     $"Responsive/UI required: {(hasFrontend ? "YES" : "according to explicit UI scope")}",
@@ -2089,6 +2096,22 @@ public static class V3MissionCompiler
          !string.IsNullOrWhiteSpace(brand.PrimaryColor) ||
          !string.IsNullOrWhiteSpace(brand.SecondaryColor) ||
          !string.IsNullOrWhiteSpace(brand.Typography));
+
+    private static string[] NonScopeItems(IReadOnlyList<string>? constraints)
+    {
+        if (constraints is null || constraints.Count == 0)
+        {
+            return [];
+        }
+
+        return constraints
+            .Select(value => value.Trim())
+            .Where(value => value.StartsWith("Fora de escopo:", StringComparison.OrdinalIgnoreCase))
+            .Select(value => value["Fora de escopo:".Length..].Trim())
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
 
     private static void AddMissionList(List<string> lines, string label, IReadOnlyList<string> values)
     {
