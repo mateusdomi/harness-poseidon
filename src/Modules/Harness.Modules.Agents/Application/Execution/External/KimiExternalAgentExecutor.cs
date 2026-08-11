@@ -70,9 +70,14 @@ public sealed class KimiExternalAgentExecutor(
             ("authentication required", "executor.authentication_required", ExternalFailureKind.AuthenticationRequired),
             ("not logged in", "executor.authentication_required", ExternalFailureKind.AuthenticationRequired),
             ("please log in", "executor.authentication_required", ExternalFailureKind.AuthenticationRequired),
+            ("oauth request", "executor.provider_unreachable", ExternalFailureKind.Transient),
+            ("fetch failed", "executor.provider_unreachable", ExternalFailureKind.Transient),
+            ("econnreset", "executor.provider_unreachable", ExternalFailureKind.Transient),
+            ("connection reset", "executor.provider_unreachable", ExternalFailureKind.Transient),
         ];
 
         private readonly List<string> _lines = [];
+        private string? _failureDiagnostic;
 
         public string? SessionId => null;
 
@@ -110,6 +115,7 @@ public sealed class KimiExternalAgentExecutor(
                 {
                     FailureCode ??= code;
                     FailureKind = kind;
+                    _failureDiagnostic ??= ExternalAgentRedaction.Redact(line);
                     return code;
                 }
             }
@@ -120,6 +126,10 @@ public sealed class KimiExternalAgentExecutor(
         public void Complete()
         {
             var joined = string.Join('\n', _lines).Trim();
+            if (joined.Length == 0 && FailureCode is not null && !string.IsNullOrWhiteSpace(_failureDiagnostic))
+            {
+                joined = _failureDiagnostic;
+            }
             FinalMessage = joined;
 
             if (joined.Length > 0)
