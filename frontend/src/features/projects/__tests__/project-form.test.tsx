@@ -77,6 +77,26 @@ describe('ProjectForm', () => {
     expect(logoFile).toBe(logo);
   });
 
+  it('permite criar projeto no modo Negócio só com título para continuar no Chat', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    usePresentationStore.getState().requestMode(fixtures.meta.currentProfileId, 'business');
+    renderForm(onSubmit);
+
+    await user.type(screen.getByLabelText(/título/i), 'Equipamentos');
+    await user.click(screen.getByRole('button', { name: /criar projeto/i }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    const [values] = onSubmit.mock.calls[0];
+    expect(values).toMatchObject({
+      name: 'Equipamentos',
+      key: 'EQUIPAMENTOS',
+      description: '',
+      repositoryProvider: 'local',
+      repositoryUrl: '',
+    });
+  });
+
   it('exibe somente o painel da aba selecionada', async () => {
     const user = userEvent.setup();
     renderForm();

@@ -107,7 +107,7 @@ export default function ProjectsPage() {
       await projectsQuery.refetch();
       const activeProfileId = profileId ?? (await api.getCurrentProfile()).id;
       selectProject(activeProfileId, project.id);
-      setView({ kind: 'edit', project });
+      navigate('/chat');
     } catch {
       // O estado tipado da mutation alimenta o alerta abaixo. Capturar a rejeição evita
       // unhandled promise e mantém o formulário intacto para correção/reenvio.
