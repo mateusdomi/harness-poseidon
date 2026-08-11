@@ -30,6 +30,8 @@ PROVIDERS = {
     "anthropic": ("anthropic", "claude-code"),
     "codex": ("openai", "codex"),
     "openai": ("openai", "codex"),
+    "kimi": ("moonshot", "kimi-code"),
+    "moonshot": ("moonshot", "kimi-code"),
 }
 
 
@@ -61,6 +63,11 @@ def account_env(account: dict[str, Any]) -> dict[str, str]:
         env["CLAUDE_CONFIG_DIR"] = str(home / "config")
     elif account["executorId"] == "codex":
         env["CODEX_HOME"] = str(home / "codex")
+    elif account["executorId"] == "kimi-code":
+        config_home = home / "config"
+        env["HOME"] = str(config_home)
+        kimi_bin = pathlib.Path.home() / ".kimi-code" / "bin"
+        env["PATH"] = f"{kimi_bin}{os.pathsep}{env.get('PATH', '')}"
     return env
 
 
@@ -71,6 +78,8 @@ def ensure_dirs(account: dict[str, Any]) -> None:
         (home / "config").mkdir(parents=True, exist_ok=True)
     elif account["executorId"] == "codex":
         (home / "codex").mkdir(parents=True, exist_ok=True)
+    elif account["executorId"] == "kimi-code":
+        (home / "config").mkdir(parents=True, exist_ok=True)
 
 
 def accounts_doc() -> dict[str, Any]:
@@ -138,7 +147,7 @@ def command_list(_: argparse.Namespace) -> int:
 def command_add(args: argparse.Namespace) -> int:
     provider_key = args.provider.lower()
     if provider_key not in PROVIDERS:
-        raise SystemExit(f"Provider não suportado: {args.provider}. Use claude ou codex.")
+        raise SystemExit(f"Provider não suportado: {args.provider}. Use claude, codex ou kimi.")
     provider_kind, executor_id = PROVIDERS[provider_key]
     doc = accounts_doc()
     if any(account.get("alias") == args.account_id for account in doc["accounts"]):
@@ -255,6 +264,12 @@ def command_auth(args: argparse.Namespace) -> int:
         print("Use o fluxo nativo do Codex no navegador/device auth. Não informe senha ao Poseidon.")
         set_availability(args.account_id, "Unavailable", "availability.auth_pending")
         code = run_auth_flow(account, ["codex", "login", "--device-auth"])
+    elif account["executorId"] == "kimi-code":
+        print(f"Autenticando Kimi isolado: {args.account_id}")
+        print(f"HOME={account_home(args.account_id) / 'config'}")
+        print("Use o fluxo nativo do Kimi Code no navegador/device auth. Não informe senha ao Poseidon.")
+        set_availability(args.account_id, "Unavailable", "availability.auth_pending")
+        code = run_auth_flow(account, ["kimi", "login"])
     else:
         raise SystemExit(f"Auth nativo não implementado para executor {account['executorId']}")
     if code != 0:
@@ -311,6 +326,19 @@ def command_logout(args: argparse.Namespace) -> int:
         if history.exists():
             history.unlink()
         print(f"Estado de autenticação Claude removido somente de {config}")
+    elif account["executorId"] == "kimi-code":
+        config = account_home(args.account_id) / "config" / ".kimi-code"
+        backups = config / "backups"
+        backups.mkdir(parents=True, exist_ok=True)
+        for relative in [
+            pathlib.Path("credentials") / "kimi-code.json",
+            pathlib.Path("oauth") / "kimi-code",
+        ]:
+            target = config / relative
+            if target.exists():
+                backup_name = f"{relative.name}.logout.{int(dt.datetime.now().timestamp())}"
+                target.replace(backups / backup_name)
+        print(f"Estado de autenticação Kimi removido somente de {config}")
     else:
         raise SystemExit(f"Logout não implementado para executor {account['executorId']}")
     set_availability(args.account_id, "Unavailable", "availability.logged_out")
@@ -321,6 +349,7 @@ def command_logout(args: argparse.Namespace) -> int:
 def command_probe(args: argparse.Namespace) -> int:
     account = find_account(args.account_id)
     ensure_dirs(account)
+    reserved = account.get("usagePolicy") == "RESERVED" or account.get("enabled") is False
     env = account_env(account)
     cwd = str(account_home(args.account_id))
     if account["executorId"] == "claude-code":
@@ -334,30 +363,44 @@ def command_probe(args: argparse.Namespace) -> int:
             "workspace-write",
             "Responda apenas OK.",
         ]
+    elif account["executorId"] == "kimi-code":
+        argv = ["kimi", "--output-format", "text", "-p", "Responda apenas OK."]
     else:
         raise SystemExit(f"Probe nativo não implementado para executor {account['executorId']}")
     try:
         result = subprocess.run(argv, cwd=cwd, env=env, text=True, capture_output=True, timeout=120)
     except subprocess.TimeoutExpired:
-        set_availability(args.account_id, "Unavailable", "availability.probe_timeout")
+        if not reserved:
+            set_availability(args.account_id, "Unavailable", "availability.probe_timeout")
         print("Probe = FAIL (timeout)")
+        if reserved:
+            print("AccountUsage = RESERVED (ledger preservado)")
         return 2
     output = (result.stdout + "\n" + result.stderr).lower()
     if result.returncode == 0 and "ok" in output:
-        set_availability(args.account_id, "Available", "availability.available")
+        if not reserved:
+            set_availability(args.account_id, "Available", "availability.available")
         print("Probe = PASS")
         print("Auth = AUTHENTICATED")
         print("Quota = AVAILABLE")
         print("WriteCapability = YES" if "project-executor" in account.get("allowedRoles", []) else "WriteCapability = ROLE_DEPENDENT")
+        if reserved:
+            print("AccountUsage = RESERVED (não elegível para auto-dispatch até enable explícito)")
         return 0
     if "quota" in output or "limit" in output or "rate" in output:
-        set_availability(args.account_id, "QuotaLimited", "availability.quota_exhausted")
+        if not reserved:
+            set_availability(args.account_id, "QuotaLimited", "availability.quota_exhausted")
         print("Probe = FAIL")
         print("Quota = EXHAUSTED_OR_LIMITED")
+        if reserved:
+            print("AccountUsage = RESERVED (ledger preservado)")
         return 2
-    set_availability(args.account_id, "Unavailable", "availability.probe_failed")
+    if not reserved:
+        set_availability(args.account_id, "Unavailable", "availability.probe_failed")
     print("Probe = FAIL")
     print(f"ExitCode = {result.returncode}")
+    if reserved:
+        print("AccountUsage = RESERVED (ledger preservado)")
     tail = (result.stderr or result.stdout)[-800:]
     if tail:
         print(tail)
@@ -376,6 +419,10 @@ def command_status(args: argparse.Namespace) -> int:
         codex_home = home / "codex"
         auth_state = "AUTHENTICATED" if any(codex_home.glob("auth*.json")) or any(codex_home.glob("*.json")) else "UNKNOWN"
         profile_location = str(codex_home)
+    elif account["executorId"] == "kimi-code":
+        kimi_home = home / "config" / ".kimi-code"
+        auth_state = "AUTHENTICATED" if (kimi_home / "credentials" / "kimi-code.json").exists() else "NOT_AUTHENTICATED"
+        profile_location = str(kimi_home)
     else:
         auth_state = "UNKNOWN"
         profile_location = str(home)
