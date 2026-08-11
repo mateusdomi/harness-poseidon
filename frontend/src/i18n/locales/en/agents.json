@@ -36,7 +36,14 @@
         "help": "Creates execution infrastructure. Public profile/name/photo stay separate so a fake person does not appear in the main experience.",
         "alias": "Technical alias",
         "loginLabel": "Expected e-mail/login",
+        "loginLabelPlaceholder": "name@example.com",
         "authStrategy": "Codex strategy",
+        "authStrategies": {
+          "browser": "Browser OAuth",
+          "device": "Device code",
+          "apiKey": "API key",
+          "accessToken": "Access token"
+        },
         "capabilities": "Allowed capabilities",
         "unsupportedCapability": "This adapter does not provide this capability in the current configuration.",
         "roleLabels": {

@@ -368,7 +368,7 @@ export function AgentExecutionRoster() {
                     onChange={(event) =>
                       setDraft((current) => ({ ...current, providerAccountLabel: event.target.value }))
                     }
-                    placeholder="name@example.com"
+                    placeholder={t('agents.roster.add.loginLabelPlaceholder')}
                   />
                 </label>
                 <label className="text-sm">
@@ -411,10 +411,10 @@ export function AgentExecutionRoster() {
                         setDraft((current) => ({ ...current, preferredAuthStrategy: event.target.value }))
                       }
                     >
-                      <option value="browser">Browser OAuth</option>
-                      <option value="device">Device code</option>
-                      <option value="api-key">API key</option>
-                      <option value="access-token">Access token</option>
+                      <option value="browser">{t('agents.roster.add.authStrategies.browser')}</option>
+                      <option value="device">{t('agents.roster.add.authStrategies.device')}</option>
+                      <option value="api-key">{t('agents.roster.add.authStrategies.apiKey')}</option>
+                      <option value="access-token">{t('agents.roster.add.authStrategies.accessToken')}</option>
                     </Select>
                   </label>
                 ) : null}

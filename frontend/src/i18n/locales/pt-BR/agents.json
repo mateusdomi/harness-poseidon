@@ -36,7 +36,14 @@
         "help": "Cria infraestrutura de execução. Perfil público, nome e foto continuam separados para não aparecer uma pessoa falsa na experiência principal.",
         "alias": "Alias técnico",
         "loginLabel": "E-mail/login esperado",
+        "loginLabelPlaceholder": "nome@exemplo.com",
         "authStrategy": "Estratégia Codex",
+        "authStrategies": {
+          "browser": "OAuth no navegador",
+          "device": "Código de dispositivo",
+          "apiKey": "API key",
+          "accessToken": "Access token"
+        },
         "capabilities": "Capacidades permitidas",
         "unsupportedCapability": "Este adapter não oferece esta capacidade nesta configuração.",
         "roleLabels": {
