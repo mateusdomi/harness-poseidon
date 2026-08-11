@@ -229,6 +229,82 @@ public sealed class V3BuildRuntimeTests : IDisposable
     }
 
     [Fact]
+    public async Task TransientProviderFailureRetriesSameExecutorBeforeStallPolicy()
+    {
+        var repo = CreateGitRepository();
+        var fake = new FakeBuildExecutor(
+            new FakeOutcome("oauth request failed: fetch failed ECONNRESET", Status: ExternalAgentRunStatus.Failed, FailureKind: ExternalFailureKind.Transient, FailureCode: "executor.provider_unreachable"),
+            new FakeOutcome("retomado\nPOSEIDON_MISSION_COMPLETE"));
+        var (service, understand) = Runtime(fake);
+        var (state, mission, accounts) = ArrangeProject(repo);
+
+        var result = await service.DispatchAsync(Command(state, mission, accounts), CancellationToken.None);
+
+        Assert.NotNull(result.Execution);
+        Assert.Equal("COMPLETED", result.Execution!.Status);
+        Assert.Equal("worker-a", result.Execution.ExecutorAccountId);
+        Assert.Equal(1, result.Execution.ContinueCount);
+        Assert.Equal(2, fake.Calls.Count);
+        Assert.Contains(result.Execution.Events, item => item.Type == "BUILD_TRANSIENT_RETRY");
+        Assert.DoesNotContain(result.Execution.Events, item => item.Type == "BUILD_STALLED");
+        Assert.Equal("VALIDATING", understand.ReadProject(state.ProjectId)!.LifecycleState);
+    }
+
+    [Fact]
+    public async Task PersistentTransientProviderFailureFailsOverWhenAlternateExists()
+    {
+        var repo = CreateGitRepository();
+        var fake = new FakeBuildExecutor(
+            new FakeOutcome("ECONNRESET", Status: ExternalAgentRunStatus.Failed, FailureKind: ExternalFailureKind.Transient, FailureCode: "executor.provider_unreachable"),
+            new FakeOutcome("ECONNRESET", Status: ExternalAgentRunStatus.Failed, FailureKind: ExternalFailureKind.Transient, FailureCode: "executor.provider_unreachable"),
+            new FakeOutcome("ECONNRESET", Status: ExternalAgentRunStatus.Failed, FailureKind: ExternalFailureKind.Transient, FailureCode: "executor.provider_unreachable"),
+            new FakeOutcome("continuação concluída\nPOSEIDON_MISSION_COMPLETE"));
+        var (service, understand) = Runtime(fake);
+        var (state, mission, accounts) = ArrangeProject(repo, includeBackup: true);
+
+        var result = await service.DispatchAsync(Command(state, mission, accounts), CancellationToken.None);
+
+        Assert.NotNull(result.Execution);
+        Assert.Equal("COMPLETED", result.Execution!.Status);
+        Assert.Equal("worker-b", result.Execution.ExecutorAccountId);
+        Assert.Equal(3, result.Execution.ContinueCount);
+        Assert.Equal(4, fake.Calls.Count);
+        Assert.Contains(result.Execution.Continuations, item =>
+            item.PreviousExecutor == "worker-a" &&
+            item.NewExecutor == "worker-b" &&
+            item.Reason == "PROVIDER_TRANSPORT_FAILOVER");
+        Assert.Contains(result.Execution.Events, item => item.Type == "BUILD_TRANSIENT_FAILOVER");
+        Assert.DoesNotContain(result.Execution.Events, item => item.Type == "BUILD_STALLED");
+        Assert.Equal("VALIDATING", understand.ReadProject(state.ProjectId)!.LifecycleState);
+    }
+
+    [Fact]
+    public async Task PersistentTransientProviderFailureWithoutAlternatePausesProviderNotStalled()
+    {
+        var repo = CreateGitRepository();
+        var fake = new FakeBuildExecutor(
+            new FakeOutcome("ECONNRESET", Status: ExternalAgentRunStatus.Failed, FailureKind: ExternalFailureKind.Transient, FailureCode: "executor.provider_unreachable"),
+            new FakeOutcome("ECONNRESET", Status: ExternalAgentRunStatus.Failed, FailureKind: ExternalFailureKind.Transient, FailureCode: "executor.provider_unreachable"),
+            new FakeOutcome("ECONNRESET", Status: ExternalAgentRunStatus.Failed, FailureKind: ExternalFailureKind.Transient, FailureCode: "executor.provider_unreachable"));
+        var (service, understand) = Runtime(fake);
+        var (state, mission, accounts) = ArrangeProject(repo);
+
+        var result = await service.DispatchAsync(Command(state, mission, accounts), CancellationToken.None);
+
+        Assert.NotNull(result.Execution);
+        Assert.Equal("PAUSED_PROVIDER", result.Execution!.Status);
+        Assert.Equal("PROVIDER_TRANSPORT_TRANSIENT", result.Execution.QuotaState);
+        Assert.Equal("executor.provider_unreachable", result.Execution.LastFailureCode);
+        Assert.Equal(2, result.Execution.ContinueCount);
+        Assert.Equal(3, fake.Calls.Count);
+        Assert.Contains(result.Execution.Events, item => item.Type == "BUILD_PROVIDER_PAUSED");
+        Assert.DoesNotContain(result.Execution.Events, item => item.Type == "BUILD_STALLED");
+        var stateAfter = understand.ReadProject(state.ProjectId)!;
+        Assert.Equal("BLOCKED", stateAfter.LifecycleState);
+        Assert.Equal("PROVIDER_TRANSPORT_TRANSIENT", stateAfter.Status);
+    }
+
+    [Fact]
     public async Task ProviderQuotaDiagnosticPausesInsteadOfAutoContinuingToStall()
     {
         var repo = CreateGitRepository();

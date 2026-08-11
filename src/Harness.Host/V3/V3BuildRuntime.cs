@@ -237,6 +237,7 @@ public sealed class V3BuildRuntimeService(
     IClock clock)
 {
     private const int MaxContinueWithoutProgress = 2;
+    private const int MaxTransientAttemptsPerExecutor = 3;
 
     public async Task<V3BuildRuntimeResult> DispatchAsync(V3BuildDispatchCommand command, CancellationToken token)
     {
@@ -535,6 +536,75 @@ public sealed class V3BuildRuntimeService(
                 return new V3BuildRuntimeResult(execution, null);
             }
 
+            if (classifiedOutcome.Kind == AgentRunOutcomeKind.Transient)
+            {
+                var transientAttempts = TransientAttemptsFor(execution, active.Alias) + 1;
+                var failureCode = outcome.FailureCode ?? classifiedOutcome.ReasonCode;
+                if (transientAttempts < MaxTransientAttemptsPerExecutor)
+                {
+                    execution = execution with
+                    {
+                        Status = "RUNNING",
+                        LastFailureCode = failureCode,
+                        QuotaState = "PROVIDER_TRANSPORT_TRANSIENT",
+                        ContinueCount = execution.ContinueCount + 1,
+                        ConsecutiveNoProgressCount = 0,
+                        Events = Append(
+                            execution.Events,
+                            $"{MissionPrefix(mission)}_TRANSIENT_RETRY",
+                            active.Alias,
+                            $"Provider transport/transient failure; retry {transientAttempts + 1}/{MaxTransientAttemptsPerExecutor} on the same executor."),
+                    };
+                    store.WriteExecution(execution);
+                    continuationPrompt = BuildTransientRetryPrompt(mission, lastOutput, transientAttempts + 1);
+                    previousSnapshot = currentSnapshot;
+                    continue;
+                }
+
+                var failover = V3BuildExecutorSelector.Select(accounts, excludeAliases: [active.Alias]);
+                if (failover.Account is not null)
+                {
+                    var continuation = new V3BuildContinuationRecord(active.Alias, failover.Account.Alias, "PROVIDER_TRANSPORT_FAILOVER", now);
+                    active = failover.Account;
+                    execution = execution with
+                    {
+                        ExecutorAccountId = active.Alias,
+                        Provider = active.ProviderKind,
+                        Status = "RUNNING",
+                        LastFailureCode = failureCode,
+                        QuotaState = "PROVIDER_TRANSPORT_TRANSIENT",
+                        ContinueCount = execution.ContinueCount + 1,
+                        ConsecutiveNoProgressCount = 0,
+                        Continuations = [.. execution.Continuations, continuation],
+                        Events = Append(
+                            execution.Events,
+                            $"{MissionPrefix(mission)}_TRANSIENT_FAILOVER",
+                            active.Alias,
+                            "Persistent provider transport/transient failure; continued on another eligible executor."),
+                    };
+                    store.WriteExecution(execution);
+                    continuationPrompt = BuildProviderFailoverPrompt(mission, lastOutput, previousSnapshot, currentSnapshot);
+                    previousSnapshot = currentSnapshot;
+                    continue;
+                }
+
+                execution = execution with
+                {
+                    Status = "PAUSED_PROVIDER",
+                    LastFailureCode = failureCode,
+                    QuotaState = "PROVIDER_TRANSPORT_TRANSIENT",
+                    ConsecutiveNoProgressCount = 0,
+                    Events = Append(
+                        execution.Events,
+                        $"{MissionPrefix(mission)}_PROVIDER_PAUSED",
+                        active.Alias,
+                        "Persistent provider transport/transient failure; no alternate executor available."),
+                };
+                store.WriteExecution(execution);
+                if (state is not null) UpdateLifecycle(state, "BLOCKED", "PROVIDER_TRANSPORT_TRANSIENT");
+                return new V3BuildRuntimeResult(execution, null);
+            }
+
             if (lastOutput.Contains("POSEIDON_HUMAN_BLOCKER", StringComparison.Ordinal))
             {
                 execution = execution with
@@ -692,6 +762,47 @@ public sealed class V3BuildRuntimeService(
 
         """ + Environment.NewLine + ExitContract(mission.MissionType);
 
+    private static string BuildTransientRetryPrompt(
+        V3BuildMissionRecord mission,
+        string? lastOutput,
+        int attempt) =>
+        $"""
+        A tentativa anterior encontrou uma falha transitória do provider/transporte.
+
+        Attempt: {attempt}
+        MissionId: {mission.MissionId}
+
+        Última saída observada:
+        {lastOutput ?? "(sem saída registrada)"}
+
+        Não recomece o projeto.
+        Inspecione o repositório atual, preserve trabalho válido e continue a mesma missão.
+
+        """ + Environment.NewLine + ExitContract(mission.MissionType);
+
+    private static string BuildProviderFailoverPrompt(
+        V3BuildMissionRecord mission,
+        string? lastOutput,
+        V3GitSnapshot before,
+        V3GitSnapshot after) =>
+        $"""
+        Você está continuando uma missão em andamento após falha transitória persistente do provider anterior.
+
+        Original MissionId: {mission.MissionId}
+        Repository: {mission.Repository}
+        Current HEAD: {after.Head ?? "unknown"}
+        Previous HEAD: {before.Head ?? "unknown"}
+        Last output from previous executor:
+        {lastOutput ?? "(sem saída registrada)"}
+
+        Não recomece o projeto.
+        Leia a missão original.
+        Inspecione o repositório e os commits atuais.
+        Preserve o trabalho válido.
+        Continue exatamente de onde a execução anterior parou.
+
+        """ + Environment.NewLine + ExitContract(mission.MissionType);
+
     private static string BuildHumanAnswerPrompt(string answer, string missionType) =>
         $"""
         O humano respondeu ao blocker anterior:
@@ -701,6 +812,17 @@ public sealed class V3BuildRuntimeService(
         Retome a missão original. Preserve o trabalho válido e continue até o marcador de conclusão correto ou novo POSEIDON_HUMAN_BLOCKER.
 
         """ + Environment.NewLine + ExitContract(missionType);
+
+    private static int TransientAttemptsFor(V3BuildExecutionRecord execution, string alias)
+    {
+        var prefix = MissionPrefix(execution);
+        return execution.Events.Count(item =>
+            string.Equals(item.Actor, alias, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(item.Type, $"{prefix}_TRANSIENT_RETRY", StringComparison.Ordinal));
+    }
+
+    private static string MissionPrefix(V3BuildExecutionRecord execution) =>
+        execution.MissionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase) ? "VALIDATION" : "BUILD";
 
     private static string BuildRecoveryPrompt(V3BuildExecutionRecord execution, string missionType) =>
         $"""
