@@ -557,6 +557,20 @@ public static class HostApplication
                     ? AccountAvailabilityLedger.DefaultPath
                     : Path.GetFullPath(agentRunSettings.AvailabilityLedgerPath)));
 
+        // O registro de contas é dado de plataforma, não detalhe exclusivo do runtime de
+        // execução externa. Chat/V3/readiness consultam capacidade mesmo quando o despacho real
+        // está desligado; nesse cenário o registry existe, mas scheduler/orchestrator continuam
+        // ausentes e nenhuma execução externa nasce por acidente.
+        builder.Services.AddSingleton(services =>
+        {
+            var registry = AgentAccountConfigurationLoader.Load(agentRunSettings.AccountsFilePath);
+            _ = registry.ApplyObservedAvailability(
+                services.GetRequiredService<AccountAvailabilityLedger>().List());
+            return registry;
+        });
+        builder.Services.AddSingleton<Harness.Host.V3.IV3BuildExecutor, Harness.Host.V3.V3UnavailableBuildExecutor>();
+        builder.Services.AddSingleton<Harness.Host.V3.V3BuildRuntimeService>();
+
         if (agentRunSettings.Enabled && !string.IsNullOrWhiteSpace(agentRunSettings.ControlledRoot))
         {
             var profilesRoot = string.IsNullOrWhiteSpace(agentRunSettings.ProfilesRoot)
@@ -565,17 +579,6 @@ public static class HostApplication
             builder.Services.AddSingleton(new AccountProfileProvisioner(
                 profilesRoot,
                 [Path.GetFullPath(agentRunSettings.ControlledRoot)]));
-            // O registro nasce da configuração do operador (toda conta `AuthenticationRequired`) e é
-            // imediatamente hidratado com a disponibilidade JÁ OBSERVADA no ledger durável. Sem esta
-            // hidratação, reiniciar o Host apagava a prova de disponibilidade e a frota inteira
-            // ficava inelegível até alguém rodar o doctor à mão.
-            builder.Services.AddSingleton(services =>
-            {
-                var registry = AgentAccountConfigurationLoader.Load(agentRunSettings.AccountsFilePath);
-                _ = registry.ApplyObservedAvailability(
-                    services.GetRequiredService<AccountAvailabilityLedger>().List());
-                return registry;
-            });
             builder.Services.AddHostedService<AccountRecoveryBackgroundService>();
 
             // Sem isto, um restart do Host no meio de uma execução deixava a claim de path da
@@ -628,7 +631,6 @@ public static class HostApplication
             builder.Services.AddSingleton(services => new ExternalAgentExecutorFactory(
                 services.GetRequiredService<AccountProfileProvisioner>()));
             builder.Services.AddSingleton<Harness.Host.V3.IV3BuildExecutor, Harness.Host.V3.V3ExternalBuildExecutor>();
-            builder.Services.AddSingleton<Harness.Host.V3.V3BuildRuntimeService>();
             builder.Services.AddHostedService<Harness.Host.V3.V3BuildExecutionRecoveryHostedService>();
 
             // GP-06: com AgentRuns habilitado e raiz controlada declarada, o turno de conversa

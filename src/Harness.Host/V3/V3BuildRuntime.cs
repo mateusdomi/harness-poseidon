@@ -1020,6 +1020,21 @@ public interface IV3BuildExecutor
         CancellationToken token);
 }
 
+public sealed class V3UnavailableBuildExecutor : IV3BuildExecutor
+{
+    public Task<V3BuildExecutorOutcome> RunAsync(
+        AgentAccountContract account,
+        V3BuildExecutionPrompt prompt,
+        string repository,
+        string? resumeSessionId,
+        CancellationToken token) =>
+        Task.FromResult(new V3BuildExecutorOutcome(
+            ExternalAgentRunStatus.Failed,
+            "V3 external execution is disabled in this host configuration.",
+            ExternalFailureKind.Permanent,
+            "v3.executor_disabled"));
+}
+
 public sealed partial class V3BuildExecutionRecoveryHostedService(
     V3BuildRuntimeService runtime,
     AgentAccountRegistry accounts,

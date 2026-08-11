@@ -275,7 +275,9 @@ public sealed class ConversationApiTests
                             compatibleModels[0].Id, "high", [compatibleModels[1].Id],
                             "Override explícito do teste integrado."),
                         timeout.Token);
-                    Assert.Equal(HttpStatusCode.Accepted, turnResponse.StatusCode);
+                    Assert.True(
+                        turnResponse.StatusCode == HttpStatusCode.Accepted,
+                        await turnResponse.Content.ReadAsStringAsync(timeout.Token));
                     var handle = await turnResponse.Content
                         .ReadFromJsonAsync<ChatTurnHandle>(timeout.Token);
                     Assert.NotNull(handle);
