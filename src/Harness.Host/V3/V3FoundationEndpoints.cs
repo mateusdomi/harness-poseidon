@@ -490,15 +490,15 @@ public static class V3Lifecycle
         var stage = States.Contains(persistedStage ?? string.Empty, StringComparer.Ordinal)
             ? persistedStage!
             : project.State switch
-        {
-            "archived" => "HUMAN_ACCEPTED",
-            "paused" => "BLOCKED",
-            _ when readiness.OverallState == ConfigurationState.Ready => "READY_TO_START",
-            _ when readiness.Steps.Any(step => step.Blockers.Any(blocker =>
-                blocker.Code.Contains("quota", StringComparison.OrdinalIgnoreCase))) => "PAUSED_QUOTA",
-            _ when readiness.NextActions.Count > 0 => "AWAITING_INPUT",
-            _ => "UNDERSTANDING",
-        };
+            {
+                "archived" => "HUMAN_ACCEPTED",
+                "paused" => "BLOCKED",
+                _ when readiness.OverallState == ConfigurationState.Ready => "READY_TO_START",
+                _ when readiness.Steps.Any(step => step.Blockers.Any(blocker =>
+                    blocker.Code.Contains("quota", StringComparison.OrdinalIgnoreCase))) => "PAUSED_QUOTA",
+                _ when readiness.NextActions.Count > 0 => "AWAITING_INPUT",
+                _ => "UNDERSTANDING",
+            };
 
         return new V3ProjectLifecycleResponse(
             project.Id,

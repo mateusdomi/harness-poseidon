@@ -441,7 +441,7 @@ public sealed class V3BuildRuntimeService(
             Status = "RUNNING",
             HumanBlocker = null,
             LastActivityAt = clock.UtcNow,
-                Events = Append(execution.Events, $"{execution.MissionType.ToUpperInvariant()}_CONTINUED", account.Alias, "Human answer registered; execution continued."),
+            Events = Append(execution.Events, $"{execution.MissionType.ToUpperInvariant()}_CONTINUED", account.Alias, "Human answer registered; execution continued."),
         };
         store.WriteExecution(resumed);
         UpdateLifecycle(state, RunningLifecycleFor(execution.MissionType), $"{execution.MissionType.ToUpperInvariant()}_RUNNING");
