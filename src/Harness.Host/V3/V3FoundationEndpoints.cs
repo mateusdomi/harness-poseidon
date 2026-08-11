@@ -601,16 +601,16 @@ public static class V3Readiness
             database.Contains("SQL Server", StringComparison.OrdinalIgnoreCase) ||
             database.Contains("database", StringComparison.OrdinalIgnoreCase) &&
             !database.Contains("conforme requisitos", StringComparison.OrdinalIgnoreCase);
-        var stackResolved = project.Technologies.Count > 0 || effectiveStack is not null &&
-            (!effectiveStack.Frontend.Contains("conforme", StringComparison.OrdinalIgnoreCase) ||
-             !effectiveStack.Backend.Contains("conforme", StringComparison.OrdinalIgnoreCase) ||
-             !effectiveStack.Database.Contains("conforme", StringComparison.OrdinalIgnoreCase));
+        var stackResolved = project.Technologies.Count > 0 || effectiveStack is not null;
         var items = new List<V3ReadinessItem>
         {
             Item("Requirements", HasText(project.Description) ? "PASS" : "ACTION_REQUIRED", "project.description"),
             Item("Artifacts", artifactCount > 0 ? "PASS" : "ACTION_REQUIRED", artifactCount > 0 ? $"project artifacts: {artifactCount}" : "no project artifacts associated"),
             Item("OpenQuestions", openQuestions.Count == 0 ? "PASS" : "ACTION_REQUIRED", "v3.openQuestions"),
-            Item("Deadline", confirmedDeadline.HasValue ? "PASS" : "ACTION_REQUIRED", "v3.deadline || project.targetDeadline"),
+            Item("Deadline", confirmedDeadline.HasValue ? "PASS" : "NOT_APPLICABLE",
+                confirmedDeadline.HasValue
+                    ? "v3.deadline || project.targetDeadline"
+                    : "deadline absent; V3 treats deadline as optional unless a business rule requires it"),
             Item("Repository", RepositoryReachable(confirmedRepository) ? "PASS" : "BLOCKED", "v3.repository || project.repositoryUrl"),
             Item("EffectiveStack", stackResolved ? "PASS" : "ACTION_REQUIRED", stackResolved ? "v3.effectiveStack" : "project.technologies"),
             Item("RuntimeEnvironment", runtimeReady ? "PASS" : "ACTION_REQUIRED", "dotnet/node/git/docker probe"),

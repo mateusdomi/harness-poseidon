@@ -249,6 +249,40 @@ public sealed class V3FoundationTests : IDisposable
     }
 
     [Fact]
+    public void ReadinessTreatsMissingDeadlineAndBaselineResolvedStackAsNonBlockingInV3()
+    {
+        var project = Project(database: "none", repository: _directory) with
+        {
+            Technologies = [],
+            TargetDeadline = null,
+        };
+        Directory.CreateDirectory(_directory);
+
+        var readiness = V3Readiness.For(
+            project,
+            ReadySnapshot(project.Id),
+            [
+                Account("chief-claude-primary", ExecutorCatalog.ClaudeCode, [AgentRoles.ChiefOrchestrator]),
+                Account("worker-kimi-ui", ExecutorCatalog.KimiCode, [AgentRoles.ProjectExecutor]),
+            ],
+            artifactCount: 1,
+            effectiveStack: new V3EffectiveStackContract(
+                "Frontend conforme requisitos",
+                "Backend conforme baseline Poseidon",
+                "Database conforme requisitos",
+                "Clean Architecture / modular full-stack",
+                "Playwright + unit/integration tests",
+                ["baseline Poseidon"]),
+            operationalNotificationConfigured: false,
+            runtimeReadyOverride: true);
+
+        Assert.Equal("NOT_APPLICABLE", Item(readiness, "Deadline").Status);
+        Assert.Equal("PASS", Item(readiness, "EffectiveStack").Status);
+        Assert.Equal("PASS", Item(readiness, "ExecutionCapacity").Status);
+        Assert.Equal("READY", readiness.Overall);
+    }
+
+    [Fact]
     public void ReadinessMarksNotificationNotApplicableOnlyWithExplicitOperationalPolicyReason()
     {
         var project = Project(database: "none", repository: _directory) with
