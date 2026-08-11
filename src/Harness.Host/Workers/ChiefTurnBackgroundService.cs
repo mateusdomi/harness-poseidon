@@ -459,6 +459,7 @@ public sealed partial class ChiefTurnBackgroundService(
                 invocationActivity?.SetTag("agent.executor", execution.Executor);
             }
             var output = ChiefTurnOutputContract.Parse(execution.StructuredOutput);
+            output = NormalizeV3ActiveResponseTerminology(output);
             if (output.TeamActions is { Count: > 0 } &&
                 ChiefTeamActionResponse.ContainsPrematureCompletionClaim(output.Response))
             {
@@ -817,7 +818,7 @@ public sealed partial class ChiefTurnBackgroundService(
         v3UnderstandStore.WriteProject(next);
     }
 
-    private static bool IsPendingHumanDecision(string value)
+    internal static bool IsPendingHumanDecision(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
@@ -825,8 +826,28 @@ public sealed partial class ChiefTurnBackgroundService(
         }
 
         return value.Contains("PENDENTE", StringComparison.OrdinalIgnoreCase) ||
-            value.Contains("decisão humana", StringComparison.OrdinalIgnoreCase) ||
-            value.Contains("preciso", StringComparison.OrdinalIgnoreCase);
+            value.Contains("decisão humana necessária", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("decisão humana obrigatória", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("aguardando decisão", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("falta decisão", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("preciso que você", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("preciso da sua decisão", StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static ChiefTurnOutput NormalizeV3ActiveResponseTerminology(ChiefTurnOutput output)
+    {
+        if (output.UnderstandingUpdate is null && output.Intent is not ChiefTurnIntent.PlanejarDemanda)
+        {
+            return output;
+        }
+
+        var response = output.Response
+            .Replace("etapa de triagem", "etapa de entendimento", StringComparison.OrdinalIgnoreCase)
+            .Replace("fase de triagem", "etapa de entendimento", StringComparison.OrdinalIgnoreCase)
+            .Replace("em triagem", "em entendimento", StringComparison.OrdinalIgnoreCase);
+        return string.Equals(response, output.Response, StringComparison.Ordinal)
+            ? output
+            : output with { Response = response };
     }
 
     private static IReadOnlyList<string> MergeReplacingWhenProvided(
