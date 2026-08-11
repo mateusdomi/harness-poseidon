@@ -48,18 +48,14 @@ test('registra a identidade visual local nos temas escuro e claro', async ({ pag
       name: 'Acompanhamento do projeto',
     });
     await expect(projectPanel).toBeVisible();
-    await expect(
-      projectPanel.getByRole('progressbar', { name: /Andamento de/ }),
-    ).toBeVisible();
+    await expect(projectPanel.getByRole('list', { name: 'Lifecycle V3 do projeto' })).toBeVisible();
   } else {
     await page.getByRole('button', { name: 'Abrir acompanhamento do projeto' }).click();
     const projectDrawer = page.getByRole('dialog', {
       name: 'Acompanhamento do projeto',
     });
     await expect(projectDrawer).toBeVisible();
-    await expect(
-      projectDrawer.getByRole('progressbar', { name: /Andamento de/ }),
-    ).toBeVisible();
+    await expect(projectDrawer.getByRole('list', { name: 'Lifecycle V3 do projeto' })).toBeVisible();
     await page.keyboard.press('Escape');
   }
 
@@ -92,9 +88,7 @@ test('registra a identidade visual local nos temas escuro e claro', async ({ pag
   await expect(page.getByRole('combobox', { name: 'Projeto ativo' })).toBeVisible();
   // O cartão da equipe no Dashboard chama-se "Quadro da Equipe".
   await expect(page.getByRole('heading', { name: 'Quadro da Equipe' })).toBeVisible();
-  // A trilha de etapas do projeto: o rótulo técnico ("timeline das nove fases") deu lugar ao
-  // cartão "Etapas do projeto", que é como o dono a enxerga.
-  await expect(page.getByRole('heading', { name: 'Etapas do projeto' })).toBeVisible();
+  await expect(page.getByText(/lifecycle V3 do projeto/)).toBeVisible();
   await expect(page.getByText('Fleet operacional')).toHaveCount(0);
   await expect(page.getByText('Cotas críticas')).toHaveCount(0);
 
