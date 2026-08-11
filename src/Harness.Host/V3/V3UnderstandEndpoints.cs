@@ -1115,8 +1115,12 @@ public static class V3OpenQuestionPolicy
         }
 
         return value.Contains("PENDENTE", StringComparison.OrdinalIgnoreCase) ||
-            value.Contains("decisão humana", StringComparison.OrdinalIgnoreCase) ||
-            value.Contains("preciso", StringComparison.OrdinalIgnoreCase);
+            value.Contains("decisão humana necessária", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("decisão humana obrigatória", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("aguardando decisão", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("falta decisão", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("preciso que você", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("preciso da sua decisão", StringComparison.OrdinalIgnoreCase);
     }
 
     private static IEnumerable<V3OpenQuestion> PendingArchitectureDecisions(V3ProjectUnderstandState? state)

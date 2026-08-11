@@ -20,6 +20,28 @@ public sealed class V3UnderstandTests : IDisposable
     }
 
     [Fact]
+    public void OpenQuestionPolicyDoesNotTreatNegativeHumanDecisionMentionAsPending()
+    {
+        var state = V3ProjectUnderstandState.Create("01K00000000000000000000000", DateTimeOffset.UnixEpoch) with
+        {
+            Decisions =
+            [
+                "Escopo integral dos 15 requisitos funcionais assumido como entrega; nenhuma redução a MVP menor foi proposta, pois não há conflito de prazo, orçamento ou decisão humana.",
+            ],
+        };
+
+        var questions = V3OpenQuestionPolicy.RequiredQuestions(
+            "01K00000000000000000000000",
+            null,
+            "/tmp/project",
+            null,
+            [Coverage(complete: true)],
+            state);
+
+        Assert.Empty(questions);
+    }
+
+    [Fact]
     public void AnalyzeInfersLowRiskCapabilitiesButKeepsRequiredQuestions()
     {
         var now = DateTimeOffset.UnixEpoch;
