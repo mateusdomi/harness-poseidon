@@ -123,10 +123,10 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
 | [Definition of Done do produto entregue](product/definition-of-done.md) | * | Active | Quality Engineering | Bundle | 1040 |
-| [Baseline técnico do produto entregue](product/baseline.md) | * | Active | Platform Engineering | Bundle | 1454 |
+| [Baseline técnico do produto entregue](product/baseline.md) | * | Active | Platform Engineering | Bundle | 1803 |
 | [Artefatos fornecidos pelo usuário — protótipo, documento e código existente](product/provided-artifacts.md) | * | Active | Platform Engineering | OnDemand | 1301 |
 | [Integração full-stack do produto entregue](product/full-stack-integration.md) | * | Active | Platform Engineering | OnDemand | 744 |
-| [Segurança e operabilidade do produto entregue](product/security-and-operability.md) | * | Active | Product Security | OnDemand | 836 |
+| [Segurança e operabilidade do produto entregue](product/security-and-operability.md) | * | Active | Product Security | OnDemand | 1077 |
 | [QA do produto entregue](product/qa-standards.md) | * | Active | Platform Engineering | OnDemand | 1298 |
 | [Backend do produto entregue — arquitetura, .NET/C# e API](product/backend-standards.md) | * | Active | Platform Engineering | OnDemand | 1476 |
 | [Dados e banco do produto entregue](product/data-standards.md) | * | Active | Platform Engineering | OnDemand | 756 |

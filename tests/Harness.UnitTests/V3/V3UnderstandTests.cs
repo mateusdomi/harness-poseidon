@@ -276,6 +276,181 @@ public sealed class V3UnderstandTests : IDisposable
         Assert.Equal("AVAILABLE", selected.Status);
     }
 
+    [Fact]
+    public void SimpleCrudReceivesSimpleSolutionStrategyWithoutArchitectureApproval()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        var context = Context(deadline: null, repository: "/tmp/equipment") with
+        {
+            PrimaryRequirementsCoverage =
+            [
+                CoverageWithText("""
+                Sistema web simples para controlar empréstimo de equipamentos.
+                Usuários registram equipamentos, empréstimos e devoluções.
+                Persistir os dados e mostrar listagem com filtros simples.
+                """),
+            ],
+        };
+
+        var result = V3UnderstandAnalyzer.Analyze(context, new V3UnderstandAnalyzeRequest
+        {
+            OriginalIntent = "Controlar empréstimo de equipamentos.",
+        }, now);
+
+        Assert.Equal("SIMPLE", result.State.SolutionStrategy?.Complexity);
+        Assert.False(result.State.SolutionStrategy?.ArchitectureApprovalRequired);
+        Assert.Contains(result.State.SolutionStrategy!.ImportantTradeoffs, item =>
+            item.Contains("Evitar camadas", StringComparison.OrdinalIgnoreCase));
+        Assert.Empty(result.OpenQuestions);
+    }
+
+    [Fact]
+    public void ComplexIntegrationReceivesSolutionStrategyWithoutInventingNewPhase()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        var context = Context(deadline: null, repository: "/tmp/integration") with
+        {
+            PrimaryRequirementsCoverage =
+            [
+                CoverageWithText("""
+                Portal web com API, banco, integração com ERP, API de terceiro,
+                processamento assíncrono em fila, SSO corporativo, alto volume e requisito de alta disponibilidade.
+                Todos os fornecedores e protocolos já estão mandatados no documento.
+                """),
+            ],
+        };
+
+        var result = V3UnderstandAnalyzer.Analyze(context, new V3UnderstandAnalyzeRequest
+        {
+            OriginalIntent = "Integrar operação web com ERP e API externa.",
+        }, now);
+
+        Assert.Equal("COMPLEX", result.State.SolutionStrategy?.Complexity);
+        Assert.Contains("ERP", result.State.SolutionStrategy!.IntegrationPoints);
+        Assert.Contains("API externa/terceiro", result.State.SolutionStrategy.IntegrationPoints);
+        Assert.Contains("Processamento assíncrono", result.State.SolutionStrategy.KeyComponents);
+        Assert.False(result.State.SolutionStrategy.ArchitectureApprovalRequired);
+        Assert.Empty(result.OpenQuestions);
+    }
+
+    [Fact]
+    public void MaterialUnresolvedArchitectureDecisionBlocksUnderstandInsideUnderstand()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        var context = Context(deadline: null, repository: "/tmp/material-decision") with
+        {
+            PrimaryRequirementsCoverage =
+            [
+                CoverageWithText("""
+                Sistema de integração crítica com ERP e API externa.
+                A topologia cloud ou on-prem está a definir infraestrutura.
+                O fornecedor a definir impacta o contrato externo.
+                """),
+            ],
+        };
+
+        var result = V3UnderstandAnalyzer.Analyze(context, new V3UnderstandAnalyzeRequest
+        {
+            OriginalIntent = "Integração crítica com decisão material pendente.",
+        }, now);
+
+        Assert.True(result.State.SolutionStrategy?.ArchitectureApprovalRequired);
+        Assert.Equal("AWAITING_INPUT", result.State.LifecycleState);
+        Assert.Contains(result.OpenQuestions, question =>
+            question.Reason == "solution_strategy.architecture_approval_required");
+    }
+
+    [Fact]
+    public void CriticalCalculationHighlightsDeterministicDomainTests()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        var context = Context(deadline: null, repository: "/tmp/calculation") with
+        {
+            PrimaryRequirementsCoverage =
+            [
+                CoverageWithText("""
+                Sistema para calcular faixas de comissão por tabela de referência.
+                Fórmula possui arredondamento específico e casos de borda críticos.
+                """),
+            ],
+        };
+
+        var result = V3UnderstandAnalyzer.Analyze(context, new V3UnderstandAnalyzeRequest
+        {
+            OriginalIntent = "Calcular comissões por tabela de referência.",
+        }, now);
+
+        Assert.Contains(result.State.SolutionStrategy!.TechnicalRisks, risk =>
+            risk.Contains("testes determinísticos", StringComparison.OrdinalIgnoreCase));
+        Assert.False(result.State.SolutionStrategy.ArchitectureApprovalRequired);
+    }
+
+    [Fact]
+    public void KnowledgeSelectorKeepsSimpleCrudSmall()
+    {
+        var stack = new V3EffectiveStackContract(
+            "Frontend conforme requisitos",
+            "Backend conforme baseline Poseidon",
+            "Database conforme requisitos",
+            "Clean Architecture / modular full-stack",
+            "Playwright + unit/integration tests",
+            ["baseline"]);
+        var strategy = new V3SolutionStrategy(
+            "SIMPLE",
+            "Implementar direto.",
+            ["Fluxo principal do produto"],
+            [],
+            "Persistência somente se exigida.",
+            [],
+            [],
+            [],
+            ["Evitar cerimônia."],
+            [],
+            false);
+
+        var refs = V3KnowledgeSelector.Select(stack, strategy);
+
+        Assert.Contains(refs, item => item.Path == "docs/product/definition-of-done.md");
+        Assert.Contains(refs, item => item.Path == "docs/product/baseline.md");
+        Assert.DoesNotContain(refs, item => item.Path == "docs/product/oracle-data-standards.md");
+        Assert.DoesNotContain(refs, item => item.Path == "docs/product/provided-artifacts.md");
+        Assert.DoesNotContain(refs, item => item.Path == "docs/product/authentication-standards.md");
+    }
+
+    [Fact]
+    public void KnowledgeSelectorExpandsForComplexIntegration()
+    {
+        var stack = new V3EffectiveStackContract(
+            "React + TypeScript",
+            ".NET 8",
+            "Oracle",
+            "Clean Architecture / modular full-stack",
+            "Playwright + unit/integration tests",
+            ["requirements"]);
+        var strategy = new V3SolutionStrategy(
+            "COMPLEX",
+            "Integração complexa.",
+            ["Frontend web", "API/backend", "Persistência relacional", "Autenticação/autorização", "Integração: ERP"],
+            ["ERP"],
+            "Persistência real.",
+            ["Autorização server-side."],
+            ["Health externo."],
+            ["Contrato externo."],
+            [],
+            [],
+            false);
+
+        var refs = V3KnowledgeSelector.Select(stack, strategy);
+
+        Assert.Contains(refs, item => item.Path == "docs/product/frontend-standards.md");
+        Assert.Contains(refs, item => item.Path == "docs/product/backend-standards.md");
+        Assert.Contains(refs, item => item.Path == "docs/product/data-standards.md");
+        Assert.Contains(refs, item => item.Path == "docs/product/oracle-data-standards.md");
+        Assert.Contains(refs, item => item.Path == "docs/product/security-and-operability.md");
+        Assert.Contains(refs, item => item.Path == "docs/product/authentication-standards.md");
+        Assert.Contains(refs, item => item.Path == "docs/product/qa-standards.md");
+    }
+
     private static V3ProjectContextResponse Context(DateTimeOffset? deadline, string? repository) =>
         new(
             "01K00000000000000000000000",
@@ -382,6 +557,19 @@ public sealed class V3UnderstandTests : IDisposable
             complete ? "full-text-read" : "partial",
             33790,
             null);
+
+    private static V3SourceCoverage CoverageWithText(string text) =>
+        new(
+            "artifact-1",
+            "requirements.md",
+            "requirements_source",
+            1,
+            1,
+            100,
+            true,
+            "full-text-read",
+            text.Length,
+            text);
 
     private static AgentAccountContract Account(
         string alias,

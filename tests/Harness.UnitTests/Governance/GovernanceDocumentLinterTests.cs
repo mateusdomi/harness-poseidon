@@ -83,6 +83,20 @@ public sealed class GovernanceDocumentLinterTests
         Assert.DoesNotContain(report.Findings, finding => finding.Code == "GOV019");
     }
 
+    [Fact]
+    public void MarkdownCoverageIgnoresIsolatedBrunaVirtualEnvironment()
+    {
+        using var repository = TemporaryGovernanceRepository.Create("valid");
+        var dependencyDocs = System.IO.Path.Combine(repository.Path, ".venv-bruna", "lib", "python3.9", "site-packages", "pkg");
+        Directory.CreateDirectory(dependencyDocs);
+        File.WriteAllText(System.IO.Path.Combine(dependencyDocs, "README.md"), "# Third-party package docs\n");
+
+        var report = new GovernanceDocumentLinter(repository.Path, checkGeneratedDocuments: false)
+            .Lint(new DateTimeOffset(2026, 7, 24, 12, 0, 0, TimeSpan.Zero));
+
+        Assert.DoesNotContain(report.Findings, finding => finding.Code == "GOV019");
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

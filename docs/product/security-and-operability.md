@@ -71,6 +71,16 @@ destrutiva nem consulta pesada.
 com jitter, circuit breaker quando aplicável e idempotência quando o retry puder
 duplicar efeito.
 
+Antes de codificar integração externa relevante, mapear: owner do sistema, protocolo, autenticação,
+contrato de dados, direção do fluxo, frequência, volumes, SLAs, limites de taxa, modos de falha,
+idempotência, retry, observabilidade, fallback e restrição de compliance. A integração não fica
+"otimista": falha externa vira erro mapeado, log correlacionável e comportamento compreensível para
+operação.
+
+Retry não é default universal. Só repetir automaticamente quando a operação for idempotente ou quando
+o sistema possuir chave de idempotência/controle de duplicidade. Timeout sem fallback definido é risco
+operacional; timeout infinito é indisponibilidade disfarçada.
+
 **Runbook** com: como subir, como parar, dependências, portas, configurações, endpoint
 de saúde, onde ficam os logs, troubleshooting básico e restore quando aplicável. Um
 produto que só quem o escreveu consegue operar não foi entregue — foi emprestado.
@@ -81,6 +91,16 @@ Nada aqui autoriza adicionar tecnologia porque é moderna; cada controle é apli
 medida do risco e do porte. O que **não** é negociável em qualquer porte: segredo fora
 do código, autorização no servidor, entrada validada, SQL parametrizado, log sem dado
 sensível e instruções de execução.
+
+## Performance proporcional
+
+Performance começa por evitar desperdício óbvio: payloads grandes sem paginação, N+1,
+requisições duplicadas, render loop, bundle gigante sem code splitting, índices ausentes
+em consultas críticas e processamento síncrono de trabalho naturalmente demorado.
+
+Medir antes de otimizar. Cache, fila, Redis, Elasticsearch ou arquitetura distribuída só entram quando
+o requisito, volume ou medição justificar. Sem requisito de carga, o baseline é eficiência normal,
+queries paginadas, índices motivados por consulta real e latência observável.
 
 ## Relacionado
 

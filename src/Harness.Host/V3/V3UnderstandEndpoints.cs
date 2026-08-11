@@ -513,7 +513,7 @@ public static class V3ProjectContextBuilder
         var lifecycleState = state?.LifecycleState ??
             (openQuestions.Count == 0 ? "READY_TO_START" : "AWAITING_INPUT");
 
-        return new V3ProjectContextResponse(
+        var response = new V3ProjectContextResponse(
             project.Id,
             project.Name,
             project.Description,
@@ -538,6 +538,10 @@ public static class V3ProjectContextBuilder
             capacity,
             v3Readiness.Items,
             lifecycleState);
+        return response with
+        {
+            SolutionStrategy = state?.SolutionStrategy ?? V3SolutionStrategyBuilder.Build(response, state),
+        };
     }
 
     private static string DefaultLocalRepository(string tenantId, string projectId)
@@ -738,14 +742,7 @@ public static class V3UnderstandAnalyzer
         var sourceComplete = context.PrimaryRequirementsCoverage.All(source => source.Complete);
         var deadline = input.Deadline ?? state.Deadline ?? context.SourceFacts.Deadline ?? context.Deadline;
         var repository = FirstNonBlank(input.Repository, state.Repository, context.Repository);
-        var questions = V3OpenQuestionPolicy.RequiredQuestions(
-            context.ProjectId, deadline, repository, context.SourceFacts, context.PrimaryRequirementsCoverage, state);
-        var nextState = !sourceComplete
-            ? "UNDERSTANDING"
-            : questions.Count == 0
-                ? "READY_TO_START"
-                : "AWAITING_INPUT";
-        var updated = state with
+        var baseUpdate = state with
         {
             OriginalIntent = intent,
             ProjectSummary = summary,
@@ -763,6 +760,19 @@ public static class V3UnderstandAnalyzer
             EffectiveStack = context.EffectiveStack,
             PrimaryRequirementsCoverage = context.PrimaryRequirementsCoverage,
             SourceFacts = context.SourceFacts,
+            UpdatedAt = now,
+        };
+        var strategy = V3SolutionStrategyBuilder.Build(context, baseUpdate);
+        var stateWithStrategy = baseUpdate with { SolutionStrategy = strategy };
+        var questions = V3OpenQuestionPolicy.RequiredQuestions(
+            context.ProjectId, deadline, repository, context.SourceFacts, context.PrimaryRequirementsCoverage, stateWithStrategy);
+        var nextState = !sourceComplete
+            ? "UNDERSTANDING"
+            : questions.Count == 0
+                ? "READY_TO_START"
+                : "AWAITING_INPUT";
+        var updated = stateWithStrategy with
+        {
             LifecycleState = nextState,
             Status = sourceComplete ? "UNDERSTOOD" : "READING_PRIMARY_REQUIREMENTS",
             UpdatedAt = now,
@@ -867,6 +877,7 @@ public static class V3OpenQuestionPolicy
         }
 
         questions.AddRange(PendingHumanDecisions(state));
+        questions.AddRange(PendingArchitectureDecisions(state));
 
         return questions;
     }
@@ -904,6 +915,160 @@ public static class V3OpenQuestionPolicy
             value.Contains("decisão humana", StringComparison.OrdinalIgnoreCase) ||
             value.Contains("preciso", StringComparison.OrdinalIgnoreCase);
     }
+
+    private static IEnumerable<V3OpenQuestion> PendingArchitectureDecisions(V3ProjectUnderstandState? state)
+    {
+        var decisions = state?.SolutionStrategy?.HumanDecisionsRequired;
+        if (decisions is not { Count: > 0 } ||
+            state?.SolutionStrategy?.ArchitectureApprovalRequired != true)
+        {
+            yield break;
+        }
+
+        var index = 1;
+        foreach (var decision in decisions.Where(value => !string.IsNullOrWhiteSpace(value)))
+        {
+            yield return new V3OpenQuestion(
+                $"architecture-decision-{index++}",
+                decision,
+                "solution_strategy.architecture_approval_required");
+        }
+    }
+}
+
+public static class V3SolutionStrategyBuilder
+{
+    public static V3SolutionStrategy Build(V3ProjectContextResponse context, V3ProjectUnderstandState? state)
+    {
+        var text = Normalize(string.Join("\n",
+            context.OriginalIntent,
+            context.ProjectSummary,
+            state?.ProjectSummary,
+            state?.ProductGoal,
+            string.Join('\n', state?.Requirements ?? context.Requirements),
+            string.Join('\n', state?.AcceptanceCriteria ?? context.AcceptanceCriteria),
+            string.Join('\n', context.PrimaryRequirementsCoverage.Select(source => source.ContentPreview)),
+            string.Join(' ', context.Artifacts.Select(artifact => artifact.Name))));
+        var integrationPoints = DetectIntegrationPoints(text);
+        var hasFrontend = HasAny(text, "frontend", "interface", "tela", "dashboard", "mobile", "react") ||
+            context.Artifacts.Any(artifact => string.Equals(artifact.Role, "provided_frontend", StringComparison.OrdinalIgnoreCase));
+        var hasDatabase = !context.EffectiveStack.Database.Contains("conforme requisitos", StringComparison.OrdinalIgnoreCase) ||
+            HasAny(text, "persist", "banco", "database", "oracle", "postgres", "sql server");
+        var hasAuth = HasAny(text, "login", "autentica", "sso", "perfil", "permiss", "rbac", "diretório corporativo", "diretorio corporativo");
+        var hasAsync = HasAny(text, "assíncrono", "assincrono", "fila", "queue", "mensageria", "worker", "processamento em lote", "batch");
+        var hasHighAvailability = HasAny(text, "alta disponibilidade", "ha", "dr", "disaster recovery", "sla", "99,9", "99.9", "24x7");
+        var hasVolume = HasAny(text, "volume", "milhões", "milhoes", "alto volume", "100 mil", "concorrente", "throughput");
+        var hasLegacy = HasAny(text, "legado", "modernizar", "compatibilidade", "sem alterar regras", "contrato existente");
+        var hasCriticalMath = HasAny(text, "cálculo", "calculo", "fórmula", "formula", "tabela de referência", "tabela de referencia", "arredondamento");
+        var materialDecision = DetectMaterialArchitectureDecisions(text);
+        var score =
+            integrationPoints.Length * 2 +
+            (hasAsync ? 2 : 0) +
+            (hasHighAvailability ? 2 : 0) +
+            (hasVolume ? 1 : 0) +
+            (hasLegacy ? 1 : 0) +
+            (hasCriticalMath ? 1 : 0);
+        var complexity = score >= 5 ? "COMPLEX" : score >= 2 ? "MODERATE" : "SIMPLE";
+        var components = new List<string>();
+        if (hasFrontend) components.Add("Frontend web");
+        if (!context.EffectiveStack.Backend.Contains("conforme", StringComparison.OrdinalIgnoreCase) || hasFrontend || hasDatabase)
+        {
+            components.Add("API/backend");
+        }
+
+        if (hasDatabase) components.Add("Persistência relacional");
+        if (hasAuth) components.Add("Autenticação/autorização");
+        if (hasAsync) components.Add("Processamento assíncrono");
+        components.AddRange(integrationPoints.Select(point => $"Integração: {point}"));
+        if (components.Count == 0) components.Add("Fluxo principal do produto");
+
+        var risks = new List<string>();
+        if (integrationPoints.Length > 0) risks.Add("Contratos, autenticação, timeouts e falhas de integrações externas precisam ser explicitados e tratados.");
+        if (hasAsync) risks.Add("Processamento assíncrono exige idempotência, rastreabilidade e retomada segura.");
+        if (hasHighAvailability) risks.Add("Requisitos de disponibilidade/DR impactam infraestrutura e operação.");
+        if (hasCriticalMath) risks.Add("Regras matemáticas críticas exigem testes determinísticos com casos de borda e tabela de referência.");
+        if (hasLegacy) risks.Add("Modernização de legado exige compatibilidade de contrato e preservação de regras de negócio.");
+
+        var decisions = materialDecision;
+        return new V3SolutionStrategy(
+            complexity,
+            complexity switch
+            {
+                "COMPLEX" => "Mapear componentes, fronteiras, integrações, dados, segurança, falhas e operação antes de orientar a BUILD; ainda dentro do UNDERSTAND.",
+                "MODERATE" => "Definir estratégia técnica proporcional, com foco em integração real, persistência e riscos específicos.",
+                _ => "Implementar como produto simples e direto, usando o baseline sem arquitetura cerimonial.",
+            },
+            components.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+            integrationPoints,
+            hasDatabase ? "Persistência real com migrations; constraints e índices guiados por consultas/regras do domínio." : "Persistência somente se exigida pelo requisito ou pelo baseline da modalidade.",
+            hasAuth ? ["Autorização server-side; frontend apenas reflete permissões."] : [],
+            BuildOperationalConsiderations(hasAsync, hasHighAvailability, integrationPoints.Length > 0),
+            risks,
+            BuildTradeoffs(complexity, hasLegacy, integrationPoints.Length > 0),
+            decisions,
+            decisions.Count > 0);
+    }
+
+    private static string[] DetectIntegrationPoints(string text)
+    {
+        var values = new List<string>();
+        if (HasAny(text, "erp")) values.Add("ERP");
+        if (HasAny(text, "api de terceiro", "terceiro", "fornecedor externo", "serviço externo", "servico externo")) values.Add("API externa/terceiro");
+        if (HasAny(text, "sso", "oidc", "saml", "diretório corporativo", "diretorio corporativo", "active directory", "ldap")) values.Add("Identidade corporativa");
+        if (HasAny(text, "email", "e-mail", "sms", "whatsapp", "telegram")) values.Add("Canal de comunicação");
+        return values.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    private static List<string> DetectMaterialArchitectureDecisions(string text)
+    {
+        var values = new List<string>();
+        if (HasAny(text, "cloud vs on-prem", "cloud ou on-prem", "nuvem ou on-prem", "a definir infraestrutura"))
+        {
+            values.Add("Decidir a topologia de infraestrutura (cloud/on-prem) antes da BUILD porque afeta implantação, segurança e operação.");
+        }
+
+        if (HasAny(text, "fornecedor a definir", "api externa a definir", "erp a definir", "protocolo a definir"))
+        {
+            values.Add("Definir fornecedor/protocolo de integração externa antes da BUILD porque o contrato externo é material.");
+        }
+
+        if (HasAny(text, "estratégia de alta disponibilidade a definir", "sla a definir", "dr a definir"))
+        {
+            values.Add("Definir requisitos de disponibilidade/DR antes da BUILD porque impactam arquitetura e custo.");
+        }
+
+        return values;
+    }
+
+    private static List<string> BuildOperationalConsiderations(bool hasAsync, bool hasHighAvailability, bool hasIntegration)
+    {
+        var values = new List<string>
+        {
+            "Descobrir ambiente, scripts, portas, runtimes e estado do repositório antes de instalar ou alterar dependências globais.",
+        };
+        if (hasIntegration) values.Add("Health checks e logs devem separar falha interna de falha de integração externa.");
+        if (hasAsync) values.Add("Operações assíncronas devem expor status, retry controlado e erro recuperável.");
+        if (hasHighAvailability) values.Add("Operabilidade precisa cobrir disponibilidade, recuperação e observabilidade proporcional ao SLA.");
+        return values;
+    }
+
+    private static List<string> BuildTradeoffs(string complexity, bool hasLegacy, bool hasIntegration)
+    {
+        var values = new List<string>();
+        if (complexity == "SIMPLE")
+        {
+            values.Add("Evitar camadas, documentos e infraestrutura que não reduzam risco real do projeto.");
+        }
+
+        if (hasLegacy) values.Add("Preservar contrato/regras legadas tem precedência sobre reescrita técnica estética.");
+        if (hasIntegration) values.Add("Preferir integração simples e observável antes de otimizações distribuídas.");
+        return values;
+    }
+
+    private static string Normalize(string value) => value.ToLowerInvariant();
+
+    private static bool HasAny(string text, params string[] values) =>
+        values.Any(value => text.Contains(value, StringComparison.OrdinalIgnoreCase));
 }
 
 public static partial class V3NaturalUserDecision
@@ -981,49 +1146,103 @@ public static class V3ValidationExecutorPreview
 
 public static class V3KnowledgeSelector
 {
-    public static IReadOnlyList<V3KnowledgeReference> Select(V3EffectiveStackContract stack)
+    public static IReadOnlyList<V3KnowledgeReference> Select(
+        V3EffectiveStackContract stack,
+        V3SolutionStrategy? strategy = null,
+        IReadOnlyList<V3ArtifactReference>? artifacts = null)
     {
+        var hasFrontend = HasFrontend(stack, strategy);
+        var hasBackend = HasBackend(stack, strategy, hasFrontend);
+        var hasDatabase = HasDatabase(stack, strategy);
+        var hasAuth = HasAuth(strategy);
+        var hasProvidedArtifacts = artifacts?.Any(artifact =>
+            string.Equals(artifact.Role, "provided_frontend", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(artifact.Role, "design_reference", StringComparison.OrdinalIgnoreCase)) == true;
+        var isComplex = string.Equals(strategy?.Complexity, "COMPLEX", StringComparison.OrdinalIgnoreCase);
+        var hasIntegration = strategy?.IntegrationPoints.Count > 0;
         var refs = new List<V3KnowledgeReference>
         {
             Ref("docs/product/definition-of-done.md", "Definition of Done do produto entregue"),
             Ref("docs/product/baseline.md", "Baseline técnico do produto entregue"),
-            Ref("docs/product/security-and-operability.md", "Segurança e operabilidade do produto entregue"),
         };
-        if (stack.Frontend.Contains("React", StringComparison.OrdinalIgnoreCase) ||
-            !stack.Frontend.Contains("conforme", StringComparison.OrdinalIgnoreCase))
+        if (hasAuth || isComplex || hasIntegration)
         {
-            refs.Add(Ref("docs/product/frontend-standards.md", "Frontend do produto entregue"));
+            refs.Add(Ref("docs/product/security-and-operability.md", "Segurança e operabilidade do produto entregue"));
         }
 
-        if (stack.Backend.Contains(".NET", StringComparison.OrdinalIgnoreCase))
+        if (hasFrontend)
+        {
+            refs.Add(Ref("docs/product/frontend-standards.md", "Frontend do produto entregue"));
+            refs.Add(Ref("docs/product/full-stack-integration.md", "Integração real frontend/API/persistência"));
+        }
+
+        if (hasBackend)
         {
             refs.Add(Ref("docs/product/backend-standards.md", "Backend .NET do produto entregue"));
         }
 
+        if (hasDatabase)
+        {
+            refs.Add(Ref("docs/product/data-standards.md", "Dados e banco do produto entregue"));
+        }
+
         if (stack.Database.Contains("Oracle", StringComparison.OrdinalIgnoreCase))
         {
-            refs.Add(Ref("docs/product/data-standards.md", "Dados e banco do produto entregue"));
             refs.Add(Ref("docs/product/oracle-data-standards.md", "Dados e banco Oracle"));
         }
-        else if (!stack.Database.Contains("conforme", StringComparison.OrdinalIgnoreCase))
+
+        if (hasProvidedArtifacts)
         {
-            refs.Add(Ref("docs/product/data-standards.md", "Dados e banco do produto entregue"));
+            refs.Add(Ref("docs/product/provided-artifacts.md", "Política para artefatos fornecidos pelo usuário"));
         }
 
-        refs.Add(Ref("docs/product/qa-standards.md", "QA do produto entregue"));
-        refs.Add(Ref("docs/product/full-stack-integration.md", "Integração real frontend/API/persistência"));
-        refs.Add(Ref("docs/product/provided-artifacts.md", "Política para artefatos fornecidos pelo usuário"));
-        refs.Add(Ref("docs/product/authentication-standards.md", "Autenticação e autorização do produto entregue"));
-        return refs;
+        if (hasAuth)
+        {
+            refs.Add(Ref("docs/product/authentication-standards.md", "Autenticação e autorização do produto entregue"));
+        }
+
+        if (isComplex || hasIntegration || hasFrontend)
+        {
+            refs.Add(Ref("docs/product/qa-standards.md", "QA proporcional do produto entregue"));
+        }
+
+        return [.. refs.DistinctBy(item => item.Path)];
     }
 
-    public static IReadOnlyList<V3KnowledgeReference> SelectForValidation(V3EffectiveStackContract stack)
+    public static IReadOnlyList<V3KnowledgeReference> SelectForValidation(
+        V3EffectiveStackContract stack,
+        V3SolutionStrategy? strategy = null,
+        IReadOnlyList<V3ArtifactReference>? artifacts = null)
     {
-        var refs = Select(stack).ToList();
+        var refs = Select(stack, strategy, artifacts).ToList();
+        if (refs.All(item => item.Path != "docs/product/qa-standards.md"))
+        {
+            refs.Add(Ref("docs/product/qa-standards.md", "QA do produto entregue"));
+        }
+
         refs.Add(Ref("tools/e2e/doctor.sh", "Doctor determinístico da toolchain E2E local"));
         refs.Add(Ref("docs/product/checklist-auto-auditoria-ia.md", "Checklist genérico de qualidade para autoauditoria final"));
         return [.. refs.DistinctBy(item => item.Path)];
     }
+
+    private static bool HasFrontend(V3EffectiveStackContract stack, V3SolutionStrategy? strategy) =>
+        !stack.Frontend.Contains("conforme", StringComparison.OrdinalIgnoreCase) ||
+        strategy?.KeyComponents.Any(component => component.Contains("Frontend", StringComparison.OrdinalIgnoreCase)) == true;
+
+    private static bool HasBackend(V3EffectiveStackContract stack, V3SolutionStrategy? strategy, bool hasFrontend) =>
+        stack.Backend.Contains(".NET", StringComparison.OrdinalIgnoreCase) ||
+        !stack.Backend.Contains("conforme", StringComparison.OrdinalIgnoreCase) ||
+        hasFrontend ||
+        strategy?.KeyComponents.Any(component => component.Contains("API", StringComparison.OrdinalIgnoreCase) ||
+            component.Contains("backend", StringComparison.OrdinalIgnoreCase)) == true;
+
+    private static bool HasDatabase(V3EffectiveStackContract stack, V3SolutionStrategy? strategy) =>
+        !stack.Database.Contains("conforme", StringComparison.OrdinalIgnoreCase) ||
+        strategy?.KeyComponents.Any(component => component.Contains("Persistência", StringComparison.OrdinalIgnoreCase)) == true;
+
+    private static bool HasAuth(V3SolutionStrategy? strategy) =>
+        strategy?.KeyComponents.Any(component => component.Contains("Autenticação", StringComparison.OrdinalIgnoreCase)) == true ||
+        strategy?.SecurityConsiderations.Count > 0;
 
     private static V3KnowledgeReference Ref(string path, string reason) => new(path, reason);
 }
@@ -1154,7 +1373,7 @@ public static class V3MissionCompiler
         DateTimeOffset now)
     {
         var missionId = UlidValue.New(now).ToString();
-        var knowledge = V3KnowledgeSelector.Select(context.EffectiveStack);
+        var knowledge = V3KnowledgeSelector.Select(context.EffectiveStack, context.SolutionStrategy ?? context.State?.SolutionStrategy, context.Artifacts);
         var executor = string.IsNullOrWhiteSpace(overrideExecutor)
             ? recommended
             : new V3RecommendedExecutor(overrideExecutor.Trim(), "OVERRIDDEN", "Human/operator override.");
@@ -1188,7 +1407,7 @@ public static class V3MissionCompiler
         DateTimeOffset now)
     {
         var missionId = UlidValue.New(now).ToString();
-        var knowledge = V3KnowledgeSelector.SelectForValidation(context.EffectiveStack);
+        var knowledge = V3KnowledgeSelector.SelectForValidation(context.EffectiveStack, context.SolutionStrategy ?? context.State?.SolutionStrategy, context.Artifacts);
         var package = V3MissionContextMaterializer.Materialize(context, missionId, knowledge);
         var text = ComposeValidationMissionText(package.Context, package.Knowledge, executor, buildExecution);
         return new V3BuildMissionRecord(
@@ -1257,6 +1476,29 @@ public static class V3MissionCompiler
             $"- Database: {context.EffectiveStack.Database}",
             $"- Architecture: {context.EffectiveStack.Architecture}",
             $"- Testing: {context.EffectiveStack.Testing}",
+            "",
+            "## SOLUTION STRATEGY",
+            $"- Complexity: {state?.SolutionStrategy?.Complexity ?? "SIMPLE"}",
+            $"- Architecture summary: {state?.SolutionStrategy?.ArchitectureSummary ?? "Implementar de forma proporcional ao risco, seguindo o baseline do produto."}",
+            $"- Architecture approval required: {(state?.SolutionStrategy?.ArchitectureApprovalRequired == true ? "YES" : "NO")}",
+        ]);
+        if (state?.SolutionStrategy is { } strategy)
+        {
+            AddMissionList(lines, "Key components", strategy.KeyComponents);
+            AddMissionList(lines, "Integration points", strategy.IntegrationPoints);
+            if (!string.IsNullOrWhiteSpace(strategy.DataStrategy))
+            {
+                lines.Add($"- Data strategy: {strategy.DataStrategy}");
+            }
+
+            AddMissionList(lines, "Security considerations", strategy.SecurityConsiderations);
+            AddMissionList(lines, "Operational considerations", strategy.OperationalConsiderations);
+            AddMissionList(lines, "Technical risks", strategy.TechnicalRisks);
+            AddMissionList(lines, "Important tradeoffs", strategy.ImportantTradeoffs);
+            AddMissionList(lines, "Human decisions required", strategy.HumanDecisionsRequired);
+        }
+
+        lines.AddRange([
             "",
             "## ARCHITECTURAL CONSTRAINTS",
             "- Preserve o fluxo V3: UNDERSTAND → BUILD → VALIDATE → HUMAN ACCEPTANCE.",
@@ -1343,6 +1585,17 @@ public static class V3MissionCompiler
             $"- {executor.AccountAlias ?? "BLOCKED"} — {executor.Reason}",
         ]);
         return string.Join(Environment.NewLine, lines);
+    }
+
+    private static void AddMissionList(List<string> lines, string label, IReadOnlyList<string> values)
+    {
+        if (values.Count == 0)
+        {
+            return;
+        }
+
+        lines.Add($"- {label}:");
+        lines.AddRange(values.Select(value => $"  - {value}"));
     }
 
     private static string ComposeValidationMissionText(
@@ -1492,7 +1745,10 @@ public sealed record V3ProjectContextResponse(
     string NotificationChannel,
     V3ExecutionCapacityResponse ExecutionCapacity,
     IReadOnlyList<V3ReadinessItem> Readiness,
-    string CurrentLifecycleState);
+    string CurrentLifecycleState)
+{
+    public V3SolutionStrategy? SolutionStrategy { get; init; }
+}
 
 public sealed record V3ProjectUnderstandState(
     string ProjectId,
@@ -1523,7 +1779,21 @@ public sealed record V3ProjectUnderstandState(
 
     public IReadOnlyList<V3SourceCoverage> PrimaryRequirementsCoverage { get; init; } = [];
     public V3RequirementSourceFacts? SourceFacts { get; init; }
+    public V3SolutionStrategy? SolutionStrategy { get; init; }
 }
+
+public sealed record V3SolutionStrategy(
+    string Complexity,
+    string ArchitectureSummary,
+    IReadOnlyList<string> KeyComponents,
+    IReadOnlyList<string> IntegrationPoints,
+    string DataStrategy,
+    IReadOnlyList<string> SecurityConsiderations,
+    IReadOnlyList<string> OperationalConsiderations,
+    IReadOnlyList<string> TechnicalRisks,
+    IReadOnlyList<string> ImportantTradeoffs,
+    IReadOnlyList<string> HumanDecisionsRequired,
+    bool ArchitectureApprovalRequired);
 
 public sealed record V3UnderstandAnalysis(
     V3ProjectUnderstandState State,

@@ -1,5 +1,5 @@
 manifestVersion: 2.0.0
-lastGeneratedAt: 2026-08-10T23:14:29.0762220+00:00
+lastGeneratedAt: 2026-08-11T02:34:03.4029920+00:00
 tokenBudget: 24000
 knownOwners:
 - Platform Governance
@@ -941,7 +941,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:b401f66d7c4285e0b4e1b62a29e134849ec25ec0785c34e69e43dc479efda123
+  checksum: sha256:06cefa14eef9bf27d10f61628de4510192f5053e0ac21d3cb5a2277b3f04348d
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -2217,7 +2217,7 @@ documents:
   - '**'
   load: bundle
   priority: 880
-  tokenCost: 1454
+  tokenCost: 1803
   owner: Platform Engineering
   status: active
   version: 1.0.0
@@ -2233,7 +2233,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:0c27df487e08c93e6581fb3c3a8c5a80a32cb3a8a10ead9764dc99aa355fdd0f
+  checksum: sha256:39e7a00f0c3aed053bcc8cea62813978af5f1173aeda0fcde076d4cb0f07af00
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/product/baseline.md
@@ -2751,7 +2751,7 @@ documents:
   - '**'
   load: on-demand
   priority: 875
-  tokenCost: 836
+  tokenCost: 1077
   owner: Product Security
   status: active
   version: 1.0.0
@@ -2767,7 +2767,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:ea591c862b97f90c43fb6c465d9d0be4ca6b4f3417984a050bef366ae4fb7ce3
+  checksum: sha256:734793682c1c0021d02b7075db16b2ba694d23d3ff5a8c68e882bcafddbf61bb
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/product/security-and-operability.md

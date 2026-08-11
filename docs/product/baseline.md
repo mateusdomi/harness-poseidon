@@ -30,8 +30,8 @@ Antes da stack vem a pergunta que a antecede: **que tipo de coisa foi pedido?**
 | Biblioteca, pacote, SDK | Biblioteca | Não — mas API documentada e exemplos são |
 
 **Ausência de stack informada nunca autoriza omitir parte do produto.** Modalidade
-ambígua é resolvida com o usuário na Triagem ou na Descoberta e registrada no perfil
-efetivo — nunca pelo executor no meio da implementação, e nunca entregando menos.
+ambígua é resolvida com o usuário durante UNDERSTAND e registrada no perfil efetivo —
+nunca pelo executor no meio da implementação, e nunca entregando menos.
 
 ## Backend
 
@@ -66,6 +66,17 @@ proporcional à complexidade do domínio.
 
 Microsserviços, Kafka, Redis, Elasticsearch, Kubernetes e equivalentes **não são
 defaults**: cada um exige necessidade demonstrável e ADR.
+
+Arquitetura é decisão proporcional ao risco. Produto simples recebe uma estratégia simples:
+componentes claros, persistência quando necessária, comandos de execução e testes. Produto com
+integrações externas, alto volume, disponibilidade, legado ou segurança material recebe uma
+SolutionStrategy antes da BUILD, ainda dentro de UNDERSTAND: componentes, fronteiras, fluxo de
+dados, trust boundaries, integrações, falhas, operação e riscos. Isso não cria fase nova.
+
+Decisão humana arquitetural só é necessária quando a reversão for cara ou material: cloud/on-prem,
+fornecedor/protocolo externo, topologia distribuída, HA/DR, compliance, custo relevante ou stack
+fora do baseline. Clean Architecture, React, .NET, organização de pastas e patterns reversíveis são
+decisões técnicas do executor dentro da missão.
 
 ## O que não é baseline
 
@@ -139,3 +150,18 @@ aparência de verdade.
 Um projeto **não copia** `docs/product/` para dentro de si — a cópia diverge do original
 na primeira evolução. O projeto declara apenas o que é dele e herda o resto por
 referência.
+
+## Descoberta de ambiente antes de instalar
+
+Antes de instalar ou assumir qualquer ferramenta, o executor descobre o ambiente real:
+OS, shell, arquitetura, runtimes e versões, package managers, portas em uso, Docker,
+bancos disponíveis, navegadores, scripts existentes, arquivos de ambiente, processos ativos e estado
+do repositório. Só depois decide.
+
+Não executar `brew install`, `apt install`, `npm install -g`, `pip install`, workload do .NET ou
+instalação de Docker antes de verificar se a capacidade já existe e se a instalação é necessária.
+Preferir ferramentas locais já disponíveis. Não alterar runtime global por conveniência.
+
+O produto não assume caminhos pessoais. macOS, Windows e Linux têm comandos e paths diferentes; scripts
+operacionais devem usar caminhos relativos, variáveis explícitas ou detecção controlada. Em Windows,
+preferir PowerShell moderno para operação; em macOS/Linux, shell POSIX quando suficiente.

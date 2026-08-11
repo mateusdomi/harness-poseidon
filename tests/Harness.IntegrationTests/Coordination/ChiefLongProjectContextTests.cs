@@ -331,6 +331,127 @@ public sealed class ChiefLongProjectContextTests
         }
     }
 
+    [Fact]
+    public async Task AlternatingProjectsKeepConversationHistoryAndDurableNotesIsolated()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var root = Path.Combine(
+            AppContext.BaseDirectory, "integration-artifacts", $"ctx0a2-ab-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            await using var dispatcher = await SqliteWriteDispatcher.CreateAsync(
+                Path.Combine(root, "context.db"), timeout.Token);
+            await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token);
+            await new SqliteFoundationTransactionStore(dispatcher).ProvisionProjectAsync(
+                FoundationTransactionBehavior.Command(), timeout.Token);
+            var projects = new SqliteProjectStore(dispatcher);
+            var conversations = new SqliteConversationStore(dispatcher);
+            var notes = new SqliteChiefContextNoteStore(dispatcher);
+            var now = new DateTimeOffset(2026, 8, 10, 20, 0, 0, TimeSpan.Zero);
+            var projectA = Project;
+            var projectB = "01ARZ3NDEKTSV4RRFFQ69G5FD2";
+            await projects.CreateAsync(
+                new Harness.Persistence.Abstractions.Projects.ProjectCreateCommand(
+                    Tenant,
+                    new Harness.Persistence.Abstractions.Projects.ProjectRecord(
+                        Tenant, projectB, "01ARZ3NDEKTSV4RRFFQ69G5FAW", "Night B", "NIGHTB",
+                        "Project B", "active", "medium", null, "local", "main", [],
+                        new Harness.Persistence.Abstractions.Projects.ProjectBrandRecord(null, null, null, null),
+                        [Author], 1, "01ARZ3NDEKTSV4RRFFQ69G5FD4", "manual", now, now, 0),
+                    now),
+                timeout.Token);
+
+            var conversationA = UlidValue.New(now.AddSeconds(1)).ToString();
+            var conversationB = UlidValue.New(now.AddSeconds(2)).ToString();
+            await conversations.CreateConversationAsync(
+                new ConversationCreateCommand(
+                    new ConversationRecord(Tenant, conversationA, projectA, "A", "active", Author, now, null, 1),
+                    now),
+                timeout.Token);
+            await conversations.CreateConversationAsync(
+                new ConversationCreateCommand(
+                    new ConversationRecord(Tenant, conversationB, projectB, "B", "active", Author, now, null, 1),
+                    now),
+                timeout.Token);
+            await conversations.CreateMessageAsync(
+                new MessageCreateCommand(
+                    Tenant,
+                    new MessageRecord(
+                        Tenant, projectA, UlidValue.New(now.AddSeconds(3)).ToString(), conversationA,
+                        "user", Author, null,
+                        "PROJECT A marker ALBATROSS-741. Somente perfil Auditor pode encerrar ocorrência.",
+                        null, now.AddSeconds(3)),
+                    now.AddSeconds(3)),
+                timeout.Token);
+            await conversations.CreateMessageAsync(
+                new MessageCreateCommand(
+                    Tenant,
+                    new MessageRecord(
+                        Tenant, projectB, UlidValue.New(now.AddSeconds(4)).ToString(), conversationB,
+                        "user", Author, null,
+                        "PROJECT B marker NEPTUNE-982. Somente perfil Supervisor pode encerrar chamado.",
+                        null, now.AddSeconds(4)),
+                    now.AddSeconds(4)),
+                timeout.Token);
+            await notes.AppendAsync(
+                new ChiefContextNoteAppendCommand(
+                    Tenant, projectA, conversationA, null,
+                    [
+                        new ChiefContextNoteEntry(
+                            UlidValue.New(now.AddSeconds(5)).ToString(),
+                            UlidValue.New(now.AddSeconds(6)).ToString(),
+                            "chief",
+                            "Memória A: ALBATROSS-741 mantém regra Auditor.",
+                            12,
+                            1),
+                    ],
+                    now.AddSeconds(5)),
+                timeout.Token);
+            await notes.AppendAsync(
+                new ChiefContextNoteAppendCommand(
+                    Tenant, projectB, conversationB, null,
+                    [
+                        new ChiefContextNoteEntry(
+                            UlidValue.New(now.AddSeconds(7)).ToString(),
+                            UlidValue.New(now.AddSeconds(8)).ToString(),
+                            "chief",
+                            "Memória B: NEPTUNE-982 mantém regra Supervisor.",
+                            12,
+                            1),
+                    ],
+                    now.AddSeconds(7)),
+                timeout.Token);
+
+            var composer = new ChiefContextComposer(
+                conversations,
+                new DefaultContextStrategy(),
+                notes,
+                new StubClock(now),
+                new ChiefContextStrategyOptions(true, ContextStrategyBudget.Default, 200));
+
+            var a1 = await composer.ComposeAsync(Tenant, projectA, conversationA, "turn-a1", timeout.Token);
+            var b1 = await composer.ComposeAsync(Tenant, projectB, conversationB, "turn-b1", timeout.Token);
+            var a2 = await composer.ComposeAsync(Tenant, projectA, conversationA, "turn-a2", timeout.Token);
+
+            Assert.Contains("ALBATROSS-741", a1.RenderedContext, StringComparison.Ordinal);
+            Assert.Contains("ALBATROSS-741", a2.RenderedContext, StringComparison.Ordinal);
+            Assert.DoesNotContain("NEPTUNE-982", a1.RenderedContext, StringComparison.Ordinal);
+            Assert.DoesNotContain("NEPTUNE-982", a2.RenderedContext, StringComparison.Ordinal);
+            Assert.Contains("NEPTUNE-982", b1.RenderedContext, StringComparison.Ordinal);
+            Assert.DoesNotContain("ALBATROSS-741", b1.RenderedContext, StringComparison.Ordinal);
+            Assert.Contains("Auditor", a2.RenderedContext, StringComparison.Ordinal);
+            Assert.Contains("Supervisor", b1.RenderedContext, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
     private sealed class StubClock(DateTimeOffset now) : IClock
     {
         public DateTimeOffset UtcNow { get; } = now;
