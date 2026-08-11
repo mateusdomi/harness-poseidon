@@ -2450,12 +2450,14 @@ export class MockApiClient implements ApiClient {
     };
   }
 
-  async enableV3AgentAccount(_alias: string): Promise<V3AgentAccountsResponse> {
+  async enableV3AgentAccount(alias: string): Promise<V3AgentAccountsResponse> {
+    void alias;
     await this.#simulate();
     return this.#v3AgentAccounts();
   }
 
-  async disableV3AgentAccount(_alias: string): Promise<V3AgentAccountsResponse> {
+  async disableV3AgentAccount(alias: string): Promise<V3AgentAccountsResponse> {
+    void alias;
     await this.#simulate();
     return this.#v3AgentAccounts();
   }

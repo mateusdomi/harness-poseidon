@@ -55,7 +55,6 @@ function businessStateKey(
  * restritos ao modo Técnico.
  */
 export function FleetOverview({
-  agents: _agents,
   mode = 'business',
 }: {
   agents: Agent[];
