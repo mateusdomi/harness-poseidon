@@ -36,7 +36,7 @@ namespace Harness.IntegrationTests.Agents;
 /// </summary>
 public sealed class ProjectOperationModeDispatchTests
 {
-    [Fact]
+    [Fact(Skip = "LEGACY_V1_CARD_DISPATCH: V3 controls autonomy through mission lifecycle, not card-by-card operation mode.")]
     public async Task ManualProjectIsNotDispatchedWhileAutonomousProjectIs()
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
