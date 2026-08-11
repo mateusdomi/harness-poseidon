@@ -228,16 +228,17 @@ function businessChatReply(content: string, project: Project, store: Store): str
   const inEnglish =
     normalized.includes('how the project is progressing') ||
     normalized.includes('plan a new delivery');
-  if (CHIEF_PLAN_TRIGGER.test(content)) {
-    const deadline = project.targetDeadline
-      ? project.targetDeadline.slice(0, 10).split('-').reverse().join('/')
-      : 'sem prazo definido';
-    return [
-      `Vou abrir o primeiro plano com este objetivo: ${project.description}. `,
-      `Prazo desejado: ${deadline}. `,
-      'Também vou estimar a prioridade e organizar com a equipe o que precisa ser feito primeiro.',
-    ];
-  }
+    if (CHIEF_PLAN_TRIGGER.test(content)) {
+      const deadline = project.targetDeadline
+        ? project.targetDeadline.slice(0, 10).split('-').reverse().join('/')
+        : 'sem prazo definido';
+      const objective = project.description.trim() || project.name;
+      return [
+        `Vou preparar o entendimento V3 com este objetivo: ${objective}. `,
+        `Prazo desejado: ${deadline}. `,
+        'Também vou registrar o contexto declarado e indicar somente decisões que realmente bloqueiem o desenvolvimento.',
+      ];
+    }
   if (
     normalized.includes('como o projeto está avançando') ||
     normalized.includes('how the project is progressing')
@@ -2567,7 +2568,8 @@ export class MockApiClient implements ApiClient {
     void _input;
     const project = this.#table('projects').get(projectId);
     if (!project) throw this.#notFound('projects', projectId);
-    return this.#v3Context(project, project.targetDeadline && project.repositoryUrl ? 'READY_TO_START' : 'AWAITING_INPUT');
+    const hasInitialScope = project.description.trim().length > 0;
+    return this.#v3Context(project, hasInitialScope ? 'READY_TO_START' : 'AWAITING_INPUT');
   }
 
   async authorizeV3Build(
@@ -3258,17 +3260,18 @@ export class MockApiClient implements ApiClient {
   }
 
   #v3Context(project: Project, lifecycle: string): V3ProjectContext {
-    const ready = Boolean(project.targetDeadline && project.repositoryUrl);
+    const objective = project.description.trim() || project.name;
+    const ready = lifecycle === 'READY_TO_START' || lifecycle === 'BUILDING';
     return {
       projectId: project.id,
       projectName: project.name,
-      originalIntent: project.description,
+      originalIntent: objective,
       artifacts: [],
       documents: [],
       prototypes: [],
       state: null,
-      productGoal: project.description,
-      projectSummary: project.description,
+      productGoal: objective,
+      projectSummary: objective,
       requirements: ['Fluxo principal descrito nos requisitos originais'],
       acceptanceCriteria: ['Fluxo principal executa no produto real.'],
       decisions: [],
@@ -3283,7 +3286,7 @@ export class MockApiClient implements ApiClient {
           coveragePercent: 100,
           complete: true,
           evidenceProvider: 'mock-full-text-read',
-          characterCount: project.description.length,
+          characterCount: objective.length,
         },
       ],
       sourceFacts: {
@@ -3300,24 +3303,11 @@ export class MockApiClient implements ApiClient {
       openQuestions: ready
         ? []
         : [
-            ...(project.targetDeadline
-              ? []
-              : [
-                  {
-                    questionId: 'deadline',
-                    question: 'Qual o prazo final do projeto?',
-                    reason: 'required_before_authorization',
-                  },
-                ]),
-            ...(project.repositoryUrl
-              ? []
-              : [
-                  {
-                    questionId: 'repository',
-                    question: 'Qual repositório deve receber o código?',
-                    reason: 'required_before_authorization',
-                  },
-                ]),
+            {
+              questionId: 'project_scope',
+              question: 'Qual resultado o produto precisa entregar?',
+              reason: 'missing_product_scope',
+            },
           ],
       effectiveStack: {
         frontend: project.technologies.includes('React') ? 'React + TypeScript + Vite' : 'Frontend conforme requisitos',

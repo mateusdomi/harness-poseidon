@@ -62,7 +62,8 @@ export function V3UnderstandPanel({ project }: { project: Project }) {
                   {t('features.projects.v3Understand.repositoryDeadline')}
                 </p>
                 <p className="text-sm text-foreground-muted">
-                  {data.repository ?? 'ACTION_REQUIRED'} · {data.deadline ?? 'ACTION_REQUIRED'}
+                  {data.repository ?? t('features.projects.v3Understand.repositoryManaged')} ·{' '}
+                  {data.deadline ?? t('features.projects.v3Understand.deadlineMissing')}
                 </p>
               </div>
             </div>

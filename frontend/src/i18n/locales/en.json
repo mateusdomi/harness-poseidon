@@ -1732,6 +1732,8 @@
         "summary": "Artifacts: {{artifacts}} · Docs: {{documents}} · Slots: {{slots}}",
         "stack": "Stack",
         "repositoryDeadline": "Code location / Deadline",
+        "repositoryManaged": "Poseidon-managed local repository",
+        "deadlineMissing": "Deadline not provided",
         "openQuestions": "Open questions",
         "readiness": "Readiness",
         "buildMission": "BuildMission {{missionId}} — {{status}}",
