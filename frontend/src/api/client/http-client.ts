@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import {
   ApiError,
   problemDetailsSchema,
@@ -125,6 +127,8 @@ import {
   governanceDocContentSchema,
   agentAccountRosterSchema,
   v3AccountAuthInstructionSchema,
+  v3AgentAccountUpsertInputSchema,
+  v3AgentAccountsResponseSchema,
   v3BuildMissionSchema,
   v3ChiefAssignmentSchema,
   v3HumanAcceptanceSchema,
@@ -133,6 +137,8 @@ import {
   channelLinkSchema,
   channelMessagePageSchema,
   type AgentAccountRoster,
+  type V3AgentAccountUpsertInput,
+  type V3AgentAccountsResponse,
   type V3AccountAuthInstruction,
   type V3AuthorizeBuildInput,
   type V3BuildMission,
@@ -797,6 +803,48 @@ export class HttpApiClient implements ApiClient {
   async listAgentAccounts(): Promise<AgentAccountRoster[]> {
     const response = await this.#request<{ accounts?: unknown }>('GET', '/agent-accounts');
     return agentAccountRosterSchema.array().parse(response?.accounts ?? []);
+  }
+
+  async listV3AgentAccounts(): Promise<V3AgentAccountsResponse> {
+    const response = await this.#request<unknown>('GET', '/v3/agent-accounts');
+    return v3AgentAccountsResponseSchema.parse(response);
+  }
+
+  async upsertV3AgentAccount(input: V3AgentAccountUpsertInput): Promise<V3AgentAccountsResponse> {
+    const response = await this.#request<unknown>(
+      'POST',
+      '/v3/agent-accounts',
+      v3AgentAccountUpsertInputSchema.parse(input),
+    );
+    return v3AgentAccountsResponseSchema.parse(response);
+  }
+
+  async enableV3AgentAccount(alias: string): Promise<V3AgentAccountsResponse> {
+    const response = await this.#request<unknown>(
+      'POST',
+      `/v3/agent-accounts/${encodeURIComponent(alias)}/enable`,
+    );
+    return v3AgentAccountsResponseSchema.parse(response);
+  }
+
+  async disableV3AgentAccount(alias: string): Promise<V3AgentAccountsResponse> {
+    const response = await this.#request<unknown>(
+      'POST',
+      `/v3/agent-accounts/${encodeURIComponent(alias)}/disable`,
+    );
+    return v3AgentAccountsResponseSchema.parse(response);
+  }
+
+  async logoutV3AgentAccount(alias: string): Promise<{ alias: string; removed: boolean; configHomePreserved: boolean }> {
+    const response = await this.#request<unknown>(
+      'POST',
+      `/v3/agent-accounts/${encodeURIComponent(alias)}/logout`,
+    );
+    return z.object({
+      alias: z.string(),
+      removed: z.boolean(),
+      configHomePreserved: z.boolean(),
+    }).parse(response);
   }
 
   async prepareAgentAccountAuth(alias: string): Promise<V3AccountAuthInstruction> {

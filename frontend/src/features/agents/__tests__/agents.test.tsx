@@ -104,10 +104,10 @@ describe('AgentsPage', () => {
 
     // Métricas com rótulos e ajuda (definição visível via title/aria-label).
     expect(
-      within(tree).getAllByText('Tarefas concluídas').length,
+      within(tree).getAllByText('Entregas concluídas').length,
     ).toBeGreaterThan(0);
     expect(
-      within(tree).getAllByLabelText(/Total acumulado de tarefas concluídas/).length,
+      within(tree).getAllByLabelText(/Total acumulado de entregas concluídas/).length,
     ).toBeGreaterThan(0);
   });
 

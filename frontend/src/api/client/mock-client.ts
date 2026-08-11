@@ -109,6 +109,8 @@ import {
   type GovernanceDocTree,
   type GovernanceDocContent,
   type AgentAccountRoster,
+  type V3AgentAccountUpsertInput,
+  type V3AgentAccountsResponse,
   type V3AccountAuthInstruction,
   type V3AuthorizeBuildInput,
   type V3BuildMission,
@@ -2416,6 +2418,53 @@ export class MockApiClient implements ApiClient {
     return MOCK_AGENT_ROSTER.map((account) => ({ ...account, roles: [...account.roles] }));
   }
 
+  async listV3AgentAccounts(): Promise<V3AgentAccountsResponse> {
+    await this.#simulate();
+    return this.#v3AgentAccounts();
+  }
+
+  async upsertV3AgentAccount(input: V3AgentAccountUpsertInput): Promise<V3AgentAccountsResponse> {
+    await this.#simulate();
+    const response = this.#v3AgentAccounts();
+    const account = {
+      alias: input.alias,
+      providerKind: input.providerKind,
+      executorId: input.executorId,
+      roles: input.allowedRoles.length > 0 ? [...input.allowedRoles] : ['project-executor'],
+      concurrencyLimit: input.concurrencyLimit,
+      priority: input.priority,
+      enabled: input.enabled,
+      usagePolicy: input.usagePolicy,
+      state: input.enabled && input.usagePolicy !== 'RESERVED' ? 'AuthenticationRequired' : 'Disabled',
+      health: 'Unknown',
+      returnsAt: null,
+      reasonCode: input.usagePolicy === 'RESERVED' ? 'account.reserved' : null,
+      configHomeEnvironmentVariable: input.executorId === 'codex' ? 'CODEX_HOME' : null,
+    };
+    return {
+      ...response,
+      accounts: [
+        ...response.accounts.filter((entry) => entry.alias !== input.alias),
+        account,
+      ].sort((a, b) => a.alias.localeCompare(b.alias)),
+    };
+  }
+
+  async enableV3AgentAccount(_alias: string): Promise<V3AgentAccountsResponse> {
+    await this.#simulate();
+    return this.#v3AgentAccounts();
+  }
+
+  async disableV3AgentAccount(_alias: string): Promise<V3AgentAccountsResponse> {
+    await this.#simulate();
+    return this.#v3AgentAccounts();
+  }
+
+  async logoutV3AgentAccount(alias: string): Promise<{ alias: string; removed: boolean; configHomePreserved: boolean }> {
+    await this.#simulate();
+    return { alias, removed: true, configHomePreserved: false };
+  }
+
   async prepareAgentAccountAuth(alias: string): Promise<V3AccountAuthInstruction> {
     await this.#simulate();
     const account = MOCK_AGENT_ROSTER.find((entry) => entry.alias === alias);
@@ -2434,6 +2483,41 @@ export class MockApiClient implements ApiClient {
       shellCommand: `${env}='${configHomePath}' ${account.executorId === 'codex' ? 'codex login --device-auth' : 'claude'}`,
       instruction: 'Mock auth instruction.',
       accountsFilePath: '/tmp/poseidon-mock/agent-accounts.json',
+    };
+  }
+
+  #v3AgentAccounts(): V3AgentAccountsResponse {
+    return {
+      asOf: new Date().toISOString(),
+      accounts: MOCK_AGENT_ROSTER.map((account, index) => ({
+        alias: account.alias,
+        providerKind: account.providerKind,
+        executorId: account.executorId,
+        roles: [...account.roles],
+        concurrencyLimit: account.concurrencyLimit,
+        priority: 100 - index,
+        enabled: account.state !== 'disabled',
+        usagePolicy: account.state === 'disabled' ? 'RESERVED' : 'AUTOMATIC',
+        state: account.state === 'idle'
+          ? 'Available'
+          : account.state === 'working'
+            ? 'Running'
+            : account.state === 'authentication-required'
+              ? 'AuthenticationRequired'
+              : account.state === 'out-of-quota'
+                ? 'QuotaLimited'
+                : account.state === 'disabled'
+                  ? 'Disabled'
+                  : 'Unavailable',
+        health: account.health === 'healthy' ? 'Healthy' : account.health === 'unhealthy' ? 'Degraded' : 'Unknown',
+        returnsAt: account.returnsAt ?? null,
+        reasonCode: account.reasonCode ?? null,
+        configHomeEnvironmentVariable: account.executorId === 'codex'
+          ? 'CODEX_HOME'
+          : account.executorId === 'claude-code'
+            ? 'CLAUDE_CONFIG_DIR'
+            : null,
+      })),
     };
   }
 

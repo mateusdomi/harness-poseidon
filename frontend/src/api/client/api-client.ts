@@ -89,6 +89,8 @@ import type {
   GovernanceDocTree,
   GovernanceDocContent,
   AgentAccountRoster,
+  V3AgentAccountUpsertInput,
+  V3AgentAccountsResponse,
   V3AccountAuthInstruction,
   V3ChiefAssignment,
   V3AuthorizeBuildInput,
@@ -440,6 +442,11 @@ export interface ApiClient {
    * ou token. São as identidades de execução da fleet, distintas das personas/definições.
    */
   listAgentAccounts(): Promise<AgentAccountRoster[]>;
+  listV3AgentAccounts(): Promise<V3AgentAccountsResponse>;
+  upsertV3AgentAccount(input: V3AgentAccountUpsertInput): Promise<V3AgentAccountsResponse>;
+  enableV3AgentAccount(alias: string): Promise<V3AgentAccountsResponse>;
+  disableV3AgentAccount(alias: string): Promise<V3AgentAccountsResponse>;
+  logoutV3AgentAccount(alias: string): Promise<{ alias: string; removed: boolean; configHomePreserved: boolean }>;
   prepareAgentAccountAuth(alias: string): Promise<V3AccountAuthInstruction>;
   setChiefPrimary(alias: string): Promise<V3ChiefAssignment>;
   getChiefAssignment(): Promise<V3ChiefAssignment>;

@@ -7,6 +7,8 @@
       "provider": "Provedor",
       "executor": "Executor",
       "roles": "Papéis",
+      "usagePolicy": "Uso",
+      "health": "Saúde",
       "chiefPrimary": "Chief principal",
       "businessSummary": "Contas runtime são infraestrutura. Perfis públicos incompletos aparecem em Administração/Detalhes técnicos antes de virarem pessoas na experiência principal.",
       "metrics": {
@@ -17,8 +19,19 @@
       },
       "authCommand": "Execute este comando em um terminal para autenticar a conta isolada:",
       "actions": {
+        "add": "Adicionar conta",
         "auth": "Autenticar",
-        "setChief": "Definir Chief"
+        "setChief": "Definir Chief",
+        "reserve": "Reservar",
+        "release": "Liberar",
+        "logout": "Logout",
+        "save": "Salvar conta"
+      },
+      "add": {
+        "title": "Adicionar Runtime Account",
+        "help": "Cria infraestrutura de execução. Perfil público/nome/foto continuam separados para não aparecer uma pessoa falsa na experiência principal.",
+        "alias": "Alias técnico",
+        "capabilities": "Capacidades permitidas"
       },
       "state": {
         "working": "Trabalhando",
@@ -36,9 +49,9 @@
     "count": "{{count}} profissionais na equipe",
     "chart": {
       "title": "Utilização da equipe",
-      "subtitle": "Tarefas concluídas por profissional — onde está a capacidade da equipe agora.",
-      "empty": "A equipe ainda não concluiu nenhuma tarefa.",
-      "bar": "{{agent}}: {{count}} tarefas concluídas"
+      "subtitle": "Entregas concluídas por profissional — onde está a capacidade da equipe agora.",
+      "empty": "A equipe ainda não concluiu nenhuma entrega.",
+      "bar": "{{agent}}: {{count}} entregas concluídas"
     },
     "groups": {
       "chief": "Liderança"
@@ -101,8 +114,8 @@
     },
     "metrics": {
       "tasksCompleted": {
-        "label": "Tarefas concluídas",
-        "help": "Total acumulado de tarefas concluídas pelo agente (metrics.tasksCompleted)."
+        "label": "Entregas concluídas",
+        "help": "Total acumulado de entregas concluídas pelo agente (métrica técnica tasksCompleted)."
       },
       "approvedInReview": {
         "label": "Aprovadas em revisão",

@@ -63,6 +63,41 @@ export const v3AccountAuthInstructionSchema = z.object({
 });
 export type V3AccountAuthInstruction = z.infer<typeof v3AccountAuthInstructionSchema>;
 
+export const v3AgentAccountSchema = z.object({
+  alias: z.string(),
+  providerKind: z.string(),
+  executorId: z.string(),
+  roles: z.array(z.string()),
+  concurrencyLimit: z.number().int().positive(),
+  priority: z.number().int(),
+  enabled: z.boolean(),
+  usagePolicy: z.string(),
+  state: z.string(),
+  health: z.string(),
+  returnsAt: isoDateTimeSchema.nullable().optional(),
+  reasonCode: z.string().nullable().optional(),
+  configHomeEnvironmentVariable: z.string().nullable().optional(),
+});
+export type V3AgentAccount = z.infer<typeof v3AgentAccountSchema>;
+
+export const v3AgentAccountsResponseSchema = z.object({
+  asOf: isoDateTimeSchema,
+  accounts: z.array(v3AgentAccountSchema),
+});
+export type V3AgentAccountsResponse = z.infer<typeof v3AgentAccountsResponseSchema>;
+
+export const v3AgentAccountUpsertInputSchema = z.object({
+  alias: z.string().min(1),
+  providerKind: z.string().min(1),
+  executorId: z.string().min(1),
+  allowedRoles: z.array(z.string()).default([]),
+  concurrencyLimit: z.number().int().positive().default(1),
+  priority: z.number().int().default(100),
+  enabled: z.boolean().default(true),
+  usagePolicy: z.string().default('AUTOMATIC'),
+});
+export type V3AgentAccountUpsertInput = z.infer<typeof v3AgentAccountUpsertInputSchema>;
+
 export const v3ChiefAssignmentSchema = z.object({
   primaryAlias: z.string().nullable(),
   providerKind: z.string().nullable().optional(),

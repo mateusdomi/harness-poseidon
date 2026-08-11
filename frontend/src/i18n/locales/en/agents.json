@@ -7,6 +7,8 @@
       "provider": "Provider",
       "executor": "Executor",
       "roles": "Roles",
+      "usagePolicy": "Usage",
+      "health": "Health",
       "chiefPrimary": "Chief primary",
       "businessSummary": "Runtime accounts are infrastructure. Incomplete public profiles stay in Administration/Technical details before becoming people in the main experience.",
       "metrics": {
@@ -17,8 +19,19 @@
       },
       "authCommand": "Run this command in a terminal to authenticate the isolated account:",
       "actions": {
+        "add": "Add account",
         "auth": "Authenticate",
-        "setChief": "Set Chief"
+        "setChief": "Set Chief",
+        "reserve": "Reserve",
+        "release": "Release",
+        "logout": "Logout",
+        "save": "Save account"
+      },
+      "add": {
+        "title": "Add Runtime Account",
+        "help": "Creates execution infrastructure. Public profile/name/photo stay separate so a fake person does not appear in the main experience.",
+        "alias": "Technical alias",
+        "capabilities": "Allowed capabilities"
       },
       "state": {
         "working": "Working",
@@ -36,9 +49,9 @@
     "count": "{{count}} professionals on the team",
     "chart": {
       "title": "Team utilization",
-      "subtitle": "Tasks completed by each professional — where the team's capacity sits right now.",
-      "empty": "The team has not completed any tasks yet.",
-      "bar": "{{agent}}: {{count}} tasks completed"
+      "subtitle": "Deliveries completed by each professional — where the team's capacity sits right now.",
+      "empty": "The team has not completed any delivery yet.",
+      "bar": "{{agent}}: {{count}} deliveries completed"
     },
     "groups": {
       "chief": "Leadership"
@@ -101,8 +114,8 @@
     },
     "metrics": {
       "tasksCompleted": {
-        "label": "Tasks completed",
-        "help": "Accumulated total of tasks completed by the agent (metrics.tasksCompleted)."
+        "label": "Deliveries completed",
+        "help": "Accumulated total of deliveries completed by the agent (technical metric tasksCompleted)."
       },
       "approvedInReview": {
         "label": "Approved in review",

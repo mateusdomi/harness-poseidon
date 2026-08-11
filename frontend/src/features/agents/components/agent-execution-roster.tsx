@@ -1,14 +1,19 @@
 import { useTranslation } from 'react-i18next';
 import { ServerCog } from 'lucide-react';
-import { useState } from 'react';
+import { type FormEvent, useMemo, useState } from 'react';
 
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input, Select, Skeleton } from '@/design-system';
 import { AgentIdentity } from '@/features/shared/components/agent-identity';
 import {
+  useDisableV3AgentAccount,
+  useEnableV3AgentAccount,
   useAgentRoster,
   useChiefAssignment,
+  useLogoutV3AgentAccount,
   usePrepareAgentAccountAuth,
   useSetChiefPrimary,
+  useUpsertV3AgentAccount,
+  useV3AgentAccounts,
 } from '@/features/agents/hooks/use-agent-roster';
 import { usePresentationMode } from '@/app/presentation';
 
@@ -32,11 +37,27 @@ export function AgentExecutionRoster() {
   const { t } = useTranslation();
   const { showTechnicalDetails } = usePresentationMode();
   const rosterQuery = useAgentRoster();
+  const v3Accounts = useV3AgentAccounts();
   const chiefAssignment = useChiefAssignment();
   const prepareAuth = usePrepareAgentAccountAuth();
   const setChief = useSetChiefPrimary();
+  const upsertAccount = useUpsertV3AgentAccount();
+  const enableAccount = useEnableV3AgentAccount();
+  const disableAccount = useDisableV3AgentAccount();
+  const logoutAccount = useLogoutV3AgentAccount();
   const [authCommand, setAuthCommand] = useState<string | null>(null);
+  const [showAddAccount, setShowAddAccount] = useState(false);
+  const [draft, setDraft] = useState({
+    alias: '',
+    providerKind: 'openai',
+    executorId: 'codex',
+    allowedRoles: ['project-executor'],
+  });
   const accounts = rosterQuery.data ?? [];
+  const v3ByAlias = useMemo(
+    () => new Map((v3Accounts.data?.accounts ?? []).map((account) => [account.alias, account])),
+    [v3Accounts.data?.accounts],
+  );
   const availableAccounts = accounts.filter((account) => account.state === 'idle').length;
   const runningAccounts = accounts.filter((account) => account.state === 'working').length;
   const attentionAccounts = accounts.filter((account) =>
@@ -46,6 +67,28 @@ export function AgentExecutionRoster() {
   async function prepare(alias: string) {
     const result = await prepareAuth.mutateAsync(alias);
     setAuthCommand(result.shellCommand);
+  }
+
+  function toggleRole(role: string) {
+    setDraft((current) => ({
+      ...current,
+      allowedRoles: current.allowedRoles.includes(role)
+        ? current.allowedRoles.filter((item) => item !== role)
+        : [...current.allowedRoles, role],
+    }));
+  }
+
+  async function submitAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await upsertAccount.mutateAsync({
+      ...draft,
+      concurrencyLimit: 1,
+      priority: 100,
+      enabled: true,
+      usagePolicy: 'AUTOMATIC',
+    });
+    setDraft({ alias: '', providerKind: 'openai', executorId: 'codex', allowedRoles: ['project-executor'] });
+    setShowAddAccount(false);
   }
 
   return (
@@ -118,6 +161,14 @@ export function AgentExecutionRoster() {
                         </Badge>
                       ))}
                     </dd>
+                    <dt>{t('agents.roster.usagePolicy')}</dt>
+                    <dd className="min-w-0 break-words text-foreground">
+                      {v3ByAlias.get(account.alias)?.usagePolicy ?? '—'}
+                    </dd>
+                    <dt>{t('agents.roster.health')}</dt>
+                    <dd className="min-w-0 break-words text-foreground">
+                      {v3ByAlias.get(account.alias)?.health ?? account.health ?? '—'}
+                    </dd>
                   </dl>
                 ) : null}
                 {showTechnicalDetails ? (
@@ -142,12 +193,117 @@ export function AgentExecutionRoster() {
                         {t('agents.roster.actions.setChief')}
                       </Button>
                     ) : null}
+                    {v3ByAlias.get(account.alias)?.usagePolicy === 'RESERVED' ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={enableAccount.isPending}
+                        onClick={() => void enableAccount.mutateAsync(account.alias)}
+                      >
+                        {t('agents.roster.actions.release')}
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={disableAccount.isPending}
+                        onClick={() => void disableAccount.mutateAsync(account.alias)}
+                      >
+                        {t('agents.roster.actions.reserve')}
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={
+                        logoutAccount.isPending ||
+                        chiefAssignment.data?.primaryAlias === account.alias
+                      }
+                      onClick={() => void logoutAccount.mutateAsync(account.alias)}
+                    >
+                      {t('agents.roster.actions.logout')}
+                    </Button>
                   </div>
                 ) : null}
               </li>
             ))}
           </ul>
         )}
+        {showTechnicalDetails ? (
+          <div className="mt-4 rounded-md border border-border p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-medium">{t('agents.roster.add.title')}</p>
+                <p className="text-sm text-foreground-muted">{t('agents.roster.add.help')}</p>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowAddAccount((value) => !value)}>
+                {showAddAccount ? t('common.actions.cancel') : t('agents.roster.actions.add')}
+              </Button>
+            </div>
+            {showAddAccount ? (
+              <form className="mt-3 grid gap-3 md:grid-cols-2" onSubmit={submitAccount}>
+                <label className="text-sm">
+                  <span className="text-foreground-muted">{t('agents.roster.add.alias')}</span>
+                  <Input
+                    className="mt-1"
+                    value={draft.alias}
+                    onChange={(event) => setDraft((current) => ({ ...current, alias: event.target.value }))}
+                    required
+                  />
+                </label>
+                <label className="text-sm">
+                  <span className="text-foreground-muted">{t('agents.roster.provider')}</span>
+                  <Select
+                    className="mt-1"
+                    value={draft.providerKind}
+                    onChange={(event) => setDraft((current) => ({ ...current, providerKind: event.target.value }))}
+                  >
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Claude</option>
+                    <option value="antigravity">Antigravity</option>
+                    <option value="moonshot">Kimi</option>
+                    <option value="zhipu">GLM</option>
+                  </Select>
+                </label>
+                <label className="text-sm">
+                  <span className="text-foreground-muted">{t('agents.roster.executor')}</span>
+                  <Select
+                    className="mt-1"
+                    value={draft.executorId}
+                    onChange={(event) => setDraft((current) => ({ ...current, executorId: event.target.value }))}
+                  >
+                    <option value="codex">Codex</option>
+                    <option value="claude-code">Claude Code</option>
+                    <option value="antigravity">Antigravity</option>
+                    <option value="kimi-code">Kimi Code</option>
+                    <option value="glm">GLM</option>
+                  </Select>
+                </label>
+                <fieldset className="text-sm">
+                  <legend className="text-foreground-muted">{t('agents.roster.add.capabilities')}</legend>
+                  {['project-executor', 'chief-orchestrator', 'critic', 'platform-maintainer'].map((role) => (
+                    <label key={role} className="mt-2 flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={draft.allowedRoles.includes(role)}
+                        onChange={() => toggleRole(role)}
+                      />
+                      <span>{role}</span>
+                    </label>
+                  ))}
+                </fieldset>
+                <div className="md:col-span-2">
+                  <Button type="submit" disabled={upsertAccount.isPending || draft.allowedRoles.length === 0}>
+                    {t('agents.roster.actions.save')}
+                  </Button>
+                </div>
+              </form>
+            ) : null}
+          </div>
+        ) : null}
         {authCommand ? (
           <div className="mt-4 rounded-md border border-border bg-surface-subtle p-3">
             <p className="text-sm font-medium">{t('agents.roster.authCommand')}</p>

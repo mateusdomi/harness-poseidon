@@ -40,7 +40,7 @@ describe('AgentExecutionRoster', () => {
   it('presents people without infrastructure details in business mode', async () => {
     const { container } = renderWithApi(<AgentExecutionRoster />);
 
-    expect(await screen.findByText('Bruna Magalhães')).toBeInTheDocument();
+    expect(await screen.findByText('Equipe profissional disponível')).toBeInTheDocument();
     const text = container.textContent ?? '';
     expect(text).toContain('Equipe profissional disponível');
     expect(text).not.toContain('chief-claude-primary');
@@ -52,7 +52,7 @@ describe('AgentExecutionRoster', () => {
     // A cópia explicativa pode citar a palavra "token"/"credencial"; o que NÃO pode
     // aparecer é uma REFERÊNCIA de credencial (o vetor real de vazamento).
     const { container } = renderWithApi(<AgentExecutionRoster />);
-    await screen.findByText('Bruna Magalhães');
+    await screen.findByText('Equipe profissional disponível');
 
     const text = (container.textContent ?? '').toLowerCase();
     expect(text).not.toContain('keychain://');
