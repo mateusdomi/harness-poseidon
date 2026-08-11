@@ -4,15 +4,15 @@
       "body": "Selecione ou crie um projeto para gerenciar protótipos e referências visuais."
     },
     "mode": {
-      "current": "Cenário de prototipação",
+      "current": "Cenário de interface",
       "change": "Alterar cenário",
-      "title": "Cenário de prototipação do projeto",
+      "title": "Cenário de referências de interface",
       "label": "Cenário",
       "help": {
         "externalPrototype": "O projeto usa um protótipo hospedado externamente; as referências aqui são apenas consulta.",
         "guidelinesOnly": "O projeto segue apenas diretrizes visuais (cores, logo, referências) — sem protótipo navegável.",
         "autonomousGeneration": "A equipe cria os protótipos do projeto sozinha, a partir dos documentos.",
-        "notApplicable": "O projeto não tem interface visual — a prototipação é dispensada formalmente (waiver)."
+        "notApplicable": "O projeto não tem interface visual — referências de interface não são necessárias."
       },
       "waiverLabel": "Motivo da dispensa (waiver)",
       "waiverRequired": "Informe o motivo da dispensa para marcar como não aplicável.",
@@ -56,8 +56,8 @@
       "unavailable": "Histórico de versões de protótipo não disponível no contrato atual."
     },
     "notApplicable": {
-      "title": "Prototipação não aplicável",
-      "body": "Este projeto foi dispensado formalmente da prototipação. Altere o cenário acima para voltar a usar protótipos e referências."
+      "title": "Referências de interface não aplicáveis",
+      "body": "Este projeto não precisa de referências visuais. Altere o cenário acima para voltar a usar protótipos e referências."
     },
     "empty": {
       "prototypes": "Nenhum protótipo neste projeto ainda.",

@@ -4,15 +4,15 @@
       "body": "Select or create a project to manage prototypes and visual references."
     },
     "mode": {
-      "current": "Prototyping scenario",
+      "current": "Interface reference scenario",
       "change": "Change scenario",
-      "title": "Project prototyping scenario",
+      "title": "Project interface reference scenario",
       "label": "Scenario",
       "help": {
         "externalPrototype": "The project uses an externally hosted prototype; references here are read-only.",
         "guidelinesOnly": "The project follows visual guidelines only (colors, logo, references) — no navigable prototype.",
         "autonomousGeneration": "The team creates the project's prototypes on its own, from the documents.",
-        "notApplicable": "The project has no visual interface — prototyping is formally waived."
+        "notApplicable": "The project has no visual interface — interface references are not required."
       },
       "waiverLabel": "Waiver reason",
       "waiverRequired": "Enter the waiver reason to mark as not applicable.",
@@ -56,8 +56,8 @@
       "unavailable": "Prototype version history is not available in the current contract."
     },
     "notApplicable": {
-      "title": "Prototyping not applicable",
-      "body": "This project was formally waived from prototyping. Change the scenario above to use prototypes and references again."
+      "title": "Interface references not applicable",
+      "body": "This project does not need visual references. Change the scenario above to use prototypes and references again."
     },
     "empty": {
       "prototypes": "No prototypes in this project yet.",
