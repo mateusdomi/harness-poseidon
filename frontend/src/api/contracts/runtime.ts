@@ -273,6 +273,8 @@ export const v3BuildMissionSchema = z.object({
   status: z.string(),
   recommendedExecutor: v3RecommendedExecutorSchema,
   primaryRequirementsCoverage: z.array(v3SourceCoverageSchema),
+  missionContractVersion: z.string().optional(),
+  structuredMissionPlanJson: z.string().nullable().optional(),
 });
 export type V3BuildMission = z.infer<typeof v3BuildMissionSchema>;
 

@@ -39291,7 +39291,9 @@
                     "repository",
                     "status",
                     "recommendedExecutor",
-                    "primaryRequirementsCoverage"
+                    "primaryRequirementsCoverage",
+                    "missionContractVersion",
+                    "structuredMissionPlanJson"
                 ],
                 "type": "object",
                 "properties": {
@@ -39372,6 +39374,15 @@
                         "items": {
                             "$ref": "#/components/schemas/V3SourceCoverage"
                         }
+                    },
+                    "missionContractVersion": {
+                        "type": "string"
+                    },
+                    "structuredMissionPlanJson": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     }
                 }
             },

@@ -1562,6 +1562,13 @@ public static class V3MissionContextMaterializer
 
 public static class V3MissionCompiler
 {
+    public const string BuildMissionContractVersion = "v3.1";
+
+    private static readonly JsonSerializerOptions MissionPlanJson = new(JsonSerializerDefaults.Web)
+    {
+        WriteIndented = true,
+    };
+
     public static V3BuildMissionRecord CompileBuildMission(
         V3ProjectContextResponse context,
         V3RecommendedExecutor recommended,
@@ -1574,7 +1581,8 @@ public static class V3MissionCompiler
             ? recommended
             : new V3RecommendedExecutor(overrideExecutor.Trim(), "OVERRIDDEN", "Human/operator override.");
         var package = V3MissionContextMaterializer.Materialize(context, missionId, knowledge);
-        var text = ComposeMissionText(package.Context, package.Knowledge, executor);
+        var plan = BuildStructuredMissionPlan(package.Context, package.Knowledge, executor);
+        var text = ComposeMissionText(package.Context, package.Knowledge, executor, plan);
         return new V3BuildMissionRecord(
             missionId,
             context.ProjectId,
@@ -1593,6 +1601,8 @@ public static class V3MissionCompiler
             executor)
         {
             PrimaryRequirementsCoverage = context.PrimaryRequirementsCoverage,
+            MissionContractVersion = BuildMissionContractVersion,
+            StructuredMissionPlanJson = JsonSerializer.Serialize(plan, MissionPlanJson),
         };
     }
 
@@ -1624,6 +1634,7 @@ public static class V3MissionCompiler
             executor)
         {
             PrimaryRequirementsCoverage = context.PrimaryRequirementsCoverage,
+            MissionContractVersion = "v3.validation.1",
         };
     }
 
@@ -1661,18 +1672,43 @@ public static class V3MissionCompiler
             null,
             repository,
             "COMPILED",
-            selectedExecutor);
+            selectedExecutor)
+        {
+            MissionContractVersion = "v3.platform-maintenance.1",
+        };
     }
 
     private static string ComposeMissionText(
         V3ProjectContextResponse context,
         IReadOnlyList<V3KnowledgeReference> knowledge,
-        V3RecommendedExecutor executor)
+        V3RecommendedExecutor executor,
+        V3StructuredMissionPlan plan)
     {
         var state = context.State;
         var lines = new List<string>
         {
             $"# BUILD MISSION — {context.ProjectName}",
+            "",
+            $"MissionContractVersion: {plan.ContractVersion}",
+            "",
+            "## EXECUTION BRIEF",
+            $"WHO: {plan.Brief.Who}",
+            $"WHAT: {plan.Brief.What}",
+            $"CONTEXT: {plan.Brief.Context}",
+            $"FLOW: {plan.Brief.Flow}",
+            $"PROOF: {plan.Brief.Proof}",
+            "",
+            "## CANONICAL MISSION PLAN",
+        };
+        foreach (var dimension in plan.Dimensions)
+        {
+            lines.Add("");
+            lines.Add($"### {dimension.Number} {dimension.Title}");
+            lines.Add($"Source: {dimension.Source}");
+            lines.AddRange(dimension.Items.Count == 0 ? ["- N/A"] : dimension.Items.Select(item => $"- {item}"));
+        }
+
+        lines.AddRange([
             "",
             "## PROJECT OBJECTIVE",
             state?.ProductGoal ?? context.ProjectSummary ?? context.OriginalIntent ?? $"Construir {context.ProjectName}.",
@@ -1685,7 +1721,7 @@ public static class V3MissionCompiler
             "- Não substitua os originais por este resumo; consulte os artefatos quando houver dúvida.",
             $"- PrimaryRequirementsCoverage: {PrimaryCoveragePercent(context.PrimaryRequirementsCoverage)}%.",
             "- Antes de implementar, leia integralmente os artefatos originais referenciados quando forem fontes primárias de requisitos.",
-        };
+        ]);
         lines.AddRange((state?.Requirements ?? context.Requirements).Select(item => $"- {item}"));
         lines.Add("");
         lines.Add("## ORIGINAL ARTIFACTS");
@@ -1833,6 +1869,130 @@ public static class V3MissionCompiler
         ]);
         return string.Join(Environment.NewLine, lines);
     }
+
+    private static V3StructuredMissionPlan BuildStructuredMissionPlan(
+        V3ProjectContextResponse context,
+        IReadOnlyList<V3KnowledgeReference> knowledge,
+        V3RecommendedExecutor executor)
+    {
+        var state = context.State;
+        var requirements = state?.Requirements.Count > 0 ? state.Requirements : context.Requirements;
+        var criteria = state?.AcceptanceCriteria.Count > 0 ? state.AcceptanceCriteria : context.AcceptanceCriteria;
+        var hasFrontend = state?.ProvidedFrontend == true ||
+            context.Artifacts.Any(artifact =>
+                artifact.Role.Contains("frontend", StringComparison.OrdinalIgnoreCase) ||
+                artifact.Role.Contains("prototype", StringComparison.OrdinalIgnoreCase));
+        var complexity = state?.SolutionStrategy?.Complexity ?? "SIMPLE";
+        var flow = string.Equals(complexity, "COMPLEX", StringComparison.OrdinalIgnoreCase)
+            ? "inspect sources → map domain/integration contracts → implement vertical slices → integrate → self-verify → fix/retest"
+            : "inspect sources → implement integrated vertical solution → build/test → fix/retest";
+
+        return new V3StructuredMissionPlan(
+            BuildMissionContractVersion,
+            new V3ExecutionBrief(
+                executor.AccountAlias ?? "eligible write-capable Project Executor selected by Poseidon",
+                state?.ProductGoal ?? context.ProjectSummary ?? context.OriginalIntent ?? $"Deliver {context.ProjectName}.",
+                $"Primary requirements coverage {PrimaryCoveragePercent(context.PrimaryRequirementsCoverage)}%; {context.Artifacts.Count} artifact(s); {knowledge.Count} knowledge source(s).",
+                flow,
+                "Acceptance criteria + quality gates + Definition of Done + POSEIDON_MISSION_COMPLETE."),
+            [
+                Dimension(1, "ROLE", "Runtime", "Senior autonomous software engineer; one persistent executor, not a swarm."),
+                Dimension(2, "MISSION", "Bruna", state?.ProductGoal ?? context.ProjectSummary ?? context.OriginalIntent ?? $"Deliver executable integrated product for {context.ProjectName}."),
+                Dimension(3, "BUSINESS CONTEXT", "Bruna/Context", context.ProjectSummary ?? context.OriginalIntent ?? "Use original sources as canonical business context."),
+                Dimension(4, "CURRENT STATE", "Runtime/Context", [
+                    context.Artifacts.Count > 0
+                        ? "Provided artifacts are materialized in the mission context and must be inspected."
+                        : "No external artifact was materialized; inspect repository state before changing files.",
+                    $"Repository: {context.Repository ?? "local repository managed by Poseidon"}.",
+                ]),
+                Dimension(5, "SOURCES OF TRUTH", "Runtime/Context", [
+                    $"PrimaryRequirementsCoverage: {PrimaryCoveragePercent(context.PrimaryRequirementsCoverage)}%",
+                    .. context.Artifacts.Select(artifact => $"{artifact.Role}: {artifact.Name} — path={artifact.ReadablePath ?? "UNAVAILABLE"}"),
+                    .. context.Documents.Select(document => $"{document.SourceRole ?? "document"}: {document.Title} — path={document.ReadablePath ?? "UNAVAILABLE"}"),
+                    .. knowledge.Select(item => $"Knowledge: {item.Path} — path={item.ReadablePath ?? "UNAVAILABLE"}"),
+                ]),
+                Dimension(6, "SCOPE", "Bruna", requirements.Count == 0 ? ["All explicit scope in original sources."] : requirements),
+                Dimension(7, "NON-SCOPE", "Bruna", "No additional exclusion beyond original sources unless explicitly declared by the user."),
+                Dimension(8, "FUNCTIONAL REQUIREMENTS", "Bruna", requirements.Count == 0 ? ["Derive faithfully from primary requirements before implementing."] : requirements),
+                Dimension(9, "NON-FUNCTIONAL REQUIREMENTS", "Bruna/Governance", [
+                    $"Responsive/UI required: {(hasFrontend ? "YES" : "according to explicit UI scope")}",
+                    "Security, operability, accessibility and performance expectations come from selected product knowledge and baseline unless explicit in sources.",
+                ]),
+                Dimension(10, "ARCHITECTURAL CONSTRAINTS", "Bruna/Runtime", [
+                    $"Frontend: {context.EffectiveStack.Frontend}",
+                    $"Backend: {context.EffectiveStack.Backend}",
+                    $"Database: {context.EffectiveStack.Database}",
+                    $"Architecture: {context.EffectiveStack.Architecture}",
+                    $"SolutionStrategy complexity: {complexity}",
+                    $"Architecture approval required: {(state?.SolutionStrategy?.ArchitectureApprovalRequired == true ? "YES" : "NO")}",
+                ]),
+                Dimension(11, "TOOLS & PERMISSIONS", "Runtime", [
+                    "Workspace write allowed inside product repository.",
+                    "Shell/build/test/browser allowed as required by mission.",
+                    "Git local commits expected; push is not allowed unless explicitly authorized.",
+                    "Secrets must not be written to Git, logs or prompts.",
+                ]),
+                Dimension(12, "EXECUTION STRATEGY", "Bruna", flow),
+                Dimension(13, "WORKFLOW GRAPH", "Bruna", BuildWorkflowGraph(complexity, hasFrontend)),
+                Dimension(14, "VALIDATION LOOPS", "Runtime/Governance", "During BUILD: implement → build → test → analyze → fix → retest. Final ValidationMission is separate."),
+                Dimension(15, "QUALITY GATES", "Runtime/Governance", [
+                    "Build gate applicable to stack.",
+                    "Relevant tests gate.",
+                    "Integration/runtime smoke gate.",
+                    "Critical requirements and acceptance criteria gate.",
+                    $"Acceptance criteria count: {criteria.Count}.",
+                ]),
+                Dimension(16, "DECISION POLICY", "Governance", [
+                    "Executor decides reversible technical choices.",
+                    "Executor blocks only for irreversible business decisions, external credentials, unsafe destructive actions, or unresolved material architecture decisions.",
+                ]),
+                Dimension(17, "STATE & RECOVERY", "Runtime", [
+                    "MissionId assigned by Poseidon.",
+                    $"Repository: {context.Repository ?? "managed local repository"}",
+                    "Runtime tracks InitialHead/CurrentHead, commits, continue behavior, quota failover and crash recovery.",
+                ]),
+                Dimension(18, "DELIVERABLES", "Bruna/Governance", [
+                    "Executable integrated product.",
+                    "Source code, schema/migrations when applicable, minimal operational documentation, relevant tests and useful commits.",
+                ]),
+                Dimension(19, "DEFINITION OF DONE", "Governance", [
+                    "Product builds.",
+                    "Frontend/API/database integrated when applicable.",
+                    "Critical path is real, not mocked.",
+                    "Relevant tests pass.",
+                    "Final marker only when complete.",
+                ]),
+                Dimension(20, "COMMUNICATION POLICY", "Runtime/Governance", [
+                    "No approval requests between features.",
+                    "Use meaningful checkpoints only.",
+                    "POSEIDON_PROGRESS_CHECKPOINT does not end mission.",
+                    "POSEIDON_MISSION_COMPLETE ends BUILD only when DoD is satisfied.",
+                ]),
+            ]);
+    }
+
+    private static IReadOnlyList<string> BuildWorkflowGraph(string complexity, bool hasFrontend) =>
+        string.Equals(complexity, "COMPLEX", StringComparison.OrdinalIgnoreCase)
+            ? [
+                "sources → domain/integration contract map",
+                "domain/integration contract map → backend/API/persistence",
+                hasFrontend ? "backend/API/persistence → frontend integration" : "backend/API/persistence → runtime smoke",
+                "implementation branches → self-verification loop",
+                "self-verification loop → final report/complete marker",
+            ]
+            : [
+                "sources → inspect repository",
+                hasFrontend ? "inspect repository → implement frontend/API/database vertical flow" : "inspect repository → implement API/domain/persistence flow",
+                "implementation → build/test",
+                "build/test → fix/retest",
+                "fix/retest → final report/complete marker",
+            ];
+
+    private static V3MissionPlanDimension Dimension(int number, string title, string source, string item) =>
+        new(number, title, source, [item]);
+
+    private static V3MissionPlanDimension Dimension(int number, string title, string source, IReadOnlyList<string> items) =>
+        new(number, title, source, items);
 
     private static bool HasBranding(V3ProjectBrandContext? brand) =>
         brand is not null &&
@@ -2209,6 +2369,19 @@ public sealed record V3KnowledgeReference(string Path, string Reason)
 
 public sealed record V3RecommendedExecutor(string? AccountAlias, string Status, string Reason);
 
+public sealed record V3ExecutionBrief(string Who, string What, string Context, string Flow, string Proof);
+
+public sealed record V3MissionPlanDimension(
+    int Number,
+    string Title,
+    string Source,
+    IReadOnlyList<string> Items);
+
+public sealed record V3StructuredMissionPlan(
+    string ContractVersion,
+    V3ExecutionBrief Brief,
+    IReadOnlyList<V3MissionPlanDimension> Dimensions);
+
 public sealed record V3BuildMissionRecord(
     string MissionId,
     string ProjectId,
@@ -2227,6 +2400,8 @@ public sealed record V3BuildMissionRecord(
     V3RecommendedExecutor RecommendedExecutor)
 {
     public IReadOnlyList<V3SourceCoverage> PrimaryRequirementsCoverage { get; init; } = [];
+    public string MissionContractVersion { get; init; } = "v3.0";
+    public string? StructuredMissionPlanJson { get; init; }
 }
 
 public sealed record V3BuildMissionResponse(
@@ -2246,7 +2421,9 @@ public sealed record V3BuildMissionResponse(
     string? Repository,
     string Status,
     V3RecommendedExecutor RecommendedExecutor,
-    IReadOnlyList<V3SourceCoverage> PrimaryRequirementsCoverage)
+    IReadOnlyList<V3SourceCoverage> PrimaryRequirementsCoverage,
+    string MissionContractVersion,
+    string? StructuredMissionPlanJson)
 {
     public static V3BuildMissionResponse From(V3BuildMissionRecord value) =>
         new(
@@ -2266,7 +2443,9 @@ public sealed record V3BuildMissionResponse(
             value.Repository,
             value.Status,
             value.RecommendedExecutor,
-            value.PrimaryRequirementsCoverage);
+            value.PrimaryRequirementsCoverage,
+            value.MissionContractVersion,
+            value.StructuredMissionPlanJson);
 }
 
 public sealed record V3MissionPageResponse(IReadOnlyList<V3BuildMissionResponse> Items);

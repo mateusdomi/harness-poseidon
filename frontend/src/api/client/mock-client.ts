@@ -2650,6 +2650,11 @@ export class MockApiClient implements ApiClient {
         reason: 'AVAILABLE + WRITE_CAPABLE + role compatible.',
       },
       primaryRequirementsCoverage: context.primaryRequirementsCoverage,
+      missionContractVersion: 'v3.1',
+      structuredMissionPlanJson: JSON.stringify({
+        contractVersion: 'v3.1',
+        dimensions: Array.from({ length: 20 }, (_, index) => ({ number: index + 1 })),
+      }),
     };
   }
 

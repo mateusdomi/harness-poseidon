@@ -2,6 +2,7 @@ using Harness.Host.V3;
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Contracts;
 using Harness.Persistence.Abstractions.Projects;
+using System.Text.Json;
 
 namespace Harness.UnitTests.V3;
 
@@ -196,6 +197,37 @@ public sealed class V3UnderstandTests : IDisposable
         Assert.Contains("leia integralmente", saved.MissionText, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("AUTONOMY CONTRACT", saved.MissionText, StringComparison.Ordinal);
         Assert.Contains("DEFINITION OF DONE", saved.MissionText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildMissionUsesCanonicalV31MissionContract()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        var context = Context(deadline: now.AddDays(10), repository: "/tmp/prisma");
+        var recommended = new V3RecommendedExecutor("worker-codex-project", "AVAILABLE", "AVAILABLE + WRITE_CAPABLE + role compatible.");
+
+        var mission = V3MissionCompiler.CompileBuildMission(context, recommended, null, now);
+
+        Assert.Equal("v3.1", mission.MissionContractVersion);
+        Assert.Contains("MissionContractVersion: v3.1", mission.MissionText, StringComparison.Ordinal);
+        Assert.Contains("## EXECUTION BRIEF", mission.MissionText, StringComparison.Ordinal);
+        Assert.Contains("WHO:", mission.MissionText, StringComparison.Ordinal);
+        Assert.Contains("WHAT:", mission.MissionText, StringComparison.Ordinal);
+        Assert.Contains("CONTEXT:", mission.MissionText, StringComparison.Ordinal);
+        Assert.Contains("FLOW:", mission.MissionText, StringComparison.Ordinal);
+        Assert.Contains("PROOF:", mission.MissionText, StringComparison.Ordinal);
+        Assert.Contains("## CANONICAL MISSION PLAN", mission.MissionText, StringComparison.Ordinal);
+        Assert.NotNull(mission.StructuredMissionPlanJson);
+
+        using var document = JsonDocument.Parse(mission.StructuredMissionPlanJson!);
+        var dimensions = document.RootElement.GetProperty("dimensions").EnumerateArray().ToArray();
+        Assert.Equal(20, dimensions.Length);
+        Assert.Equal("ROLE", dimensions[0].GetProperty("title").GetString());
+        Assert.Equal("COMMUNICATION POLICY", dimensions[^1].GetProperty("title").GetString());
+        Assert.Contains("POSEIDON_MISSION_COMPLETE", mission.MissionText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Council", mission.MissionText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("micro-card", mission.MissionText, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("cardActions", mission.MissionText, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
