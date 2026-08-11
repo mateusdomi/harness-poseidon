@@ -24,7 +24,7 @@
       "noLogo": "Sem logo definido"
     },
     "stage": {
-      "title": "Etapa de Prototipação",
+      "title": "Referências e protótipos",
       "entryPath": "Como as informações chegaram",
       "inherited": "O que foi aproveitado",
       "missing": "O que ainda preciso perguntar",
@@ -45,6 +45,7 @@
       "references": "Referências visuais"
     },
     "openExternal": "Abrir protótipo externo",
+    "download": "Baixar",
     "zipBadge": "ZIP (referência)",
     "imageUnavailable": "Imagem indisponível",
     "metadata": {

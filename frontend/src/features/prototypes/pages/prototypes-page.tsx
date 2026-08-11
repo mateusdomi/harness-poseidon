@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FileArchive, ImageIcon, Pencil, Upload } from 'lucide-react';
+import { Download, FileArchive, ImageIcon, Pencil, Upload } from 'lucide-react';
 
 import {
   Badge,
@@ -376,6 +376,14 @@ export default function UprototypesPage() {
                                       ))}
                                     </div>
                                   )}
+                                  <a
+                                    href={reference.imageUrl}
+                                    download
+                                    className="mt-2 inline-flex min-h-11 items-center gap-2 text-sm text-brand-strong underline-offset-4 hover:underline"
+                                  >
+                                    <Download aria-hidden="true" className="size-4" />
+                                    {t('prototypes.download')}
+                                  </a>
                                 </CardContent>
                               </Card>
                             </li>

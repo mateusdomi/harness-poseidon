@@ -715,14 +715,25 @@
       "lastActivity": "Última atividade {{time}}",
       "logoAlt": "Marca do projeto {{name}}",
       "poseidonDescription": "Plano de controle do Poseidon.",
-      "phase": "Etapa",
-      "progress": "Progresso executado",
-      "progressValue": "{{completed}}/{{total}} pontos — {{percent}}%",
+      "lifecycle": "Lifecycle",
+      "running": "Execuções",
+      "runningValue": "{{count}} em execução",
       "responsible": "Responsável",
       "health": "Saúde",
-      "workflow": "Fluxo de trabalho",
       "repository": "Repositório",
       "notAvailable": "Não informado",
+      "lifecycleStates": {
+        "understand": "Entendimento",
+        "build": "Desenvolvimento",
+        "validate": "Validação",
+        "acceptance": "Aceite Humano"
+      },
+      "lifecycleShort": {
+        "understand": "Entendimento",
+        "build": "Desenvolvimento",
+        "validate": "Validação",
+        "acceptance": "Aceite"
+      },
       "healthStates": {
         "healthy": "Saudável",
         "attention": "Requer atenção",
@@ -755,7 +766,7 @@
         "key": "Sigla",
         "keyHint": "Sigla curta em maiúsculas usada em prefixos, ex.: POSEIDON.",
         "criticality": "Criticidade",
-        "criticalityEstimatedNote": "estimada automaticamente pela Bruna Magalhães no primeiro plano (editável no Modo Técnico).",
+        "criticalityEstimatedNote": "avaliada durante o entendimento inicial (editável nos detalhes técnicos quando necessário).",
         "targetDeadline": "Prazo desejado (opcional)",
         "targetDeadlineHint": "Data limite estimada para conclusão.",
         "description": "Descrição",
@@ -767,7 +778,7 @@
       },
       "objective": {
         "description": "Objetivo e contexto",
-        "descriptionHint": "Explique o resultado esperado, o público e os limites principais do projeto."
+        "descriptionHint": "Opcional: você também pode criar o projeto e explicar tudo no Chat."
       },
       "repository": {
         "provider": "Provedor",
@@ -793,7 +804,7 @@
         "required": "Selecione pelo menos uma pessoa."
       },
       "advanced": {
-        "defaults": "O projeto nasce ativo, em modo manual e com as políticas herdadas da organização."
+        "defaults": "O projeto nasce pausado, com repositório local controlado pela plataforma e políticas herdadas da organização."
       },
       "create": "Criar projeto"
     },

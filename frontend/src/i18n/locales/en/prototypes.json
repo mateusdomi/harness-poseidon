@@ -24,7 +24,7 @@
       "noLogo": "No logo defined"
     },
     "stage": {
-      "title": "Prototyping stage",
+      "title": "References and prototypes",
       "entryPath": "How the information arrived",
       "inherited": "What was reused",
       "missing": "What I still need to ask",
@@ -45,6 +45,7 @@
       "references": "Visual references"
     },
     "openExternal": "Open external prototype",
+    "download": "Download",
     "zipBadge": "ZIP (reference)",
     "imageUnavailable": "Image unavailable",
     "metadata": {

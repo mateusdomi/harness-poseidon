@@ -8,6 +8,13 @@
       "executor": "Executor",
       "roles": "Papéis",
       "chiefPrimary": "Chief principal",
+      "businessSummary": "Contas runtime são infraestrutura. Perfis públicos incompletos aparecem em Administração/Detalhes técnicos antes de virarem pessoas na experiência principal.",
+      "metrics": {
+        "available": "Disponíveis",
+        "running": "Em execução",
+        "attention": "Precisam de atenção",
+        "total": "Total"
+      },
       "authCommand": "Execute este comando em um terminal para autenticar a conta isolada:",
       "actions": {
         "auth": "Autenticar",
@@ -76,13 +83,16 @@
         "quality": "Qualidade e revisão"
       },
       "metrics": {
-        "completed": "Concluídas",
-        "approved": "Aprovadas",
-        "rework": "Retrabalho"
+        "completed": "Entregas",
+        "approved": "Validações",
+        "rework": "Ajustes"
       },
-    "zeroSource": "Fonte: tarefas e tentativas persistidas atribuídas à identidade. Sem vínculo atribuível, o valor é zero.",
-    "photoAction": "Trocar foto",
-    "photoUploading": "Enviando foto…"
+      "zeroSource": "Fonte: execuções e eventos persistidos atribuíveis ao perfil público. Sem vínculo atribuível, o valor é zero.",
+      "photoAction": "Trocar foto",
+      "photoUploading": "Enviando foto…",
+      "pendingProfiles": "{{count}} conta(s) runtime ainda não têm perfil público. Elas ficam fora da equipe principal até serem vinculadas a uma identidade humana.",
+      "backingAccount": "Conta de execução",
+      "publicProfileHelp": "A identidade pública permanece Bruna; a conta de execução pode trocar em segundo plano."
     },
     "card": {
       "capabilities": "Capacidades",

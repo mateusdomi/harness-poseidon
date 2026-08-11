@@ -93,11 +93,12 @@ export type ProjectFormValues = z.infer<typeof projectFormSchema>;
 
 /**
  * O modo Negócio mantém os defaults técnicos no payload, mas não obriga o
- * dono a selecionar pessoas: o backend vincula automaticamente o perfil que
- * criou o projeto. Os quatro campos visíveis continuam validados pelo schema
- * completo (título, objetivo, prazo opcional e marca/logo opcional).
+ * dono a selecionar pessoas nem a preencher objetivo/contexto imediatamente:
+ * o usuário pode criar o projeto e explicar o escopo no Chat. Quando preenchido,
+ * esse texto continua sendo contexto declarado pelo usuário e segue no payload.
  */
 export const businessProjectFormSchema = projectFormSchema.extend({
+  description: z.string().trim(),
   memberProfileIds: z.array(z.string()),
 });
 

@@ -68,16 +68,16 @@ export function ProjectCard({
       <span className="line-clamp-2 text-sm text-foreground-muted">{description}</span>
       <span className="grid gap-2 text-xs md:grid-cols-2">
         <span>
-          <strong>{t('projects.card.phase')}:</strong>{' '}
-          {operational?.phaseName ?? t('projects.card.notAvailable')}
+          <strong>{t('projects.card.lifecycle')}:</strong>{' '}
+          {t(`projects.card.lifecycleStates.${operational?.lifecycleState ?? 'understand'}`)}
         </span>
         <span>
           <strong>{t('projects.card.responsible')}:</strong>{' '}
           {operational?.responsibleName ?? t('projects.card.notAvailable')}
         </span>
         <span>
-          <strong>{t('projects.card.workflow')}:</strong>{' '}
-          {operational?.workflowName ?? t('projects.card.notAvailable')}
+          <strong>{t('projects.card.running')}:</strong>{' '}
+          {t('projects.card.runningValue', { count: operational?.runningExecutions ?? 0 })}
         </span>
         <span>
           <strong>{t('projects.card.health')}:</strong>{' '}
@@ -90,33 +90,7 @@ export function ProjectCard({
           </span>
         )}
       </span>
-      {operational?.progressPercent !== null && operational?.progressPercent !== undefined ? (
-        <span className="flex flex-col gap-1">
-          <span className="flex justify-between gap-2 text-xs text-foreground-muted">
-            <span>{t('projects.card.progress')}</span>
-            <span>
-              {t('projects.card.progressValue', {
-                completed: operational.completedTasks,
-                total: operational.totalTasks,
-                percent: operational.progressPercent,
-              })}
-            </span>
-          </span>
-          <span
-            role="progressbar"
-            aria-label={t('projects.card.progress')}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={operational.progressPercent}
-            className="h-1.5 overflow-hidden rounded-full bg-surface-elevated"
-          >
-            <span
-              className="block h-full rounded-full bg-brand"
-              style={{ width: `${operational.progressPercent}%` }}
-            />
-          </span>
-        </span>
-      ) : null}
+      <LifecycleSegments current={operational?.lifecycleState ?? 'understand'} />
       {!isBusiness && project.technologies.length > 0 ? (
         <span className="flex flex-wrap gap-1">
           {project.technologies.slice(0, 4).map((tech) => (
@@ -130,5 +104,43 @@ export function ProjectCard({
         {t('projects.card.lastActivity', { time: formatRelativeTime(project.lastActivityAt) })}
       </span>
     </button>
+  );
+}
+
+function LifecycleSegments({
+  current,
+}: {
+  current: NonNullable<ProjectOperationalSummary['lifecycleState']>;
+}) {
+  const { t } = useTranslation();
+  const order: Array<ProjectOperationalSummary['lifecycleState']> = [
+    'understand',
+    'build',
+    'validate',
+    'acceptance',
+  ];
+  const currentIndex = order.indexOf(current);
+  return (
+    <span className="grid grid-cols-2 gap-1 text-[11px] sm:grid-cols-4">
+      {order.map((state, index) => {
+        const done = index < currentIndex;
+        const active = index === currentIndex;
+        return (
+          <span
+            key={state}
+            className={
+              done
+                ? 'rounded bg-success/15 px-2 py-1 text-success'
+                : active
+                  ? 'rounded bg-brand/15 px-2 py-1 text-brand-strong'
+                  : 'rounded bg-surface-elevated px-2 py-1 text-foreground-muted'
+            }
+          >
+            {done ? '✓ ' : active ? '● ' : '○ '}
+            {t(`projects.card.lifecycleShort.${state}`)}
+          </span>
+        );
+      })}
+    </span>
   );
 }

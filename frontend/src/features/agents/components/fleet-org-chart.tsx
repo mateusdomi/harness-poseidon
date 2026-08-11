@@ -34,10 +34,13 @@ function teamOf(roles: readonly string[]): string {
 /** Organograma da fleet global reutilizável, distinto das alocações de um projeto. */
 export function FleetOrgChart() {
   const { t } = useTranslation();
+  const { showTechnicalDetails } = usePresentationMode();
   const roster = useAgentRoster();
   const accounts = roster.data ?? [];
   const leadership =
-    accounts.find((account) => account.alias === 'chief-claude-primary') ?? accounts[0] ?? null;
+    accounts.find((account) => account.roles.some((role) => role.includes('chief'))) ??
+    accounts[0] ??
+    null;
   const specialists = accounts.filter((account) => account !== leadership);
   const groups = specialists.reduce<Map<string, AgentAccountRoster[]>>((result, account) => {
     const team = teamOf(account.roles);
@@ -65,32 +68,64 @@ export function FleetOrgChart() {
             className="flex min-w-0 flex-col items-stretch gap-5"
           >
             <div className="mx-auto w-full max-w-sm">
-              <FleetNode account={leadership} />
+              <PublicChiefNode account={leadership} />
             </div>
-            <div aria-hidden="true" className="mx-auto h-5 w-px bg-border-strong" />
-            <div className="grid min-w-0 gap-4 lg:grid-cols-2 xl:grid-cols-4">
-              {[...groups.entries()].map(([team, members]) => (
-                <section
-                  key={team}
-                  className="flex min-w-0 flex-col gap-3 overflow-hidden rounded-lg border border-border p-3"
-                >
-                  <h3 className="font-heading font-semibold">
-                    {t(`agents.fleetTree.teams.${team}`)}
-                  </h3>
-                  {members.map((account) => (
-                    <div key={account.alias} className="min-w-0">
-                      <FleetNode account={account} />
-                    </div>
+            {showTechnicalDetails ? (
+              <>
+                <div aria-hidden="true" className="mx-auto h-5 w-px bg-border-strong" />
+                <div className="grid min-w-0 gap-4 lg:grid-cols-2 xl:grid-cols-4">
+                  {[...groups.entries()].map(([team, members]) => (
+                    <section
+                      key={team}
+                      className="flex min-w-0 flex-col gap-3 overflow-hidden rounded-lg border border-border p-3"
+                    >
+                      <h3 className="font-heading font-semibold">
+                        {t(`agents.fleetTree.teams.${team}`)}
+                      </h3>
+                      {members.map((account) => (
+                        <div key={account.alias} className="min-w-0">
+                          <FleetNode account={account} />
+                        </div>
+                      ))}
+                    </section>
                   ))}
-                </section>
-              ))}
-            </div>
+                </div>
+              </>
+            ) : specialists.length > 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="p-4 text-sm text-foreground-muted">
+                  {t('agents.fleetTree.pendingProfiles', { count: specialists.length })}
+                </CardContent>
+              </Card>
+            ) : null}
           </div>
         ) : (
           <p className="text-sm text-foreground-muted">{t('agents.roster.empty')}</p>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function PublicChiefNode({ account }: { account: AgentAccountRoster }) {
+  const { t } = useTranslation();
+  const { showTechnicalDetails } = usePresentationMode();
+  return (
+    <article className="flex min-w-0 flex-col gap-3 overflow-hidden rounded-md border border-border bg-surface-elevated p-3">
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+        <AgentIdentity alias="chief-orchestrator" size={42} />
+        <Badge variant={STATE_VARIANT[account.state] ?? 'default'}>
+          {t(`agents.roster.state.${account.state}`, { defaultValue: account.state })}
+        </Badge>
+      </div>
+      {showTechnicalDetails ? (
+        <p className="min-w-0 break-words text-xs text-foreground-muted">
+          {t('agents.fleetTree.backingAccount')}: {account.alias} · {account.providerKind}
+        </p>
+      ) : (
+        <p className="text-xs text-foreground-muted">{t('agents.fleetTree.publicProfileHelp')}</p>
+      )}
+    </article>
   );
 }
 

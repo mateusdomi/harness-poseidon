@@ -37,6 +37,11 @@ export function AgentExecutionRoster() {
   const setChief = useSetChiefPrimary();
   const [authCommand, setAuthCommand] = useState<string | null>(null);
   const accounts = rosterQuery.data ?? [];
+  const availableAccounts = accounts.filter((account) => account.state === 'idle').length;
+  const runningAccounts = accounts.filter((account) => account.state === 'working').length;
+  const attentionAccounts = accounts.filter((account) =>
+    ['out-of-quota', 'authentication-required', 'degraded', 'offline'].includes(account.state),
+  ).length;
 
   async function prepare(alias: string) {
     const result = await prepareAuth.mutateAsync(alias);
@@ -69,6 +74,16 @@ export function AgentExecutionRoster() {
           </p>
         ) : accounts.length === 0 ? (
           <p className="text-sm text-foreground-muted">{t('agents.roster.empty')}</p>
+        ) : !showTechnicalDetails ? (
+          <div className="grid gap-3 sm:grid-cols-4">
+            <RuntimeSummaryMetric label={t('agents.roster.metrics.available')} value={availableAccounts} />
+            <RuntimeSummaryMetric label={t('agents.roster.metrics.running')} value={runningAccounts} />
+            <RuntimeSummaryMetric label={t('agents.roster.metrics.attention')} value={attentionAccounts} />
+            <RuntimeSummaryMetric label={t('agents.roster.metrics.total')} value={accounts.length} />
+            <p className="sm:col-span-4 text-sm text-foreground-muted">
+              {t('agents.roster.businessSummary')}
+            </p>
+          </div>
         ) : (
           <ul className="grid min-w-0 gap-2 md:grid-cols-2 xl:grid-cols-3">
             {accounts.map((account) => (
@@ -143,5 +158,14 @@ export function AgentExecutionRoster() {
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+function RuntimeSummaryMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-md border border-border bg-surface-elevated p-3">
+      <p className="text-xs text-foreground-muted">{label}</p>
+      <p className="mt-1 font-heading text-2xl font-semibold">{value}</p>
+    </div>
   );
 }

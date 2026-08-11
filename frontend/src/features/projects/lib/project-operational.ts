@@ -5,18 +5,14 @@ import type {
   Task,
   Workflow,
   WorkflowRun,
-  WorkflowTemplate,
 } from '@/api';
 import { resolveAgentIdentity } from '@/lib/agent-persona';
 
 export interface ProjectOperationalSummary {
-  phaseName: string | null;
-  completedTasks: number;
-  totalTasks: number;
-  progressPercent: number | null;
+  lifecycleState: 'understand' | 'build' | 'validate' | 'acceptance';
   responsibleName: string | null;
   health: 'healthy' | 'attention' | 'unavailable';
-  workflowName: string | null;
+  runningExecutions: number;
 }
 
 export interface ProjectOperationalSource {
@@ -25,7 +21,6 @@ export interface ProjectOperationalSource {
   workflows: Workflow[];
   runs: WorkflowRun[];
   phases: Phase[];
-  templates: WorkflowTemplate[];
 }
 
 /** Projeção somente de dados reais já publicados pelos contratos operacionais. */
@@ -34,10 +29,6 @@ export function deriveProjectOperationalSummary(
   source: ProjectOperationalSource,
 ): ProjectOperationalSummary {
   const tasks = source.tasks.filter((task) => task.projectId === project.id);
-  // Mesma fonte do trilho "Executado" do Dashboard: soma dos pontos publicados
-  // pelas tarefas ÷ 100 pontos possíveis por tarefa.
-  const completedTasks = tasks.reduce((sum, task) => sum + task.progress.executed, 0);
-  const totalTasks = tasks.length * 100;
   const workflow = source.workflows.find((item) => item.projectId === project.id) ?? null;
   const run = workflow
     ? source.runs
@@ -58,19 +49,12 @@ export function deriveProjectOperationalSummary(
     );
 
   return {
-    phaseName: phase?.name ?? null,
-    completedTasks,
-    totalTasks,
-    progressPercent:
-      totalTasks === 0 ? null : Math.round((completedTasks / totalTasks) * 100),
+    lifecycleState: run ? 'build' : 'understand',
     responsibleName:
       responsible === null
         ? null
         : resolveAgentIdentity('chief-orchestrator', responsible.name).humanName,
     health: tasks.length === 0 && !workflow ? 'unavailable' : hasAttention ? 'attention' : 'healthy',
-    workflowName:
-      workflow === null
-        ? null
-        : (source.templates.find((template) => template.id === workflow.templateId)?.name ?? null),
+    runningExecutions: run && phase ? 1 : 0,
   };
 }

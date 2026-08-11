@@ -715,14 +715,25 @@
       "lastActivity": "Last activity {{time}}",
       "logoAlt": "{{name}} project brand",
       "poseidonDescription": "Poseidon control plane.",
-      "phase": "Stage",
-      "progress": "Executed progress",
-      "progressValue": "{{completed}}/{{total}} points — {{percent}}%",
+      "lifecycle": "Lifecycle",
+      "running": "Executions",
+      "runningValue": "{{count}} running",
       "responsible": "Owner",
       "health": "Health",
-      "workflow": "Workflow",
       "repository": "Repository",
       "notAvailable": "Not informed",
+      "lifecycleStates": {
+        "understand": "Understanding",
+        "build": "Development",
+        "validate": "Validation",
+        "acceptance": "Human Acceptance"
+      },
+      "lifecycleShort": {
+        "understand": "Understanding",
+        "build": "Development",
+        "validate": "Validation",
+        "acceptance": "Acceptance"
+      },
       "healthStates": {
         "healthy": "Healthy",
         "attention": "Needs attention",
@@ -755,7 +766,7 @@
         "key": "Sigla (short code)",
         "keyHint": "Short uppercase code used in prefixes, e.g. POSEIDON.",
         "criticality": "Criticality",
-        "criticalityEstimatedNote": "automatically estimated by Bruna Magalhães in the first plan (editable in Technical Mode).",
+        "criticalityEstimatedNote": "assessed during initial understanding (editable in technical details when necessary).",
         "targetDeadline": "Desired deadline (optional)",
         "targetDeadlineHint": "Estimated completion date.",
         "description": "Description",
@@ -767,7 +778,7 @@
       },
       "objective": {
         "description": "Objective and context",
-        "descriptionHint": "Explain the expected outcome, audience and main boundaries of the project."
+        "descriptionHint": "Optional: you can also create the project and explain everything in Chat."
       },
       "repository": {
         "provider": "Provider",
@@ -793,7 +804,7 @@
         "required": "Select at least one person."
       },
       "advanced": {
-        "defaults": "The project starts active, in manual mode and with policies inherited from the organization."
+        "defaults": "The project starts paused, with a platform-controlled local repository and inherited organization policies."
       },
       "create": "Create project"
     },

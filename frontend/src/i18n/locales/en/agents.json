@@ -8,6 +8,13 @@
       "executor": "Executor",
       "roles": "Roles",
       "chiefPrimary": "Chief primary",
+      "businessSummary": "Runtime accounts are infrastructure. Incomplete public profiles stay in Administration/Technical details before becoming people in the main experience.",
+      "metrics": {
+        "available": "Available",
+        "running": "Running",
+        "attention": "Need attention",
+        "total": "Total"
+      },
       "authCommand": "Run this command in a terminal to authenticate the isolated account:",
       "actions": {
         "auth": "Authenticate",
@@ -76,13 +83,16 @@
         "quality": "Quality and review"
       },
       "metrics": {
-        "completed": "Completed",
-        "approved": "Approved",
-        "rework": "Rework"
+        "completed": "Deliveries",
+        "approved": "Validations",
+        "rework": "Adjustments"
       },
-    "zeroSource": "Source: persisted tasks and attempts attributable to the identity. Without an attributable link, the value is zero.",
-    "photoAction": "Change photo",
-    "photoUploading": "Uploading photo…"
+      "zeroSource": "Source: persisted executions and events attributable to the public profile. Without an attributable link, the value is zero.",
+      "photoAction": "Change photo",
+      "photoUploading": "Uploading photo…",
+      "pendingProfiles": "{{count}} runtime account(s) do not have a public profile yet. They stay out of the main team until linked to a human identity.",
+      "backingAccount": "Backing account",
+      "publicProfileHelp": "The public identity remains Bruna; the runtime account may rotate in the background."
     },
     "card": {
       "capabilities": "Capabilities",

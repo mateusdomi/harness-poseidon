@@ -33,13 +33,12 @@ export function useProjectOperationalData() {
   return useQuery({
     queryKey: [...projectKeys.all, 'operational'] as const,
     queryFn: async () => {
-      const [tasks, agents, workflows, runs, phases, templates] = await Promise.all([
+      const [tasks, agents, workflows, runs, phases] = await Promise.all([
         api.list('tasks', { limit: 200 }),
         api.list('agents', { limit: 200 }),
         api.list('workflows', { limit: 200 }),
         api.list('workflow-runs', { limit: 200 }),
         api.list('phases', { limit: 200 }),
-        api.list('workflow-templates', { limit: 200 }),
       ]);
       return {
         tasks: tasks.items as Task[],
@@ -47,7 +46,6 @@ export function useProjectOperationalData() {
         workflows: workflows.items as Workflow[],
         runs: runs.items as WorkflowRun[],
         phases: phases.items as Phase[],
-        templates: templates.items as WorkflowTemplate[],
       };
     },
   });

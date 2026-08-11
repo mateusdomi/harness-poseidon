@@ -74,7 +74,7 @@ describe('PrototypesPage', () => {
 
     expect(await screen.findByText('Geração autônoma')).toBeInTheDocument();
     expect(
-      await screen.findByRole('heading', { name: 'Etapa de Prototipação' }),
+      await screen.findByRole('heading', { name: 'Referências e protótipos' }),
     ).toBeInTheDocument();
     expect(screen.getByText('Aguardando informações')).toBeInTheDocument();
     expect(screen.getByText(/descrição em palavras/)).toBeInTheDocument();
