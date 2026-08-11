@@ -1,5 +1,5 @@
 manifestVersion: 2.0.0
-lastGeneratedAt: 2026-08-11T02:34:03.4029920+00:00
+lastGeneratedAt: 2026-08-11T17:41:53.0066820+00:00
 tokenBudget: 24000
 knownOwners:
 - Platform Governance
@@ -941,7 +941,7 @@ documents:
   enforcedBy:
   - tools/backend/verify-governance.sh
   - ci:governance
-  checksum: sha256:06cefa14eef9bf27d10f61628de4510192f5053e0ac21d3cb5a2277b3f04348d
+  checksum: sha256:bbda92fce2c29cd5864de5c3fe811750597f25cfdc5f930d4619ef9a30afe2fc
   containsSecrets: false
   generated: true
   sourceOfTruth: governance/manifest.yaml
@@ -2169,7 +2169,7 @@ documents:
   - '**'
   load: bundle
   priority: 900
-  tokenCost: 1883
+  tokenCost: 2441
   owner: Platform Governance
   status: active
   version: 2.0.0
@@ -2182,7 +2182,7 @@ documents:
   - rule-chief-constraints
   - rule-authority
   enforcedBy: []
-  checksum: sha256:cf356b904764cfdf6da1338db3b7bcd607fc168dd8cf2eb1a2766787fdd18c20
+  checksum: sha256:3f188e6d924408dafd58e68a4657831c8a7c51892b0399e913b23c120704a1d0
   containsSecrets: false
   generated: false
   sourceOfTruth: docs/agents/bruna.md

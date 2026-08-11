@@ -63,7 +63,7 @@ Generated from `governance/manifest.yaml`. Regenerate with `tools/backend/genera
 
 | Document | Phase | Status | Owner | Load policy | Tokens |
 |---|---|---|---|---|---:|
-| [Bruna](agents/bruna.md) | * | Active | Platform Governance | Bundle | 1883 |
+| [Bruna](agents/bruna.md) | * | Active | Platform Governance | Bundle | 2441 |
 
 #### architecture
 
