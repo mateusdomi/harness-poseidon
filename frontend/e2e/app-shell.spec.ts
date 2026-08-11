@@ -63,9 +63,9 @@ test.describe('AppShell smoke', () => {
     let nav = await openPrimaryNav(page);
     await expect(nav.getByRole('link', { name: 'Chat', exact: true }).first()).toBeVisible();
     await expect(nav.getByRole('link', { name: 'Profissionais', exact: true })).toHaveCount(0);
+    await expect(nav.getByRole('link', { name: 'Equipe', exact: true })).toHaveCount(0);
     await expect(nav.getByRole('link', { name: 'Governança', exact: true })).toHaveCount(0);
-    // Léxico do menu: "Orquestrador" virou "Equipe".
-    await expect(nav.getByRole('link', { name: 'Equipe', exact: true }).first()).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Dashboard', exact: true }).first()).toBeVisible();
 
     await setPresentationMode(page, 'Técnico');
     nav = await openPrimaryNav(page);

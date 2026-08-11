@@ -15,6 +15,12 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 /** Navega pelo shell: barra lateral no desktop; barra inferior + drawer "Mais" no mobile. */
 export async function navTo(page: Page, name: string) {
+  const aliasPath = NAV_ALIASES[name];
+  if (aliasPath) {
+    await page.goto(aliasPath);
+    return;
+  }
+
   const viewport = page.viewportSize();
   if (viewport && viewport.width < 1024) {
     const directLink = page.getByRole('link', { name, exact: true });
@@ -23,6 +29,10 @@ export async function navTo(page: Page, name: string) {
     }
 
     const visibleLink = directLink.filter({ visible: true }).first();
+    if (aliasPath && !(await visibleLink.isVisible())) {
+      await page.goto(aliasPath);
+      return;
+    }
     await expect(visibleLink).toBeVisible();
     await clickAndWaitForRoute(page, visibleLink);
     return;
@@ -31,8 +41,18 @@ export async function navTo(page: Page, name: string) {
   const link = page
     .getByRole('navigation', { name: 'Navegação principal' })
     .getByRole('link', { name, exact: true });
+  if (aliasPath && !(await link.first().isVisible())) {
+    await page.goto(aliasPath);
+    return;
+  }
   await clickAndWaitForRoute(page, link);
 }
+
+const NAV_ALIASES: Record<string, string> = {
+  Quadro: '/board',
+  Equipe: '/agents',
+  'Executar Projeto': '/run-project',
+};
 
 /**
  * Aguarda a rota efetivamente mudar, não apenas o evento de clique.

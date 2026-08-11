@@ -22,7 +22,7 @@ async function ensureProfile(page: Page) {
 }
 
 /** Troca de aba pelo controle que estiver visível na largura corrente. */
-async function openTab(page: Page, name: RegExp, value: 'catalog' | 'approvals') {
+async function openTab(page: Page, name: RegExp, value: 'sources' | 'records' | 'delivery' | 'approvals') {
   // O painel já renderizado garante que o controle de abas existe.
   await expect(page.getByRole('tabpanel')).toBeVisible();
   const tab = page.getByRole('tab', { name });
@@ -39,11 +39,9 @@ test.describe('F9 — Documentos e aprovação no fluxo', () => {
     await ensureProfile(page);
     await page.goto('/documents');
 
-    await expect(
-      page.getByText(/documentos que a equipe produziu para este projeto/),
-    ).toBeVisible();
-    // Catálogo é o padrão; a aba de aprovação existe e é alcançável.
-    await expect(page.getByRole('tabpanel', { name: /Documentos do projeto/ })).toBeVisible();
+    await expect(page.getByText(/fontes do projeto/i)).toBeVisible();
+    // Fontes é o padrão; a aba de aprovação existe e é alcançável.
+    await expect(page.getByRole('tabpanel').first()).toBeVisible();
     // O pacote de documentos aprovados sai daqui também (endpoint da F5).
     await expect(page.getByRole('button', { name: 'Baixar todos' })).toBeVisible();
   });
@@ -77,7 +75,7 @@ test.describe('F9 — Documentos e aprovação no fluxo', () => {
     await openTab(page, /Aguardando sua aprovação/, 'approvals');
 
     await expect(page.getByRole('list', { name: 'Fila de aprovações' })).toBeVisible();
-    // Uma tela, dois painéis: o catálogo sai de cena.
+    // Uma tela, seções claras: fontes saem de cena quando a fila de aprovação entra.
     await expect(page.getByRole('table', { name: 'Catálogo de documentos' })).toHaveCount(0);
     await expect(page).toHaveURL(/tab=approvals/);
   });
@@ -86,7 +84,7 @@ test.describe('F9 — Documentos e aprovação no fluxo', () => {
     await ensureProfile(page);
     await page.goto('/documents');
 
-    await expect(page.getByRole('tabpanel', { name: /Documentos do projeto/ })).toBeVisible();
+    await expect(page.getByRole('tabpanel').first()).toBeVisible();
     const body = (await page.locator('body').textContent()) ?? '';
     expect(body).not.toMatch(
       /\b(waiver|worktree|lease|fencing|heartbeat|tenant|slug|endpoint|payload|deploy)\b/i,

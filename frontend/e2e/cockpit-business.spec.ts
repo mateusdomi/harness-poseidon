@@ -13,13 +13,13 @@ async function ensureProfile(page: Page) {
 }
 
 test.describe('F3 — Dashboard de negócio', () => {
-  test('prioriza equipe, mostra uma trilha e permite consultar as etapas sem jargão', async ({
+  test('prioriza equipe e mostra o lifecycle V3 sem fases legadas', async ({
     page,
   }) => {
     await ensureProfile(page);
 
     const teamBoard = page.getByRole('heading', { name: 'Quadro da Equipe' });
-    const timeline = page.getByRole('heading', { name: 'Etapas do projeto' });
+    const timeline = page.getByRole('heading', { name: 'Lifecycle V3' });
     await expect(teamBoard).toBeVisible();
     await expect(timeline).toBeVisible();
 
@@ -34,8 +34,13 @@ test.describe('F3 — Dashboard de negócio', () => {
     await expect(page.getByRole('progressbar', { name: 'Validado' })).toHaveCount(0);
     await expect(page.getByRole('progressbar', { name: 'Aprovado' })).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Ver detalhes da etapa Planejamento' }).click();
-    await expect(page.getByText('Plano de testes')).toBeVisible();
+    const lifecycle = page.getByRole('list', { name: 'Lifecycle V3 do projeto' });
+    await expect(lifecycle).toBeVisible();
+    await expect(lifecycle.getByText('Entendimento')).toBeVisible();
+    await expect(lifecycle.getByText('Desenvolvimento')).toBeVisible();
+    await expect(lifecycle.getByText('Validação')).toBeVisible();
+    await expect(lifecycle.getByText('Aceite Humano')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Ver detalhes da etapa/i })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Produtividade da equipe' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Capacidade da equipe' })).toBeVisible();
     // O cartão foi renomeado para o que o dono realmente vê: "Aprovações pendentes".
