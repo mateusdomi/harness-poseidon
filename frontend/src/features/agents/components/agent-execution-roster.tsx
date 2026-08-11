@@ -27,6 +27,22 @@ const STATE_VARIANT: Record<string, 'warning' | 'default' | 'success' | 'info' |
   disabled: 'default',
 };
 
+const PROVIDER_OPTIONS = [
+  { value: 'openai', label: 'OpenAI' },
+  { value: 'anthropic', label: 'Claude' },
+  { value: 'antigravity', label: 'Antigravity' },
+  { value: 'moonshot', label: 'Kimi' },
+  { value: 'zhipu', label: 'GLM' },
+] as const;
+
+const EXECUTOR_OPTIONS = [
+  { value: 'codex', label: 'Codex' },
+  { value: 'claude-code', label: 'Claude Code' },
+  { value: 'antigravity', label: 'Antigravity' },
+  { value: 'kimi-code', label: 'Kimi Code' },
+  { value: 'glm', label: 'GLM' },
+] as const;
+
 /**
  * Roster de EXECUÇÃO da fleet: as identidades (contas de agent-run) que rodam o
  * trabalho — chief/worker × provider. É deliberadamente distinto do organograma de
@@ -118,12 +134,12 @@ export function AgentExecutionRoster() {
         ) : accounts.length === 0 ? (
           <p className="text-sm text-foreground-muted">{t('agents.roster.empty')}</p>
         ) : !showTechnicalDetails ? (
-          <div className="grid gap-3 sm:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-4">
             <RuntimeSummaryMetric label={t('agents.roster.metrics.available')} value={availableAccounts} />
             <RuntimeSummaryMetric label={t('agents.roster.metrics.running')} value={runningAccounts} />
             <RuntimeSummaryMetric label={t('agents.roster.metrics.attention')} value={attentionAccounts} />
             <RuntimeSummaryMetric label={t('agents.roster.metrics.total')} value={accounts.length} />
-            <p className="sm:col-span-4 text-sm text-foreground-muted">
+            <p className="md:col-span-4 text-sm text-foreground-muted">
               {t('agents.roster.businessSummary')}
             </p>
           </div>
@@ -261,11 +277,11 @@ export function AgentExecutionRoster() {
                     value={draft.providerKind}
                     onChange={(event) => setDraft((current) => ({ ...current, providerKind: event.target.value }))}
                   >
-                    <option value="openai">OpenAI</option>
-                    <option value="anthropic">Claude</option>
-                    <option value="antigravity">Antigravity</option>
-                    <option value="moonshot">Kimi</option>
-                    <option value="zhipu">GLM</option>
+                    {PROVIDER_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </Select>
                 </label>
                 <label className="text-sm">
@@ -275,11 +291,11 @@ export function AgentExecutionRoster() {
                     value={draft.executorId}
                     onChange={(event) => setDraft((current) => ({ ...current, executorId: event.target.value }))}
                   >
-                    <option value="codex">Codex</option>
-                    <option value="claude-code">Claude Code</option>
-                    <option value="antigravity">Antigravity</option>
-                    <option value="kimi-code">Kimi Code</option>
-                    <option value="glm">GLM</option>
+                    {EXECUTOR_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </Select>
                 </label>
                 <fieldset className="text-sm">

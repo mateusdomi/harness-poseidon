@@ -121,7 +121,7 @@ function LifecycleSegments({
   ];
   const currentIndex = order.indexOf(current);
   return (
-    <span className="grid grid-cols-2 gap-1 text-[11px] sm:grid-cols-4">
+    <span className="grid grid-cols-2 gap-1 text-[11px] md:grid-cols-4">
       {order.map((state, index) => {
         const done = index < currentIndex;
         const active = index === currentIndex;

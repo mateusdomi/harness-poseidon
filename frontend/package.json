@@ -8,7 +8,7 @@
     "dev:real": "vite --config vite.real.config.ts",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "check": "npm run lint && npm run typecheck && npm run gate:vocabulary && npm run test -- --run --no-file-parallelism --maxWorkers=1 --minWorkers=1",
+    "check": "npm run lint && npm run typecheck && npm run gate:vocabulary && npm run test -- --run --no-file-parallelism --maxWorkers=1",
     "lint": "eslint .",
     "typecheck": "tsc -b",
     "test": "vitest",
