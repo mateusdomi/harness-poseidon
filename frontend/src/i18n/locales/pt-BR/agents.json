@@ -28,10 +28,17 @@
         "save": "Salvar conta"
       },
       "add": {
-        "title": "Adicionar Runtime Account",
-        "help": "Cria infraestrutura de execução. Perfil público/nome/foto continuam separados para não aparecer uma pessoa falsa na experiência principal.",
+        "title": "Adicionar conta runtime",
+        "help": "Cria infraestrutura de execução. Perfil público, nome e foto continuam separados para não aparecer uma pessoa falsa na experiência principal.",
         "alias": "Alias técnico",
-        "capabilities": "Capacidades permitidas"
+        "capabilities": "Capacidades permitidas",
+        "unsupportedCapability": "Este adapter não oferece esta capacidade nesta configuração.",
+        "roleLabels": {
+          "projectExecutor": "Pode desenvolver projetos",
+          "critic": "Pode validar/revisar",
+          "platformMaintainer": "Pode manter o Poseidon",
+          "chief": "Pode ser backing da Bruna"
+        }
       },
       "state": {
         "working": "Trabalhando",

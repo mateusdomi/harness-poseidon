@@ -43,6 +43,55 @@ const EXECUTOR_OPTIONS = [
   { value: 'glm', label: 'GLM' },
 ] as const;
 
+const EXECUTORS_BY_PROVIDER: Record<string, readonly string[]> = {
+  openai: ['codex'],
+  anthropic: ['claude-code'],
+  antigravity: ['antigravity'],
+  moonshot: ['kimi-code'],
+  zhipu: ['glm'],
+};
+
+interface RuntimeRoleOption {
+  value: string;
+  labelKey: string;
+  supportedExecutors: readonly string[];
+}
+
+const ROLE_OPTIONS: readonly RuntimeRoleOption[] = [
+  {
+    value: 'project-executor',
+    labelKey: 'agents.roster.add.roleLabels.projectExecutor',
+    supportedExecutors: ['codex', 'claude-code', 'kimi-code', 'glm'],
+  },
+  {
+    value: 'critic',
+    labelKey: 'agents.roster.add.roleLabels.critic',
+    supportedExecutors: ['codex', 'claude-code', 'antigravity', 'glm'],
+  },
+  {
+    value: 'platform-maintainer',
+    labelKey: 'agents.roster.add.roleLabels.platformMaintainer',
+    supportedExecutors: ['codex', 'claude-code', 'glm'],
+  },
+  {
+    value: 'chief-orchestrator',
+    labelKey: 'agents.roster.add.roleLabels.chief',
+    supportedExecutors: ['claude-code', 'glm'],
+  },
+];
+
+function supportedRolesFor(executorId: string): string[] {
+  return ROLE_OPTIONS
+    .filter((role) => role.supportedExecutors.includes(executorId))
+    .map((role) => role.value);
+}
+
+function normalizeRoles(executorId: string, roles: readonly string[]): string[] {
+  const supported = supportedRolesFor(executorId);
+  const kept = roles.filter((role) => supported.includes(role));
+  return kept.length > 0 ? kept : [supported[0] ?? 'project-executor'];
+}
+
 /**
  * Roster de EXECUÇÃO da fleet: as identidades (contas de agent-run) que rodam o
  * trabalho — chief/worker × provider. É deliberadamente distinto do organograma de
@@ -91,6 +140,24 @@ export function AgentExecutionRoster() {
       allowedRoles: current.allowedRoles.includes(role)
         ? current.allowedRoles.filter((item) => item !== role)
         : [...current.allowedRoles, role],
+    }));
+  }
+
+  function setProvider(providerKind: string) {
+    const executorId = EXECUTORS_BY_PROVIDER[providerKind]?.[0] ?? draft.executorId;
+    setDraft((current) => ({
+      ...current,
+      providerKind,
+      executorId,
+      allowedRoles: normalizeRoles(executorId, current.allowedRoles),
+    }));
+  }
+
+  function setExecutor(executorId: string) {
+    setDraft((current) => ({
+      ...current,
+      executorId,
+      allowedRoles: normalizeRoles(executorId, current.allowedRoles),
     }));
   }
 
@@ -275,7 +342,7 @@ export function AgentExecutionRoster() {
                   <Select
                     className="mt-1"
                     value={draft.providerKind}
-                    onChange={(event) => setDraft((current) => ({ ...current, providerKind: event.target.value }))}
+                    onChange={(event) => setProvider(event.target.value)}
                   >
                     {PROVIDER_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -289,9 +356,11 @@ export function AgentExecutionRoster() {
                   <Select
                     className="mt-1"
                     value={draft.executorId}
-                    onChange={(event) => setDraft((current) => ({ ...current, executorId: event.target.value }))}
+                    onChange={(event) => setExecutor(event.target.value)}
                   >
-                    {EXECUTOR_OPTIONS.map((option) => (
+                    {EXECUTOR_OPTIONS.filter((option) =>
+                      (EXECUTORS_BY_PROVIDER[draft.providerKind] ?? []).includes(option.value),
+                    ).map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -300,16 +369,27 @@ export function AgentExecutionRoster() {
                 </label>
                 <fieldset className="text-sm">
                   <legend className="text-foreground-muted">{t('agents.roster.add.capabilities')}</legend>
-                  {['project-executor', 'chief-orchestrator', 'critic', 'platform-maintainer'].map((role) => (
-                    <label key={role} className="mt-2 flex items-center gap-2">
+                  {ROLE_OPTIONS.map((role) => {
+                    const supported = role.supportedExecutors.includes(draft.executorId);
+                    return (
+                    <label key={role.value} className="mt-2 flex items-start gap-2">
                       <input
                         type="checkbox"
-                        checked={draft.allowedRoles.includes(role)}
-                        onChange={() => toggleRole(role)}
+                        checked={draft.allowedRoles.includes(role.value)}
+                        disabled={!supported}
+                        onChange={() => toggleRole(role.value)}
                       />
-                      <span>{role}</span>
+                      <span className="flex flex-col">
+                        <span>{t(role.labelKey)}</span>
+                        {!supported ? (
+                          <span className="text-xs text-foreground-muted">
+                            {t('agents.roster.add.unsupportedCapability')}
+                          </span>
+                        ) : null}
+                      </span>
                     </label>
-                  ))}
+                    );
+                  })}
                 </fieldset>
                 <div className="md:col-span-2">
                   <Button type="submit" disabled={upsertAccount.isPending || draft.allowedRoles.length === 0}>

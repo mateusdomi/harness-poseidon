@@ -1,4 +1,5 @@
 import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 import { createTestBundle } from '@/api/__tests__/test-utils';
 import { AgentExecutionRoster } from '@/features/agents/components/agent-execution-roster';
@@ -69,5 +70,21 @@ describe('AgentExecutionRoster', () => {
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeInTheDocument();
     });
+  });
+
+  it('does not allow unsupported write capability for review-only runtime setup', async () => {
+    const user = userEvent.setup();
+    const bundle = createTestBundle();
+    const profileId = bundle.fixtures.meta.currentProfileId;
+    useSessionStore.setState({ activeProfileId: profileId });
+    usePresentationStore.getState().requestMode(profileId, 'technical');
+    renderWithApi(<AgentExecutionRoster />, bundle);
+
+    await user.click(await screen.findByRole('button', { name: 'Adicionar conta' }));
+    await user.selectOptions(screen.getByLabelText('Provedor'), 'antigravity');
+
+    expect(screen.getByLabelText('Executor')).toHaveValue('antigravity');
+    expect(screen.getByRole('checkbox', { name: /Pode desenvolver projetos/i })).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: /Pode validar\/revisar/i })).toBeEnabled();
   });
 });

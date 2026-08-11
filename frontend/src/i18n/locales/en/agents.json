@@ -28,10 +28,17 @@
         "save": "Save account"
       },
       "add": {
-        "title": "Add Runtime Account",
+        "title": "Add runtime account",
         "help": "Creates execution infrastructure. Public profile/name/photo stay separate so a fake person does not appear in the main experience.",
         "alias": "Technical alias",
-        "capabilities": "Allowed capabilities"
+        "capabilities": "Allowed capabilities",
+        "unsupportedCapability": "This adapter does not provide this capability in the current configuration.",
+        "roleLabels": {
+          "projectExecutor": "Can build projects",
+          "critic": "Can validate/review",
+          "platformMaintainer": "Can maintain Poseidon",
+          "chief": "Can back Bruna"
+        }
       },
       "state": {
         "working": "Working",
