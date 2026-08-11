@@ -1159,7 +1159,10 @@ public static class V3SolutionStrategyBuilder
             HasAny(text, "persist", "banco", "database", "oracle", "postgres", "sql server");
         var hasAuth = HasAny(text, "login", "autentica", "sso", "perfil", "permiss", "rbac", "diretório corporativo", "diretorio corporativo");
         var hasAsync = HasAny(text, "assíncrono", "assincrono", "fila", "queue", "mensageria", "worker", "processamento em lote", "batch");
-        var hasHighAvailability = HasAny(text, "alta disponibilidade", "ha", "dr", "disaster recovery", "sla", "99,9", "99.9", "24x7");
+        var hasHighAvailability = HasAny(text, "alta disponibilidade", "disaster recovery", "99,9", "99.9", "24x7") ||
+            HasTerm(text, "ha") ||
+            HasTerm(text, "dr") ||
+            HasTerm(text, "sla");
         var hasVolume = HasAny(text, "volume", "milhões", "milhoes", "alto volume", "100 mil", "concorrente", "throughput");
         var hasLegacy = HasAny(text, "legado", "modernizar", "compatibilidade", "sem alterar regras", "contrato existente");
         var hasCriticalMath = HasAny(text, "cálculo", "calculo", "fórmula", "formula", "tabela de referência", "tabela de referencia", "arredondamento");
@@ -1215,10 +1218,22 @@ public static class V3SolutionStrategyBuilder
     private static string[] DetectIntegrationPoints(string text)
     {
         var values = new List<string>();
-        if (HasAny(text, "erp")) values.Add("ERP");
+        if (HasTerm(text, "erp")) values.Add("ERP");
         if (HasAny(text, "api de terceiro", "terceiro", "fornecedor externo", "serviço externo", "servico externo")) values.Add("API externa/terceiro");
-        if (HasAny(text, "sso", "oidc", "saml", "diretório corporativo", "diretorio corporativo", "active directory", "ldap")) values.Add("Identidade corporativa");
-        if (HasAny(text, "email", "e-mail", "sms", "whatsapp", "telegram")) values.Add("Canal de comunicação");
+        if (HasTerm(text, "sso") ||
+            HasTerm(text, "oidc") ||
+            HasTerm(text, "saml") ||
+            HasTerm(text, "ldap") ||
+            HasAny(text, "diretório corporativo", "diretorio corporativo", "active directory"))
+        {
+            values.Add("Identidade corporativa");
+        }
+
+        if (HasAny(text, "email", "e-mail", "whatsapp", "telegram") || HasTerm(text, "sms"))
+        {
+            values.Add("Canal de comunicação");
+        }
+
         return values.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
@@ -1272,6 +1287,12 @@ public static class V3SolutionStrategyBuilder
 
     private static bool HasAny(string text, params string[] values) =>
         values.Any(value => text.Contains(value, StringComparison.OrdinalIgnoreCase));
+
+    private static bool HasTerm(string text, string value) =>
+        Regex.IsMatch(
+            text,
+            $@"(?<![\p{{L}}\p{{N}}]){Regex.Escape(value)}(?![\p{{L}}\p{{N}}])",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private static string StripExplicitNonScopeSections(string text)
     {

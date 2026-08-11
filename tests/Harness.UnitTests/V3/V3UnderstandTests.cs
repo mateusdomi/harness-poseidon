@@ -450,7 +450,8 @@ public sealed class V3UnderstandTests : IDisposable
             PrimaryRequirementsCoverage =
             [
                 CoverageWithText("""
-                Sistema web para empréstimo de equipamentos com login, dashboard e persistência.
+                Sistema web para empréstimo de equipamentos com login, acesso autenticado,
+                dashboard, senha mostrar/ocultar e persistência.
 
                 Não escopo:
                 - Integração com ERP externo.
@@ -471,8 +472,9 @@ public sealed class V3UnderstandTests : IDisposable
 
         Assert.Null(facts.ProductNotification);
         Assert.DoesNotContain("ERP", result.State.SolutionStrategy!.IntegrationPoints);
+        Assert.DoesNotContain("Identidade corporativa", result.State.SolutionStrategy.IntegrationPoints);
         Assert.DoesNotContain("Canal de comunicação", result.State.SolutionStrategy.IntegrationPoints);
-        Assert.NotEqual("COMPLEX", result.State.SolutionStrategy.Complexity);
+        Assert.Equal("SIMPLE", result.State.SolutionStrategy.Complexity);
     }
 
     [Fact]
