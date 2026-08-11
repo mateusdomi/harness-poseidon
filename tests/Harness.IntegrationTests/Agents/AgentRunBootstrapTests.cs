@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Harness.Host;
+using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Identity.Contracts;
 using Harness.SharedKernel.Identifiers;
 using Microsoft.AspNetCore.Builder;
@@ -46,6 +47,7 @@ public sealed class AgentRunBootstrapTests : IDisposable
                 "--Harness:AgentRuns:AvailabilityLedgerPath",
                     Path.Combine(Path.GetTempPath(), $"harness-availability-{Guid.NewGuid():N}.json"),
                 "--Harness:AgentRuns:ProfilesRoot", At("profiles"),
+                "--Harness:AgentRuns:AccountsFilePath", At("no-accounts.json"),
             ]
             :
             [
@@ -165,18 +167,18 @@ public sealed class AgentRunBootstrapTests : IDisposable
             await response.Content.ReadAsStringAsync(CancellationToken.None));
         var accounts = document.RootElement.GetProperty("accounts").EnumerateArray().ToArray();
 
-        Assert.Equal(7, accounts.Length);
+        Assert.Equal(AgentAccountConfigurationLoader.CanonicalDefinitions.Count, accounts.Length);
 
         var codex = accounts.Single(account =>
             account.GetProperty("alias").GetString() == "worker-codex-frontend");
         Assert.True(codex.GetProperty("adapterImplemented").GetBoolean());
 
-        // Kimi e Antigravity ainda não têm adapter (CA-8): isso é reportado como fato, não
-        // disfarçado de suporte existente.
+        // Kimi já possui adapter real. Ele continua nascendo sem autenticação na fixture isolada:
+        // adapter implementado não significa conta disponível.
         var kimi = accounts.Single(account =>
             account.GetProperty("alias").GetString() == "worker-kimi-ui");
-        Assert.False(kimi.GetProperty("adapterImplemented").GetBoolean());
-        Assert.Equal("executor.adapter_not_implemented", kimi.GetProperty("probeReasonCode").GetString());
+        Assert.True(kimi.GetProperty("adapterImplemented").GetBoolean());
+        Assert.False(kimi.GetProperty("authenticated").GetBoolean());
 
         // Nenhuma conta é reportada como autenticada sem material de credencial real.
         Assert.All(accounts, account => Assert.False(account.GetProperty("authenticated").GetBoolean()));

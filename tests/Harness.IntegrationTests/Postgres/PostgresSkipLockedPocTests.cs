@@ -23,7 +23,7 @@ public sealed class PostgresSkipLockedPocTests
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
         var store = new PostgresWorkItemStore(dataSource);
 
-        Assert.Equal(112, await store.ApplyMigrationsAsync(timeout.Token));
+        Assert.Equal(PostgresMigrationCount(), await store.ApplyMigrationsAsync(timeout.Token));
         Assert.Equal(0, await store.ApplyMigrationsAsync(timeout.Token));
         await ValidateFoundationSchemaAsync(dataSource, timeout.Token);
         await FoundationTransactionBehavior.AssertAsync(
@@ -196,6 +196,12 @@ public sealed class PostgresSkipLockedPocTests
         Assert.Single(inventory.Volumes);
         Assert.Single(inventory.Images);
     }
+
+    public static int PostgresMigrationCount() =>
+        typeof(PostgresMigrationRunner).Assembly
+            .GetManifestResourceNames()
+            .Count(name => name.Contains(".Migrations.", StringComparison.Ordinal) &&
+                name.EndsWith(".sql", StringComparison.Ordinal));
 
     private static async Task AssertMergeIntentSupersessionAsync(
         PostgresMergeIntentStore store,
@@ -834,8 +840,8 @@ public sealed class PostgresSkipLockedPocTests
                         "--env", "POSTGRES_USER=harness",
                         "--env", "POSTGRES_DB=harness_poc",
                         "--env", "POSTGRES_PASSWORD_FILE=/run/secrets/postgres-password",
-                        "--memory", "256m",
-                        "--cpus", "0.5",
+                        "--memory", "512m",
+                        "--cpus", "1.0",
                         "--pids-limit", "128",
                         "--security-opt", "no-new-privileges",
                         "--health-cmd", "pg_isready --username harness --dbname harness_poc",

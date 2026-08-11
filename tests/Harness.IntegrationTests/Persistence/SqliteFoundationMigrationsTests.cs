@@ -87,7 +87,7 @@ public sealed class SqliteFoundationMigrationsTests
         try
         {
             await using var dispatcher = await SqliteWriteDispatcher.CreateAsync(databasePath, timeout.Token);
-            Assert.Equal(111, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
+            Assert.Equal(SqliteMigrationCount(), await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
             Assert.Equal(0, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
 
             var tableCount = await dispatcher.ExecuteAsync(
@@ -453,6 +453,12 @@ public sealed class SqliteFoundationMigrationsTests
             }
         }
     }
+
+    private static int SqliteMigrationCount() =>
+        typeof(SqliteMigrationRunner).Assembly
+            .GetManifestResourceNames()
+            .Count(name => name.Contains(".Migrations.", StringComparison.Ordinal) &&
+                name.EndsWith(".sql", StringComparison.Ordinal));
 
     private static async Task ValidateWorkflowSchemaAsync(
         SqliteWriteDispatcher dispatcher,

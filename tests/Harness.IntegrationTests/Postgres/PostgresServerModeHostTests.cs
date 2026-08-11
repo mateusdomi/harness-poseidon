@@ -22,7 +22,7 @@ namespace Harness.IntegrationTests.Postgres;
 [Collection("managed-postgres")]
 public sealed class PostgresServerModeHostTests
 {
-    [Fact]
+    [Fact(Skip = "LEGACY_V1_CHAT_TO_DEMAND: V3 uses UnderstandState and BuildMission instead of chat-to-demand materialization.")]
     public async Task HostBootsInServerModeAndRunsChatToDemandFlowOnPostgres()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(4));

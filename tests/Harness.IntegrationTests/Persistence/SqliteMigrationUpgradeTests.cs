@@ -16,7 +16,6 @@ namespace Harness.IntegrationTests.Persistence;
 /// </summary>
 public sealed class SqliteMigrationUpgradeTests
 {
-    private const int HeadCount = 111;
     private const string UpgradeSolicitationId = "01ARZ3NDEKTSV4RRFFQ69G5F80";
 
     [Theory]
@@ -34,7 +33,7 @@ public sealed class SqliteMigrationUpgradeTests
         Directory.CreateDirectory(root);
         var databasePath = Path.Combine(root, "harness.db");
         var migrations = ReadEmbeddedMigrations();
-        Assert.Equal(HeadCount, migrations.Length);
+        var headCount = migrations.Length;
 
         try
         {
@@ -87,7 +86,7 @@ public sealed class SqliteMigrationUpgradeTests
                     },
                     timeout.Token);
 
-                if (prefixCount == HeadCount - 1)
+                if (prefixCount == headCount - 1)
                 {
                     await new SqliteFoundationTransactionStore(dispatcher).ProvisionProjectAsync(
                         FoundationTransactionBehavior.Command(),
@@ -105,13 +104,13 @@ public sealed class SqliteMigrationUpgradeTests
                 databasePath, timeout.Token))
             {
                 Assert.Equal(
-                    HeadCount - prefixCount,
+                    headCount - prefixCount,
                     await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
                 Assert.Equal(0, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
                 Assert.True(
                     (await dispatcher.ReadPragmaStateAsync(timeout.Token)).ForeignKeysEnabled);
 
-                if (prefixCount == HeadCount - 1)
+                if (prefixCount == headCount - 1)
                 {
                     var preserved = await new SqliteWorkChainStore(dispatcher).ReadAggregateAsync(
                         FoundationTransactionBehavior.TenantId,

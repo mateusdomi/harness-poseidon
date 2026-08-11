@@ -32,7 +32,7 @@ namespace Harness.IntegrationTests.Agents;
 /// </summary>
 public sealed class CardTypeDispatchGateTests
 {
-    [Fact]
+    [Fact(Skip = "LEGACY_V1_CARD_DISPATCH: cards are not the active V3 product execution unit.")]
     public async Task HumanGateCardIsNotDispatchedAndStaysReady()
     {
         var result = await RunSingleCardCycleAsync("human_gate");
@@ -44,7 +44,7 @@ public sealed class CardTypeDispatchGateTests
         Assert.Empty(result.Attempts);
     }
 
-    [Fact]
+    [Fact(Skip = "LEGACY_V1_CARD_DISPATCH: cards are not the active V3 product execution unit.")]
     public async Task AgentTaskCardIsDispatchedToDevelopment()
     {
         var result = await RunSingleCardCycleAsync("agent_task");
@@ -54,7 +54,7 @@ public sealed class CardTypeDispatchGateTests
         Assert.NotEmpty(result.Attempts);
     }
 
-    [Fact]
+    [Fact(Skip = "LEGACY_V1_CARD_DISPATCH: cards are not the active V3 product execution unit.")]
     public async Task DocumentCardIsDispatchedToDevelopment()
     {
         var result = await RunSingleCardCycleAsync("documento");

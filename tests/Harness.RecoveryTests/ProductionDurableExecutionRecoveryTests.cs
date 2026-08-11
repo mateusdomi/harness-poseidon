@@ -33,7 +33,7 @@ public sealed class ProductionDurableExecutionRecoveryTests
         {
             await using (var dispatcher = await SqliteWriteDispatcher.CreateAsync(databasePath, timeout.Token))
             {
-                Assert.Equal(111, await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
+                Assert.Equal(SqliteMigrationCount(), await SqliteMigrationRunner.ApplyAsync(dispatcher, timeout.Token));
                 await new SqliteFoundationTransactionStore(dispatcher).ProvisionProjectAsync(
                     ProductionDurableRecoveryScenario.ProvisionCommand(),
                     timeout.Token);
@@ -77,7 +77,7 @@ public sealed class ProductionDurableExecutionRecoveryTests
             repositoryRoot,
             timeout.Token);
         await using var dataSource = NpgsqlDataSource.Create(fixture.ConnectionString);
-        Assert.Equal(112, await PostgresMigrationRunner.ApplyAsync(dataSource, timeout.Token));
+        Assert.Equal(PostgresMigrationCount(), await PostgresMigrationRunner.ApplyAsync(dataSource, timeout.Token));
         await new PostgresFoundationTransactionStore(dataSource).ProvisionProjectAsync(
             ProductionDurableRecoveryScenario.ProvisionCommand(),
             timeout.Token);
@@ -103,6 +103,18 @@ public sealed class ProductionDurableExecutionRecoveryTests
         var evidence = await ReadPostgresEvidenceAsync(dataSource, timeout.Token);
         AssertEvidence(evidence);
     }
+
+    private static int SqliteMigrationCount() =>
+        typeof(SqliteMigrationRunner).Assembly
+            .GetManifestResourceNames()
+            .Count(name => name.Contains(".Migrations.", StringComparison.Ordinal) &&
+                name.EndsWith(".sql", StringComparison.Ordinal));
+
+    private static int PostgresMigrationCount() =>
+        typeof(PostgresMigrationRunner).Assembly
+            .GetManifestResourceNames()
+            .Count(name => name.Contains(".Migrations.", StringComparison.Ordinal) &&
+                name.EndsWith(".sql", StringComparison.Ordinal));
 
     private static async Task ResumeAndAssertAsync(
         IDurableExecutionEngine engine,

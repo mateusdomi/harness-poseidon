@@ -43,7 +43,7 @@ namespace Harness.IntegrationTests.Agents;
 /// </summary>
 public sealed class ChiefBacklogDispatchTests
 {
-    [Fact]
+    [Fact(Skip = "LEGACY_V1_CARD_DISPATCH: cards are not the active V3 product execution unit.")]
     public async Task ChiefLoopDispatchesReadyCardAndMovesItToDevelopment()
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));

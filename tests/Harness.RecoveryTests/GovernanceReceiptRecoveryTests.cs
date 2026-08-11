@@ -26,7 +26,7 @@ public sealed class GovernanceReceiptRecoveryTests
         {
             await using (var firstDispatcher = await SqliteWriteDispatcher.CreateAsync(databasePath, timeout.Token))
             {
-                Assert.Equal(111, await SqliteMigrationRunner.ApplyAsync(firstDispatcher, timeout.Token));
+                Assert.Equal(SqliteMigrationCount(), await SqliteMigrationRunner.ApplyAsync(firstDispatcher, timeout.Token));
                 var firstStore = new SqliteGovernanceRuntimeStore(firstDispatcher);
                 var created = await firstStore.CreateReceiptAsync(
                     new GovernanceTurnReceiptCreateCommand(
@@ -84,4 +84,10 @@ public sealed class GovernanceReceiptRecoveryTests
             }
         }
     }
+
+    private static int SqliteMigrationCount() =>
+        typeof(SqliteMigrationRunner).Assembly
+            .GetManifestResourceNames()
+            .Count(name => name.Contains(".Migrations.", StringComparison.Ordinal) &&
+                name.EndsWith(".sql", StringComparison.Ordinal));
 }
