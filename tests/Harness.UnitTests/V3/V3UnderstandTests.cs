@@ -261,8 +261,9 @@ public sealed class V3UnderstandTests : IDisposable
         {
             ImportantConstraints =
             [
-                "Fora de escopo: integração com ERP externo",
+                "Não escopo: integração com ERP externo",
                 "Fora de escopo: envio real de e-mail, WhatsApp ou SMS",
+                "Nao escopo: controle financeiro ou cobrança",
             ],
         };
         var context = baseContext with { State = state };
@@ -274,6 +275,7 @@ public sealed class V3UnderstandTests : IDisposable
         Assert.Contains("- integração com ERP externo", mission.MissionText, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("## NON-SCOPE", mission.MissionText, StringComparison.Ordinal);
         Assert.Contains("- envio real de e-mail, WhatsApp ou SMS", mission.MissionText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("- controle financeiro ou cobrança", mission.MissionText, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

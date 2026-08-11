@@ -2106,11 +2106,33 @@ public static class V3MissionCompiler
 
         return constraints
             .Select(value => value.Trim())
-            .Where(value => value.StartsWith("Fora de escopo:", StringComparison.OrdinalIgnoreCase))
-            .Select(value => value["Fora de escopo:".Length..].Trim())
+            .Select(value => StripNonScopePrefix(value))
             .Where(value => !string.IsNullOrWhiteSpace(value))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    private static string StripNonScopePrefix(string value)
+    {
+        const string ForaDeEscopo = "Fora de escopo:";
+        const string NaoEscopo = "Não escopo:";
+        const string NaoEscopoAscii = "Nao escopo:";
+        if (value.StartsWith(ForaDeEscopo, StringComparison.OrdinalIgnoreCase))
+        {
+            return value[ForaDeEscopo.Length..].Trim();
+        }
+
+        if (value.StartsWith(NaoEscopo, StringComparison.OrdinalIgnoreCase))
+        {
+            return value[NaoEscopo.Length..].Trim();
+        }
+
+        if (value.StartsWith(NaoEscopoAscii, StringComparison.OrdinalIgnoreCase))
+        {
+            return value[NaoEscopoAscii.Length..].Trim();
+        }
+
+        return string.Empty;
     }
 
     private static void AddMissionList(List<string> lines, string label, IReadOnlyList<string> values)
