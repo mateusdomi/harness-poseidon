@@ -1087,20 +1087,20 @@
           "message": "Bruna, list the documents waiting for my approval and help me decide each one."
         },
         "unblockTasks": {
-          "label": "There are blocked tasks. Ask Bruna for an unblocking plan.",
-          "message": "Bruna, which tasks are blocked and what is needed to unblock each one?"
+          "label": "There are blocked missions. Ask Bruna for an unblocking plan.",
+          "message": "Bruna, which missions are blocked and what is needed to unblock each one?"
         },
         "recoverAgents": {
-          "label": "Some team members are unavailable. Bruna can reorganize the work.",
-          "message": "Bruna, some team members are unavailable. How can we reorganize the team's work?"
+          "label": "Operational capacity is unavailable. Bruna can reorganize execution.",
+          "message": "Bruna, operational capacity is unavailable. How can we reorganize execution?"
         },
         "reviewQuotas": {
           "label": "Part of the team's workday is near its limit. Review it before continuing.",
           "message": "Bruna, how is the team's workday and what can we reorganize?"
         },
         "reviewPhase": {
-          "label": "Everything is going well. Ask for a summary of the current stage.",
-          "message": "Bruna, give me a summary of the current stage and next steps."
+          "label": "Everything is going well. Ask for a summary of the current lifecycle.",
+          "message": "Bruna, give me a summary of the current lifecycle and next steps."
         }
       }
     },
@@ -2038,7 +2038,7 @@
       "approvals": "Waiting for your approval"
     },
     "approvalsTab": {
-      "intro": "These are the decisions only you can make. Approving lets the team move to the next stage; rejecting sends the work back with your note."
+      "intro": "These are the decisions only you can make. Approval records the human decision; rejection returns the item with your note."
     },
     "export": {
       "open": "Download all",

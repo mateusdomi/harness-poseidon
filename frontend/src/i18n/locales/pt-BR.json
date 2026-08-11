@@ -1087,20 +1087,20 @@
           "message": "Bruna, liste os documentos aguardando minha aprovação e me ajude a decidir cada um."
         },
         "unblockTasks": {
-          "label": "Há tarefas bloqueadas. Peça à Bruna um plano de desbloqueio.",
-          "message": "Bruna, quais tarefas estão bloqueadas e o que falta para desbloquear cada uma?"
+          "label": "Há missões bloqueadas. Peça à Bruna um plano de desbloqueio.",
+          "message": "Bruna, quais missões estão bloqueadas e o que falta para desbloquear cada uma?"
         },
         "recoverAgents": {
-          "label": "Há pessoas indispostas. Bruna pode reorganizar o trabalho.",
-          "message": "Bruna, há pessoas indispostas. Como podemos reorganizar o trabalho da equipe?"
+          "label": "Há capacidade operacional indisponível. Bruna pode reorganizar a execução.",
+          "message": "Bruna, há capacidade operacional indisponível. Como podemos reorganizar a execução?"
         },
         "reviewQuotas": {
           "label": "A jornada de parte da equipe está perto do limite. Confira antes de continuar.",
           "message": "Bruna, como está a jornada da equipe e o que podemos reorganizar?"
         },
         "reviewPhase": {
-          "label": "Tudo está seguindo bem. Peça um resumo da etapa atual.",
-          "message": "Bruna, me dê um resumo do andamento da etapa atual e dos próximos passos."
+          "label": "Tudo está seguindo bem. Peça um resumo do lifecycle atual.",
+          "message": "Bruna, me dê um resumo do lifecycle atual e dos próximos passos."
         }
       }
     },
@@ -2038,7 +2038,7 @@
       "approvals": "Aguardando sua aprovação"
     },
     "approvalsTab": {
-      "intro": "Estas são as decisões que só você pode tomar. Aprovar libera a equipe para avançar de etapa; reprovar devolve o trabalho com a sua observação."
+      "intro": "Estas são as decisões que só você pode tomar. Aprovar registra a decisão humana; reprovar devolve o item com a sua observação."
     },
     "export": {
       "open": "Baixar todos",
