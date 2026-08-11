@@ -1732,7 +1732,7 @@
         "summary": "Artifacts: {{artifacts}} · Docs: {{documents}} · Slots: {{slots}}",
         "stack": "Stack",
         "repositoryDeadline": "Local do código / Prazo",
-        "repositoryManaged": "Repositório local gerenciado pelo Poseidon",
+        "repositoryManaged": "Área local de código gerenciada pelo Poseidon",
         "deadlineMissing": "Prazo não informado",
         "openQuestions": "Open questions",
         "readiness": "Readiness",
