@@ -36,7 +36,7 @@ namespace Harness.IntegrationTests.Agents;
 /// </summary>
 public sealed class ChiefFollowUpLoopTests
 {
-    [Fact]
+    [Fact(Skip = "LEGACY_V1_CARD_FOLLOWUP: V3 uses BuildMission/ValidationMission instead of card waves and critic review loops.")]
     public async Task FollowUpLoopClosesTheDeliveryCycleAcrossWaves()
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
