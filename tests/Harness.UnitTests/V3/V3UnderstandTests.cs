@@ -67,6 +67,10 @@ public sealed class V3UnderstandTests : IDisposable
                 "PRIMARY_REQUIREMENTS",
                 "Notificações por e-mail/digest",
                 "PRIMARY_REQUIREMENTS",
+                null,
+                null,
+                null,
+                null,
                 "Oracle",
                 "PRIMARY_REQUIREMENTS",
                 "ITRC definido",
@@ -100,6 +104,35 @@ public sealed class V3UnderstandTests : IDisposable
 
         Assert.Equal("Oracle", facts.Database);
         Assert.Equal("PRIMARY_REQUIREMENTS", facts.DatabaseProvenance);
+        Assert.Equal("Oracle", stack.Database);
+    }
+
+    [Fact]
+    public void PrimaryRequirementFactsExtractExplicitFrontendBackendAndDatabaseForStack()
+    {
+        var facts = V3RequirementFactsExtractor.Extract(
+        [
+            new V3SourceCoverage(
+                "artifact-1",
+                "requirements.md",
+                "requirements_source",
+                1,
+                1,
+                100,
+                true,
+                "full-text-read",
+                120,
+                "Frontend: React + TypeScript. Backend: .NET 8. Banco de dados: Oracle."),
+        ]);
+        var project = Project(description: "Projeto sem stack no cadastro.", technologies: []);
+
+        var stack = V3StackResolver.Resolve(project, state: null, [], facts);
+
+        Assert.Equal("React + TypeScript", facts.Frontend);
+        Assert.Equal(".NET 8", facts.Backend);
+        Assert.Equal("Oracle", facts.Database);
+        Assert.Equal("React + TypeScript", stack.Frontend);
+        Assert.Equal(".NET 8", stack.Backend);
         Assert.Equal("Oracle", stack.Database);
     }
 
@@ -311,6 +344,10 @@ public sealed class V3UnderstandTests : IDisposable
                 "Autenticação própria, sem SSO",
                 "PRIMARY_REQUIREMENTS",
                 "Notificações por e-mail/digest",
+                "PRIMARY_REQUIREMENTS",
+                "React + TypeScript + Vite",
+                "PRIMARY_REQUIREMENTS",
+                ".NET",
                 "PRIMARY_REQUIREMENTS",
                 "Oracle",
                 "PRIMARY_REQUIREMENTS",

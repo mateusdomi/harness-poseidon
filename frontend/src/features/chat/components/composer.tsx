@@ -172,7 +172,7 @@ export function Composer({
         </ul>
       )}
 
-      <div className="flex items-end gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-end gap-2">
         <Textarea
           value={content}
           onChange={(event) => setContent(event.target.value)}
@@ -184,7 +184,7 @@ export function Composer({
           }}
           placeholder={t('chat.composer.placeholder', { name: leaderName })}
           aria-label={t('chat.composer.messageLabel', { name: leaderName })}
-          className="min-h-touch flex-1 border-border bg-background"
+          className="col-span-3 min-h-touch border-border bg-background md:col-span-1"
           rows={2}
           disabled={disabled}
         />
@@ -205,6 +205,7 @@ export function Composer({
           type="button"
           variant="outline"
           size="icon"
+          className="justify-self-end"
           aria-label={t('chat.composer.attach')}
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled}
@@ -214,6 +215,7 @@ export function Composer({
         <Button
           type="button"
           size="icon"
+          className="justify-self-end"
           aria-label={t('chat.composer.send')}
           onClick={() => void send()}
           disabled={disabled || sending || submitting || content.trim() === ''}
@@ -227,14 +229,17 @@ export function Composer({
       </div>
 
       <div
-        className="flex flex-wrap items-center gap-x-4 gap-y-2"
+        className="grid grid-cols-1 gap-2 md:flex md:flex-wrap md:items-center md:gap-x-4 md:gap-y-2"
         role="group"
         aria-label={t('chat.composer.preferences')}
       >
         {showTechnicalDetails ? (
           <>
-            <div className="flex min-w-0 flex-1 items-center gap-2">
-              <label htmlFor="chat-model" className="shrink-0 text-xs text-foreground-muted">
+            <div className="grid min-w-0 grid-cols-1 gap-1 md:flex md:flex-1 md:items-center md:gap-2">
+              <label
+                htmlFor="chat-model"
+                className="shrink-0 text-xs text-foreground-muted md:whitespace-nowrap"
+              >
                 {t('chat.composer.model')}
               </label>
               <Select
@@ -252,8 +257,11 @@ export function Composer({
                 ))}
               </Select>
             </div>
-            <div className="flex min-w-0 flex-1 items-center gap-2">
-              <label htmlFor="chat-effort" className="shrink-0 text-xs text-foreground-muted">
+            <div className="grid min-w-0 grid-cols-1 gap-1 md:flex md:flex-1 md:items-center md:gap-2">
+              <label
+                htmlFor="chat-effort"
+                className="shrink-0 text-xs text-foreground-muted md:whitespace-nowrap"
+              >
                 {t('chat.composer.effort')}
               </label>
               <Select
@@ -272,13 +280,16 @@ export function Composer({
             </div>
           </>
         ) : (
-          <div className="flex min-w-0 items-center gap-2">
-            <label htmlFor="chat-work-mode" className="shrink-0 text-xs text-foreground-muted">
+          <div className="grid min-w-0 grid-cols-1 gap-1 md:flex md:items-center md:gap-2">
+            <label
+              htmlFor="chat-work-mode"
+              className="shrink-0 text-xs text-foreground-muted md:whitespace-nowrap"
+            >
               {t('chat.composer.workMode')}
             </label>
             <Select
               id="chat-work-mode"
-              className="h-9 min-h-touch w-auto min-w-40 rounded-full border-border bg-surface-elevated text-xs"
+              className="h-9 min-h-touch w-full min-w-0 rounded-full border-border bg-surface-elevated text-xs md:w-auto md:min-w-40"
               value={workMode}
               onChange={(event) => setWorkMode(event.target.value as BusinessWorkMode)}
               disabled={disabled}

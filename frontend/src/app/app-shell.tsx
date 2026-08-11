@@ -251,7 +251,7 @@ function Header() {
   const showProjectContext = !isMultiProjectPath(pathname);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-border bg-background/80 px-4 shadow-sm backdrop-blur-xl lg:px-6">
+    <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center gap-2 border-b border-border bg-background/80 px-3 py-2 shadow-sm backdrop-blur-xl md:flex-nowrap lg:px-6">
       <Button
         variant="ghost"
         size="icon"
@@ -265,7 +265,7 @@ function Header() {
         <BrandMark />
       </div>
       {showProjectContext && <HeaderContext />}
-      <div className="ml-auto flex items-center gap-1">
+      <div className="ml-auto flex shrink-0 items-center gap-1">
         <div className="hidden md:block">
           <CommandPalette />
         </div>
@@ -307,7 +307,7 @@ export function AppShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <Header />
         <ReconnectionBanner />
-        <main id="main-content" className="poseidon-main flex-1 p-4 pb-24 lg:p-6 lg:pb-3">
+        <main id="main-content" className="poseidon-main min-w-0 flex-1 p-3 pb-24 md:p-4 lg:p-6 lg:pb-3">
           {permissionDenied ? (
             <PermissionDenied
               onRetry={() => {

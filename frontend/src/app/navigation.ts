@@ -65,9 +65,9 @@ export interface NavGroup {
  *
  * Ordem = a lista homologada do modo Negócio (D7): Chat vem primeiro, porque
  * conversar com a Bruna é o jeito de trabalhar de quem não é técnico; depois o
- * dia a dia (Dashboard, Quadro, Conversas, Projetos, Central de Entregas) e,
- * por último, as telas de configuração de uso esporádico. Dentro de cada
- * grupo os itens de Negócio vêm antes dos que só existem no Técnico e no
+ * dia a dia V3 (Dashboard, Conversas, Projetos, Central de Entregas) e, por
+ * último, as telas de configuração de uso esporádico. Dentro de cada grupo os
+ * itens de Negócio vêm antes dos que só existem no Técnico e no
  * Administrador, para que a ordem vista pelo cliente leigo seja exatamente a
  * homologada. Cada grupo é recolhível na sidebar (ver `NavMenu`/`ui-store`).
  *
@@ -81,7 +81,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: 'chat', path: '/chat', icon: MessageSquare },
       { key: 'cockpit', path: '/cockpit', icon: Gauge },
-      { key: 'board', path: '/board', icon: ClipboardList },
+      { key: 'board', path: '/board', icon: ClipboardList, mode: 'technical' },
       { key: 'conversations', path: '/conversations', icon: MessagesSquare },
       { key: 'projects', path: '/projects', icon: FolderKanban },
       { key: 'delivery', path: '/delivery', icon: PackageCheck },
@@ -90,9 +90,9 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     key: 'orchestration',
     items: [
-      { key: 'workflows', path: '/workflows', icon: Workflow },
-      { key: 'orchestrator', path: '/orchestrator', icon: Users },
-      { key: 'run-project', path: '/run-project', icon: Play },
+      { key: 'workflows', path: '/workflows', icon: Workflow, mode: 'technical' },
+      { key: 'orchestrator', path: '/orchestrator', icon: Users, mode: 'technical' },
+      { key: 'run-project', path: '/run-project', icon: Play, mode: 'technical' },
       { key: 'agents', path: '/agents', icon: Bot, mode: 'technical' },
       { key: 'reliability', path: '/reliability', icon: TrendingUp, mode: 'technical' },
     ],
@@ -156,7 +156,7 @@ export function isMultiProjectPath(pathname: string): boolean {
 }
 
 /** Itens fixos da barra inferior mobile (o restante fica no drawer "Mais"). */
-export const MOBILE_PRIMARY_KEYS = ['chat', 'cockpit', 'board', 'conversations'] as const;
+export const MOBILE_PRIMARY_KEYS = ['chat', 'cockpit', 'conversations', 'projects'] as const;
 
 export const MOBILE_PRIMARY_ITEMS: NavItem[] = MOBILE_PRIMARY_KEYS.map(
   (key) => NAV_ITEMS.find((item) => item.key === key)!,

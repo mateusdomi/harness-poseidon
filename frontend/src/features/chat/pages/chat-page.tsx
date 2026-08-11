@@ -288,25 +288,28 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex w-full gap-4 lg:h-[calc(100svh-6.25rem)] lg:min-h-0 lg:gap-6">
+    <div className="flex w-full min-w-0 gap-4 lg:h-[calc(100svh-6.25rem)] lg:min-h-0 lg:gap-6">
       <div className="mx-auto flex min-h-[70svh] w-full min-w-0 max-w-5xl flex-1 flex-col gap-2 pb-24 lg:h-full lg:min-h-0 lg:pb-0">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
+        <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-[auto_minmax(0,1fr)] md:items-center">
+          <div className="flex min-w-0 items-center gap-2">
             <h1 className="font-heading text-xl font-semibold">{t('features.chat.title')}</h1>
-            <Badge variant="info">
+            <Badge variant="info" className="min-w-0">
               <Sparkles aria-hidden="true" className="size-3" />
-              {t('chat.authors.virtualTeam')}
+              <span className="truncate">{t('chat.authors.virtualTeam')}</span>
             </Badge>
           </div>
-          <div className="ml-0 flex w-full min-w-0 flex-wrap items-center gap-2 md:ml-auto md:w-auto">
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 md:ml-auto md:w-full md:max-w-4xl">
             {conversations.length > 0 && (
-              <>
-                <label htmlFor="chat-conversation" className="text-sm text-foreground-muted">
+              <div className="col-span-3 grid min-w-0 grid-cols-1 gap-1 md:grid-cols-[auto_minmax(0,1fr)] md:items-center md:col-span-1">
+                <label
+                  htmlFor="chat-conversation"
+                  className="text-sm text-foreground-muted md:whitespace-nowrap"
+                >
                   {t('chat.conversation.label')}
                 </label>
                 <Select
                   id="chat-conversation"
-                  className="min-w-0 flex-1 md:w-auto md:min-w-48"
+                  className="min-w-0 w-full"
                   value={conversation?.id ?? ''}
                   onChange={(event) => selectConversation(event.target.value)}
                 >
@@ -316,7 +319,7 @@ export default function ChatPage() {
                     </option>
                   ))}
                 </Select>
-              </>
+              </div>
             )}
             {/* Sem nenhuma conversa, a CTA única vive no estado vazio — o botão
               do cabeçalho só aparece quando já existe conversa (§4). */}
@@ -325,6 +328,7 @@ export default function ChatPage() {
                 type="button"
                 variant="outline"
                 size="sm"
+                className="min-w-0"
                 onClick={() => void newConversation()}
                 disabled={createConversation.isPending}
               >
@@ -336,6 +340,7 @@ export default function ChatPage() {
               type="button"
               variant="outline"
               size="sm"
+              className="justify-self-end"
               aria-expanded={isDesktop ? panelOpen : drawerOpen}
               aria-label={
                 (isDesktop && panelOpen) || (!isDesktop && drawerOpen)
@@ -359,7 +364,7 @@ export default function ChatPage() {
 
         <div
           ref={scrollRef}
-          className="flex h-[30svh] min-h-52 flex-none flex-col gap-2 overflow-y-auto rounded-xl border border-border bg-surface p-4 md:p-5 lg:h-auto lg:min-h-0 lg:flex-1"
+          className="flex h-[18svh] min-h-32 flex-none flex-col gap-2 overflow-y-auto rounded-xl border border-border bg-surface p-3 md:h-[42svh] md:min-h-64 md:p-5 lg:h-auto lg:min-h-0 lg:flex-1"
           aria-live="polite"
           aria-label={t('chat.messagesLabel')}
         >
@@ -572,17 +577,19 @@ export default function ChatPage() {
         )}
 
         {conversation && !turnActive && (
-          <QuickActions
-            actions={quickActions}
-            disabled={sendMessage.isPending || resumeChief.isPending}
-            onSelect={(key: QuickActionKey) => {
-              if (key === 'resumeProject') {
-                resumeChief.mutate();
-                return;
-              }
-              void send(t(`chat.quickActions.actions.${key}.message`));
-            }}
-          />
+          <div className="hidden md:block">
+            <QuickActions
+              actions={quickActions}
+              disabled={sendMessage.isPending || resumeChief.isPending}
+              onSelect={(key: QuickActionKey) => {
+                if (key === 'resumeProject') {
+                  resumeChief.mutate();
+                  return;
+                }
+                void send(t(`chat.quickActions.actions.${key}.message`));
+              }}
+            />
+          </div>
         )}
 
         {/* O backend aceita e persiste também turnos bloqueados; o handle 202

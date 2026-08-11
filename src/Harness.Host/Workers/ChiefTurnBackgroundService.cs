@@ -791,9 +791,13 @@ public sealed partial class ChiefTurnBackgroundService(
             V3ProjectUnderstandState.Create(lease.Turn.ProjectId, now);
         var sourceComplete = current.PrimaryRequirementsCoverage.Count == 0 ||
             current.PrimaryRequirementsCoverage.All(source => source.Complete);
+        var mergedDecisions = MergeDistinct(current.Decisions, update.Decisions);
+        var hasPendingDecision = mergedDecisions.Any(IsPendingHumanDecision);
         var nextLifecycle = current.LifecycleState is "BUILDING" or "VALIDATING" or "READY_FOR_HUMAN_ACCEPTANCE" or "HUMAN_ACCEPTED"
             ? current.LifecycleState
-            : sourceComplete
+            : hasPendingDecision
+                ? "AWAITING_INPUT"
+                : sourceComplete
                 ? "READY_TO_START"
                 : "UNDERSTANDING";
         var next = current with
@@ -805,12 +809,24 @@ public sealed partial class ChiefTurnBackgroundService(
             AcceptanceCriteria = MergeReplacingWhenProvided(current.AcceptanceCriteria, update.AcceptanceCriteria),
             ImportantConstraints = MergeReplacingWhenProvided(current.ImportantConstraints, update.ImportantConstraints),
             Assumptions = MergeDistinct(current.Assumptions, update.Assumptions),
-            Decisions = MergeDistinct(current.Decisions, update.Decisions),
-            Status = sourceComplete ? "UNDERSTOOD" : "READING_PRIMARY_REQUIREMENTS",
+            Decisions = mergedDecisions,
+            Status = hasPendingDecision ? "AWAITING_INPUT" : sourceComplete ? "UNDERSTOOD" : "READING_PRIMARY_REQUIREMENTS",
             LifecycleState = nextLifecycle,
             UpdatedAt = now,
         };
         v3UnderstandStore.WriteProject(next);
+    }
+
+    private static bool IsPendingHumanDecision(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        return value.Contains("PENDENTE", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("decisão humana", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("preciso", StringComparison.OrdinalIgnoreCase);
     }
 
     private static IReadOnlyList<string> MergeReplacingWhenProvided(

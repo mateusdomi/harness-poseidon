@@ -508,7 +508,8 @@ public static class V3ProjectContextBuilder
             state?.Deadline ?? facts.Deadline ?? project.TargetDeadline,
             repository,
             facts,
-            coverage);
+            coverage,
+            state);
         var lifecycleState = state?.LifecycleState ??
             (openQuestions.Count == 0 ? "READY_TO_START" : "AWAITING_INPUT");
 
@@ -645,6 +646,16 @@ public static partial class V3RequirementFactsExtractor
         var productNotification = ContainsAny(combined, "notificações", "digest", "caixa", "e-mail", "email")
             ? "Notificações do produto por e-mail/digest conforme requisitos"
             : null;
+        var frontend = ContainsAny(combined, "react")
+            ? ContainsAny(combined, "typescript", "type script", "ts")
+                ? "React + TypeScript"
+                : "React"
+            : null;
+        var backend = ContainsAny(combined, ".net 8", "dotnet 8")
+            ? ".NET 8"
+            : ContainsAny(combined, ".net", "dotnet")
+                ? ".NET"
+                : null;
         var database = ContainsAny(combined, "oracle")
             ? "Oracle"
             : ContainsAny(combined, "postgres", "postgresql")
@@ -664,6 +675,10 @@ public static partial class V3RequirementFactsExtractor
             authentication is null ? null : "PRIMARY_REQUIREMENTS",
             productNotification,
             productNotification is null ? null : "PRIMARY_REQUIREMENTS",
+            frontend,
+            frontend is null ? null : "PRIMARY_REQUIREMENTS",
+            backend,
+            backend is null ? null : "PRIMARY_REQUIREMENTS",
             database,
             database is null ? null : "PRIMARY_REQUIREMENTS",
             itrc,
@@ -724,7 +739,7 @@ public static class V3UnderstandAnalyzer
         var deadline = input.Deadline ?? state.Deadline ?? context.SourceFacts.Deadline ?? context.Deadline;
         var repository = FirstNonBlank(input.Repository, state.Repository, context.Repository);
         var questions = V3OpenQuestionPolicy.RequiredQuestions(
-            context.ProjectId, deadline, repository, context.SourceFacts, context.PrimaryRequirementsCoverage);
+            context.ProjectId, deadline, repository, context.SourceFacts, context.PrimaryRequirementsCoverage, state);
         var nextState = !sourceComplete
             ? "UNDERSTANDING"
             : questions.Count == 0
@@ -798,11 +813,15 @@ public static class V3StackResolver
         }
 
         var text = $"{project.Description} {string.Join(' ', project.Technologies)} {string.Join(' ', artifacts.Select(artifact => artifact.Name))}".ToLowerInvariant();
-        var frontend = text.Contains("react", StringComparison.Ordinal) || artifacts.Any(artifact =>
+        var frontend = !string.IsNullOrWhiteSpace(facts.Frontend)
+            ? facts.Frontend
+            : text.Contains("react", StringComparison.Ordinal) || artifacts.Any(artifact =>
             string.Equals(artifact.Role, "provided_frontend", StringComparison.OrdinalIgnoreCase))
             ? "React + TypeScript + Vite"
             : "Frontend conforme requisitos";
-        var backend = text.Contains(".net", StringComparison.Ordinal) || text.Contains("dotnet", StringComparison.Ordinal)
+        var backend = !string.IsNullOrWhiteSpace(facts.Backend)
+            ? facts.Backend
+            : text.Contains(".net", StringComparison.Ordinal) || text.Contains("dotnet", StringComparison.Ordinal)
             ? ".NET"
             : "Backend conforme baseline Poseidon";
         var database = !string.IsNullOrWhiteSpace(facts.Database)
@@ -830,14 +849,15 @@ public static class V3StackResolver
 public static class V3OpenQuestionPolicy
 {
     public static IReadOnlyList<V3OpenQuestion> RequiredQuestions(ProjectRecord project, V3ProjectUnderstandState? state) =>
-        RequiredQuestions(project.Id, state?.Deadline ?? project.TargetDeadline, state?.Repository ?? project.RepositoryUrl, state?.SourceFacts, state?.PrimaryRequirementsCoverage ?? []);
+        RequiredQuestions(project.Id, state?.Deadline ?? project.TargetDeadline, state?.Repository ?? project.RepositoryUrl, state?.SourceFacts, state?.PrimaryRequirementsCoverage ?? [], state);
 
     public static IReadOnlyList<V3OpenQuestion> RequiredQuestions(
         string projectId,
         DateTimeOffset? deadline,
         string? repository,
         V3RequirementSourceFacts? facts = null,
-        IReadOnlyList<V3SourceCoverage>? sourceCoverage = null)
+        IReadOnlyList<V3SourceCoverage>? sourceCoverage = null,
+        V3ProjectUnderstandState? state = null)
     {
         var questions = new List<V3OpenQuestion>();
         var primarySources = sourceCoverage ?? [];
@@ -846,7 +866,43 @@ public static class V3OpenQuestionPolicy
             return questions;
         }
 
+        questions.AddRange(PendingHumanDecisions(state));
+
         return questions;
+    }
+
+    private static IEnumerable<V3OpenQuestion> PendingHumanDecisions(V3ProjectUnderstandState? state)
+    {
+        if (state?.Decisions is not { Count: > 0 } decisions)
+        {
+            yield break;
+        }
+
+        var index = 1;
+        foreach (var decision in decisions)
+        {
+            if (!IsPendingHumanDecision(decision))
+            {
+                continue;
+            }
+
+            yield return new V3OpenQuestion(
+                $"human-decision-{index++}",
+                decision,
+                "chief.pending_human_decision");
+        }
+    }
+
+    private static bool IsPendingHumanDecision(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        return value.Contains("PENDENTE", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("decisão humana", StringComparison.OrdinalIgnoreCase) ||
+            value.Contains("preciso", StringComparison.OrdinalIgnoreCase);
     }
 }
 
@@ -1517,6 +1573,10 @@ public sealed record V3RequirementSourceFacts(
     string? AuthenticationProvenance,
     string? ProductNotification,
     string? ProductNotificationProvenance,
+    string? Frontend,
+    string? FrontendProvenance,
+    string? Backend,
+    string? BackendProvenance,
     string? Database,
     string? DatabaseProvenance,
     string? ItrcRules,
@@ -1524,7 +1584,7 @@ public sealed record V3RequirementSourceFacts(
     int AcceptanceCriteriaCount)
 {
     public static V3RequirementSourceFacts Empty { get; } =
-        new(null, null, null, null, null, null, null, null, null, null, 0);
+        new(null, null, null, null, null, null, null, null, null, null, null, null, null, null, 0);
 }
 
 public sealed record V3EffectiveStackContract(

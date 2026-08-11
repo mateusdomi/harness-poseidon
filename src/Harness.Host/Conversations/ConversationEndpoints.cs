@@ -684,7 +684,7 @@ public static class ConversationEndpoints
             cancellationToken);
         var ready = refreshed.Readiness.All(item => item.Status is "PASS" or "NOT_APPLICABLE");
         var sourceComplete = refreshed.PrimaryRequirementsCoverage.All(source => source.Complete);
-        if (!ready || !sourceComplete || refreshed.Deadline is null || string.IsNullOrWhiteSpace(refreshed.Repository))
+        if (!ready || !sourceComplete || string.IsNullOrWhiteSpace(refreshed.Repository))
         {
             return null;
         }
@@ -730,19 +730,25 @@ public static class ConversationEndpoints
                 : ConversationNotFound();
         }
 
-        var dispatchAccounts = accounts.List().ToArray();
-        var dispatchState = state;
-        _ = Task.Run(async () =>
+        var dispatchEnabled = configuration.GetValue(
+            "Harness:V3:NaturalAuthorizationAutoDispatchEnabled",
+            true);
+        if (dispatchEnabled)
         {
-            await runtime.DispatchAsync(
-                new V3BuildDispatchCommand(project.Id, dispatchState, mission, "READY", dispatchAccounts),
-                CancellationToken.None);
-        }, CancellationToken.None);
+            var dispatchAccounts = accounts.List().ToArray();
+            var dispatchState = state;
+            _ = Task.Run(async () =>
+            {
+                await runtime.DispatchAsync(
+                    new V3BuildDispatchCommand(project.Id, dispatchState, mission, "READY", dispatchAccounts),
+                    CancellationToken.None);
+            }, CancellationToken.None);
+        }
 
         return Results.Accepted(value: new ChatTurnHandle(
             turnId,
             conversationId,
-            "build_dispatched",
+            dispatchEnabled ? "build_dispatched" : "build_compiled",
             correlationId,
             new ChatTurnReadiness("Ready", "Ready"),
             [],

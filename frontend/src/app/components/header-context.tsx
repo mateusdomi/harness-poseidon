@@ -4,6 +4,7 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 import { Button, Select, Skeleton } from '@/design-system';
 import { useCockpitAgents, useCockpitWorkflow } from '@/features/cockpit/hooks/use-cockpit';
+import { useV3ProjectContext } from '@/features/projects/hooks/use-v3-understand';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 
 /**
@@ -27,9 +28,12 @@ export function HeaderContext() {
   } = useActiveProject();
   const projectId = activeProject?.id ?? null;
   const { phases } = useCockpitWorkflow(projectId);
+  const v3Context = useV3ProjectContext(projectId);
   const agentsQuery = useCockpitAgents(projectId);
 
   const activePhase = phases.find((phase) => phase.state === 'active') ?? null;
+  const v3Lifecycle = v3Context.data?.currentLifecycleState ?? null;
+  const lifecycleLabel = v3Lifecycle ? v3LifecycleLabel(v3Lifecycle) : null;
   const workingCount = (agentsQuery.data ?? []).filter((agent) => agent.state === 'working').length;
 
   function changeProject(projectId: string) {
@@ -71,7 +75,7 @@ export function HeaderContext() {
   }
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-2 md:max-w-xl">
+    <div className="order-last flex min-w-0 basis-full items-center gap-2 md:order-none md:basis-auto md:flex-1 md:max-w-xl">
       <label htmlFor="global-project-selector" className="sr-only">
         {t('shell.project.label')}
       </label>
@@ -79,7 +83,7 @@ export function HeaderContext() {
         id="global-project-selector"
         aria-invalid={selectionUnavailable || undefined}
         aria-describedby={selectionUnavailable ? 'global-project-unavailable' : undefined}
-        className="min-w-0 flex-1 truncate md:max-w-64"
+        className="min-w-0 flex-1 truncate md:max-w-[min(34rem,calc(100vw-11rem))] lg:max-w-64"
         value={activeProject?.id ?? ''}
         disabled={projects.length === 0}
         onChange={(event) => changeProject(event.target.value)}
@@ -112,15 +116,17 @@ export function HeaderContext() {
           `aria-label` é um grupo sem conteúdo para quem usa leitor de tela (e
           `aria-prohibited-attr` no axe). Antes ele nascia sempre que havia projeto
           ativo, mesmo sem etapa e sem ninguém trabalhando. */}
-      {activeProject && (activePhase !== null || workingCount > 0) && (
+      {activeProject && (lifecycleLabel !== null || activePhase !== null || workingCount > 0) && (
         <div
           aria-label={t('shell.context.label')}
           className="hidden min-w-0 items-center gap-2 text-xs text-foreground-muted lg:flex"
         >
-          {activePhase && (
+          {lifecycleLabel ? (
+            <span className="truncate">{t('shell.context.phase', { name: lifecycleLabel })}</span>
+          ) : activePhase ? (
             <span className="truncate">{t('shell.context.phase', { name: activePhase.name })}</span>
-          )}
-          {activePhase && workingCount > 0 && <span aria-hidden="true">•</span>}
+          ) : null}
+          {(lifecycleLabel || activePhase) && workingCount > 0 && <span aria-hidden="true">•</span>}
           {workingCount > 0 && (
             <span className="whitespace-nowrap">
               {t('shell.context.agentsWorking', { count: workingCount })}
@@ -130,4 +136,25 @@ export function HeaderContext() {
       )}
     </div>
   );
+}
+
+function v3LifecycleLabel(value: string): string {
+  switch (value) {
+    case 'DRAFT':
+    case 'UNDERSTANDING':
+    case 'AWAITING_INPUT':
+    case 'READY_TO_START':
+      return 'Entendimento';
+    case 'BUILDING':
+    case 'PAUSED_QUOTA':
+    case 'BLOCKED':
+      return 'Desenvolvimento';
+    case 'VALIDATING':
+      return 'Validação';
+    case 'READY_FOR_HUMAN_ACCEPTANCE':
+    case 'HUMAN_ACCEPTED':
+      return 'Aceite Humano';
+    default:
+      return value;
+  }
 }

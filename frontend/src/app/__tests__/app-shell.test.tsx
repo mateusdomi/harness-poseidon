@@ -80,7 +80,6 @@ describe('AppShell', () => {
     renderShell();
 
     expect(screen.getAllByText('Operação').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Orquestração').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Artefatos e governança').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Administração').length).toBeGreaterThan(0);
   });
@@ -107,19 +106,18 @@ describe('AppShell', () => {
     const user = userEvent.setup();
     renderShell();
 
-    // "Projetos" só aparece na sidebar (não está na barra inferior mobile).
-    expect(screen.getByRole('link', { name: 'Projetos' })).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Projetos' }).length).toBeGreaterThan(0);
 
     const groupHeader = screen.getByRole('button', { name: /recolher seção operação/i });
     await user.click(groupHeader);
 
     // Grupo recolhido: seus itens somem e o cabeçalho vira "Expandir".
-    expect(screen.queryByRole('link', { name: 'Projetos' })).not.toBeInTheDocument();
+    expect(screen.queryAllByRole('link', { name: 'Projetos' })).toHaveLength(1);
     expect(screen.getByRole('button', { name: /expandir seção operação/i })).toBeInTheDocument();
 
     // Reabre para deixar o estado limpo (persistido em localStorage).
     await user.click(screen.getByRole('button', { name: /expandir seção operação/i }));
-    expect(screen.getByRole('link', { name: 'Projetos' })).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Projetos' }).length).toBeGreaterThan(0);
   });
 
   it('exibe o perfil ativo logado no shell e abre o menu do perfil', async () => {

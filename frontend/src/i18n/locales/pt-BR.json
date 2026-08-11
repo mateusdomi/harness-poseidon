@@ -61,16 +61,16 @@
     "cockpit": "Dashboard",
     "chat": "Chat",
     "conversations": "Conversas",
-    "workflows": "Fluxos de trabalho",
-    "board": "Quadro",
+    "workflows": "Fluxos de trabalho técnicos",
+    "board": "Quadro técnico",
     "documents": "Documentos",
     "prototypes": "Protótipos",
     "architecture": "Arquitetura",
     "approvals": "Aprovações",
-    "orchestrator": "Equipe",
+    "orchestrator": "Capacidade técnica",
     "agents": "Profissionais",
     "tools": "Ferramentas",
-    "run-project": "Executar Projeto",
+    "run-project": "Execução técnica",
     "notifications": "Notificações",
     "providers": "Provedores",
     "channels": "Canais",
@@ -81,21 +81,21 @@
     "settings": "Configurações",
     "groups": {
       "operation": "Operação",
-      "orchestration": "Orquestração",
+      "orchestration": "Operação técnica",
       "artifacts": "Artefatos e governança",
       "administration": "Administração"
     },
     "keywords": {
       "cockpit": "visão geral dashboard operação status painel",
       "chat": "conversar bruna liderança mensagem perguntar falar",
-      "board": "tarefas kanban cartões colunas",
+      "board": "tarefas kanban técnico histórico colunas",
       "conversations": "histórico conversas antigas",
       "projects": "projetos lista trabalhos",
       "delivery": "entregas portfólio previsão forecast dora relatórios daily copilot 360 tech lead",
-      "workflows": "fluxos etapas automação trabalho",
-      "orchestrator": "coordenação liderança delegação equipe",
+      "workflows": "fluxo de trabalho técnico histórico etapas automação trabalho",
+      "orchestrator": "capacidade técnica contas execução",
       "agents": "agentes equipe especialistas robôs",
-      "run-project": "executar rodar iniciar disparar",
+      "run-project": "execução técnica projeto rodar iniciar disparar",
       "documents": "docs catálogo arquivos especificação",
       "prototypes": "telas mockups wireframes referências galeria",
       "architecture": "arquitetura studio estúdio hub central c4 archimate elementos views vistas diagramas modelo",
@@ -1732,12 +1732,12 @@
       "description": "Histórico das suas conversas com a equipe."
     },
     "workflows": {
-      "title": "Fluxos de trabalho",
-      "description": "Pipelines e automações dos projetos."
+      "title": "Fluxos de trabalho técnicos",
+      "description": "Configuração técnica preservada para fluxos legados e compatibilidade."
     },
     "board": {
-      "title": "Quadro",
-      "description": "Quadro de tarefas do projeto."
+      "title": "Quadro técnico",
+      "description": "Visão técnica/histórica de tarefas; não é a unidade operacional da V3."
     },
     "documents": {
       "title": "Documentos",
@@ -1752,8 +1752,8 @@
       "description": "Decisões pendentes de aprovação humana."
     },
     "orchestrator": {
-      "title": "Equipe",
-      "description": "Como a Bruna coordena o trabalho do time."
+      "title": "Capacidade técnica",
+      "description": "Estado técnico das contas e capacidades disponíveis para execução."
     },
     "agents": {
       "title": "Profissionais",
@@ -1764,8 +1764,8 @@
       "description": "Ferramentas disponíveis para os profissionais da equipe."
     },
     "run-project": {
-      "title": "Executar projeto",
-      "description": "Dispare uma nova execução de projeto."
+      "title": "Execução técnica",
+      "description": "Operações técnicas de execução preservadas para compatibilidade."
     },
     "notifications": {
       "title": "Notificações",

@@ -15,6 +15,11 @@ function RoutesLocation() {
 }
 
 function renderPalette() {
+  const bundle = createTestBundle();
+  const profileId = bundle.fixtures.meta.currentProfileId;
+  useSessionStore.setState({ activeProfileId: profileId });
+  usePresentationStore.setState({ modeByProfile: { [profileId]: 'technical' } });
+
   return renderWithApi(
     <MemoryRouter initialEntries={['/cockpit']}>
       <Routes>
@@ -29,6 +34,7 @@ function renderPalette() {
         />
       </Routes>
     </MemoryRouter>,
+    bundle,
   );
 }
 
@@ -39,9 +45,7 @@ describe('CommandPalette', () => {
     // testes exercitam a mecânica da paleta com telas técnicas (Governança,
     // Agentes), então rodam no modo Técnico; a filtragem por modo em si é
     // coberta em `navigation-modes.test.tsx`.
-    const profileId = createTestBundle().fixtures.meta.currentProfileId;
-    useSessionStore.setState({ activeProfileId: profileId });
-    usePresentationStore.setState({ modeByProfile: { [profileId]: 'technical' } });
+    usePresentationStore.setState({ modeByProfile: {} });
   });
 
   it('abre pelo botão de lupa e fecha com Esc', async () => {
@@ -84,10 +88,10 @@ describe('CommandPalette', () => {
     await user.click(screen.getByRole('button', { name: /buscar telas/i }));
     const input = screen.getByRole('combobox', { name: 'Busca global de telas' });
 
-    // "kanban" é palavra-chave do Quadro (não aparece no nome da tela).
+    // "kanban" é palavra-chave do Quadro técnico (não aparece no nome da tela).
     await user.type(input, 'kanban');
     const listbox = screen.getByRole('listbox');
-    expect(listbox).toHaveTextContent('Quadro');
+    expect(listbox).toHaveTextContent('Quadro técnico');
     expect(listbox).not.toHaveTextContent('Cockpit');
 
     // Normalização: "auditoria" (sem acento) casa com a palavra-chave "auditoria" de Governança.
@@ -104,9 +108,9 @@ describe('CommandPalette', () => {
     await user.type(screen.getByRole('combobox'), 'projeto');
 
     const listbox = screen.getByRole('listbox');
-    // "Projetos" (Operação) e "Executar projeto" (Orquestração) em grupos rotulados.
+    // "Projetos" (Operação) e "Execução técnica" (Operação técnica) em grupos rotulados.
     expect(listbox).toHaveTextContent('Operação');
-    expect(listbox).toHaveTextContent('Orquestração');
+    expect(listbox).toHaveTextContent('Operação técnica');
   });
 
   it('navega por teclado (setas) e seleciona com Enter', async () => {
@@ -114,18 +118,17 @@ describe('CommandPalette', () => {
     renderPalette();
 
     await user.click(screen.getByRole('button', { name: /buscar telas/i }));
-    await user.type(screen.getByRole('combobox'), 'equipe');
+    await user.type(screen.getByRole('combobox'), 'profissionais');
 
-    // Dois resultados: "Equipe" (nome) primeiro, "Agentes" (palavra-chave) depois.
+    // Resultado técnico principal de agentes.
     const options = screen.getAllByRole('option');
-    expect(options).toHaveLength(2);
+    expect(options).toHaveLength(1);
     expect(options[0]).toHaveAttribute('aria-selected', 'true');
-    expect(options[1]).toHaveAttribute('aria-selected', 'false');
 
     await user.keyboard('{ArrowDown}');
-    expect(screen.getAllByRole('option')[1]).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getAllByRole('option')[0]).toHaveAttribute('aria-selected', 'true');
 
-    // Seta para cima volta; wrap para baixo retorna ao primeiro.
+    // Seta para cima mantém/wrap no primeiro quando só há um resultado.
     await user.keyboard('{ArrowUp}');
     expect(screen.getAllByRole('option')[0]).toHaveAttribute('aria-selected', 'true');
 

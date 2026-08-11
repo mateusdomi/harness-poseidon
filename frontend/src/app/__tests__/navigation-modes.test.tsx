@@ -71,13 +71,9 @@ describe('navegação por modo de apresentação (F4)', () => {
     expect(sidebarLinkNames()).toEqual([
       'Chat',
       'Dashboard',
-      'Quadro',
       'Conversas',
       'Projetos',
       'Central de Entregas',
-      'Fluxos de trabalho',
-      'Equipe',
-      'Executar Projeto',
       'Documentos',
       'Protótipos',
       'Organizações',
@@ -95,6 +91,10 @@ describe('navegação por modo de apresentação (F4)', () => {
     const names = sidebarLinkNames();
     for (const hidden of [
       'Profissionais',
+      'Quadro técnico',
+      'Fluxos de trabalho técnicos',
+      'Capacidade técnica',
+      'Execução técnica',
       'Governança',
       'Documentos de Governança',
       'Provedores',
@@ -106,12 +106,21 @@ describe('navegação por modo de apresentação (F4)', () => {
     }
   });
 
-  it('Técnico soma Profissionais, Governança, Documentos de Governança, Provedores e Ferramentas', async () => {
+  it('Técnico soma telas operacionais/históricas e ferramentas de administração técnica', async () => {
     renderShell('technical');
     await waitForMenu('Profissionais');
 
     const names = sidebarLinkNames();
-    for (const added of ['Governança', 'Documentos de Governança', 'Provedores', 'Ferramentas']) {
+    for (const added of [
+      'Quadro técnico',
+      'Fluxos de trabalho técnicos',
+      'Capacidade técnica',
+      'Execução técnica',
+      'Governança',
+      'Documentos de Governança',
+      'Provedores',
+      'Ferramentas',
+    ]) {
       expect(names).toContain(added);
     }
     // Administrador ainda não: essas duas só aparecem no nível de cima.
