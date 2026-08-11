@@ -1122,10 +1122,10 @@
       "empty": "Ninguém da equipe está vinculado a este projeto.",
       "online": "Online",
       "onlineTooltip": "Pessoas prontas para produzir (trabalhando, disponíveis ou aguardando). Não conta quem está indisposto ou sem jornada.",
-      "tasksDone": "Tarefas concluídas",
-      "tasksDoneTooltip": "Total de tarefas já entregues pela equipe deste projeto (acumulado).",
-      "tasksTodo": "Tarefas a fazer",
-      "tasksTodoTooltip": "Tarefas que ainda não foram concluídas — a fila de produção que resta.",
+      "tasksDone": "Missões concluídas",
+      "tasksDoneTooltip": "Total de entregas concluídas pela capacidade operacional deste projeto, sem estimar percentual de produto.",
+      "tasksTodo": "Pendências operacionais",
+      "tasksTodoTooltip": "Itens operacionais ainda abertos neste projeto. Não representa percentual de desenvolvimento.",
       "problems": "Sem capacidade",
       "problemsTooltip": "Pessoas indispostas ou sem jornada. Cada uma aqui é capacidade de produção parada.",
       "workingNow": "Produzindo agora",
@@ -1611,8 +1611,8 @@
           "message": "Quero retomar os trabalhos deste projeto."
         },
         "planNewDemand": {
-          "label": "Planejar uma entrega",
-          "message": "Gostaria de planejar uma nova entrega."
+          "label": "Preparar desenvolvimento",
+          "message": "Gostaria de preparar o desenvolvimento deste projeto."
         }
       }
     },

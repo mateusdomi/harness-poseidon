@@ -308,6 +308,8 @@ function businessChatReply(content: string, project: Project, store: Store): str
 
   if (
     normalized.includes('planejar uma nova entrega') ||
+    normalized.includes('preparar o desenvolvimento') ||
+    normalized.includes('preparar desenvolvimento') ||
     normalized.includes('plan a new delivery')
   ) {
     if (inEnglish) {

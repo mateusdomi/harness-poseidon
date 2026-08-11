@@ -6,7 +6,7 @@ import { formatNumber } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 /**
- * Utilização da equipe — tarefas concluídas por agente (`metrics.tasksCompleted`,
+ * Utilização da equipe — entregas concluídas por agente (`metrics.tasksCompleted`,
  * dado real do contrato). Barras horizontais de série única na MESMA escala
  * (maior contagem), cada barra diretamente rotulada com o nome e o total, então
  * sem legenda. SVG/HTML puro (sem rede/CDN, respeita a CSP), cores semânticas do

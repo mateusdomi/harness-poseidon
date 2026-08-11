@@ -541,12 +541,12 @@ async function exerciseBusinessChatActions(page: Page) {
   await expect(summary).not.toContainText(forbidden);
   await expect(summary).not.toContainText(/[0-9A-HJKMNP-TV-Z]{26}/);
 
-  await expect(page.getByRole('button', { name: 'Planejar uma entrega' })).toBeEnabled({
+  await expect(page.getByRole('button', { name: 'Preparar desenvolvimento' })).toBeEnabled({
     timeout: 30_000,
   });
   const planningCount = await chiefMessages.count();
-  await page.getByRole('button', { name: 'Planejar uma entrega' }).click();
-  await expect(page.getByText('Gostaria de planejar uma nova entrega.')).toBeVisible();
+  await page.getByRole('button', { name: 'Preparar desenvolvimento' }).click();
+  await expect(page.getByText('Gostaria de preparar o desenvolvimento deste projeto.')).toBeVisible();
   await expect
     .poll(() => chiefMessages.count(), { timeout: 60_000 })
     .toBeGreaterThan(planningCount);

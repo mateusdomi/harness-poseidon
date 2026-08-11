@@ -53,8 +53,8 @@ function FactoryKpi({
 }
 
 /**
- * Fábrica de agentes — visão de dono: capacidade produtiva em números
- * (online, entregas, fila, capacidade parada) e nomes humanos de quem está
+ * Fábrica de agentes — visão de dono: capacidade operacional em números
+ * (online, entregas, pendências técnicas, capacidade parada) e nomes humanos de quem está
  * produzindo agora e de quem precisa de atenção. Não é log técnico.
  */
 export function AgentsHealthCard({

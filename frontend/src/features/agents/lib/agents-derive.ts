@@ -157,17 +157,17 @@ export function agentModelRoute(
 
 /** Métricas objetivas exibidas no card do agente. */
 export interface DerivedAgentMetrics {
-  /** Total acumulado de tarefas concluídas (`agent.metrics.tasksCompleted`). */
+  /** Total acumulado de entregas concluídas (`agent.metrics.tasksCompleted`). */
   tasksCompleted: number;
-  /** Tarefas do agente (`assigneeAgentId`) atualmente na coluna `done`. */
+  /** Itens atribuídos ao agente (`assigneeAgentId`) atualmente em `done`. */
   approvedInReview: number;
-  /** Tarefas do agente em `corrections` + attempts `failed` do agente. */
+  /** Itens do agente em `corrections` + attempts `failed` do agente. */
   rework: number;
 }
 
 /**
  * Deriva as métricas do card: concluídas vêm do acumulado do contrato;
- * aprovadas em revisão e retrabalho são derivados de tarefas e attempts.
+ * checks concluídos e ajustes são derivados do read model técnico.
  */
 export function deriveAgentMetrics(
   agent: Agent,

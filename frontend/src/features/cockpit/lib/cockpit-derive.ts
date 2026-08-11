@@ -126,9 +126,9 @@ export interface FactoryAgentMetrics {
   online: number;
   /** Capacidade parada (erro ou sem cota). */
   problems: number;
-  /** Tarefas já entregues pela equipe (acumulado das métricas dos agentes). */
+  /** Entregas já concluídas pela capacidade operacional (acumulado das métricas dos agentes). */
   tasksDone: number;
-  /** Tarefas ainda não concluídas (fila de produção). */
+  /** Itens operacionais ainda não concluídos no read model técnico. */
   tasksTodo: number;
   /** Agentes produzindo agora (estado `working`). */
   working: Agent[];
@@ -138,8 +138,8 @@ export interface FactoryAgentMetrics {
 
 /**
  * Métricas da "fábrica de agentes" — visão de dono. Combina o estado
- * operacional dos agentes (capacidade) com a fila de tarefas do projeto
- * (`taskCounts`) para responder "quanta produção há e quanto falta".
+ * operacional dos agentes (capacidade) com o read model técnico do projeto
+ * (`taskCounts`) para responder "há execução em andamento ou atenção necessária?".
  */
 export function factoryAgentMetrics(
   agents: readonly Agent[],

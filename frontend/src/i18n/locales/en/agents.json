@@ -97,7 +97,7 @@
       },
       "metrics": {
         "completed": "Deliveries",
-        "approved": "Validations",
+        "approved": "Checks",
         "rework": "Adjustments"
       },
       "zeroSource": "Source: persisted executions and events attributable to the public profile. Without an attributable link, the value is zero.",
@@ -118,12 +118,12 @@
         "help": "Accumulated total of deliveries completed by the agent (technical metric tasksCompleted)."
       },
       "approvedInReview": {
-        "label": "Approved in review",
-        "help": "Tasks assigned to the agent that are currently in the Done column."
+        "label": "Checks completed",
+        "help": "Items assigned to the agent that are done in the technical read model."
       },
       "rework": {
-        "label": "Rework",
-        "help": "Agent tasks in the Corrections column plus failed attempts."
+        "label": "Adjustments",
+        "help": "Items in correction plus failed attempts. This is operational capacity, not a card workflow."
       }
     },
     "detail": {

@@ -73,7 +73,7 @@ export const PERSONA_NAMES: Readonly<Record<string, PersonaName>> = {
   'architecture-data': { humanName: 'Tiago Correia', roleLabel: 'Arquitetura de Dados' },
   'architecture-discovery': {
     humanName: 'Isabela Freitas',
-    roleLabel: 'Descoberta de Arquitetura',
+    roleLabel: 'Estratégia de Solução',
   },
   'architecture-enterprise': { humanName: 'Ricardo Salgado', roleLabel: 'Arquitetura Corporativa' },
   'architecture-infrastructure': {

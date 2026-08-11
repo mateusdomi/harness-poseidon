@@ -97,7 +97,7 @@
       },
       "metrics": {
         "completed": "Entregas",
-        "approved": "Validações",
+        "approved": "Checks",
         "rework": "Ajustes"
       },
       "zeroSource": "Fonte: execuções e eventos persistidos atribuíveis ao perfil público. Sem vínculo atribuível, o valor é zero.",
@@ -118,12 +118,12 @@
         "help": "Total acumulado de entregas concluídas pelo agente (métrica técnica tasksCompleted)."
       },
       "approvedInReview": {
-        "label": "Aprovadas em revisão",
-        "help": "Tarefas atribuídas ao agente que estão atualmente na coluna Concluído."
+        "label": "Checks concluídos",
+        "help": "Itens atribuídos ao agente que estão concluídos no read model técnico."
       },
       "rework": {
-        "label": "Retrabalho",
-        "help": "Tarefas do agente na coluna Correções somadas às tentativas (attempts) com falha."
+        "label": "Ajustes",
+        "help": "Itens em correção somados às tentativas com falha. É capacidade operacional, não workflow de cards."
       }
     },
     "detail": {

@@ -33,8 +33,8 @@ test.describe('Chat — fluxos determinísticos da experiência de negócio', ()
   test('acolhe uma nova entrega e começa pelo resultado desejado', async ({ page }) => {
     await enterBusinessChat(page);
 
-    await page.getByRole('button', { name: 'Planejar uma entrega' }).click();
-    await expect(page.getByText('Gostaria de planejar uma nova entrega.')).toBeVisible();
+    await page.getByRole('button', { name: 'Preparar desenvolvimento' }).click();
+    await expect(page.getByText('Gostaria de preparar o desenvolvimento deste projeto.')).toBeVisible();
 
     const answer = page
       .locator('article')
