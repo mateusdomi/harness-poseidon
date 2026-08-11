@@ -6,6 +6,8 @@
       "count": "{{count}} profissionais",
       "provider": "Provedor",
       "executor": "Executor",
+      "loginLabel": "Login esperado",
+      "authStrategy": "Estratégia de auth",
       "roles": "Papéis",
       "usagePolicy": "Uso",
       "health": "Saúde",
@@ -18,6 +20,8 @@
         "total": "Total"
       },
       "authCommand": "Execute este comando em um terminal para autenticar a conta isolada:",
+      "authDetails": "Login esperado: {{label}} · Estratégia: {{strategy}}",
+      "authLabelMissing": "não cadastrado",
       "actions": {
         "add": "Adicionar conta",
         "auth": "Autenticar",
@@ -31,6 +35,8 @@
         "title": "Adicionar conta runtime",
         "help": "Cria infraestrutura de execução. Perfil público, nome e foto continuam separados para não aparecer uma pessoa falsa na experiência principal.",
         "alias": "Alias técnico",
+        "loginLabel": "E-mail/login esperado",
+        "authStrategy": "Estratégia Codex",
         "capabilities": "Capacidades permitidas",
         "unsupportedCapability": "Este adapter não oferece esta capacidade nesta configuração.",
         "roleLabels": {

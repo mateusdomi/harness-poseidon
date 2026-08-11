@@ -159,6 +159,34 @@ public sealed class V3FoundationTests : IDisposable
     }
 
     [Fact]
+    public void CodexAuthInstructionUsesBrowserLoginUnlessConfiguredOtherwise()
+    {
+        var layout = new AccountProfileLayout(
+            "worker-codex-homologation-01",
+            "/tmp/accounts/worker-codex-homologation-01",
+            "/tmp/accounts/worker-codex-homologation-01/codex",
+            "/tmp/accounts/worker-codex-homologation-01/work",
+            "/tmp/accounts/worker-codex-homologation-01/sessions",
+            "/tmp/accounts/worker-codex-homologation-01/logs",
+            "/tmp/accounts/worker-codex-homologation-01/profile.json",
+            "/tmp/accounts/worker-codex-homologation-01/profile.lock");
+
+        var instruction = V3AccountAuthInstruction.For(
+            Account("worker-codex-homologation-01", ExecutorCatalog.Codex, [AgentRoles.ProjectExecutor]),
+            ExecutorCatalog.Find(ExecutorCatalog.Codex)!,
+            layout,
+            "/tmp/agent-accounts.json",
+            "codeyourfuturenow@gmail.com");
+
+        Assert.Equal("browser", instruction.AuthStrategy);
+        Assert.Equal(["login"], instruction.Arguments);
+        Assert.Contains("CODEX_HOME=", instruction.ShellCommand);
+        Assert.Contains("codex 'login'", instruction.ShellCommand);
+        Assert.DoesNotContain("--device-auth", instruction.ShellCommand);
+        Assert.Equal("codeyourfuturenow@gmail.com", instruction.ProviderAccountLabel);
+    }
+
+    [Fact]
     public void ChiefAssignmentPersistsAsPrimaryPriorityWithoutSecrets()
     {
         var path = Path.Combine(_directory, "agent-accounts.json");

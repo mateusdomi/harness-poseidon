@@ -110,13 +110,20 @@ export function AgentExecutionRoster() {
   const enableAccount = useEnableV3AgentAccount();
   const disableAccount = useDisableV3AgentAccount();
   const logoutAccount = useLogoutV3AgentAccount();
-  const [authCommand, setAuthCommand] = useState<string | null>(null);
+  const [authInstruction, setAuthInstruction] = useState<{
+    shellCommand: string;
+    providerAccountLabel?: string | null;
+    authStrategy?: string;
+    supportedAuthStrategies?: string[];
+  } | null>(null);
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [draft, setDraft] = useState({
     alias: '',
+    providerAccountLabel: '',
     providerKind: 'openai',
     executorId: 'codex',
     allowedRoles: ['project-executor'],
+    preferredAuthStrategy: 'browser',
   });
   const accounts = rosterQuery.data ?? [];
   const v3ByAlias = useMemo(
@@ -131,7 +138,7 @@ export function AgentExecutionRoster() {
 
   async function prepare(alias: string) {
     const result = await prepareAuth.mutateAsync(alias);
-    setAuthCommand(result.shellCommand);
+    setAuthInstruction(result);
   }
 
   function toggleRole(role: string) {
@@ -170,7 +177,14 @@ export function AgentExecutionRoster() {
       enabled: true,
       usagePolicy: 'AUTOMATIC',
     });
-    setDraft({ alias: '', providerKind: 'openai', executorId: 'codex', allowedRoles: ['project-executor'] });
+    setDraft({
+      alias: '',
+      providerAccountLabel: '',
+      providerKind: 'openai',
+      executorId: 'codex',
+      allowedRoles: ['project-executor'],
+      preferredAuthStrategy: 'browser',
+    });
     setShowAddAccount(false);
   }
 
@@ -236,6 +250,14 @@ export function AgentExecutionRoster() {
                     <dd className="min-w-0 break-words text-foreground">{account.providerKind}</dd>
                     <dt>{t('agents.roster.executor')}</dt>
                     <dd className="min-w-0 break-words text-foreground">{account.executorId}</dd>
+                    <dt>{t('agents.roster.loginLabel')}</dt>
+                    <dd className="min-w-0 break-words text-foreground">
+                      {v3ByAlias.get(account.alias)?.providerAccountLabel ?? '—'}
+                    </dd>
+                    <dt>{t('agents.roster.authStrategy')}</dt>
+                    <dd className="min-w-0 break-words text-foreground">
+                      {v3ByAlias.get(account.alias)?.preferredAuthStrategy ?? 'AUTO'}
+                    </dd>
                     <dt>{t('agents.roster.roles')}</dt>
                     <dd className="flex min-w-0 flex-wrap gap-1">
                       {account.roles.map((role) => (
@@ -338,6 +360,18 @@ export function AgentExecutionRoster() {
                   />
                 </label>
                 <label className="text-sm">
+                  <span className="text-foreground-muted">{t('agents.roster.add.loginLabel')}</span>
+                  <Input
+                    className="mt-1"
+                    type="email"
+                    value={draft.providerAccountLabel}
+                    onChange={(event) =>
+                      setDraft((current) => ({ ...current, providerAccountLabel: event.target.value }))
+                    }
+                    placeholder="name@example.com"
+                  />
+                </label>
+                <label className="text-sm">
                   <span className="text-foreground-muted">{t('agents.roster.provider')}</span>
                   <Select
                     className="mt-1"
@@ -367,6 +401,23 @@ export function AgentExecutionRoster() {
                     ))}
                   </Select>
                 </label>
+                {draft.executorId === 'codex' ? (
+                  <label className="text-sm">
+                    <span className="text-foreground-muted">{t('agents.roster.add.authStrategy')}</span>
+                    <Select
+                      className="mt-1"
+                      value={draft.preferredAuthStrategy}
+                      onChange={(event) =>
+                        setDraft((current) => ({ ...current, preferredAuthStrategy: event.target.value }))
+                      }
+                    >
+                      <option value="browser">Browser OAuth</option>
+                      <option value="device">Device code</option>
+                      <option value="api-key">API key</option>
+                      <option value="access-token">Access token</option>
+                    </Select>
+                  </label>
+                ) : null}
                 <fieldset className="text-sm">
                   <legend className="text-foreground-muted">{t('agents.roster.add.capabilities')}</legend>
                   {ROLE_OPTIONS.map((role) => {
@@ -400,11 +451,17 @@ export function AgentExecutionRoster() {
             ) : null}
           </div>
         ) : null}
-        {authCommand ? (
+        {authInstruction ? (
           <div className="mt-4 rounded-md border border-border bg-surface-subtle p-3">
             <p className="text-sm font-medium">{t('agents.roster.authCommand')}</p>
+            <p className="mt-1 text-xs text-foreground-muted">
+              {t('agents.roster.authDetails', {
+                label: authInstruction.providerAccountLabel ?? t('agents.roster.authLabelMissing'),
+                strategy: authInstruction.authStrategy ?? 'native',
+              })}
+            </p>
             <pre className="mt-2 overflow-auto rounded bg-background p-2 text-xs">
-              <code>{authCommand}</code>
+              <code>{authInstruction.shellCommand}</code>
             </pre>
           </div>
         ) : null}

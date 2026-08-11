@@ -96,8 +96,9 @@ public static class AgentRoles
 }
 
 /// <summary>
-/// Definição de conta lida da configuração LOCAL do operador. Nenhum e-mail, token ou
-/// senha existe nesta forma: apenas alias e referência opaca.
+/// Definição de conta lida da configuração LOCAL do operador. Nenhum token ou senha existe nesta
+/// forma: apenas alias, referência opaca e metadados não secretos para o humano escolher a conta
+/// correta durante o OAuth.
 /// </summary>
 public sealed record AgentAccountDefinition
 {
@@ -130,6 +131,12 @@ public sealed record AgentAccountDefinition
 
     [JsonPropertyName("usagePolicy")]
     public string UsagePolicy { get; init; } = AgentAccountUsagePolicies.Automatic;
+
+    [JsonPropertyName("providerAccountLabel")]
+    public string? ProviderAccountLabel { get; init; }
+
+    [JsonPropertyName("preferredAuthStrategy")]
+    public string? PreferredAuthStrategy { get; init; }
 }
 
 public static class AgentAccountUsagePolicies

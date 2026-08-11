@@ -242,7 +242,15 @@ public static class V3FoundationEndpoints
             if (executor is null) return Problem(409, "executor_unknown", "The account references an unknown executor.");
 
             var handle = provisioner.Ensure(account, executor, clock.UtcNow, owner: "poseidon-auth");
-            return Results.Ok(V3AccountAuthInstruction.For(account, executor, handle.Layout, settings.AccountsFilePath));
+            var definition = AgentAccountConfigurationLoader.LoadDefinitions(settings.AccountsFilePath)
+                .FirstOrDefault(candidate => string.Equals(candidate.Alias, alias, StringComparison.OrdinalIgnoreCase));
+            return Results.Ok(V3AccountAuthInstruction.For(
+                account,
+                executor,
+                handle.Layout,
+                settings.AccountsFilePath,
+                definition?.ProviderAccountLabel,
+                definition?.PreferredAuthStrategy));
         }
         catch (AgentAccountValidationException exception)
         {
@@ -765,7 +773,9 @@ public static class V3Accounts
                     account?.Health.ToString() ?? AgentAccountHealth.Unknown.ToString(),
                     observed?.CooldownUntil,
                     observed?.ReasonCode,
-                    ExecutorCatalog.Find(definition.ExecutorId)?.ConfigHomeEnvironmentVariable);
+                    ExecutorCatalog.Find(definition.ExecutorId)?.ConfigHomeEnvironmentVariable,
+                    definition.ProviderAccountLabel,
+                    definition.PreferredAuthStrategy);
             })]);
     }
 }
@@ -953,7 +963,9 @@ public sealed record V3AgentAccountItem(
     string Health,
     DateTimeOffset? ReturnsAt,
     string? ReasonCode,
-    string? ConfigHomeEnvironmentVariable);
+    string? ConfigHomeEnvironmentVariable,
+    string? ProviderAccountLabel,
+    string? PreferredAuthStrategy);
 
 public sealed record V3AccountAuthInstruction(
     string Alias,
@@ -961,6 +973,9 @@ public sealed record V3AccountAuthInstruction(
     string ExecutorId,
     string ConfigHomePath,
     string? ConfigHomeEnvironmentVariable,
+    string? ProviderAccountLabel,
+    string AuthStrategy,
+    IReadOnlyList<string> SupportedAuthStrategies,
     string Command,
     IReadOnlyList<string> Arguments,
     string ShellCommand,
@@ -971,16 +986,34 @@ public sealed record V3AccountAuthInstruction(
         AgentAccountContract account,
         ExecutorProfile executor,
         AccountProfileLayout layout,
-        string? accountsFilePath)
+        string? accountsFilePath,
+        string? providerAccountLabel = null,
+        string? preferredAuthStrategy = null)
     {
         var (arguments, instruction) = executor.ExecutorId switch
         {
-            ExecutorCatalog.Codex => ((IReadOnlyList<string>)["login", "--device-auth"],
-                "Execute o comando em um terminal. Conclua o login no navegador/dispositivo e depois rode o Doctor/Probe."),
+            ExecutorCatalog.Codex => ((IReadOnlyList<string>)["login"],
+                "Execute o comando em um terminal. O padrão é o OAuth no navegador da CLI instalada; use device auth somente como fallback explícito. Depois rode o Probe."),
             ExecutorCatalog.ClaudeCode => ((IReadOnlyList<string>)[],
                 "Execute o comando em um terminal. Se a sessão pedir login, use /login e conclua o OAuth no navegador. Depois rode o Doctor/Probe."),
             _ => ((IReadOnlyList<string>)["--help"], "Este executor não possui fluxo OAuth padronizado nesta rodada."),
         };
+        var authStrategy = executor.ExecutorId == ExecutorCatalog.Codex
+            ? NormalizeCodexStrategy(preferredAuthStrategy)
+            : "native";
+        var supported = executor.ExecutorId == ExecutorCatalog.Codex
+            ? (IReadOnlyList<string>)["auto", "browser", "device", "api-key", "access-token"]
+            : ["native"];
+        if (executor.ExecutorId == ExecutorCatalog.Codex)
+        {
+            arguments = authStrategy switch
+            {
+                "device" => ["login", "--device-auth"],
+                "api-key" => ["login", "--with-api-key"],
+                "access-token" => ["login", "--with-access-token"],
+                _ => ["login"],
+            };
+        }
         var prefix = executor.ConfigHomeEnvironmentVariable is null
             ? $"HOME={Shell(layout.ConfigHomePath)}"
             : $"{executor.ConfigHomeEnvironmentVariable}={Shell(layout.ConfigHomePath)}";
@@ -991,6 +1024,9 @@ public sealed record V3AccountAuthInstruction(
             account.ExecutorId,
             layout.ConfigHomePath,
             executor.ConfigHomeEnvironmentVariable,
+            providerAccountLabel,
+            authStrategy,
+            supported,
             executor.Command,
             arguments,
             shell,
@@ -999,6 +1035,15 @@ public sealed record V3AccountAuthInstruction(
     }
 
     private static string Shell(string value) => "'" + value.Replace("'", "'\\''", StringComparison.Ordinal) + "'";
+
+    private static string NormalizeCodexStrategy(string? value) =>
+        string.Equals(value, "device", StringComparison.OrdinalIgnoreCase)
+            ? "device"
+            : string.Equals(value, "api-key", StringComparison.OrdinalIgnoreCase)
+                ? "api-key"
+                : string.Equals(value, "access-token", StringComparison.OrdinalIgnoreCase)
+                    ? "access-token"
+                    : "browser";
 }
 
 public sealed record V3AccountLogoutResponse(string Alias, bool Removed, bool ConfigHomePreserved);
@@ -1013,6 +1058,8 @@ public sealed class V3AccountUpsertRequest
     public int Priority { get; init; } = 100;
     public bool Enabled { get; init; } = true;
     public string UsagePolicy { get; init; } = AgentAccountUsagePolicies.Automatic;
+    public string? ProviderAccountLabel { get; init; }
+    public string? PreferredAuthStrategy { get; init; }
 
     public AgentAccountDefinition ToDefinition()
     {
@@ -1029,6 +1076,8 @@ public sealed class V3AccountUpsertRequest
             Priority = Priority,
             Enabled = Enabled,
             UsagePolicy = UsagePolicy,
+            ProviderAccountLabel = string.IsNullOrWhiteSpace(ProviderAccountLabel) ? null : ProviderAccountLabel.Trim(),
+            PreferredAuthStrategy = string.IsNullOrWhiteSpace(PreferredAuthStrategy) ? null : PreferredAuthStrategy.Trim(),
         };
     }
 

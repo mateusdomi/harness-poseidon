@@ -22,6 +22,7 @@ from typing import Any
 HARNESS_DIR = pathlib.Path.home() / ".harness"
 ACCOUNTS_FILE = HARNESS_DIR / "agent-accounts.json"
 AVAILABILITY_FILE = HARNESS_DIR / "account-availability.json"
+AUTH_METADATA_FILE = HARNESS_DIR / "agent-auth-metadata.json"
 ACCOUNTS_ROOT = HARNESS_DIR / "accounts"
 
 
@@ -33,6 +34,8 @@ PROVIDERS = {
     "kimi": ("moonshot", "kimi-code"),
     "moonshot": ("moonshot", "kimi-code"),
 }
+
+CODEX_AUTH_STRATEGIES = {"auto", "browser", "device", "api-key", "access-token"}
 
 
 def load_json(path: pathlib.Path, default: Any) -> Any:
@@ -88,6 +91,56 @@ def accounts_doc() -> dict[str, Any]:
     return doc
 
 
+def auth_metadata_doc() -> dict[str, Any]:
+    doc = load_json(AUTH_METADATA_FILE, {"accounts": {}})
+    doc.setdefault("accounts", {})
+    return doc
+
+
+def auth_metadata_for(alias: str) -> dict[str, Any]:
+    return dict(auth_metadata_doc().get("accounts", {}).get(alias, {}))
+
+
+def save_auth_metadata(alias: str, updates: dict[str, Any]) -> None:
+    doc = auth_metadata_doc()
+    current = dict(doc["accounts"].get(alias, {}))
+    current.update({key: value for key, value in updates.items() if value is not None})
+    doc["accounts"][alias] = current
+    save_json(AUTH_METADATA_FILE, doc)
+
+
+def cli_version(command: str) -> str | None:
+    try:
+        result = subprocess.run([command, "--version"], text=True, capture_output=True, timeout=20)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+    text = (result.stdout or result.stderr).strip()
+    return text.splitlines()[0] if text else None
+
+
+def account_login_label(account: dict[str, Any]) -> str | None:
+    metadata = auth_metadata_for(account["alias"])
+    for key in ["providerAccountLabel", "loginEmail", "loginEmailHint"]:
+        value = account.get(key) or metadata.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def set_account_login_label(alias: str, label: str) -> None:
+    doc = accounts_doc()
+    found = False
+    for account in doc["accounts"]:
+        if account.get("alias") == alias:
+            account["providerAccountLabel"] = label.strip()
+            found = True
+            break
+    if not found:
+        raise SystemExit(f"Conta não encontrada: {alias}")
+    save_json(ACCOUNTS_FILE, doc)
+    save_auth_metadata(alias, {"providerAccountLabel": label.strip(), "updatedAt": now()})
+
+
 def find_account(alias: str) -> dict[str, Any]:
     for account in accounts_doc().get("accounts", []):
         if account.get("alias") == alias:
@@ -132,14 +185,18 @@ def set_availability(alias: str, state: str, reason: str) -> None:
 
 def command_list(_: argparse.Namespace) -> int:
     availability = availability_by_alias()
-    print("ALIAS\tPROVIDER\tEXECUTOR\tROLES\tENABLED\tUSAGE_POLICY\tAVAILABILITY")
+    print("ALIAS\tPROVIDER\tEXECUTOR\tROLES\tENABLED\tUSAGE_POLICY\tAVAILABILITY\tLOGIN_LABEL\tAUTH_STRATEGY")
     for account in accounts_doc().get("accounts", []):
         alias = account.get("alias", "")
         state = availability.get(alias, {}).get("State", "Unknown")
         roles = ",".join(account.get("allowedRoles", []))
+        metadata = auth_metadata_for(alias)
+        label = account_login_label(account) or "-"
+        strategy = metadata.get("successfulAuthStrategy") or account.get("preferredAuthStrategy") or "-"
         print(
             f"{alias}\t{account.get('providerKind','')}\t{account.get('executorId','')}\t"
-            f"{roles}\t{account.get('enabled', False)}\t{account.get('usagePolicy', 'AUTOMATIC')}\t{state}"
+            f"{roles}\t{account.get('enabled', False)}\t{account.get('usagePolicy', 'AUTOMATIC')}\t{state}\t"
+            f"{label}\t{strategy}"
         )
     return 0
 
@@ -174,6 +231,7 @@ def command_add(args: argparse.Namespace) -> int:
             "priority": priority,
             "enabled": True,
             "usagePolicy": "AUTOMATIC",
+            **({"providerAccountLabel": args.login_label.strip()} if args.login_label else {}),
         }
     )
     save_json(ACCOUNTS_FILE, doc)
@@ -194,6 +252,13 @@ def command_add(args: argparse.Namespace) -> int:
     )
     set_availability(args.account_id, "Unavailable", "availability.not_probed")
     print(f"Conta adicionada: {args.account_id} ({provider_kind}/{executor_id})")
+    return 0
+
+
+def command_label(args: argparse.Namespace) -> int:
+    find_account(args.account_id)
+    set_account_login_label(args.account_id, args.login_label)
+    print(f"Login label atualizado para {args.account_id}: {args.login_label}")
     return 0
 
 
@@ -250,6 +315,52 @@ def run_auth_flow(account: dict[str, Any], argv: list[str], timeout_seconds: int
             return 124
 
 
+def resolve_codex_auth_strategy(account: dict[str, Any], requested: str) -> str:
+    strategy = requested.lower().strip()
+    if strategy not in CODEX_AUTH_STRATEGIES:
+        raise SystemExit(f"Estratégia Codex inválida: {requested}. Use {', '.join(sorted(CODEX_AUTH_STRATEGIES))}.")
+    if strategy != "auto":
+        return strategy
+    metadata = auth_metadata_for(account["alias"])
+    learned = str(metadata.get("successfulAuthStrategy") or "").lower()
+    if learned in {"browser", "device", "api-key", "access-token"}:
+        return learned
+    configured = str(account.get("preferredAuthStrategy") or "").lower()
+    if configured in {"browser", "device", "api-key", "access-token"}:
+        return configured
+    # Codex CLI 0.147.0 documents browser OAuth as the default `codex login` flow.
+    # Device auth stays available, but it must not be the only hardcoded path.
+    return "browser"
+
+
+def codex_auth_argv(strategy: str) -> list[str]:
+    if strategy == "browser":
+        return ["codex", "login"]
+    if strategy == "device":
+        return ["codex", "login", "--device-auth"]
+    if strategy == "api-key":
+        return ["codex", "login", "--with-api-key"]
+    if strategy == "access-token":
+        return ["codex", "login", "--with-access-token"]
+    raise SystemExit(f"Estratégia Codex não suportada: {strategy}")
+
+
+def print_auth_banner(account: dict[str, Any], strategy: str, version: str | None) -> None:
+    label = account_login_label(account) or "NÃO CADASTRADO"
+    print("================================================")
+    print("AUTENTICAÇÃO CODEX")
+    print("================================================")
+    print(f"Agente: {account.get('publicAgentProfile') or account.get('alias')}")
+    print(f"Conta Poseidon: {account.get('alias')}")
+    print("Provider: OpenAI Codex")
+    print(f"E-mail/Login esperado: {label}")
+    print(f"Estado atual: {availability_by_alias().get(account['alias'], {}).get('State', 'Unknown')}")
+    print("Objetivo: autenticar esta conta como Project Executor")
+    print(f"Estratégia: {strategy}")
+    print(f"CLI: {version or 'unknown'}")
+    print("================================================")
+
+
 def command_auth(args: argparse.Namespace) -> int:
     account = find_account(args.account_id)
     if account["executorId"] == "claude-code":
@@ -259,11 +370,16 @@ def command_auth(args: argparse.Namespace) -> int:
         set_availability(args.account_id, "Unavailable", "availability.auth_pending")
         code = run_auth_flow(account, ["claude"])
     elif account["executorId"] == "codex":
+        strategy = resolve_codex_auth_strategy(account, getattr(args, "strategy", "auto"))
+        version = cli_version("codex")
+        print_auth_banner(account, strategy, version)
         print(f"Autenticando Codex isolado: {args.account_id}")
         print(f"CODEX_HOME={account_home(args.account_id) / 'codex'}")
-        print("Use o fluxo nativo do Codex no navegador/device auth. Não informe senha ao Poseidon.")
+        print("Use o fluxo nativo do Codex. Não informe senha ao Poseidon.")
+        if strategy in {"api-key", "access-token"}:
+            print("ATENÇÃO: esta estratégia recebe segredo pela CLI nativa. O Poseidon não armazena nem imprime o valor.")
         set_availability(args.account_id, "Unavailable", "availability.auth_pending")
-        code = run_auth_flow(account, ["codex", "login", "--device-auth"])
+        code = run_auth_flow(account, codex_auth_argv(strategy))
     elif account["executorId"] == "kimi-code":
         print(f"Autenticando Kimi isolado: {args.account_id}")
         print(f"HOME={account_home(args.account_id) / 'config'}")
@@ -275,7 +391,20 @@ def command_auth(args: argparse.Namespace) -> int:
     if code != 0:
         set_availability(args.account_id, "Unavailable", "availability.auth_failed")
         return code
-    return command_probe(args)
+    probe_code = command_probe(args)
+    if probe_code == 0 and account["executorId"] == "codex":
+        save_auth_metadata(
+            args.account_id,
+            {
+                "provider": account.get("providerKind"),
+                "executorId": account.get("executorId"),
+                "cliVersion": cli_version("codex"),
+                "successfulAuthStrategy": resolve_codex_auth_strategy(account, getattr(args, "strategy", "auto")),
+                "lastAuthSuccessAt": now(),
+                "platform": sys.platform,
+            },
+        )
+    return probe_code
 
 
 def set_account_usage_policy(alias: str, usage_policy: str, enabled: bool) -> None:
@@ -435,6 +564,10 @@ def command_status(args: argparse.Namespace) -> int:
     print(f"AuthState: {auth_state}")
     print(f"Availability: {availability.get('State', 'Unknown')}")
     print(f"Reason: {availability.get('ReasonCode', 'unknown')}")
+    print(f"LoginLabel: {account_login_label(account) or 'NOT_CONFIGURED'}")
+    metadata = auth_metadata_for(args.account_id)
+    print(f"SuccessfulAuthStrategy: {metadata.get('successfulAuthStrategy', 'UNKNOWN')}")
+    print(f"LastAuthSuccessAt: {metadata.get('lastAuthSuccessAt', 'UNKNOWN')}")
     print(f"ProfileLocation: {profile_location}")
     return 0
 
@@ -468,6 +601,7 @@ def build_parser() -> argparse.ArgumentParser:
     add.add_argument("provider")
     add.add_argument("account_id")
     add.add_argument("--role", choices=["executor", "chief", "critic"], default="executor")
+    add.add_argument("--login-label", default=None)
     add.set_defaults(func=command_add)
 
     for name, func in [
@@ -480,7 +614,14 @@ def build_parser() -> argparse.ArgumentParser:
     ]:
         p = sub.add_parser(name)
         p.add_argument("account_id")
+        if name == "auth":
+            p.add_argument("--strategy", choices=sorted(CODEX_AUTH_STRATEGIES), default="auto")
         p.set_defaults(func=func)
+
+    label = sub.add_parser("label")
+    label.add_argument("account_id")
+    label.add_argument("login_label")
+    label.set_defaults(func=command_label)
 
     chief = sub.add_parser("chief-set")
     chief.add_argument("account_id")

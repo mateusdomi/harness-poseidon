@@ -38690,6 +38690,9 @@
                     "executorId",
                     "configHomePath",
                     "configHomeEnvironmentVariable",
+                    "providerAccountLabel",
+                    "authStrategy",
+                    "supportedAuthStrategies",
                     "command",
                     "arguments",
                     "shellCommand",
@@ -38715,6 +38718,21 @@
                             "null",
                             "string"
                         ]
+                    },
+                    "providerAccountLabel": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "authStrategy": {
+                        "type": "string"
+                    },
+                    "supportedAuthStrategies": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
                     },
                     "command": {
                         "type": "string"
@@ -38852,6 +38870,18 @@
                     },
                     "usagePolicy": {
                         "type": "string"
+                    },
+                    "providerAccountLabel": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "preferredAuthStrategy": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
                     }
                 }
             },
@@ -38869,7 +38899,9 @@
                     "health",
                     "returnsAt",
                     "reasonCode",
-                    "configHomeEnvironmentVariable"
+                    "configHomeEnvironmentVariable",
+                    "providerAccountLabel",
+                    "preferredAuthStrategy"
                 ],
                 "type": "object",
                 "properties": {
@@ -38930,6 +38962,18 @@
                         ]
                     },
                     "configHomeEnvironmentVariable": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "providerAccountLabel": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "preferredAuthStrategy": {
                         "type": [
                             "null",
                             "string"

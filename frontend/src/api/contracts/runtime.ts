@@ -55,6 +55,9 @@ export const v3AccountAuthInstructionSchema = z.object({
   executorId: z.string(),
   configHomePath: z.string(),
   configHomeEnvironmentVariable: z.string().nullable().optional(),
+  providerAccountLabel: z.string().nullable().optional(),
+  authStrategy: z.string().optional(),
+  supportedAuthStrategies: z.array(z.string()).optional(),
   command: z.string(),
   arguments: z.array(z.string()),
   shellCommand: z.string(),
@@ -77,6 +80,8 @@ export const v3AgentAccountSchema = z.object({
   returnsAt: isoDateTimeSchema.nullable().optional(),
   reasonCode: z.string().nullable().optional(),
   configHomeEnvironmentVariable: z.string().nullable().optional(),
+  providerAccountLabel: z.string().nullable().optional(),
+  preferredAuthStrategy: z.string().nullable().optional(),
 });
 export type V3AgentAccount = z.infer<typeof v3AgentAccountSchema>;
 
@@ -95,6 +100,8 @@ export const v3AgentAccountUpsertInputSchema = z.object({
   priority: z.number().int().default(100),
   enabled: z.boolean().default(true),
   usagePolicy: z.string().default('AUTOMATIC'),
+  providerAccountLabel: z.string().optional(),
+  preferredAuthStrategy: z.string().optional(),
 });
 export type V3AgentAccountUpsertInput = z.infer<typeof v3AgentAccountUpsertInputSchema>;
 

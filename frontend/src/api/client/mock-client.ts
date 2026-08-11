@@ -2443,6 +2443,8 @@ export class MockApiClient implements ApiClient {
       returnsAt: null,
       reasonCode: input.usagePolicy === 'RESERVED' ? 'account.reserved' : null,
       configHomeEnvironmentVariable: input.executorId === 'codex' ? 'CODEX_HOME' : null,
+      providerAccountLabel: input.providerAccountLabel,
+      preferredAuthStrategy: input.preferredAuthStrategy,
     };
     return {
       ...response,
@@ -2476,16 +2478,20 @@ export class MockApiClient implements ApiClient {
     if (!account) throw ApiError.of(404, 'agent_account_not_found', 'The account does not exist.');
     const env = account.executorId === 'codex' ? 'CODEX_HOME' : 'CLAUDE_CONFIG_DIR';
     const configHomePath = `/tmp/poseidon-mock/accounts/${alias}/config`;
-    const args = account.executorId === 'codex' ? ['login', '--device-auth'] : [];
+    const args = account.executorId === 'codex' ? ['login'] : [];
     return {
       alias,
       providerKind: account.providerKind,
       executorId: account.executorId,
       configHomePath,
       configHomeEnvironmentVariable: env,
+      providerAccountLabel: null,
+      authStrategy: account.executorId === 'codex' ? 'browser' : 'native',
+      supportedAuthStrategies:
+        account.executorId === 'codex' ? ['auto', 'browser', 'device', 'api-key', 'access-token'] : ['native'],
       command: account.executorId === 'codex' ? 'codex' : 'claude',
       arguments: args,
-      shellCommand: `${env}='${configHomePath}' ${account.executorId === 'codex' ? 'codex login --device-auth' : 'claude'}`,
+      shellCommand: `${env}='${configHomePath}' ${account.executorId === 'codex' ? 'codex login' : 'claude'}`,
       instruction: 'Mock auth instruction.',
       accountsFilePath: '/tmp/poseidon-mock/agent-accounts.json',
     };
@@ -2522,6 +2528,8 @@ export class MockApiClient implements ApiClient {
           : account.executorId === 'claude-code'
             ? 'CLAUDE_CONFIG_DIR'
             : null,
+        providerAccountLabel: null,
+        preferredAuthStrategy: account.executorId === 'codex' ? 'browser' : null,
       })),
     };
   }

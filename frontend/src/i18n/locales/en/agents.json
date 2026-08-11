@@ -6,6 +6,8 @@
       "count": "{{count}} professionals",
       "provider": "Provider",
       "executor": "Executor",
+      "loginLabel": "Expected login",
+      "authStrategy": "Auth strategy",
       "roles": "Roles",
       "usagePolicy": "Usage",
       "health": "Health",
@@ -18,6 +20,8 @@
         "total": "Total"
       },
       "authCommand": "Run this command in a terminal to authenticate the isolated account:",
+      "authDetails": "Expected login: {{label}} · Strategy: {{strategy}}",
+      "authLabelMissing": "not configured",
       "actions": {
         "add": "Add account",
         "auth": "Authenticate",
@@ -31,6 +35,8 @@
         "title": "Add runtime account",
         "help": "Creates execution infrastructure. Public profile/name/photo stay separate so a fake person does not appear in the main experience.",
         "alias": "Technical alias",
+        "loginLabel": "Expected e-mail/login",
+        "authStrategy": "Codex strategy",
         "capabilities": "Allowed capabilities",
         "unsupportedCapability": "This adapter does not provide this capability in the current configuration.",
         "roleLabels": {
