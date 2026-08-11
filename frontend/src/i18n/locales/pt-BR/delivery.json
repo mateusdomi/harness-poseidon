@@ -1,7 +1,7 @@
 {
   "delivery": {
     "title": "Central de Entregas",
-    "subtitle": "Portfólio por saúde e previsibilidade, Entrega 360, previsão honesta, relatórios e copiloto da daily.",
+    "subtitle": "Portfólio por saúde e previsibilidade, Entrega 360, missões, validação e aceite humano.",
     "loading": "Carregando…",
     "error": "Não foi possível carregar os dados da entrega.",
     "retry": "Tentar novamente",
@@ -10,7 +10,7 @@
     "tabs": {
       "overview": "Entrega 360",
       "reports": "Relatórios",
-      "daily": "Copiloto da daily"
+      "daily": "Registro operacional"
     },
     "health": {
       "label": "Saúde",
@@ -76,32 +76,32 @@
       "open": "Abrir Entrega 360 de {{name}}",
       "openAction": "Abrir Entrega 360",
       "configure": "Configurar",
-      "configureHint": "Responsável e data são derivados do planejamento das tarefas persistidas no Quadro.",
+      "configureHint": "Responsável e data são derivados dos sinais operacionais persistidos da entrega.",
       "signalsCount_one": "{{count}} sinal",
       "signalsCount_other": "{{count}} sinais"
     },
     "planning": {
       "title": "Planejamento de {{name}}",
-      "explain": "Esta ação atualiza o responsável e a data comprometida das tarefas ativas e registra a previsão em histórico auditável. Cards, sinais e Entrega 360 são recalculados a partir desses dados persistidos.",
+      "explain": "Esta ação atualiza o responsável e a data comprometida da entrega e registra a previsão em histórico auditável. Sinais e Entrega 360 são recalculados a partir desses dados persistidos.",
       "owner": "Responsável",
       "ownerHint": "Somente agentes vinculados a este projeto.",
       "selectOwner": "Selecione um responsável",
       "forecastDate": "Data prevista",
       "forecastDateHint": "Previsão atual. Cada alteração cria um novo registro no histórico, sem apagar o anterior.",
       "date": "Data comprometida",
-      "dateHint": "Data-alvo compartilhada pelas tarefas ativas desta entrega.",
+      "dateHint": "Data-alvo compartilhada pela entrega.",
       "noAgents": "Não há agente vinculado ao projeto. Configure a equipe do projeto antes de salvar.",
       "save": "Salvar planejamento",
       "saving": "Salvando…",
-      "error": "Não foi possível salvar. Verifique se a entrega possui tarefas ativas e tente novamente."
+      "error": "Não foi possível salvar. Verifique se a entrega possui sinais operacionais ativos e tente novamente."
     },
     "overview": {
       "exec": {
         "title": "Resumo executivo",
         "owner": "Responsável",
         "milestones": "Marcos",
-        "openTasks": "Tarefas abertas",
-        "blockedTasks": "Tarefas bloqueadas",
+        "openTasks": "Missões abertas",
+        "blockedTasks": "Missões bloqueadas",
         "committed": "Data comprometida",
         "forecast": "Data prevista",
         "lastActivity": "Última atividade",
@@ -126,7 +126,7 @@
         "title": "Riscos & dependências",
         "empty": "Nenhum risco ativo.",
         "openDependencies": "Dependências abertas",
-        "blockedTasks": "Tarefas bloqueadas"
+        "blockedTasks": "Missões bloqueadas"
       },
       "decisions": {
         "title": "Decisões",
@@ -146,9 +146,9 @@
       "value": {
         "title": "Valor & métricas",
         "totalCost": "Custo total",
-        "totalTasks": "Tarefas",
+        "totalTasks": "Itens de entrega",
         "feature": "Funcionalidade",
-        "tasks": "Tarefas",
+        "tasks": "Itens",
         "success": "Sucesso",
         "failures": "Falhas",
         "cost": "Custo",
@@ -169,13 +169,13 @@
       "trace": {
         "contextTitle": "Contexto rastreável",
         "objective": "Objetivo",
-        "phase": "Etapa atual",
-        "workflow": "Fluxo de trabalho",
-        "noPhase": "Nenhuma etapa iniciada",
+        "phase": "Momento atual",
+        "workflow": "Lifecycle",
+        "noPhase": "Nenhum momento iniciado",
         "linked": "Vinculado",
         "notLinked": "Não vinculado",
-        "tasks": "Tarefas relacionadas",
-        "noTasks": "Nenhuma tarefa relacionada registrada.",
+        "tasks": "Sinais operacionais relacionados",
+        "noTasks": "Nenhum sinal operacional relacionado registrado.",
         "evidence": "Evidências de execução",
         "noEvidence": "Nenhuma evidência de rodada de trabalho registrada.",
         "attempt": "Rodada de trabalho {{number}}",
@@ -196,14 +196,14 @@
       "technical": "Detalhes técnicos",
       "unavailable": "Não informada",
       "insufficient": "Evidência insuficiente",
-      "portfolioSource": "Projetos, tarefas, documentos, tentativas e histórico de previsões persistidos.",
-      "portfolioCalculation": "Responsável = agente mais frequente nas tarefas abertas; marcos = tarefas de marco concluídas/total; saúde e atenção = regras determinísticas do read model.",
+      "portfolioSource": "Projetos, missões, documentos, tentativas e histórico de previsões persistidos.",
+      "portfolioCalculation": "Responsável = agente mais frequente nas missões abertas; marcos = obrigações concluídas/total; saúde e atenção = regras determinísticas do read model.",
       "overviewSource": "Read model da entrega combinado com os recursos persistidos do projeto.",
-      "overviewCalculation": "Saúde, marcos, bloqueios e previsibilidade são derivados de tarefas, documentos, decisões, dependências e tentativas reais.",
-      "forecastSource": "Histórico append-only de previsões e estado atual das tarefas.",
+      "overviewCalculation": "Saúde, marcos, bloqueios e previsibilidade são derivados de missões, documentos, decisões, dependências e tentativas reais.",
+      "forecastSource": "Histórico append-only de previsões e estado atual da entrega.",
       "forecastCalculation": "A previsão pondera data comprometida, vazão e variação histórica; sem evidência suficiente, nenhuma data é inventada.",
-      "ownerMissing": "Nenhuma tarefa aberta possui responsável atribuído.",
-      "dateMissing": "Nenhuma tarefa possui data-alvo.",
+      "ownerMissing": "Nenhuma missão aberta possui responsável atribuído.",
+      "dateMissing": "Nenhuma data-alvo foi declarada.",
       "forecastMissing": "Ainda não há previsão confiável.",
       "forecastEvidenceMissing": "Histórico ou volume de trabalho insuficiente para calcular uma data."
     },
@@ -293,8 +293,8 @@
       }
     },
     "daily": {
-      "title": "Copiloto da daily",
-      "subtitle": "Apoio à reunião diária: prepara o briefing, registra marcações e gera o resumo. Não cria nem atualiza cards de produto.",
+      "title": "Registro operacional",
+      "subtitle": "Registro operacional: prepara briefing, registra marcações e gera resumo. Não cria cards de produto.",
       "briefing": {
         "title": "Briefing pré-daily",
         "first": "Primeira daily desta entrega.",
@@ -326,7 +326,7 @@
         "total_one": "{{count}} marcação",
         "total_other": "{{count}} marcações",
         "none": "Nenhuma marcação capturada nesta sessão.",
-        "poCards": "Cards de PO não são criados por padrão."
+        "poCards": "Cards de PO não fazem parte do fluxo V3."
       }
     },
     "tracking": {

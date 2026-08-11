@@ -1,7 +1,7 @@
 {
   "delivery": {
     "title": "Delivery Center",
-    "subtitle": "Portfolio by health and predictability, Delivery 360, honest forecast, reports and Daily Copilot.",
+    "subtitle": "Portfolio by health and predictability, Delivery 360, missions, validation, and human acceptance.",
     "loading": "Loading…",
     "error": "Could not load delivery data.",
     "retry": "Try again",
@@ -10,7 +10,7 @@
     "tabs": {
       "overview": "Delivery 360",
       "reports": "Reports",
-      "daily": "Daily Copilot"
+      "daily": "Operational record"
     },
     "health": {
       "label": "Health",
@@ -76,32 +76,32 @@
       "open": "Open Delivery 360 for {{name}}",
       "openAction": "Open Delivery 360",
       "configure": "Configure",
-      "configureHint": "Owner and date are derived from persisted task planning on the Board.",
+      "configureHint": "Owner and date are derived from persisted operational signals for this delivery.",
       "signalsCount_one": "{{count}} signal",
       "signalsCount_other": "{{count}} signals"
     },
     "planning": {
       "title": "Plan {{name}}",
-      "explain": "This action updates the owner and committed date on active tasks and stores the forecast in an auditable history. Cards, signals and Delivery 360 are recalculated from those persisted facts.",
+      "explain": "This action updates the delivery owner and committed date and stores the forecast in an auditable history. Signals and Delivery 360 are recalculated from those persisted facts.",
       "owner": "Owner",
       "ownerHint": "Only agents assigned to this project.",
       "selectOwner": "Select an owner",
       "forecastDate": "Forecast date",
       "forecastDateHint": "Current forecast. Each change creates a new history record without deleting the previous one.",
       "date": "Committed date",
-      "dateHint": "Shared target date for this delivery's active tasks.",
+      "dateHint": "Target date for this delivery.",
       "noAgents": "No agent is assigned to the project. Configure the project team before saving.",
       "save": "Save planning",
       "saving": "Saving…",
-      "error": "Could not save. Check that the delivery has active tasks and try again."
+      "error": "Could not save. Check that the delivery has active operational signals and try again."
     },
     "overview": {
       "exec": {
         "title": "Executive summary",
         "owner": "Owner",
         "milestones": "Milestones",
-        "openTasks": "Open tasks",
-        "blockedTasks": "Blocked tasks",
+        "openTasks": "Open missions",
+        "blockedTasks": "Blocked missions",
         "committed": "Committed date",
         "forecast": "Forecast date",
         "lastActivity": "Last activity",
@@ -126,7 +126,7 @@
         "title": "Risks & dependencies",
         "empty": "No active risks.",
         "openDependencies": "Open dependencies",
-        "blockedTasks": "Blocked tasks"
+        "blockedTasks": "Blocked missions"
       },
       "decisions": {
         "title": "Decisions",
@@ -146,9 +146,9 @@
       "value": {
         "title": "Value & metrics",
         "totalCost": "Total cost",
-        "totalTasks": "Tasks",
+        "totalTasks": "Delivery items",
         "feature": "Feature",
-        "tasks": "Tasks",
+        "tasks": "Items",
         "success": "Success",
         "failures": "Failures",
         "cost": "Cost",
@@ -169,13 +169,13 @@
       "trace": {
         "contextTitle": "Traceable context",
         "objective": "Objective",
-        "phase": "Current stage",
-        "workflow": "Workflow",
-        "noPhase": "No stage started",
+        "phase": "Current moment",
+        "workflow": "Lifecycle",
+        "noPhase": "No moment started",
         "linked": "Linked",
         "notLinked": "Not linked",
-        "tasks": "Related tasks",
-        "noTasks": "No related tasks recorded.",
+        "tasks": "Related operational signals",
+        "noTasks": "No related operational signals recorded.",
         "evidence": "Execution evidence",
         "noEvidence": "No work round evidence recorded.",
         "attempt": "Work round {{number}}",
@@ -196,14 +196,14 @@
       "technical": "Technical details",
       "unavailable": "Not reported",
       "insufficient": "Insufficient evidence",
-      "portfolioSource": "Persisted projects, tasks, documents, attempts and forecast history.",
-      "portfolioCalculation": "Owner = most frequent agent on open tasks; milestones = completed/total milestone tasks; health and attention = deterministic read-model rules.",
+      "portfolioSource": "Persisted projects, missions, documents, attempts and forecast history.",
+      "portfolioCalculation": "Owner = most frequent agent on open missions; milestones = completed/total obligations; health and attention = deterministic read-model rules.",
       "overviewSource": "Delivery read model combined with persisted project resources.",
-      "overviewCalculation": "Health, milestones, blockers and predictability derive from real tasks, documents, decisions, dependencies and attempts.",
-      "forecastSource": "Append-only forecast history and current task state.",
+      "overviewCalculation": "Health, milestones, blockers and predictability derive from real missions, documents, decisions, dependencies and attempts.",
+      "forecastSource": "Append-only forecast history and current delivery state.",
       "forecastCalculation": "Forecast weighs committed date, throughput and historical variance; without sufficient evidence, no date is invented.",
-      "ownerMissing": "No open task has an assigned owner.",
-      "dateMissing": "No task has a target date.",
+      "ownerMissing": "No open mission has an assigned owner.",
+      "dateMissing": "No target date has been declared.",
       "forecastMissing": "There is no reliable forecast yet.",
       "forecastEvidenceMissing": "Not enough history or workload data to calculate a date."
     },
@@ -293,8 +293,8 @@
       }
     },
     "daily": {
-      "title": "Daily Copilot",
-      "subtitle": "Pre-daily briefing, in-daily capture and post-daily summary. Does not create or update PO cards.",
+      "title": "Operational record",
+      "subtitle": "Operational record: prepares a briefing, captures markers, and generates a summary. Does not create product cards.",
       "briefing": {
         "title": "Pre-daily briefing",
         "first": "First daily for this delivery.",
@@ -326,7 +326,7 @@
         "total_one": "{{count}} marker",
         "total_other": "{{count}} markers",
         "none": "No markers captured in this session.",
-        "poCards": "PO cards are not created by default."
+        "poCards": "PO cards are not part of the V3 flow."
       }
     },
     "tracking": {

@@ -73,11 +73,11 @@ const METRIC_BASIS: Readonly<Record<string, string>> = {
   forecast_accuracy:
     'Exige uma data de entrega realizada para comparar com uma previsão datada.',
   documentation_coverage: 'Calculada a partir dos documentos esperados presentes.',
-  homologation_defects: 'Contagem de tarefas atualmente no estado de correção.',
+  homologation_defects: 'Contagem de missões atualmente em correção.',
   scope_changes: 'Contagem de solicitações que substituíram uma solicitação anterior.',
-  open_dependencies: 'Contagem de tarefas abertas bloqueadas por dependência não resolvida.',
+  open_dependencies: 'Contagem de missões abertas bloqueadas por dependência não resolvida.',
   time_waiting_access:
-    'Contagem de tarefas abertas aguardando acesso; a duração da espera não é registrada.',
+    'Contagem de missões abertas aguardando acesso; a duração da espera não é registrada.',
   planned_vs_realized_value: 'Relação entre marcos planejados e marcos realizados.',
 };
 

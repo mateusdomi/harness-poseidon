@@ -92,8 +92,8 @@ function healthy(): Delivery360 {
     },
     technicalHealth: {
       indicators: [
-        { key: 'task_completion', label: 'Conclusão de tarefas', status: 'good', value: '67%', detail: '6/9 marcos.' },
-        { key: 'blocked_tasks', label: 'Tarefas bloqueadas', status: 'good', value: '0', detail: 'Nenhum bloqueio ativo.' },
+        { key: 'task_completion', label: 'Conclusão de obrigações', status: 'good', value: '67%', detail: '6/9 marcos.' },
+        { key: 'blocked_tasks', label: 'Missões bloqueadas', status: 'good', value: '0', detail: 'Nenhum bloqueio ativo.' },
         { key: 'attempt_success_rate', label: 'Sucesso das tentativas', status: 'good', value: '94%', detail: '47/50 aprovadas.' },
         { key: 'documentation_coverage', label: 'Cobertura de docs', status: 'watch', value: '4/6', detail: 'Runbook pendente.' },
         { key: 'open_dependencies', label: 'Dependências abertas', status: 'good', value: '1', detail: 'Gateway de pagamento.' },
@@ -179,8 +179,8 @@ function atRisk(): Delivery360 {
     },
     technicalHealth: {
       indicators: [
-        { key: 'task_completion', label: 'Conclusão de tarefas', status: 'bad', value: '37%', detail: '3/8 marcos.' },
-        { key: 'blocked_tasks', label: 'Tarefas bloqueadas', status: 'bad', value: '4', detail: 'Aguardando acesso ao banco.' },
+        { key: 'task_completion', label: 'Conclusão de obrigações', status: 'bad', value: '37%', detail: '3/8 marcos.' },
+        { key: 'blocked_tasks', label: 'Missões bloqueadas', status: 'bad', value: '4', detail: 'Aguardando acesso ao banco.' },
         { key: 'attempt_success_rate', label: 'Sucesso das tentativas', status: 'watch', value: '78%', detail: '39/50 aprovadas.' },
         { key: 'documentation_coverage', label: 'Cobertura de docs', status: 'bad', value: '2/6', detail: 'Arquitetura ausente.' },
       ],
@@ -262,8 +262,8 @@ function noOwner(): Delivery360 {
     },
     technicalHealth: {
       indicators: [
-        { key: 'task_completion', label: 'Conclusão de tarefas', status: 'watch', value: '20%', detail: '1/5 marcos.' },
-        { key: 'blocked_tasks', label: 'Tarefas bloqueadas', status: 'watch', value: '1', detail: 'Dependência de infra.' },
+        { key: 'task_completion', label: 'Conclusão de obrigações', status: 'watch', value: '20%', detail: '1/5 marcos.' },
+        { key: 'blocked_tasks', label: 'Missões bloqueadas', status: 'watch', value: '1', detail: 'Dependência de infra.' },
       ],
     },
     risksAndDependencies: {
@@ -336,7 +336,7 @@ function metricsOf(o: Delivery360): DeliveryMetrics {
       { key: 'forecast_accuracy', label: 'Precisão da previsão', category: 'own', measured: true, value: '88', unit: '%', basis: 'Desvio médio de 2 dias no histórico.' },
       { key: 'doc_coverage', label: 'Cobertura de documentação', category: 'own', measured: true, value: `${Math.round((o.documentation.present / o.documentation.expected) * 100)}`, unit: '%', basis: `${o.documentation.present}/${o.documentation.expected} documentos presentes.` },
       { key: 'scope_changes', label: 'Mudanças de escopo', category: 'own', measured: true, value: '2', unit: '', basis: 'Marcações de escopo na daily.' },
-      { key: 'waiting_access_time', label: 'Tempo aguardando acesso', category: 'own', measured: o.executiveSummary.blockedTaskCount > 0, value: o.executiveSummary.blockedTaskCount > 0 ? '3.5' : null, unit: 'dias', basis: 'Tarefas bloqueadas por acesso.' },
+      { key: 'waiting_access_time', label: 'Tempo aguardando acesso', category: 'own', measured: o.executiveSummary.blockedTaskCount > 0, value: o.executiveSummary.blockedTaskCount > 0 ? '3.5' : null, unit: 'dias', basis: 'Missões bloqueadas por acesso.' },
     ],
   };
 }
