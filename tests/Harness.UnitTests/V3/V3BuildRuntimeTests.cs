@@ -2,6 +2,8 @@ using Harness.Host.V3;
 using Harness.Modules.Agents.Application.Accounts;
 using Harness.Modules.Agents.Application.Execution.External;
 using Harness.Modules.Agents.Contracts;
+using Harness.Persistence.Abstractions.Providers;
+using Harness.SharedKernel.Providers;
 using Harness.SharedKernel.Time;
 
 namespace Harness.UnitTests.V3;
@@ -30,6 +32,30 @@ public sealed class V3BuildRuntimeTests : IDisposable
         Assert.Equal(2, fake.Calls.Count);
         Assert.Contains("Continue a missão original autonomamente", fake.Calls[1].Prompt.Text);
         Assert.Equal("VALIDATING", understand.ReadProject(state.ProjectId)!.LifecycleState);
+    }
+
+    [Fact]
+    public async Task V3RuntimeRecordsUsageUnavailableInvocationWithoutInventingTokens()
+    {
+        var repo = CreateGitRepository();
+        var fake = new FakeBuildExecutor(new FakeOutcome("feito\nPOSEIDON_MISSION_COMPLETE"));
+        var invocations = new RecordingInvocationStore();
+        var (service, _) = Runtime(fake, invocations);
+        var (state, mission, accounts) = ArrangeProject(repo);
+
+        var result = await service.DispatchAsync(
+            new V3BuildDispatchCommand(state.ProjectId, state, mission, "READY", accounts, "tenant-1"),
+            CancellationToken.None);
+
+        Assert.Equal("COMPLETED", result.Execution!.Status);
+        var invocation = Assert.Single(invocations.Records);
+        Assert.Equal("tenant-1", invocation.TenantId);
+        Assert.Equal(state.ProjectId, invocation.ProjectId);
+        Assert.Equal(mission.MissionId, invocation.WorkTaskId);
+        Assert.Equal(result.Execution.MissionExecutionId, invocation.AttemptId);
+        Assert.Equal(0, invocation.InputTokens);
+        Assert.Equal(0, invocation.OutputTokens);
+        Assert.Contains("usage_unknown", invocation.Outcome, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -511,11 +537,13 @@ public sealed class V3BuildRuntimeTests : IDisposable
         Assert.Contains("docs/product/qa-standards.md", mission.MissionText);
     }
 
-    private (V3BuildRuntimeService Service, V3UnderstandStore Understand) Runtime(FakeBuildExecutor fake)
+    private (V3BuildRuntimeService Service, V3UnderstandStore Understand) Runtime(
+        FakeBuildExecutor fake,
+        IModelInvocationStore? invocations = null)
     {
         var build = new V3BuildRuntimeStore(_directory);
         var understand = new V3UnderstandStore(_directory);
-        return (new V3BuildRuntimeService(build, understand, fake, _clock), understand);
+        return (new V3BuildRuntimeService(build, understand, fake, _clock, invocations), understand);
     }
 
     private static V3BuildDispatchCommand Command(
@@ -725,5 +753,39 @@ public sealed class V3BuildRuntimeTests : IDisposable
                 outcome.FailureCode,
                 resumeSessionId ?? "session"));
         }
+    }
+
+    private sealed class RecordingInvocationStore : IModelInvocationStore
+    {
+        public List<ModelInvocationRecord> Records { get; } = [];
+
+        public Task RecordInvocationAsync(ModelInvocationRecord record, CancellationToken cancellationToken = default)
+        {
+            Records.Add(record);
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<ModelInvocationRecord>> GetTaskInvocationsAsync(
+            string tenantId,
+            string workTaskId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<ModelInvocationRecord>>(
+                Records.Where(record => record.TenantId == tenantId && record.WorkTaskId == workTaskId).ToArray());
+
+        public Task<IReadOnlyList<ModelInvocationRecord>> GetProjectInvocationsAsync(
+            string tenantId,
+            string projectId,
+            int limit,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<ModelInvocationRecord>>(
+                Records.Where(record => record.TenantId == tenantId && record.ProjectId == projectId).Take(limit).ToArray());
+
+        public Task<decimal> GetTotalCostAsync(
+            string tenantId,
+            string? projectId = null,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Records
+                .Where(record => record.TenantId == tenantId && (projectId is null || record.ProjectId == projectId))
+                .Sum(record => record.EstimatedCostUsd));
     }
 }

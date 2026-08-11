@@ -15,9 +15,11 @@ using Harness.Persistence.Abstractions.Coordination;
 using Harness.Persistence.Abstractions.Documents;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Projects;
+using Harness.Persistence.Abstractions.Providers;
 using Harness.Persistence.Abstractions.Prototyping;
 using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
+using Harness.SharedKernel.Providers;
 using Harness.SharedKernel.Time;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Hosting;
@@ -102,7 +104,7 @@ public static class V3BuildRuntimeEndpoints
             ? "READY"
             : "NOT_READY";
         var result = await runtime.DispatchAsync(
-            new V3BuildDispatchCommand(context.ProjectId, context.State, mission, readinessOverall, accounts.List()),
+            new V3BuildDispatchCommand(context.ProjectId, context.State, mission, readinessOverall, accounts.List(), resolved.Profile!.TenantId),
             token);
         return result.Result is not null ? result.Result : Results.Ok(V3BuildExecutionResponse.From(result.Execution!));
     }
@@ -137,7 +139,7 @@ public static class V3BuildRuntimeEndpoints
         if (mission is null) return Problem(404, "mission_not_found", "The requested VALIDATE mission does not exist.");
 
         var result = await runtime.DispatchAsync(
-            new V3BuildDispatchCommand(context.ProjectId, context.State, mission, "READY", accounts.List()),
+            new V3BuildDispatchCommand(context.ProjectId, context.State, mission, "READY", accounts.List(), resolved.Profile!.TenantId),
             token);
         return result.Result is not null ? result.Result : Results.Ok(V3BuildExecutionResponse.From(result.Execution!));
     }
@@ -236,7 +238,8 @@ public sealed class V3BuildRuntimeService(
     V3BuildRuntimeStore store,
     V3UnderstandStore understandStore,
     IV3BuildExecutor executor,
-    IClock clock)
+    IClock clock,
+    IModelInvocationStore? invocations = null)
 {
     private const int MaxContinueWithoutProgress = 2;
     private const int MaxTransientAttemptsPerExecutor = 3;
@@ -331,7 +334,7 @@ public sealed class V3BuildRuntimeService(
         };
         store.WriteExecution(running);
         understandStore.WriteMission(command.Mission with { Status = "RUNNING" });
-        return await RunLoopAsync(running, command.Mission, selected.Account, command.Accounts, command.State, null, token);
+        return await RunLoopAsync(running, command.Mission, selected.Account, command.Accounts, command.State, null, command.TenantId, token);
     }
 
     public async Task<IReadOnlyList<V3BuildExecutionRecord>> RecoverRunningExecutionsAsync(
@@ -445,7 +448,7 @@ public sealed class V3BuildRuntimeService(
         };
         store.WriteExecution(resumed);
         UpdateLifecycle(state, RunningLifecycleFor(execution.MissionType), $"{execution.MissionType.ToUpperInvariant()}_RUNNING");
-        return RunLoopAsync(resumed, mission, account, accounts, state, BuildHumanAnswerPrompt(answer, mission.MissionType), token);
+        return RunLoopAsync(resumed, mission, account, accounts, state, BuildHumanAnswerPrompt(answer, mission.MissionType), "local", token);
     }
 
     private async Task<V3BuildRuntimeResult> RunLoopAsync(
@@ -455,6 +458,7 @@ public sealed class V3BuildRuntimeService(
         IReadOnlyList<AgentAccountContract> accounts,
         V3ProjectUnderstandState? state,
         string? oneShotContinuationPrompt,
+        string tenantId,
         CancellationToken token)
     {
         var execution = start;
@@ -495,6 +499,7 @@ public sealed class V3BuildRuntimeService(
                 outcome.FailureCode,
                 lastOutput,
                 now);
+            await RecordV3InvocationAsync(tenantId, active, execution, outcome, classifiedOutcome, now, token);
 
             if (classifiedOutcome.Kind == AgentRunOutcomeKind.QuotaExhausted)
             {
@@ -835,6 +840,50 @@ public sealed class V3BuildRuntimeService(
             string.Equals(item.Type, $"{prefix}_TRANSIENT_RETRY", StringComparison.Ordinal));
     }
 
+    private async Task RecordV3InvocationAsync(
+        string tenantId,
+        AgentAccountContract account,
+        V3BuildExecutionRecord execution,
+        V3BuildExecutorOutcome outcome,
+        AgentRunOutcome classifiedOutcome,
+        DateTimeOffset now,
+        CancellationToken token)
+    {
+        if (invocations is null)
+        {
+            return;
+        }
+
+        var usage = outcome.Usage;
+        var outcomeCode = $"{execution.MissionType.ToLowerInvariant()}:{classifiedOutcome.Kind.ToString().ToLowerInvariant()}";
+        if (usage is null)
+        {
+            outcomeCode += "|usage_unknown";
+        }
+        else if (usage.Precision == ExternalAgentUsagePrecision.Estimated)
+        {
+            outcomeCode += "|usage_estimated";
+        }
+
+        await invocations.RecordInvocationAsync(
+            new ModelInvocationRecord(
+                UlidValue.New(now).ToString(),
+                tenantId,
+                execution.ProjectId,
+                execution.MissionId,
+                execution.MissionExecutionId,
+                account.ProviderKind,
+                string.Empty,
+                account.Alias,
+                (int)(usage?.InputTokens ?? 0),
+                (int)(usage?.OutputTokens ?? 0),
+                usage?.CostUsd ?? 0m,
+                outcome.DurationMs ?? 0,
+                outcomeCode,
+                now),
+            token);
+    }
+
     private static string MissionPrefix(V3BuildExecutionRecord execution) =>
         MissionPrefix(execution.MissionType);
 
@@ -1001,7 +1050,9 @@ public sealed class V3ExternalBuildExecutor(
                 result.FinalMessage,
                 result.FailureKind,
                 result.FailureCode,
-                result.SessionId);
+                result.SessionId,
+                result.Usage,
+                result.DurationMs);
         }
         finally
         {
@@ -1061,7 +1112,9 @@ public sealed record V3BuildExecutorOutcome(
     string Output,
     ExternalFailureKind FailureKind = ExternalFailureKind.Unknown,
     string? FailureCode = null,
-    string? SessionId = null);
+    string? SessionId = null,
+    ExternalAgentUsage? Usage = null,
+    long? DurationMs = null);
 
 public sealed record V3BuildExecutionPrompt(string Text, bool IsContinuation, string? Reason);
 
@@ -1070,7 +1123,8 @@ public sealed record V3BuildDispatchCommand(
     V3ProjectUnderstandState? State,
     V3BuildMissionRecord Mission,
     string ReadinessOverall,
-    IReadOnlyList<AgentAccountContract> Accounts);
+    IReadOnlyList<AgentAccountContract> Accounts,
+    string TenantId = "local");
 
 public sealed record V3BuildRuntimeResult(V3BuildExecutionRecord? Execution, IResult? Result);
 
