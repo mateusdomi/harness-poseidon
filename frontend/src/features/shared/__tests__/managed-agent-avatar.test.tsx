@@ -14,10 +14,10 @@ describe('foto gerenciada de agentes', () => {
     expect(canonicalPhotoAlias('chief-orchestrator')).toBe('chief-claude-primary');
   });
 
-  it('abre a foto ampliada pelo avatar e fecha com Esc', async () => {
+  it('abre a foto ampliada de uma persona pública pelo avatar e fecha com Esc', async () => {
     const user = userEvent.setup();
     renderWithApi(
-      <ManagedAgentAvatar alias="worker-codex-frontend" size={44} />,
+      <ManagedAgentAvatar alias="frontend-engineer" size={44} />,
       createTestBundle(),
     );
 

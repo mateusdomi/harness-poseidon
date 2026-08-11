@@ -1,4 +1,4 @@
-const LEADERSHIP_ALIASES = new Set(['chief', 'chief-orchestrator', 'chief-claude-primary']);
+const LEADERSHIP_ALIASES = new Set(['chief', 'chief-orchestrator']);
 
 const PHOTO_ALIAS_BY_PERSONA: Readonly<Record<string, string>> = {
   'architecture-critic': 'worker-antigravity-review',

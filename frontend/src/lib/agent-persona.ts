@@ -1,11 +1,11 @@
 /**
- * Humanização (camada de APRESENTAÇÃO) das personas e das contas de execução.
+ * Humanização (camada de APRESENTAÇÃO) das personas públicas.
  *
- * O dono quer que a UI simule uma EQUIPE DE TI REAL: cada persona/conta ganha um
- * NOME HUMANO brasileiro e um AVATAR. Os aliases técnicos (`chief-orchestrator`,
- * `chief-claude-primary`, "Chefe — <projeto>", …) permanecem INTACTOS na lógica,
- * nos contratos e no backend — só a exibição muda. O alias original continua
- * visível como subtítulo/tooltip por transparência.
+ * A UI de negócio mostra perfis públicos reais (ex.: Bruna Magalhães). Runtime
+ * accounts (`chief-claude-primary`, `worker-codex-*`, etc.) são infraestrutura:
+ * não viram pessoas falsas quando ainda não há um perfil público associado.
+ * O alias original permanece intacto na lógica, contratos e backend — e só
+ * aparece em superfícies técnicas.
  *
  * Determinístico e SEM REDE: o avatar é derivado por hash do nome (iniciais +
  * cor HSL estável). Nunca há URL externa nem serviço de terceiros — respeita o
@@ -23,18 +23,17 @@ export interface PersonaName {
 /**
  * Mapa determinístico alias → (nome humano, papel).
  *
- * Cobre três dimensões, todas mapeadas pelo alias técnico canônico:
+ * Cobre personas públicas mapeadas pelo alias técnico canônico:
  *  1. Personas canônicas (`docs/agents/*.yaml` → `key`): chief-orchestrator,
  *     critic-qa, product-requirements-analyst, software-architect,
  *     software-engineer, technical-writer, delivery-*, architecture-*.
  *  2. Chaves das definições do frontend (fixtures/contrato `AgentDefinition.key`):
  *     chief, backend-engineer, frontend-engineer, reviewer, tester, designer,
  *     security.
- *  3. As 7 contas de execução da fleet (`AgentAccountRoster.alias`).
  *
- * Nomes humanos são reaproveitados entre dimensões de propósito (ex.: a conta
- * `chief-claude-primary` compartilha "Bruna Magalhães" com a persona chief) para
- * que a equipe pareça coesa — a mesma "pessoa" veste a persona e roda a conta.
+ * Contas de execução não entram neste mapa. Quando uma conta ainda não possui
+ * vínculo com um perfil público, ela é apresentada como conta runtime em telas
+ * técnicas/administrativas, não como pessoa operacional.
  */
 export const PERSONA_NAMES: Readonly<Record<string, PersonaName>> = {
   /* ---- Personas canônicas (docs/agents/*.yaml) ---- */
@@ -109,18 +108,19 @@ export const PERSONA_NAMES: Readonly<Record<string, PersonaName>> = {
   security: { humanName: 'Vinícius Braga', roleLabel: 'Segurança' },
   'security-analyst': { humanName: 'Vinícius Braga', roleLabel: 'Analista de Segurança' },
 
-  /* ---- As 7 contas de execução da fleet (AgentAccountRoster.alias) ---- */
-  'chief-claude-primary': {
-    humanName: 'Bruna Magalhães',
-    roleLabel: 'Diretora de Engenharia',
-  },
-  'worker-claude-secondary': { humanName: 'Thiago Mendes', roleLabel: 'Especialista Backend' },
-  'worker-codex-frontend': { humanName: 'Aline Castro', roleLabel: 'Especialista Frontend' },
-  'worker-codex-critic': { humanName: 'Felipe Duarte', roleLabel: 'Revisor / Crítico' },
-  'worker-antigravity-review': { humanName: 'Larissa Pires', roleLabel: 'Revisora / Crítica' },
-  'worker-glm-general': { humanName: 'Vinícius Braga', roleLabel: 'Especialista Backend' },
-  'worker-kimi-ui': { humanName: 'Gabriela Pinto', roleLabel: 'Especialista Frontend' },
 };
+
+const RUNTIME_ACCOUNT_PATTERN =
+  /^(chief|worker)-[a-z0-9]+(?:-[a-z0-9]+)*(?:-\d+)?$/i;
+
+function isChiefRuntimeAccount(alias: string): boolean {
+  return /^chief-[a-z0-9]+/i.test(alias);
+}
+
+export function isRuntimeAccountAlias(alias: string | null | undefined): boolean {
+  const key = (alias ?? '').trim();
+  return RUNTIME_ACCOUNT_PATTERN.test(key);
+}
 
 /** Cores (determinísticas) de um avatar de iniciais. */
 export interface AvatarColors {
@@ -182,10 +182,11 @@ export interface ResolvedAgentIdentity {
 }
 
 /**
- * Resolve a identidade humanizada de um alias técnico. Se o alias estiver no
- * mapa, usa o nome humano e o papel correspondentes; caso contrário, cai para
- * `fallbackName` (ex.: o nome da instância do agente) ou para o próprio alias,
- * SEM inventar um papel. O avatar é sempre determinístico a partir do nome.
+ * Resolve a identidade de apresentação de um alias técnico. Se o alias estiver
+ * no mapa de personas públicas, usa o nome humano e o papel correspondentes.
+ * Runtime accounts sem perfil público associado aparecem como infraestrutura
+ * técnica, não como pessoas fictícias. O avatar é sempre determinístico a
+ * partir do nome público apresentado.
  */
 export function resolveAgentIdentity(
   alias: string | null | undefined,
@@ -193,10 +194,15 @@ export function resolveAgentIdentity(
 ): ResolvedAgentIdentity {
   const key = (alias ?? '').trim();
   const mapped = PERSONA_NAMES[key];
-  const humanName = mapped?.humanName ?? fallbackName?.trim() ?? key ?? '';
+  const runtimeAccount = !mapped && isRuntimeAccountAlias(key);
+  const runtimeName = isChiefRuntimeAccount(key)
+    ? 'Conta runtime da Bruna'
+    : 'Perfil público pendente';
+  const humanName = mapped?.humanName ?? (runtimeAccount ? runtimeName : fallbackName?.trim() ?? key ?? '');
+  const roleLabel = mapped?.roleLabel ?? (runtimeAccount ? 'Conta runtime' : null);
   return {
     humanName,
-    roleLabel: mapped?.roleLabel ?? null,
+    roleLabel,
     alias: key,
     initials: initialsFor(humanName),
     avatar: avatarColorsFor(mapped?.humanName ?? humanName),

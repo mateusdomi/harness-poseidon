@@ -1,4 +1,4 @@
-import { avatarColorsFor } from '@/lib/agent-persona';
+import { avatarColorsFor, resolveAgentIdentity } from '@/lib/agent-persona';
 
 function channel(value: number) {
   return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
@@ -41,5 +41,27 @@ describe('avatarColorsFor', () => {
       foreground: '#ffffff',
     });
     expect(avatarColorsFor('Mateus')).toEqual(avatarColorsFor('Mateus'));
+  });
+});
+
+describe('resolveAgentIdentity', () => {
+  it('mantém Bruna como perfil público canônico', () => {
+    expect(resolveAgentIdentity('chief-orchestrator')).toMatchObject({
+      humanName: 'Bruna Magalhães',
+      roleLabel: 'Diretora de Engenharia',
+    });
+  });
+
+  it('não transforma runtime account sem perfil público em pessoa fake', () => {
+    expect(resolveAgentIdentity('worker-codex-frontend')).toMatchObject({
+      humanName: 'Perfil público pendente',
+      roleLabel: 'Conta runtime',
+      alias: 'worker-codex-frontend',
+    });
+    expect(resolveAgentIdentity('chief-claude-primary')).toMatchObject({
+      humanName: 'Conta runtime da Bruna',
+      roleLabel: 'Conta runtime',
+      alias: 'chief-claude-primary',
+    });
   });
 });
