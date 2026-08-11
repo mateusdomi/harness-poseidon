@@ -145,7 +145,7 @@ export default function UsettingsPage() {
         <CardHeader>
           <CardTitle>{t('settings.preferences.title')}</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="flex flex-col gap-1">
             <label htmlFor="settings-language" className="text-sm font-medium">
               {t('settings.preferences.language')}
@@ -177,30 +177,6 @@ export default function UsettingsPage() {
                 </option>
               ))}
             </Select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="settings-presentation" className="text-sm font-medium">
-              {t('settings.presentation.label')}
-            </label>
-            <Select
-              id="settings-presentation"
-              value={presentation.mode}
-              disabled={presentation.isPending}
-              onChange={(event) =>
-                presentation.setMode(
-                  event.target.value as (typeof presentation.allowedModes)[number],
-                )
-              }
-            >
-              {presentation.allowedModes.map((mode) => (
-                <option key={mode} value={mode}>
-                  {t(`settings.presentation.modes.${mode}`)}
-                </option>
-              ))}
-            </Select>
-            <p className="text-xs text-foreground-muted">
-              {t(`settings.presentation.help.${presentation.mode}`)}
-            </p>
           </div>
         </CardContent>
       </Card>

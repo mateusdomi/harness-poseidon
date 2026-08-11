@@ -28,12 +28,7 @@ describe('SettingsPage', () => {
     renderPage();
 
     expect(await screen.findByText('Preferências')).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Modo de apresentação' })).toHaveValue('business');
-    expect(
-      within(screen.getByRole('combobox', { name: 'Modo de apresentação' })).getByRole('option', {
-        name: 'Administrador',
-      }),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Modo de apresentação' })).not.toBeInTheDocument();
     expect(screen.getByText('Backup e restauração')).toBeInTheDocument();
     expect(screen.getByText(/cópia de segurança do seu trabalho/)).toBeInTheDocument();
     expect(screen.queryByText('Diretórios de trabalho')).not.toBeInTheDocument();
