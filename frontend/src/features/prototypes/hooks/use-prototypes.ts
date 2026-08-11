@@ -46,7 +46,7 @@ export function useVisualReferences(projectId: Ulid | null) {
   });
 }
 
-/** Leitura explicável do portão da etapa opcional de Prototipação. */
+/** Leitura explicável da prontidão de referências visuais/protótipos. */
 export function usePrototypingStage(projectId: Ulid | null) {
   const api = useApi();
   return useQuery({

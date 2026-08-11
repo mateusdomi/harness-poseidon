@@ -136,8 +136,7 @@ export interface ApiClient {
 
   /** Armazena uma logo PNG/JPEG no data dir gerenciado e atualiza a marca do projeto. */
   uploadProjectLogo(projectId: Ulid, file: File): Promise<Project>;
-  /** Estado explicável da etapa opcional de Prototipação. */
-  /** Auditoria por card: o que exatamente a tentativa recebeu de contexto. */
+  /** Prontidão explicável de referências visuais/protótipos. */
   getAttemptContext(attemptId: Ulid): Promise<AttemptContext>;
   getPrototypingStage(projectId: Ulid): Promise<PrototypingStage>;
   /** Valida e armazena um ZIP React como design system do projeto. */
@@ -162,7 +161,7 @@ export interface ApiClient {
   unarchiveTask(taskId: Ulid): Promise<Task>;
   /** Nova versão de instrução (correção) — incrementa `instructionVersion`. */
   appendTaskInstruction(taskId: Ulid, input: AppendTaskInstructionInput): Promise<TaskInstruction>;
-  /** Triagem de solicitação (apenas estado; conteúdo imutável). */
+  /** Classificação de solicitação (apenas estado; conteúdo imutável). */
   transitionSolicitation(id: Ulid, input: TransitionSolicitationInput): Promise<Solicitation>;
   /** Resolve aprovação → emite `approval.resolved`. Reprovação exige `note`. */
   resolveApproval(id: Ulid, input: ResolveApprovalInput): Promise<Approval>;

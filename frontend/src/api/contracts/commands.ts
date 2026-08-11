@@ -45,7 +45,7 @@ export const appendTaskInstructionInputSchema = z.object({
 });
 export type AppendTaskInstructionInput = z.infer<typeof appendTaskInstructionInputSchema>;
 
-/** Triagem de solicitação (muda apenas o estado — conteúdo é imutável). */
+/** Classificação de solicitação (muda apenas o estado — conteúdo é imutável). */
 export const transitionSolicitationInputSchema = z.object({
   state: solicitationStateSchema,
 });
