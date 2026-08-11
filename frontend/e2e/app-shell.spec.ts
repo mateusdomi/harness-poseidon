@@ -2,18 +2,6 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { navTo } from './journeys';
 
-
-/**
- * Troca o modo de apresentação em Configurações (D7). O que o menu mostra é
- * decidido pelo modo — e o modo só oferece o que o perfil tem autorização.
- */
-async function setPresentationMode(page: Page, label: string) {
-  await page.goto('/settings');
-  const select = page.locator('#settings-presentation');
-  await expect(select).toBeEnabled();
-  await select.selectOption({ label });
-}
-
 /** Menu principal visível: sidebar no desktop; drawer "Mais" no mobile. */
 async function openPrimaryNav(page: Page) {
   const viewport = page.viewportSize();
@@ -47,39 +35,23 @@ test.describe('AppShell smoke', () => {
     await expect(page).toHaveURL(/\/projects$/);
     await expect(page.getByRole('heading', { name: 'Projetos' })).toBeVisible();
 
-    // Rota 2: Profissionais — tela técnica, então o modo precisa ser trocado antes.
-    await setPresentationMode(page, 'Técnico');
+    // Rota 2: Profissionais — experiência V3 única, sem seletor global de modo.
     await navTo(page, 'Profissionais');
     await expect(page).toHaveURL(/\/agents$/);
     await expect(page.getByRole('heading', { name: 'Profissionais' })).toBeVisible();
   });
 
-  test('o menu é o do modo: Negócio esconde o bastidor, Técnico e Administrador somam', async ({
+  test('o menu V3 usa experiência única e não expõe seletor global de modo', async ({
     page,
   }) => {
     await signIn(page);
 
-    // Padrão do cliente leigo: Chat na frente, nada de bastidor.
-    let nav = await openPrimaryNav(page);
+    const nav = await openPrimaryNav(page);
     await expect(nav.getByRole('link', { name: 'Chat', exact: true }).first()).toBeVisible();
-    await expect(nav.getByRole('link', { name: 'Profissionais', exact: true })).toHaveCount(0);
-    await expect(nav.getByRole('link', { name: 'Equipe', exact: true })).toHaveCount(0);
-    await expect(nav.getByRole('link', { name: 'Governança', exact: true })).toHaveCount(0);
     await expect(nav.getByRole('link', { name: 'Dashboard', exact: true }).first()).toBeVisible();
-
-    await setPresentationMode(page, 'Técnico');
-    nav = await openPrimaryNav(page);
-    await expect(nav.getByRole('link', { name: 'Profissionais', exact: true }).first()).toBeVisible();
-    await expect(nav.getByRole('link', { name: 'Governança', exact: true }).first()).toBeVisible();
-    // Arquitetura só no Administrador.
-    await expect(nav.getByRole('link', { name: 'Arquitetura', exact: true })).toHaveCount(0);
-
-    await setPresentationMode(page, 'Administrador');
-    nav = await openPrimaryNav(page);
-    await expect(nav.getByRole('link', { name: 'Arquitetura', exact: true }).first()).toBeVisible();
-    await expect(
-      nav.getByRole('link', { name: 'Assistente de PO', exact: true }).first(),
-    ).toBeVisible();
+    await page.goto('/settings');
+    await expect(page.locator('#settings-presentation')).toHaveCount(0);
+    await expect(page.getByRole('combobox', { name: 'Modo de apresentação' })).toHaveCount(0);
   });
 
   test('o endereço antigo de Aprovações abre Documentos na aba de aprovações', async ({ page }) => {

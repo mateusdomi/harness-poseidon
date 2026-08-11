@@ -10,12 +10,13 @@ async function ensureProfile(page: Page) {
   }
 }
 
-test.describe('F10 — etapa de Prototipação e pacote de telas', () => {
-  test('mostra o portão e promove o ZIP React a design system', async ({ page }) => {
+test.describe('Referências e protótipos V3', () => {
+  test('mostra referências de interface sem tratar protótipo como fase', async ({ page }) => {
     await ensureProfile(page);
     await page.goto('/prototypes');
 
-    await expect(page.getByRole('heading', { name: 'Etapa de Prototipação' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Referências e protótipos' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Etapa de Prototipação' })).toHaveCount(0);
     await expect(page.getByText('Aguardando informações')).toBeVisible();
 
     await page.getByRole('button', { name: 'Enviar referência' }).click();

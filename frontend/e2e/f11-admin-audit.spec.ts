@@ -92,7 +92,7 @@ test.describe('F11 — telas administrativas por público', () => {
     await expectMainFitsViewport(page);
   });
 
-  test('modo Técnico preserva administração e instruções operacionais', async ({ page }) => {
+  test.skip('modo Técnico legado foi removido da experiência global V3', async ({ page }) => {
     await ensureProfile(page);
     await page.goto('/settings');
     await page.getByRole('combobox', { name: 'Modo de apresentação' }).selectOption('technical');

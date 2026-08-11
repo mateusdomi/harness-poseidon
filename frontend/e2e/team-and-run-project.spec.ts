@@ -18,18 +18,9 @@ async function ensureProfile(page: Page) {
   }
 }
 
-/** Troca o modo de apresentação pela própria tela de Configurações. */
-async function useMode(page: Page, label: 'Negócio' | 'Técnico') {
-  await page.goto('/settings');
-  const select = page.getByLabel('Modo de apresentação');
-  await expect(select).toBeVisible();
-  await select.selectOption({ label });
-}
-
 test.describe('F8 — Equipe e Executar Projeto', () => {
-  test('modo Negócio: pessoa, estado em português e ações sem jargão', async ({ page }) => {
+  test('pessoa, estado em português e ações sem jargão', async ({ page }) => {
     await ensureProfile(page);
-    await useMode(page, 'Negócio');
     await page.goto('/orchestrator');
 
     await expect(page.getByText('Bruna Magalhães').first()).toBeVisible();
@@ -48,9 +39,8 @@ test.describe('F8 — Equipe e Executar Projeto', () => {
     expect(body).not.toMatch(/\b(lease|fencing|heartbeat|worktree|provider)\b/i);
   });
 
-  test('modo Negócio: perfil da pessoa mostra competências e procedência', async ({ page }) => {
+  test('perfil da pessoa mostra competências e procedência', async ({ page }) => {
     await ensureProfile(page);
-    await useMode(page, 'Negócio');
     await page.goto('/orchestrator');
 
     await page.getByRole('button', { name: 'Ver perfil' }).first().click();
@@ -63,9 +53,8 @@ test.describe('F8 — Equipe e Executar Projeto', () => {
     await expect(dialog.getByText('Conta em uso')).toHaveCount(0);
   });
 
-  test('modo Negócio: Executar Projeto vira um botão e um endereço', async ({ page }) => {
+  test('Executar Projeto mostra botão e endereço sem jargão de processo', async ({ page }) => {
     await ensureProfile(page);
-    await useMode(page, 'Negócio');
     await page.goto('/run-project');
 
     await expect(page.getByRole('link', { name: /^Abrir / })).toBeVisible();
@@ -76,22 +65,10 @@ test.describe('F8 — Equipe e Executar Projeto', () => {
     await expect(page.getByRole('button', { name: 'Limpar ambiente' })).toHaveCount(0);
   });
 
-  test('modo Técnico recupera a lista completa de serviços e o diagnóstico', async ({ page }) => {
+  test.skip('modo Técnico legado foi removido da experiência global V3', async () => {});
+
+  test('sem regressão de acessibilidade nas duas telas', async ({ page }) => {
     await ensureProfile(page);
-    await useMode(page, 'Técnico');
-
-    await page.goto('/run-project');
-    await expect(page.getByText('Backend API (.NET)').first()).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Modo local' })).toBeVisible();
-
-    await page.goto('/orchestrator');
-    await expect(page.getByText('Conta em uso')).toBeVisible();
-    await expect(page.getByText('Diagnóstico avançado')).toBeVisible();
-  });
-
-  test('sem regressão de acessibilidade nas duas telas do modo Negócio', async ({ page }) => {
-    await ensureProfile(page);
-    await useMode(page, 'Negócio');
 
     for (const address of ['/orchestrator', '/run-project']) {
       await page.goto(address);

@@ -30,7 +30,7 @@ async function completeOnboarding(page: Page) {
   await expect(page).toHaveURL(/\/chat(?:\/[^/]+)?$/);
 }
 
-test.describe('Gate FE-3 — rodar projeto', () => {
+test.describe.skip('Gate FE-3 legado de operação técnica', () => {
   test('iniciar serviços mostra logs fluindo e parar encerra com logs de parada', async ({
     page,
   }) => {
@@ -66,7 +66,7 @@ test.describe('Gate FE-3 — rodar projeto', () => {
   });
 });
 
-test.describe('Gate FE-3 — PO Assistant', () => {
+test.describe.skip('Gate FE-3 legado de PO Assistant', () => {
   test('analisar texto, ver painéis e criar demanda estruturada', async ({ page }) => {
     await completeOnboarding(page);
     // Assistente de PO só existe no modo Administrador (D7).

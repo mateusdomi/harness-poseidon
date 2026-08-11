@@ -55,7 +55,7 @@ test.describe('F6 — criação de projeto no modo Negócio', () => {
     ).toEqual([]);
 
     await page.getByRole('button', { name: 'Criar projeto' }).click();
-    await expect(page.getByRole('heading', { name: 'Editar projeto' })).toBeVisible();
+    await expect(page).toHaveURL(/\/chat(?:\/[^/]+)?$/);
 
     await navTo(page, 'Dashboard');
     await page.getByLabel('Projeto ativo').selectOption({ label: PROJECT_NAME });

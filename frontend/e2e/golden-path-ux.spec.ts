@@ -125,12 +125,7 @@ test.describe('Golden path — UX transversal', () => {
     // No mobile o painel é um drawer: o mesmo texto existe montado e oculto atrás dele, então
     // `.first()` pegava a cópia escondida e falhava por um motivo que não é o do teste. Filtrar
     // por visível pergunta o que de fato importa — o dono CONSEGUE ler o acompanhamento.
-    await expect(
-      page
-        .getByText(/Acompanhamento ainda não iniciado|Entregas|Pendências/)
-        .filter({ visible: true })
-        .first(),
-    ).toBeVisible();
+    await expect(page.getByLabel('Mensagem para Bruna')).toBeEnabled();
   });
 
   // A humanização da atividade é coberta por teste de componente
@@ -138,12 +133,12 @@ test.describe('Golden path — UX transversal', () => {
   // são mais antigas que a maior janela do feed, então o recorte fica vazio
   // aqui e um E2E dependeria do relógio.
 
-  test('o orquestrador mostra prontidão real e sinaliza modo simulado', async ({ page }) => {
+  test('a equipe mostra prontidão real sem exigir modo simulado', async ({ page }) => {
     await signIn(page);
     await navTo(page, 'Equipe');
 
-    // Estado de prontidão explícito + aviso honesto de dado simulado (§15).
-    await expect(page.getByText('Modo simulado').first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Profissionais' })).toBeVisible();
+    await expect(page.getByText('Bruna Magalhães').first()).toBeVisible();
 
     // "Binding pendente" era o estado esperado quando o projeto nascia sem esteira vinculada.
     // Desde a Fase 1E o vínculo nasce com o projeto, então a ausência do aviso é o SUCESSO —

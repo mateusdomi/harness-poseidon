@@ -51,6 +51,7 @@ export async function navTo(page: Page, name: string) {
 const NAV_ALIASES: Record<string, string> = {
   Quadro: '/board',
   Equipe: '/agents',
+  Profissionais: '/agents',
   'Executar Projeto': '/run-project',
 };
 
@@ -100,15 +101,19 @@ export async function createProject(
 
   await page.getByRole('button', { name: 'Criar projeto' }).click();
 
-  // Depois de criar, a UI abre o projeto recém-criado em EDIÇÃO — é onde o dono continua
-  // ajustando marca e prazo. Esperar por esse estado é a confirmação de que a criação concluiu:
-  // checar visibilidade logo após o clique era uma corrida contra a transição, e perdia.
-  await expect(page.getByRole('heading', { name: 'Editar projeto' })).toBeVisible();
+  const destination = await Promise.race([
+    page.waitForURL(/\/chat(?:\/[^/]+)?$/).then(() => 'chat' as const),
+    page
+      .getByRole('heading', { name: 'Editar projeto' })
+      .waitFor({ state: 'visible' })
+      .then(() => 'edit' as const),
+  ]);
 
-  // A jornada termina de volta na LISTA, para que cada spec comece de um ponto determinístico —
-  // sem isto, os testes seguiam navegando a partir de um formulário aberto e falhavam por um
-  // motivo que nada tinha a ver com o que queriam provar.
-  await page.getByRole('button', { name: 'Voltar para projetos' }).click();
+  if (destination === 'edit') {
+    await page.getByRole('button', { name: 'Voltar para projetos' }).click();
+  } else {
+    await navTo(page, 'Projetos');
+  }
 
   await expect(page.getByRole('heading', { name: 'Projetos', level: 1 })).toBeVisible();
 
@@ -139,8 +144,15 @@ function escapeForRegExp(value: string): string {
  * exercita operação precisa entrar no modo de quem opera.
  */
 export async function setPresentationMode(page: Page, label: 'Negócio' | 'Técnico' | 'Administrador') {
-  await page.goto('/settings');
-  const select = page.locator('#settings-presentation');
-  await expect(select).toBeEnabled();
-  await select.selectOption({ label });
+  await page.addInitScript((modeLabel) => {
+    const mode =
+      modeLabel === 'Técnico' ? 'technical' : modeLabel === 'Administrador' ? 'admin' : 'business';
+    const current = JSON.parse(
+      localStorage.getItem('poseidon-presentation') ?? '{"state":{"modeByProfile":{}},"version":1}',
+    );
+    current.state = current.state ?? {};
+    current.state.modeByProfile = { ...(current.state.modeByProfile ?? {}), prof1: mode };
+    current.version = 1;
+    localStorage.setItem('poseidon-presentation', JSON.stringify(current));
+  }, label);
 }

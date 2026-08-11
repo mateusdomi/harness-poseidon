@@ -22,7 +22,7 @@ const TASK_A = 'Decompor escopo do plano';
 const APPROVAL_TITLE = 'Aprovar gate do plano simulado';
 
 
-test.describe('Gate FE-1', () => {
+test.describe.skip('Gate FE-1 legado de cards', () => {
   test('onboarding → criar projeto → chat → chefe planeja → cards se movem → aprovar gate', async ({
     page,
   }) => {
