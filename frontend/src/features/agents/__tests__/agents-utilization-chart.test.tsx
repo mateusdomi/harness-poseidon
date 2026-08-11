@@ -7,16 +7,16 @@ import type { Agent } from '@/api';
 import { AgentsUtilizationChart } from '../components/agents-utilization-chart';
 
 /** Agente mínimo: o gráfico só lê id/name/metrics.tasksCompleted. */
-function agent(id: string, name: string, tasksCompleted: number): Agent {
+function agent(id: string, name: string, deliveriesCompleted: number): Agent {
   return {
     id,
     name,
-    metrics: { tasksCompleted, tokensInput: 0, tokensOutput: 0, costUsd: 0, uptimeMs: 0 },
+    metrics: { tasksCompleted: deliveriesCompleted, tokensInput: 0, tokensOutput: 0, costUsd: 0, uptimeMs: 0 },
   } as unknown as Agent;
 }
 
 describe('AgentsUtilizationChart (G-CHARTS)', () => {
-  it('grafica tarefas concluídas por agente, ordenado por produção', () => {
+  it('grafica entregas concluídas por profissional, ordenado por produção', () => {
     render(
       <AgentsUtilizationChart
         agents={[agent('a1', 'Ana', 3), agent('a2', 'Bruno', 8), agent('a3', 'Chief', 0)]}
@@ -28,12 +28,12 @@ describe('AgentsUtilizationChart (G-CHARTS)', () => {
     expect(screen.getByText('8')).toBeInTheDocument();
     // Rótulo direto acessível por agente.
     expect(
-      screen.getByLabelText('Bruno: 8 tarefas concluídas'),
+      screen.getByLabelText('Bruno: 8 entregas concluídas'),
     ).toBeInTheDocument();
   });
 
-  it('mostra empty-state honesto quando a equipe não concluiu tarefas', () => {
+  it('mostra empty-state honesto quando a equipe não concluiu entregas', () => {
     render(<AgentsUtilizationChart agents={[agent('a1', 'Ana', 0), agent('a2', 'Bruno', 0)]} />);
-    expect(screen.getByText(/ainda não concluiu nenhuma tarefa/i)).toBeInTheDocument();
+    expect(screen.getByText(/ainda não concluiu nenhuma entrega/i)).toBeInTheDocument();
   });
 });
