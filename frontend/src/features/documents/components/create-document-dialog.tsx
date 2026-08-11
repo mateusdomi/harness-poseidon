@@ -14,15 +14,15 @@ export interface CreateDocumentDialogProps {
 }
 
 /**
- * Criação de documento do zero: título + categoria + conteúdo markdown. O
+ * Criação de fonte do projeto: título + categoria + conteúdo markdown. O
  * conteúdo vira a versão 1 (estado inicial definido pelo backend). Ao criar,
- * abre o detalhe do novo documento para leitura/edição/aprovação.
+ * abre o detalhe do novo documento para leitura.
  */
 export function CreateDocumentDialog({ projectId, onClose, onCreated }: CreateDocumentDialogProps) {
   const { t } = useTranslation();
   const create = useCreateDocument();
   const [title, setTitle] = useState('');
-  const [kind, setKind] = useState<DocumentKind>('note');
+  const [kind, setKind] = useState<DocumentKind>('spec');
   const [body, setBody] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +37,7 @@ export function CreateDocumentDialog({ projectId, onClose, onCreated }: CreateDo
       title: title.trim(),
       kind,
       body,
+      classifications: ['source', 'requirements_source'],
     });
     onCreated(created.id);
   }

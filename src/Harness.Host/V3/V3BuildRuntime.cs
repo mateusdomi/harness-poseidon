@@ -79,6 +79,7 @@ public static class V3BuildRuntimeEndpoints
         ISolicitationAttachmentStore attachments,
         SolicitationAttachmentStorage attachmentStorage,
         IDocumentCatalogStore documents,
+        IDocumentContentCatalog documentContent,
         IPrototypeStore prototypes,
         Readiness.ProjectReadinessService readiness,
         [FromServices] AgentAccountRegistry accounts,
@@ -92,7 +93,7 @@ public static class V3BuildRuntimeEndpoints
 
         var understandStore = V3UnderstandStore.ForConfiguration(configuration);
         var context = await V3ProjectContextBuilder.BuildAsync(
-            resolved.Profile!, resolved.Project!, board, attachments, documents, prototypes,
+            resolved.Profile!, resolved.Project!, board, attachments, documents, documentContent, prototypes,
             attachmentStorage, readiness, accounts, channelLinks, understandStore, token);
         var mission = ResolveMission(understandStore, context.ProjectId, input.MissionId, "BUILD");
         if (mission is null) return Problem(404, "mission_not_found", "The requested BUILD mission does not exist.");
@@ -116,6 +117,7 @@ public static class V3BuildRuntimeEndpoints
         ISolicitationAttachmentStore attachments,
         SolicitationAttachmentStorage attachmentStorage,
         IDocumentCatalogStore documents,
+        IDocumentContentCatalog documentContent,
         IPrototypeStore prototypes,
         Readiness.ProjectReadinessService readiness,
         [FromServices] AgentAccountRegistry accounts,
@@ -129,7 +131,7 @@ public static class V3BuildRuntimeEndpoints
 
         var understandStore = V3UnderstandStore.ForConfiguration(configuration);
         var context = await V3ProjectContextBuilder.BuildAsync(
-            resolved.Profile!, resolved.Project!, board, attachments, documents, prototypes,
+            resolved.Profile!, resolved.Project!, board, attachments, documents, documentContent, prototypes,
             attachmentStorage, readiness, accounts, channelLinks, understandStore, token);
         var mission = ResolveMission(understandStore, context.ProjectId, input.MissionId, "VALIDATE");
         if (mission is null) return Problem(404, "mission_not_found", "The requested VALIDATE mission does not exist.");

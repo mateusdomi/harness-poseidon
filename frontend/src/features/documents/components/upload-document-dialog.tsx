@@ -12,16 +12,15 @@ export interface UploadDocumentDialogProps {
 }
 
 /**
- * Upload de documento externo (mock): arquivo + nome + categoria. O
- * progresso é simulado no cliente (barra incremental) e o conteúdo do
- * arquivo vira a versão 1 do documento (estado inicial `planned`).
+ * Upload textual de fonte do projeto: arquivo + nome + categoria. O
+ * progresso é local e o conteúdo do arquivo vira a versão 1 do documento.
  */
 export function UploadDocumentDialog({ projectId, onClose }: UploadDocumentDialogProps) {
   const { t } = useTranslation();
   const upload = useUploadDocument();
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
-  const [kind, setKind] = useState<DocumentKind>('note');
+  const [kind, setKind] = useState<DocumentKind>('spec');
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -55,7 +54,7 @@ export function UploadDocumentDialog({ projectId, onClose }: UploadDocumentDialo
               title: title.trim(),
               kind,
               body,
-              classifications: [t('documents.upload.externalTag')],
+              classifications: ['source', 'requirements_source', t('documents.upload.externalTag')],
             },
             { onSuccess: onClose },
           );

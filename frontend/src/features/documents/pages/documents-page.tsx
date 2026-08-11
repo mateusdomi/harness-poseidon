@@ -81,7 +81,8 @@ export default function UdocumentsPage() {
   }
 
   const openDocumentId = searchParams.get('doc');
-  const activeTab = parseDocumentTab(searchParams.get('tab'));
+  const requestedTab = parseDocumentTab(searchParams.get('tab'));
+  const activeTab = requestedTab === 'approvals' && !showTechnicalDetails ? 'sources' : requestedTab;
 
   function openDocument(id: string) {
     setSearchParams(
@@ -296,11 +297,15 @@ export default function UdocumentsPage() {
                 label: t('documents.tabs.delivery'),
                 count: categoryCounts.delivery,
               },
-              {
-                id: 'approvals',
-                label: t('documents.tabs.approvals'),
-                count: pendingApprovals,
-              },
+              ...(showTechnicalDetails
+                ? [
+                    {
+                      id: 'approvals' as const,
+                      label: t('documents.tabs.approvals'),
+                      count: pendingApprovals,
+                    },
+                  ]
+                : []),
             ]}
           />
 

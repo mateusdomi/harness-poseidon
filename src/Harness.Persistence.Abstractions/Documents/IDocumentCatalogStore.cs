@@ -48,6 +48,7 @@ public interface IDocumentContentCatalog
         CancellationToken cancellationToken = default);
     Task<string> ReadAsync(string catalogPath, string expectedHash,
         CancellationToken cancellationToken = default);
+    string ResolveReadPath(string catalogPath, string expectedHash);
     Task DeleteAsync(string catalogPath, CancellationToken cancellationToken = default);
 }
 

@@ -2051,7 +2051,7 @@
       "appears": "Sources enter at project start; records such as understanding snapshots, missions and reports appear as the lifecycle advances; rich delivery documentation is optional at the end. The product code still requires minimum operational documentation to run and maintain the delivery.",
       "governanceNote": "Looking to edit the system's internal files (governance, policies, manifests)? That lives in Governance Documents — a separate screen.",
       "governanceLink": "Go to Governance Documents",
-      "createCta": "Create document",
+      "createCta": "Add text as source",
       "uploadCta": "Upload file"
     },
     "emptyFiltered": {
@@ -2060,13 +2060,13 @@
       "reset": "Clear filters"
     },
     "create": {
-      "open": "Create document",
-      "title": "New document",
+      "open": "Add text as source",
+      "title": "New text source",
       "titleLabel": "Title",
       "kindLabel": "Category",
       "bodyLabel": "Content (markdown)",
-      "bodyHint": "Becomes version 1 of the document. You can edit and create new versions later.",
-      "submit": "Create document",
+      "bodyHint": "Becomes version 1 of the project source. Bruna will consider this content in the next understanding turn.",
+      "submit": "Add source",
       "errors": {
         "required": "Provide a title and content."
       }
@@ -2159,13 +2159,13 @@
       "classificationsHint": "Comma separated."
     },
     "upload": {
-      "open": "Upload document",
-      "title": "Upload external document",
+      "open": "Upload file",
+      "title": "Upload file as source",
       "fileLabel": "File (.md, .txt)",
       "nameLabel": "Document name",
       "kindLabel": "Category",
       "progressLabel": "Upload progress",
-      "submit": "Upload",
+      "submit": "Upload source",
       "errors": {
         "required": "Select a file and provide a name."
       },

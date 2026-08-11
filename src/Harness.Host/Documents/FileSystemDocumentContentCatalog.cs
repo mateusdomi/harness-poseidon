@@ -52,6 +52,13 @@ public sealed class FileSystemDocumentContentCatalog(string rootPath) : IDocumen
         return Encoding.UTF8.GetString(bytes);
     }
 
+    public string ResolveReadPath(string catalogPath, string expectedHash)
+    {
+        var path = Resolve(catalogPath);
+        VerifyHash(File.ReadAllBytes(path), expectedHash);
+        return path;
+    }
+
     public Task DeleteAsync(string catalogPath, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

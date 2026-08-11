@@ -14,9 +14,13 @@ const fixtures = createTestBundle().fixtures.data;
 const specApi = fixtures.documents.find((doc) => doc.title === 'Spec da API v1')!;
 const prd = fixtures.documents.find((doc) => doc.title === 'PRD do Poseidon Console')!;
 
-function renderDocuments(initialEntry = '/documents') {
+function renderDocuments(initialEntry = '/documents', mode: 'business' | 'technical' = 'business') {
   // Bundle novo por teste: o store do mock é mutável (aprovações, classificação).
   const bundle = createTestBundle();
+  if (mode === 'technical') {
+    useSessionStore.setState({ activeProfileId: bundle.fixtures.meta.currentProfileId });
+    usePresentationStore.getState().requestMode(bundle.fixtures.meta.currentProfileId, 'technical');
+  }
   return renderWithApi(
     <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
@@ -283,15 +287,15 @@ describe('DocumentsPage', () => {
     renderDocuments();
 
     // O botão do cabeçalho abre o diálogo de criação.
-    await user.click((await screen.findAllByRole('button', { name: 'Criar documento' }))[0]);
-    const dialog = await screen.findByRole('dialog', { name: 'Novo documento' });
+    await user.click((await screen.findAllByRole('button', { name: 'Adicionar texto como fonte' }))[0]);
+    const dialog = await screen.findByRole('dialog', { name: 'Nova fonte textual' });
 
     await user.type(within(dialog).getByLabelText(/Título/), 'Plano de rollout');
     await user.type(
       within(dialog).getByLabelText(/Conteúdo \(markdown\)/),
       '# Rollout\n\nEtapas do lançamento.',
     );
-    await user.click(within(dialog).getByRole('button', { name: 'Criar documento' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Adicionar fonte' }));
 
     // Abre o detalhe do novo documento (estado inicial "Planejado").
     expect(
@@ -374,8 +378,8 @@ describe('DocumentsPage', () => {
       screen.queryByRole('link', { name: 'Ir para Documentos de Governança' }),
     ).not.toBeInTheDocument();
     // E expõe as ações de criar/enviar o primeiro documento.
-    expect(screen.getByRole('button', { name: 'Enviar arquivo' })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Criar documento' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Enviar arquivo' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Adicionar texto como fonte' }).length).toBeGreaterThan(0);
   });
 
   it('modo técnico recupera o atalho para os documentos de governança', async () => {
@@ -414,7 +418,7 @@ describe('DocumentsPage', () => {
 
 describe('DocumentsPage — aba "Aguardando sua aprovação"', () => {
   it('abre pela URL ?tab=approvals com a fila ordenada por prazo', async () => {
-    renderDocuments('/documents?tab=approvals');
+    renderDocuments('/documents?tab=approvals', 'technical');
 
     const queue = await screen.findByRole('list', { name: 'Fila de aprovações' });
     const items = within(queue).getAllByRole('listitem');
@@ -434,7 +438,7 @@ describe('DocumentsPage — aba "Aguardando sua aprovação"', () => {
 
   it('a aba é alcançável por clique e o catálogo é o padrão', async () => {
     const user = userEvent.setup();
-    renderDocuments();
+    renderDocuments('/documents', 'technical');
 
     // Padrão: fontes selecionada, e a aba de aprovação anuncia 3 pendências.
     const catalogTab = await screen.findByRole('tab', { name: /Fontes/ });
@@ -454,7 +458,7 @@ describe('DocumentsPage — aba "Aguardando sua aprovação"', () => {
 
   it('aprova na própria aba e o item sai da fila; reprovar exige observação', async () => {
     const user = userEvent.setup();
-    renderDocuments('/documents?tab=approvals');
+    renderDocuments('/documents?tab=approvals', 'technical');
 
     let queue = await screen.findByRole('list', { name: 'Fila de aprovações' });
     expect(within(queue).getAllByRole('listitem')).toHaveLength(3);
@@ -480,7 +484,7 @@ describe('DocumentsPage — aba "Aguardando sua aprovação"', () => {
 
   it('filtra a fila por criticidade e mostra "Nada pendente" quando esvazia', async () => {
     const user = userEvent.setup();
-    renderDocuments('/documents?tab=approvals');
+    renderDocuments('/documents?tab=approvals', 'technical');
 
     await screen.findByRole('list', { name: 'Fila de aprovações' });
     await user.selectOptions(screen.getByLabelText('Criticidade'), 'critical');
@@ -494,7 +498,7 @@ describe('DocumentsPage — aba "Aguardando sua aprovação"', () => {
   });
 
   it('approval.requested aparece na aba em tempo real e resolved remove', async () => {
-    const { bundle } = renderDocuments('/documents?tab=approvals');
+    const { bundle } = renderDocuments('/documents?tab=approvals', 'technical');
 
     const queue = await screen.findByRole('list', { name: 'Fila de aprovações' });
     expect(within(queue).getAllByRole('listitem')).toHaveLength(3);

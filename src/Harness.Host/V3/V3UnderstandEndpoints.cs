@@ -81,6 +81,7 @@ public static class V3UnderstandEndpoints
         ISolicitationAttachmentStore attachments,
         SolicitationAttachmentStorage attachmentStorage,
         IDocumentCatalogStore documents,
+        IDocumentContentCatalog documentContent,
         IPrototypeStore prototypes,
         Readiness.ProjectReadinessService readiness,
         [FromServices] AgentAccountRegistry accounts,
@@ -91,7 +92,7 @@ public static class V3UnderstandEndpoints
         var resolved = await ResolveAsync(projectId, request, profiles, projects, token);
         if (resolved.Result is not null) return resolved.Result;
         var context = await V3ProjectContextBuilder.BuildAsync(
-            resolved.Profile!, resolved.Project!, board, attachments, documents, prototypes,
+            resolved.Profile!, resolved.Project!, board, attachments, documents, documentContent, prototypes,
             attachmentStorage, readiness, accounts, channelLinks,
             V3UnderstandStore.ForConfiguration(configuration), token);
         return Results.Ok(context);
@@ -107,6 +108,7 @@ public static class V3UnderstandEndpoints
         ISolicitationAttachmentStore attachments,
         SolicitationAttachmentStorage attachmentStorage,
         IDocumentCatalogStore documents,
+        IDocumentContentCatalog documentContent,
         IPrototypeStore prototypes,
         Readiness.ProjectReadinessService readiness,
         [FromServices] AgentAccountRegistry accounts,
@@ -119,12 +121,12 @@ public static class V3UnderstandEndpoints
         if (resolved.Result is not null) return resolved.Result;
         var store = V3UnderstandStore.ForConfiguration(configuration);
         var current = await V3ProjectContextBuilder.BuildAsync(
-            resolved.Profile!, resolved.Project!, board, attachments, documents, prototypes,
+            resolved.Profile!, resolved.Project!, board, attachments, documents, documentContent, prototypes,
             attachmentStorage, readiness, accounts, channelLinks, store, token);
         var analyzed = V3UnderstandAnalyzer.Analyze(current, input, clock.UtcNow);
         store.WriteProject(analyzed.State);
         var refreshed = await V3ProjectContextBuilder.BuildAsync(
-            resolved.Profile!, resolved.Project!, board, attachments, documents, prototypes,
+            resolved.Profile!, resolved.Project!, board, attachments, documents, documentContent, prototypes,
             attachmentStorage, readiness, accounts, channelLinks, store, token);
         return Results.Ok(refreshed);
     }
@@ -139,6 +141,7 @@ public static class V3UnderstandEndpoints
         ISolicitationAttachmentStore attachments,
         SolicitationAttachmentStorage attachmentStorage,
         IDocumentCatalogStore documents,
+        IDocumentContentCatalog documentContent,
         IPrototypeStore prototypes,
         Readiness.ProjectReadinessService readiness,
         [FromServices] AgentAccountRegistry accounts,
@@ -151,7 +154,7 @@ public static class V3UnderstandEndpoints
         if (resolved.Result is not null) return resolved.Result;
         var store = V3UnderstandStore.ForConfiguration(configuration);
         var context = await V3ProjectContextBuilder.BuildAsync(
-            resolved.Profile!, resolved.Project!, board, attachments, documents, prototypes,
+            resolved.Profile!, resolved.Project!, board, attachments, documents, documentContent, prototypes,
             attachmentStorage, readiness, accounts, channelLinks, store, token);
         if (!V3AuthorizationPolicy.IsAuthorized(input.Response))
         {
@@ -183,7 +186,7 @@ public static class V3UnderstandEndpoints
         EnsureLocalRepository(repository);
         store.WriteProject(state);
         var refreshed = await V3ProjectContextBuilder.BuildAsync(
-            resolved.Profile!, resolved.Project!, board, attachments, documents, prototypes,
+            resolved.Profile!, resolved.Project!, board, attachments, documents, documentContent, prototypes,
             attachmentStorage, readiness, accounts, channelLinks, store, token);
         return Results.Ok(refreshed);
     }
@@ -198,6 +201,7 @@ public static class V3UnderstandEndpoints
         ISolicitationAttachmentStore attachments,
         SolicitationAttachmentStorage attachmentStorage,
         IDocumentCatalogStore documents,
+        IDocumentContentCatalog documentContent,
         IPrototypeStore prototypes,
         Readiness.ProjectReadinessService readiness,
         [FromServices] AgentAccountRegistry accounts,
@@ -210,7 +214,7 @@ public static class V3UnderstandEndpoints
         if (resolved.Result is not null) return resolved.Result;
         var store = V3UnderstandStore.ForConfiguration(configuration);
         var context = await V3ProjectContextBuilder.BuildAsync(
-            resolved.Profile!, resolved.Project!, board, attachments, documents, prototypes,
+            resolved.Profile!, resolved.Project!, board, attachments, documents, documentContent, prototypes,
             attachmentStorage, readiness, accounts, channelLinks, store, token);
         if (context.State?.AuthorizedAt is null)
         {
@@ -243,6 +247,7 @@ public static class V3UnderstandEndpoints
         ISolicitationAttachmentStore attachments,
         SolicitationAttachmentStorage attachmentStorage,
         IDocumentCatalogStore documents,
+        IDocumentContentCatalog documentContent,
         IPrototypeStore prototypes,
         Readiness.ProjectReadinessService readiness,
         [FromServices] AgentAccountRegistry accounts,
@@ -255,7 +260,7 @@ public static class V3UnderstandEndpoints
         if (resolved.Result is not null) return resolved.Result;
         var store = V3UnderstandStore.ForConfiguration(configuration);
         var context = await V3ProjectContextBuilder.BuildAsync(
-            resolved.Profile!, resolved.Project!, board, attachments, documents, prototypes,
+            resolved.Profile!, resolved.Project!, board, attachments, documents, documentContent, prototypes,
             attachmentStorage, readiness, accounts, channelLinks, store, token);
         if (!string.Equals(context.CurrentLifecycleState, "VALIDATING", StringComparison.OrdinalIgnoreCase))
         {
@@ -447,6 +452,7 @@ public static class V3ProjectContextBuilder
         IWorkBoardStore board,
         ISolicitationAttachmentStore attachments,
         IDocumentCatalogStore documents,
+        IDocumentContentCatalog documentContent,
         IPrototypeStore prototypes,
         SolicitationAttachmentStorage attachmentStorage,
         Readiness.ProjectReadinessService readiness,
@@ -472,18 +478,48 @@ public static class V3ProjectContextBuilder
                 value.State)));
         }
 
-        var coverage = await V3SourceCoverageAnalyzer.AnalyzeAsync(
-            artifactRefs, attachmentStorage, token);
-        var facts = V3RequirementFactsExtractor.Extract(coverage);
-        var documentRefs = (await documents.ListDocumentsAsync(profile.TenantId, project.Id, null, 200, token))
-            .Select(value => new V3DocumentReference(
+        var documentRows = await documents.ListDocumentsAsync(profile.TenantId, project.Id, null, 200, token);
+        var documentRefs = new List<V3DocumentReference>(documentRows.Count);
+        foreach (var value in documentRows)
+        {
+            var latest = await ResolveCurrentVersionAsync(documents, profile.TenantId, value, token);
+            var readablePath = ResolveDocumentReadablePath(documentContent, latest);
+            var sha256 = latest?.ContentHash.ToUpperInvariant();
+            var sourceRole = DocumentSourceRole(value);
+            var reference = new V3DocumentReference(
                 value.Id,
                 value.Title,
                 value.Kind,
                 value.State,
                 value.CurrentVersion,
-                value.Classifications))
-            .ToArray();
+                value.Classifications)
+            {
+                CatalogPath = latest?.CatalogPath,
+                Sha256 = sha256,
+                ReadablePath = readablePath,
+                SourceRole = sourceRole,
+            };
+            documentRefs.Add(reference);
+            if (readablePath is not null && sourceRole is not null)
+            {
+                artifactRefs.Add(new V3ArtifactReference(
+                    $"document:{value.Id}",
+                    value.Title,
+                    DocumentContentType(value),
+                    sourceRole,
+                    "document_catalog",
+                    readablePath,
+                    sha256 ?? "UNKNOWN",
+                    value.State)
+                {
+                    ReadablePath = readablePath,
+                });
+            }
+        }
+
+        var coverage = await V3SourceCoverageAnalyzer.AnalyzeAsync(
+            artifactRefs, attachmentStorage, token);
+        var facts = V3RequirementFactsExtractor.Extract(coverage);
         var prototypeRefs = (await prototypes.ListPrototypesAsync(profile.TenantId, project.Id, null, 200, token))
             .Select(value => new V3PrototypeReference(value.Id, value.Name, value.State, value.SourceDocumentId))
             .ToArray();
@@ -544,6 +580,69 @@ public static class V3ProjectContextBuilder
         };
     }
 
+    private static async Task<DocumentVersionCatalogRecord?> ResolveCurrentVersionAsync(
+        IDocumentCatalogStore documents,
+        string tenantId,
+        DocumentCatalogRecord document,
+        CancellationToken token)
+    {
+        var versions = await documents.ListVersionsAsync(tenantId, document.Id, null, 200, token);
+        return versions.FirstOrDefault(version => version.Version == document.CurrentVersion) ??
+            versions.OrderByDescending(version => version.Version).FirstOrDefault();
+    }
+
+    private static string? ResolveDocumentReadablePath(
+        IDocumentContentCatalog content,
+        DocumentVersionCatalogRecord? version)
+    {
+        if (version is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return content.ResolveReadPath(version.CatalogPath, version.ContentHash);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static string? DocumentSourceRole(DocumentCatalogRecord document)
+    {
+        var tokens = $"{document.Title} {document.Kind} {string.Join(' ', document.Classifications)}"
+            .ToLowerInvariant();
+        if (tokens.Contains("prototype", StringComparison.Ordinal) ||
+            tokens.Contains("protótipo", StringComparison.Ordinal) ||
+            tokens.Contains("referência", StringComparison.Ordinal) ||
+            tokens.Contains("reference", StringComparison.Ordinal) ||
+            string.Equals(document.Kind, "design", StringComparison.OrdinalIgnoreCase))
+        {
+            return "design_reference";
+        }
+
+        if (string.Equals(document.Kind, "prd", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(document.Kind, "spec", StringComparison.OrdinalIgnoreCase) ||
+            tokens.Contains("requirement", StringComparison.Ordinal) ||
+            tokens.Contains("requis", StringComparison.Ordinal) ||
+            tokens.Contains("especifica", StringComparison.Ordinal) ||
+            tokens.Contains("source", StringComparison.Ordinal) ||
+            tokens.Contains("fonte", StringComparison.Ordinal) ||
+            tokens.Contains("primary", StringComparison.Ordinal))
+        {
+            return "requirements_source";
+        }
+
+        return null;
+    }
+
+    private static string DocumentContentType(DocumentCatalogRecord document) =>
+        string.Equals(document.Kind, "design", StringComparison.OrdinalIgnoreCase)
+            ? "text/markdown; role=design-reference"
+            : "text/markdown";
+
     private static string DefaultLocalRepository(string tenantId, string projectId)
     {
         var root = Path.Combine(
@@ -585,7 +684,9 @@ public static class V3SourceCoverageAnalyzer
         string text;
         try
         {
-            var path = storage.Resolve(artifact.PathReference);
+            var path = Path.IsPathRooted(artifact.PathReference)
+                ? artifact.PathReference
+                : storage.Resolve(artifact.PathReference);
             var info = new FileInfo(path);
             if (!info.Exists || info.Length > MaxPrimaryRequirementCharacters)
             {
@@ -1269,6 +1370,7 @@ public static class V3MissionContextMaterializer
         var contextDirectory = Path.Combine(repository, ".poseidon", "context", missionId);
         Directory.CreateDirectory(contextDirectory);
         Directory.CreateDirectory(Path.Combine(contextDirectory, "artifacts"));
+        Directory.CreateDirectory(Path.Combine(contextDirectory, "documents"));
         Directory.CreateDirectory(Path.Combine(contextDirectory, "knowledge"));
 
         var artifacts = context.Artifacts.Select((artifact, index) =>
@@ -1292,9 +1394,24 @@ public static class V3MissionContextMaterializer
             return reference with { ReadablePath = readable };
         }).ToArray();
 
-        WriteIndex(contextDirectory, context, artifacts, materializedKnowledge);
+        var documents = context.Documents.Select((document, index) =>
+        {
+            var extension = Path.GetExtension(document.CatalogPath ?? document.Title);
+            if (string.IsNullOrWhiteSpace(extension)) extension = ".md";
+            var baseName = Path.GetFileNameWithoutExtension(document.Title);
+            if (string.IsNullOrWhiteSpace(baseName)) baseName = document.Title;
+            var readable = document.ReadablePath is null
+                ? null
+                : TryCopyFile(
+                    document.ReadablePath,
+                    Path.Combine(contextDirectory, "documents", $"{index + 1:00}-{SafeFileName(baseName)}{extension}"));
+            return document with { ReadablePath = readable ?? document.ReadablePath };
+        }).ToArray();
+
+        var materializedContext = context with { Artifacts = artifacts, Documents = documents };
+        WriteIndex(contextDirectory, materializedContext, artifacts, documents, materializedKnowledge);
         return new V3MaterializedMissionContext(
-            context with { Artifacts = artifacts },
+            materializedContext,
             materializedKnowledge,
             contextDirectory);
     }
@@ -1335,6 +1452,7 @@ public static class V3MissionContextMaterializer
         string contextDirectory,
         V3ProjectContextResponse context,
         IReadOnlyList<V3ArtifactReference> artifacts,
+        IReadOnlyList<V3DocumentReference> documents,
         IReadOnlyList<V3KnowledgeReference> knowledge)
     {
         var lines = new List<string>
@@ -1349,6 +1467,10 @@ public static class V3MissionContextMaterializer
         };
         lines.AddRange(artifacts.Select(artifact =>
             $"- {artifact.Role} | {artifact.Name} | sha256={artifact.Sha256} | path={artifact.ReadablePath ?? "UNAVAILABLE"}"));
+        lines.Add("");
+        lines.Add("## Documents");
+        lines.AddRange(documents.Select(document =>
+            $"- {document.SourceRole ?? "catalog"} | {document.Title} | version={document.CurrentVersion} | sha256={document.Sha256 ?? "UNKNOWN"} | path={document.ReadablePath ?? "UNAVAILABLE"}"));
         lines.Add("");
         lines.Add("## Knowledge");
         lines.AddRange(knowledge.Select(item =>
@@ -1465,7 +1587,7 @@ public static class V3MissionCompiler
             lines.AddRange(context.Artifacts.Select(artifact =>
                 $"- {artifact.Role}: {artifact.Name} ({artifact.ContentType}, sha256={artifact.Sha256}) — path: {artifact.ReadablePath ?? "UNAVAILABLE"}"));
             lines.AddRange(context.Documents.Select(document =>
-                $"- document:{document.DocumentId} — {document.Title} ({document.Kind}, state={document.State}, version={document.CurrentVersion})"));
+                $"- document:{document.DocumentId} — {document.Title} ({document.Kind}, state={document.State}, version={document.CurrentVersion}, sha256={document.Sha256 ?? "UNKNOWN"}) — path: {document.ReadablePath ?? "UNAVAILABLE"}"));
         }
 
         lines.AddRange([
@@ -1619,7 +1741,7 @@ public static class V3MissionCompiler
         lines.AddRange(context.Artifacts.Select(artifact =>
             $"- {artifact.Role}: {artifact.Name} ({artifact.ContentType}, sha256={artifact.Sha256}) — path: {artifact.ReadablePath ?? "UNAVAILABLE"}"));
         lines.AddRange(context.Documents.Select(document =>
-            $"- document:{document.DocumentId} — {document.Title} ({document.Kind}, state={document.State}, version={document.CurrentVersion})"));
+            $"- document:{document.DocumentId} — {document.Title} ({document.Kind}, state={document.State}, version={document.CurrentVersion}, sha256={document.Sha256 ?? "UNKNOWN"}) — path: {document.ReadablePath ?? "UNAVAILABLE"}"));
         lines.AddRange([
             "",
             "## PRODUCT CONTEXT",
@@ -1818,7 +1940,13 @@ public sealed record V3DocumentReference(
     string Kind,
     string State,
     int CurrentVersion,
-    IReadOnlyList<string> Classifications);
+    IReadOnlyList<string> Classifications)
+{
+    public string? CatalogPath { get; init; }
+    public string? Sha256 { get; init; }
+    public string? ReadablePath { get; init; }
+    public string? SourceRole { get; init; }
+}
 
 public sealed record V3PrototypeReference(string PrototypeId, string Name, string State, string? SourceDocumentId);
 

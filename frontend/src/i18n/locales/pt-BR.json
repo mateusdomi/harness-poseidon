@@ -2051,7 +2051,7 @@
       "appears": "Fontes entram no início do projeto; registros como entendimento, missões e relatórios aparecem conforme o lifecycle avança; documentação rica de entrega é opcional ao final. O código do produto continua exigindo documentação operacional mínima para executar e manter a entrega.",
       "governanceNote": "Procurando editar os arquivos internos do sistema (governança, políticas, manifestos)? Isso fica em Documentos de Governança — outra tela.",
       "governanceLink": "Ir para Documentos de Governança",
-      "createCta": "Criar documento",
+      "createCta": "Adicionar texto como fonte",
       "uploadCta": "Enviar arquivo"
     },
     "emptyFiltered": {
@@ -2060,13 +2060,13 @@
       "reset": "Limpar filtros"
     },
     "create": {
-      "open": "Criar documento",
-      "title": "Novo documento",
+      "open": "Adicionar texto como fonte",
+      "title": "Nova fonte textual",
       "titleLabel": "Título",
       "kindLabel": "Categoria",
       "bodyLabel": "Conteúdo (markdown)",
-      "bodyHint": "Vira a versão 1 do documento. Você pode editar e criar novas versões depois.",
-      "submit": "Criar documento",
+      "bodyHint": "Vira a versão 1 da fonte do projeto. A Bruna considera este conteúdo no próximo entendimento.",
+      "submit": "Adicionar fonte",
       "errors": {
         "required": "Informe o título e o conteúdo."
       }
@@ -2159,13 +2159,13 @@
       "classificationsHint": "Separadas por vírgula."
     },
     "upload": {
-      "open": "Enviar documento",
-      "title": "Enviar documento externo",
+      "open": "Enviar arquivo",
+      "title": "Enviar arquivo como fonte",
       "fileLabel": "Arquivo (.md, .txt)",
       "nameLabel": "Nome do documento",
       "kindLabel": "Categoria",
       "progressLabel": "Progresso do envio",
-      "submit": "Enviar",
+      "submit": "Enviar fonte",
       "errors": {
         "required": "Selecione um arquivo e informe o nome."
       },
