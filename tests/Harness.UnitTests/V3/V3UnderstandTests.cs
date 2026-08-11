@@ -442,6 +442,40 @@ public sealed class V3UnderstandTests : IDisposable
     }
 
     [Fact]
+    public void ExplicitNonScopeDoesNotCreateIntegrationComplexityOrNotificationFacts()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        var context = Context(deadline: null, repository: "/tmp/equipment-loans") with
+        {
+            PrimaryRequirementsCoverage =
+            [
+                CoverageWithText("""
+                Sistema web para empréstimo de equipamentos com login, dashboard e persistência.
+
+                Não escopo:
+                - Integração com ERP externo.
+                - Envio real de e-mail, WhatsApp ou SMS.
+                - Aplicativo mobile nativo.
+
+                Stack: não declarada.
+                """),
+            ],
+        };
+        var facts = V3RequirementFactsExtractor.Extract(context.PrimaryRequirementsCoverage);
+        var updatedContext = context with { SourceFacts = facts };
+
+        var result = V3UnderstandAnalyzer.Analyze(updatedContext, new V3UnderstandAnalyzeRequest
+        {
+            OriginalIntent = "Controlar empréstimo de equipamentos.",
+        }, now);
+
+        Assert.Null(facts.ProductNotification);
+        Assert.DoesNotContain("ERP", result.State.SolutionStrategy!.IntegrationPoints);
+        Assert.DoesNotContain("Canal de comunicação", result.State.SolutionStrategy.IntegrationPoints);
+        Assert.NotEqual("COMPLEX", result.State.SolutionStrategy.Complexity);
+    }
+
+    [Fact]
     public void MaterialUnresolvedArchitectureDecisionBlocksUnderstandInsideUnderstand()
     {
         var now = DateTimeOffset.UnixEpoch;

@@ -813,7 +813,7 @@ public static partial class V3RequirementFactsExtractor
             .Where(coverage => coverage.Complete && !string.IsNullOrWhiteSpace(coverage.ContentPreview))
             .Select(coverage => (coverage.ArtifactId, Text: coverage.ContentPreview!))
             .ToArray();
-        var combined = string.Join("\n\n", texts.Select(item => item.Text));
+        var combined = StripExplicitNonScopeSections(string.Join("\n\n", texts.Select(item => item.Text)));
         var deadline = ExtractDeadline(texts);
         var authentication = ContainsAny(combined, "autenticação própria", "sem sso")
             ? "Autenticação própria, sem SSO"
@@ -884,6 +884,38 @@ public static partial class V3RequirementFactsExtractor
 
     private static bool ContainsAny(string text, params string[] values) =>
         values.Any(value => text.Contains(value, StringComparison.OrdinalIgnoreCase));
+
+    private static string StripExplicitNonScopeSections(string text)
+    {
+        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        var kept = new List<string>(lines.Length);
+        var skippingList = false;
+        foreach (var line in lines)
+        {
+            var trimmed = line.Trim();
+            if (ContainsAny(trimmed, "não escopo", "nao escopo", "fora de escopo", "non-scope"))
+            {
+                skippingList = true;
+                continue;
+            }
+
+            if (skippingList)
+            {
+                if (trimmed.Length == 0 ||
+                    trimmed.StartsWith("- ", StringComparison.Ordinal) ||
+                    trimmed.StartsWith("* ", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                skippingList = false;
+            }
+
+            kept.Add(line);
+        }
+
+        return string.Join('\n', kept);
+    }
 }
 
 public static class V3UnderstandAnalyzer
@@ -1111,7 +1143,7 @@ public static class V3SolutionStrategyBuilder
 {
     public static V3SolutionStrategy Build(V3ProjectContextResponse context, V3ProjectUnderstandState? state)
     {
-        var text = Normalize(string.Join("\n",
+        var text = Normalize(StripExplicitNonScopeSections(string.Join("\n",
             context.OriginalIntent,
             context.ProjectSummary,
             state?.ProjectSummary,
@@ -1119,7 +1151,7 @@ public static class V3SolutionStrategyBuilder
             string.Join('\n', state?.Requirements ?? context.Requirements),
             string.Join('\n', state?.AcceptanceCriteria ?? context.AcceptanceCriteria),
             string.Join('\n', context.PrimaryRequirementsCoverage.Select(source => source.ContentPreview)),
-            string.Join(' ', context.Artifacts.Select(artifact => artifact.Name))));
+            string.Join(' ', context.Artifacts.Select(artifact => artifact.Name)))));
         var integrationPoints = DetectIntegrationPoints(text);
         var hasFrontend = HasAny(text, "frontend", "interface", "tela", "dashboard", "mobile", "react") ||
             context.Artifacts.Any(artifact => string.Equals(artifact.Role, "provided_frontend", StringComparison.OrdinalIgnoreCase));
@@ -1240,6 +1272,38 @@ public static class V3SolutionStrategyBuilder
 
     private static bool HasAny(string text, params string[] values) =>
         values.Any(value => text.Contains(value, StringComparison.OrdinalIgnoreCase));
+
+    private static string StripExplicitNonScopeSections(string text)
+    {
+        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        var kept = new List<string>(lines.Length);
+        var skippingList = false;
+        foreach (var line in lines)
+        {
+            var trimmed = line.Trim();
+            if (HasAny(trimmed, "não escopo", "nao escopo", "fora de escopo", "non-scope"))
+            {
+                skippingList = true;
+                continue;
+            }
+
+            if (skippingList)
+            {
+                if (trimmed.Length == 0 ||
+                    trimmed.StartsWith("- ", StringComparison.Ordinal) ||
+                    trimmed.StartsWith("* ", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                skippingList = false;
+            }
+
+            kept.Add(line);
+        }
+
+        return string.Join('\n', kept);
+    }
 }
 
 public static partial class V3NaturalUserDecision
