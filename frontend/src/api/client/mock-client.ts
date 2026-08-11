@@ -113,6 +113,7 @@ import {
   type V3AuthorizeBuildInput,
   type V3BuildMission,
   type V3ChiefAssignment,
+  type V3HumanAcceptance,
   type V3ProjectContext,
   type V3UnderstandAnalyzeInput,
   type ChannelLink,
@@ -2490,6 +2491,35 @@ export class MockApiClient implements ApiClient {
     const project = this.#table('projects').get(projectId);
     if (!project) throw this.#notFound('projects', projectId);
     return this.#v3Context(project, 'BUILDING');
+  }
+
+  async acceptV3HumanAcceptance(projectId: string, note?: string): Promise<V3HumanAcceptance> {
+    await this.#simulate();
+    const project = this.#table('projects').get(projectId);
+    if (!project) throw this.#notFound('projects', projectId);
+    return {
+      projectId,
+      lifecycleState: 'HUMAN_ACCEPTED',
+      status: 'HUMAN_ACCEPTED',
+      updatedAt: this.#options.now(),
+      message: note ? `Human acceptance recorded. ${note}` : 'Human acceptance recorded.',
+    };
+  }
+
+  async requestV3HumanAcceptanceChanges(
+    projectId: string,
+    note?: string,
+  ): Promise<V3HumanAcceptance> {
+    await this.#simulate();
+    const project = this.#table('projects').get(projectId);
+    if (!project) throw this.#notFound('projects', projectId);
+    return {
+      projectId,
+      lifecycleState: 'VALIDATING',
+      status: 'HUMAN_REQUESTED_CHANGES',
+      updatedAt: this.#options.now(),
+      message: note ? `Human changes requested. ${note}` : 'Human changes requested.',
+    };
   }
 
   async compileV3BuildMission(projectId: string): Promise<V3BuildMission> {

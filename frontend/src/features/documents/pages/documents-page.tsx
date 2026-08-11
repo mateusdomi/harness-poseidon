@@ -13,7 +13,11 @@ import { usePresentationMode } from '@/app/presentation';
 import { Button, Card, CardContent, Checkbox, Select, Skeleton } from '@/design-system';
 import { ApprovalInbox } from '@/features/documents/components/approval-inbox';
 import { CreateDocumentDialog } from '@/features/documents/components/create-document-dialog';
-import { DocumentCatalog } from '@/features/documents/components/document-catalog';
+import {
+  DocumentCatalog,
+  documentV3Category,
+  type DocumentV3Category,
+} from '@/features/documents/components/document-catalog';
 import { DocumentDetail } from '@/features/documents/components/document-detail';
 import { DocumentsTabs } from '@/features/documents/components/documents-tabs';
 import { OrphanDocuments } from '@/features/documents/components/orphan-documents';
@@ -105,8 +109,8 @@ export default function UdocumentsPage() {
     setSearchParams(
       (previous) => {
         const params = new URLSearchParams(previous);
-        // O catálogo é o padrão: não sujar a URL com o valor default.
-        if (next === 'catalog') params.delete('tab');
+        // Fontes é o padrão: não sujar a URL com o valor default.
+        if (next === 'sources') params.delete('tab');
         else params.set('tab', next);
         params.delete('page');
         return params;
@@ -133,13 +137,33 @@ export default function UdocumentsPage() {
   const errored = isError || documentsQuery.isError;
   const documents = useMemo(() => {
     let result = documentsQuery.data ?? [];
+    if (activeTab !== 'approvals') {
+      result = result.filter((doc) => documentV3Category(doc) === activeTab);
+    }
     if (kindFilter !== '') result = result.filter((doc) => doc.kind === kindFilter);
-    if (phaseFilter !== '') result = result.filter((doc) => doc.phaseName === phaseFilter);
+    if (showTechnicalDetails && phaseFilter !== '') {
+      result = result.filter((doc) => doc.phaseName === phaseFilter);
+    }
     if (stateFilter !== '') result = result.filter((doc) => doc.state === stateFilter);
     if (onlyInconsistent) result = result.filter((doc) => doc.inconsistent);
     if (onlyWaiver) result = result.filter((doc) => doc.waiver !== null);
     return result;
-  }, [documentsQuery.data, kindFilter, phaseFilter, stateFilter, onlyInconsistent, onlyWaiver]);
+  }, [
+    activeTab,
+    documentsQuery.data,
+    kindFilter,
+    phaseFilter,
+    stateFilter,
+    onlyInconsistent,
+    onlyWaiver,
+    showTechnicalDetails,
+  ]);
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<DocumentV3Category, number> = { sources: 0, records: 0, delivery: 0 };
+    for (const doc of documentsQuery.data ?? []) counts[documentV3Category(doc)] += 1;
+    return counts;
+  }, [documentsQuery.data]);
 
   const orphans = (documentsQuery.data ?? []).filter((doc) => doc.phaseName === null);
   // Distingue "projeto sem nenhum documento" (empty-state orientado) de
@@ -258,9 +282,19 @@ export default function UdocumentsPage() {
             onChange={selectTab}
             tabs={[
               {
-                id: 'catalog',
-                label: t('documents.tabs.catalog'),
-                count: (documentsQuery.data ?? []).length,
+                id: 'sources',
+                label: t('documents.tabs.sources'),
+                count: categoryCounts.sources,
+              },
+              {
+                id: 'records',
+                label: t('documents.tabs.records'),
+                count: categoryCounts.records,
+              },
+              {
+                id: 'delivery',
+                label: t('documents.tabs.delivery'),
+                count: categoryCounts.delivery,
               },
               {
                 id: 'approvals',
@@ -281,7 +315,7 @@ export default function UdocumentsPage() {
               <ApprovalInbox projectId={activeProject.id} />
             ) : (
               <>
-                <OrphanDocuments orphans={orphans} phases={phases} />
+                {showTechnicalDetails && <OrphanDocuments orphans={orphans} phases={phases} />}
 
                 <div className="flex flex-wrap items-end gap-3">
                   <div className="flex flex-col gap-1">
@@ -301,23 +335,25 @@ export default function UdocumentsPage() {
                       ))}
                     </Select>
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <label htmlFor="filter-phase" className="text-xs font-medium">
-                      {t('documents.filters.phase')}
-                    </label>
-                    <Select
-                      id="filter-phase"
-                      value={phaseFilter}
-                      onChange={(event) => setPhaseFilter(event.target.value)}
-                    >
-                      <option value="">{t('documents.filters.all')}</option>
-                      {phases.map((phase) => (
-                        <option key={phase} value={phase}>
-                          {phase}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
+                  {showTechnicalDetails && (
+                    <div className="flex flex-col gap-1">
+                      <label htmlFor="filter-phase" className="text-xs font-medium">
+                        {t('documents.filters.phase')}
+                      </label>
+                      <Select
+                        id="filter-phase"
+                        value={phaseFilter}
+                        onChange={(event) => setPhaseFilter(event.target.value)}
+                      >
+                        <option value="">{t('documents.filters.all')}</option>
+                        {phases.map((phase) => (
+                          <option key={phase} value={phase}>
+                            {phase}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                  )}
                   <div className="flex flex-col gap-1">
                     <label htmlFor="filter-state" className="text-xs font-medium">
                       {t('documents.filters.state')}
@@ -419,6 +455,7 @@ export default function UdocumentsPage() {
                     <DocumentCatalog
                       documents={pagination.paginate(documents)}
                       onOpen={openDocument}
+                      showTechnicalDetails={showTechnicalDetails}
                     />
                     <PaginationBar pagination={pagination} />
                   </>

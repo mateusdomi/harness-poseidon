@@ -288,8 +288,8 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex w-full min-w-0 gap-4 lg:h-[calc(100svh-6.25rem)] lg:min-h-0 lg:gap-6">
-      <div className="mx-auto flex min-h-[70svh] w-full min-w-0 max-w-5xl flex-1 flex-col gap-2 pb-24 lg:h-full lg:min-h-0 lg:pb-0">
+    <div className="flex w-full min-w-0 flex-col gap-4 lg:h-[calc(100svh-6.25rem)] lg:min-h-0 lg:flex-row lg:gap-6">
+      <div className="mx-auto flex w-full min-w-0 max-w-5xl flex-1 flex-col gap-2 pb-4 lg:h-full lg:min-h-0 lg:pb-0">
         <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-[auto_minmax(0,1fr)] md:items-center">
           <div className="flex min-w-0 items-center gap-2">
             <h1 className="font-heading text-xl font-semibold">{t('features.chat.title')}</h1>
@@ -333,7 +333,7 @@ export default function ChatPage() {
                 disabled={createConversation.isPending}
               >
                 <Plus aria-hidden="true" />
-                {t('chat.conversation.new')}
+                <span className="hidden md:inline">{t('chat.conversation.new')}</span>
               </Button>
             ) : null}
             <Button
@@ -364,7 +364,7 @@ export default function ChatPage() {
 
         <div
           ref={scrollRef}
-          className="flex h-[18svh] min-h-32 flex-none flex-col gap-2 overflow-y-auto rounded-xl border border-border bg-surface p-3 md:h-[42svh] md:min-h-64 md:p-5 lg:h-auto lg:min-h-0 lg:flex-1"
+          className="flex min-h-64 max-h-[48svh] flex-none flex-col gap-2 overflow-y-auto rounded-xl border border-border bg-surface p-3 md:min-h-80 md:max-h-[52svh] md:p-5 lg:h-auto lg:min-h-0 lg:max-h-none lg:flex-1"
           aria-live="polite"
           aria-label={t('chat.messagesLabel')}
         >
@@ -577,7 +577,7 @@ export default function ChatPage() {
         )}
 
         {conversation && !turnActive && (
-          <div className="hidden md:block">
+          <div className="block">
             <QuickActions
               actions={quickActions}
               disabled={sendMessage.isPending || resumeChief.isPending}

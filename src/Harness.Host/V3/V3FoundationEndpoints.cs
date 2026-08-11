@@ -86,6 +86,18 @@ public static class V3FoundationEndpoints
             .ProducesProblem(401)
             .ProducesProblem(404)
             .ProducesProblem(409);
+        group.MapPost("/projects/{projectId}/human-acceptance/accept", AcceptHumanAcceptanceAsync)
+            .Produces<V3HumanAcceptanceResponse>()
+            .ProducesProblem(400)
+            .ProducesProblem(401)
+            .ProducesProblem(404)
+            .ProducesProblem(409);
+        group.MapPost("/projects/{projectId}/human-acceptance/request-changes", RequestHumanAcceptanceChangesAsync)
+            .Produces<V3HumanAcceptanceResponse>()
+            .ProducesProblem(400)
+            .ProducesProblem(401)
+            .ProducesProblem(404)
+            .ProducesProblem(409);
 
         return endpoints;
     }
@@ -388,6 +400,54 @@ public static class V3FoundationEndpoints
         }
     }
 
+    private static async Task<IResult> AcceptHumanAcceptanceAsync(
+        string projectId,
+        V3HumanAcceptanceRequest input,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IProjectStore projects,
+        IConfiguration configuration,
+        IClock clock,
+        CancellationToken token)
+    {
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+        if (!UlidValue.TryParse(projectId, out _)) return Problem(400, "invalid_project_id", "Project ID must be a ULID.");
+        var project = await projects.GetAsync(profile.TenantId, projectId, token);
+        if (project is null) return NotFound("project");
+
+        var store = V3UnderstandStore.ForConfiguration(configuration);
+        var state = store.ReadProject(project.Id) ?? V3ProjectUnderstandState.Create(project.Id, clock.UtcNow);
+        var transition = V3HumanAcceptance.Accept(state, input.Note, clock.UtcNow);
+        if (!transition.Accepted) return Problem(409, "human_acceptance_not_ready", transition.Message);
+        store.WriteProject(transition.State);
+        return Results.Ok(V3HumanAcceptanceResponse.From(transition.State, transition.Message));
+    }
+
+    private static async Task<IResult> RequestHumanAcceptanceChangesAsync(
+        string projectId,
+        V3HumanAcceptanceRequest input,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IProjectStore projects,
+        IConfiguration configuration,
+        IClock clock,
+        CancellationToken token)
+    {
+        var profile = await LocalProfileSession.ResolveAsync(request, profiles, token);
+        if (profile is null) return SessionRequired();
+        if (!UlidValue.TryParse(projectId, out _)) return Problem(400, "invalid_project_id", "Project ID must be a ULID.");
+        var project = await projects.GetAsync(profile.TenantId, projectId, token);
+        if (project is null) return NotFound("project");
+
+        var store = V3UnderstandStore.ForConfiguration(configuration);
+        var state = store.ReadProject(project.Id) ?? V3ProjectUnderstandState.Create(project.Id, clock.UtcNow);
+        var transition = V3HumanAcceptance.RequestChanges(state, input.Note, clock.UtcNow);
+        if (!transition.Accepted) return Problem(409, "human_acceptance_not_ready", transition.Message);
+        store.WriteProject(transition.State);
+        return Results.Ok(V3HumanAcceptanceResponse.From(transition.State, transition.Message));
+    }
+
     private static IResult SessionRequired() =>
         Problem(401, "local_session_required", "A local profile session is required.");
 
@@ -464,6 +524,51 @@ public static class V3Lifecycle
         "HUMAN_ACCEPTED" => 100,
         _ => 0,
     };
+}
+
+public static class V3HumanAcceptance
+{
+    public static V3HumanAcceptanceTransition Accept(V3ProjectUnderstandState state, string? note, DateTimeOffset now)
+    {
+        if (!string.Equals(state.LifecycleState, "READY_FOR_HUMAN_ACCEPTANCE", StringComparison.Ordinal))
+        {
+            return new V3HumanAcceptanceTransition(false, state, "Project must be READY_FOR_HUMAN_ACCEPTANCE before human acceptance.");
+        }
+
+        var updated = state with
+        {
+            Status = "HUMAN_ACCEPTED",
+            LifecycleState = "HUMAN_ACCEPTED",
+            Decisions = AppendDecision(state.Decisions, note, "Human accepted the delivery."),
+            UpdatedAt = now,
+        };
+        return new V3HumanAcceptanceTransition(true, updated, "Human acceptance recorded.");
+    }
+
+    public static V3HumanAcceptanceTransition RequestChanges(V3ProjectUnderstandState state, string? note, DateTimeOffset now)
+    {
+        if (!string.Equals(state.LifecycleState, "READY_FOR_HUMAN_ACCEPTANCE", StringComparison.Ordinal))
+        {
+            return new V3HumanAcceptanceTransition(false, state, "Project must be READY_FOR_HUMAN_ACCEPTANCE before requesting acceptance changes.");
+        }
+
+        var updated = state with
+        {
+            Status = "HUMAN_REQUESTED_CHANGES",
+            LifecycleState = "VALIDATING",
+            Decisions = AppendDecision(state.Decisions, note, "Human requested changes before acceptance."),
+            UpdatedAt = now,
+        };
+        return new V3HumanAcceptanceTransition(true, updated, "Human changes requested; project returned to VALIDATING.");
+    }
+
+    private static IReadOnlyList<string> AppendDecision(IReadOnlyList<string> decisions, string? note, string fallback)
+    {
+        var decision = string.IsNullOrWhiteSpace(note)
+            ? fallback
+            : $"{fallback} Note: {note.Trim()}";
+        return [.. decisions, decision];
+    }
 }
 
 public static class V3Readiness
@@ -788,6 +893,24 @@ public sealed record V3ProjectLifecycleResponse(
     IReadOnlyDictionary<string, int> Weights,
     string ReadinessState,
     IReadOnlyList<string> NextActions);
+
+public sealed record V3HumanAcceptanceRequest(string? Note);
+
+public sealed record V3HumanAcceptanceTransition(
+    bool Accepted,
+    V3ProjectUnderstandState State,
+    string Message);
+
+public sealed record V3HumanAcceptanceResponse(
+    string ProjectId,
+    string LifecycleState,
+    string Status,
+    DateTimeOffset UpdatedAt,
+    string Message)
+{
+    public static V3HumanAcceptanceResponse From(V3ProjectUnderstandState state, string message) =>
+        new(state.ProjectId, state.LifecycleState, state.Status, state.UpdatedAt, message);
+}
 
 public sealed record V3ReadinessItem(string Category, string Status, string EvidenceProvider);
 

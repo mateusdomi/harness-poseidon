@@ -352,6 +352,58 @@ public sealed class V3FoundationTests : IDisposable
     }
 
     [Fact]
+    public void HumanAcceptanceRequiresReadyForHumanAcceptance()
+    {
+        var now = new DateTimeOffset(2026, 8, 10, 12, 0, 0, TimeSpan.Zero);
+        var state = V3ProjectUnderstandState.Create("01K00000000000000000000001", now) with
+        {
+            LifecycleState = "VALIDATING",
+            Status = "VALIDATING",
+        };
+
+        var transition = V3HumanAcceptance.Accept(state, "aprovado", now.AddMinutes(1));
+
+        Assert.False(transition.Accepted);
+        Assert.Equal("VALIDATING", transition.State.LifecycleState);
+    }
+
+    [Fact]
+    public void HumanAcceptanceMovesReadyProjectToHumanAcceptedOnlyByExplicitHumanAction()
+    {
+        var now = new DateTimeOffset(2026, 8, 10, 12, 0, 0, TimeSpan.Zero);
+        var state = V3ProjectUnderstandState.Create("01K00000000000000000000001", now) with
+        {
+            LifecycleState = "READY_FOR_HUMAN_ACCEPTANCE",
+            Status = "VALIDATION_COMPLETED",
+        };
+
+        var transition = V3HumanAcceptance.Accept(state, "homologado pelo usuário", now.AddMinutes(1));
+
+        Assert.True(transition.Accepted);
+        Assert.Equal("HUMAN_ACCEPTED", transition.State.LifecycleState);
+        Assert.Equal("HUMAN_ACCEPTED", transition.State.Status);
+        Assert.Contains(transition.State.Decisions, decision => decision.Contains("homologado pelo usuário", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void HumanRequestChangesReturnsReadyProjectToValidating()
+    {
+        var now = new DateTimeOffset(2026, 8, 10, 12, 0, 0, TimeSpan.Zero);
+        var state = V3ProjectUnderstandState.Create("01K00000000000000000000001", now) with
+        {
+            LifecycleState = "READY_FOR_HUMAN_ACCEPTANCE",
+            Status = "VALIDATION_COMPLETED",
+        };
+
+        var transition = V3HumanAcceptance.RequestChanges(state, "ajustar relatório", now.AddMinutes(1));
+
+        Assert.True(transition.Accepted);
+        Assert.Equal("VALIDATING", transition.State.LifecycleState);
+        Assert.Equal("HUMAN_REQUESTED_CHANGES", transition.State.Status);
+        Assert.Contains(transition.State.Decisions, decision => decision.Contains("ajustar relatório", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void V3ReadinessRemainsNotReadyWhenARequiredV3CheckIsBlocked()
     {
         var project = Project(database: "none", repository: Path.Combine(_directory, "missing")) with

@@ -119,9 +119,16 @@ describe('DocumentsPage', () => {
 
   it('lista documentos órfãos e classifica com fase do workflow', async () => {
     const user = userEvent.setup();
+    const profileId = fixtures.profiles[0].id;
+    useSessionStore.setState({ activeProfileId: profileId });
+    usePresentationStore.setState({
+      modeByProfile: { [profileId]: 'technical' },
+    });
     renderDocuments();
 
-    const orphansSection = await screen.findByRole('region', { name: 'Documentos órfãos' });
+    const orphansSection = await screen.findByRole('region', {
+      name: 'Documentos sem vínculo técnico',
+    });
     expect(within(orphansSection).getByText('Spec do protótipo v0')).toBeInTheDocument();
     expect(within(orphansSection).getByText('ADR 002 — SSR')).toBeInTheDocument();
 
@@ -129,21 +136,40 @@ describe('DocumentsPage', () => {
       within(orphansSection).getAllByRole('button', { name: 'Classificar' })[0],
     );
     const dialog = await screen.findByRole('dialog', { name: /Classificar "Spec do protótipo v0"/ });
-    await user.selectOptions(within(dialog).getByLabelText(/Etapa do fluxo de trabalho/), 'Execução');
+    await user.selectOptions(within(dialog).getByLabelText(/Vínculo técnico/), 'Execução');
     await user.click(within(dialog).getByRole('button', { name: 'Salvar' }));
 
     // Saiu da lista de órfãos; o ADR 002 permanece.
     await screen.findAllByText('ADR 002 — SSR');
     expect(
-      within(screen.getByRole('region', { name: 'Documentos órfãos' })).queryByText(
+      within(screen.getByRole('region', { name: 'Documentos sem vínculo técnico' })).queryByText(
         'Spec do protótipo v0',
       ),
     ).not.toBeInTheDocument();
   });
 
-  it('atualiza o estado do documento no catálogo via document.stateChanged', async () => {
-    const { bundle } = renderDocuments();
+  it('separa documentos em fontes, registros do projeto e documentação de entrega', async () => {
+    const user = userEvent.setup();
+    renderDocuments();
 
+    expect((await screen.findAllByText('Spec da API v1')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Fonte').length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole('tab', { name: /Documentação de Entrega/ }));
+    expect((await screen.findAllByText('Runbook de deploy')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Documentação de Entrega').length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole('tab', { name: /Registros do Projeto/ }));
+    expect(screen.getByRole('tab', { name: /Registros do Projeto/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+  });
+
+  it('atualiza o estado do documento no catálogo via document.stateChanged', async () => {
+    const { bundle } = renderDocuments('/documents?pageSize=50');
+
+    await userEvent.setup().selectOptions(await screen.findByLabelText('Estado'), 'inElaboration');
     expect((await screen.findAllByText('Guia de UX do quadro')).length).toBeGreaterThan(0);
     const doc = fixtures.documents.find((entry) => entry.title === 'Guia de UX do quadro')!;
     expect(screen.getAllByText('Em elaboração').length).toBeGreaterThan(0);
@@ -154,14 +180,13 @@ describe('DocumentsPage', () => {
       void bundle.api.transitionDocument(doc.id, { toState: 'inReview' });
     });
 
-    // O badge "Em elaboração" some da tabela (único doc nesse estado no projeto).
-    // (o <option> do filtro de estado contém o mesmo texto — asserção escopada).
+    // Com o filtro "Em elaboração" ativo, a transição para "Em revisão" tira o
+    // documento da lista filtrada. O <option> continua existindo; por isso a
+    // asserção é no conteúdo do catálogo, não no texto global da página.
     await waitFor(() => {
-      expect(
-        within(screen.getByRole('table')).queryByText('Em elaboração'),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText('Guia de UX do quadro')).not.toBeInTheDocument();
     });
-    expect(within(screen.getByRole('table')).getAllByText('Em revisão').length).toBeGreaterThan(0);
+    expect(screen.getByText('Nenhum documento corresponde aos filtros')).toBeInTheDocument();
   });
 
   it('copia o conteúdo da versão vigente com feedback i18n', async () => {
@@ -411,8 +436,8 @@ describe('DocumentsPage — aba "Aguardando sua aprovação"', () => {
     const user = userEvent.setup();
     renderDocuments();
 
-    // Padrão: catálogo selecionado, e a aba de aprovação anuncia 3 pendências.
-    const catalogTab = await screen.findByRole('tab', { name: /Documentos do projeto/ });
+    // Padrão: fontes selecionada, e a aba de aprovação anuncia 3 pendências.
+    const catalogTab = await screen.findByRole('tab', { name: /Fontes/ });
     const approvalsTab = screen.getByRole('tab', { name: /Aguardando sua aprovação/ });
     expect(catalogTab).toHaveAttribute('aria-selected', 'true');
     expect(approvalsTab).toHaveAttribute('aria-selected', 'false');

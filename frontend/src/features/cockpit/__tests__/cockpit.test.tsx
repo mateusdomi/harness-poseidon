@@ -292,8 +292,7 @@ describe('CockpitPage', () => {
     expect(await screen.findByText(/crie o primeiro projeto/i)).toBeInTheDocument();
   });
 
-  it('exibe só o progresso aceito e permite consultar as etapas no modo Negócio', async () => {
-    const user = userEvent.setup();
+  it('exibe só o progresso aceito e o lifecycle V3 no modo Negócio', async () => {
     renderCockpit();
 
     expect(await screen.findAllByRole('progressbar', { name: 'Trabalho aceito' })).toHaveLength(1);
@@ -305,16 +304,13 @@ describe('CockpitPage', () => {
     expect(screen.queryByRole('progressbar', { name: 'Validado' })).not.toBeInTheDocument();
     expect(screen.queryByRole('progressbar', { name: 'Aprovado' })).not.toBeInTheDocument();
 
-    expect(screen.getByRole('button', { name: 'Ver detalhes da etapa Validação' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    expect(screen.getByText('Qualidade')).toBeInTheDocument();
-    expect(screen.getByText('Relatório de testes')).toBeInTheDocument();
-    expect(screen.getByText('Evidências')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Ver detalhes da etapa Planejamento' }));
-    expect(screen.getByText('Plano de testes')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Lifecycle V3' })).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Lifecycle V3 do projeto' })).toBeInTheDocument();
+    expect(screen.getByText('Entendimento')).toBeInTheDocument();
+    expect(screen.getByText('Desenvolvimento')).toBeInTheDocument();
+    expect(screen.getByText('Validação')).toBeInTheDocument();
+    expect(screen.getByText('Aceite Humano')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Ver detalhes da etapa/i })).not.toBeInTheDocument();
   });
 
   it('mantém as três fontes separadas na visão técnica', () => {

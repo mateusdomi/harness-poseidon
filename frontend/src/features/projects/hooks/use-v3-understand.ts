@@ -59,3 +59,25 @@ export function useCompileV3BuildMission(projectId: Ulid) {
     },
   });
 }
+
+export function useAcceptV3HumanAcceptance(projectId: Ulid) {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (note?: string) => api.acceptV3HumanAcceptance(projectId, note),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: v3UnderstandKeys.context(projectId) });
+    },
+  });
+}
+
+export function useRequestV3HumanAcceptanceChanges(projectId: Ulid) {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (note?: string) => api.requestV3HumanAcceptanceChanges(projectId, note),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: v3UnderstandKeys.context(projectId) });
+    },
+  });
+}

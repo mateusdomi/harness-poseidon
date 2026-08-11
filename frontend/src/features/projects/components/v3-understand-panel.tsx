@@ -2,9 +2,11 @@ import type { Project } from '@/api';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
 import { useTranslation } from 'react-i18next';
 import {
+  useAcceptV3HumanAcceptance,
   useAnalyzeV3Project,
   useAuthorizeV3Build,
   useCompileV3BuildMission,
+  useRequestV3HumanAcceptanceChanges,
   useV3BuildMissions,
   useV3ProjectContext,
 } from '@/features/projects/hooks/use-v3-understand';
@@ -16,6 +18,8 @@ export function V3UnderstandPanel({ project }: { project: Project }) {
   const analyze = useAnalyzeV3Project(project.id);
   const authorize = useAuthorizeV3Build(project.id);
   const compile = useCompileV3BuildMission(project.id);
+  const accept = useAcceptV3HumanAcceptance(project.id);
+  const requestChanges = useRequestV3HumanAcceptanceChanges(project.id);
   const data = context.data;
   const latestMission = missions.data?.[0] ?? null;
 
@@ -104,6 +108,45 @@ export function V3UnderstandPanel({ project }: { project: Project }) {
                 <pre className="mt-2 max-h-64 overflow-auto rounded bg-surface-subtle p-2 text-xs">
                   <code>{latestMission.missionText}</code>
                 </pre>
+              </div>
+            ) : null}
+
+            {data.currentLifecycleState === 'READY_FOR_HUMAN_ACCEPTANCE' ? (
+              <div className="rounded-md border border-success/40 bg-success/10 p-3">
+                <p className="text-sm font-medium text-success">
+                  {t('features.projects.v3Understand.humanAcceptance.readyTitle')}
+                </p>
+                <p className="mt-1 text-sm text-foreground-muted">
+                  {t('features.projects.v3Understand.humanAcceptance.readyDescription')}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={requestChanges.isPending || accept.isPending}
+                    onClick={() => requestChanges.mutate(undefined)}
+                  >
+                    {t('features.projects.v3Understand.actions.requestChanges')}
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={accept.isPending || requestChanges.isPending}
+                    onClick={() => accept.mutate(undefined)}
+                  >
+                    {t('features.projects.v3Understand.actions.accept')}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            {data.currentLifecycleState === 'HUMAN_ACCEPTED' ? (
+              <div className="rounded-md border border-success/40 bg-success/10 p-3">
+                <p className="text-sm font-medium text-success">
+                  {t('features.projects.v3Understand.humanAcceptance.acceptedTitle')}
+                </p>
+                <p className="mt-1 text-sm text-foreground-muted">
+                  {t('features.projects.v3Understand.humanAcceptance.documentationOffer')}
+                </p>
               </div>
             ) : null}
 

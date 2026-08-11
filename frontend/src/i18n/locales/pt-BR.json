@@ -894,6 +894,19 @@
         "support": "Sustentação"
       }
     },
+    "v3Lifecycle": {
+      "title": "Lifecycle V3",
+      "subtitle": "Fluxo oficial: Entendimento → Desenvolvimento → Validação → Aceite Humano.",
+      "progress": "avanço",
+      "ariaLabel": "Lifecycle V3 do projeto",
+      "ready": "Pronto para homologação humana",
+      "steps": {
+        "understand": "Entendimento",
+        "build": "Desenvolvimento",
+        "validate": "Validação",
+        "humanAcceptance": "Aceite Humano"
+      }
+    },
     "empty": {
       "title": "Nenhum projeto ativo",
       "body": "O Dashboard mostra a equipe, as etapas, o andamento e os bloqueios do projeto. Crie o primeiro projeto para começar.",
@@ -1712,10 +1725,18 @@
         "readiness": "Readiness",
         "buildMission": "BuildMission {{missionId}} — {{status}}",
         "missionMeta": "{{chars}} chars · executor: {{executor}}",
+        "humanAcceptance": {
+          "readyTitle": "Pronto para homologação humana",
+          "readyDescription": "A validação técnica foi concluída. O produto ainda não está homologado; apenas uma ação humana explícita pode aceitar ou solicitar ajustes.",
+          "acceptedTitle": "Aceite humano registrado",
+          "documentationOffer": "A documentação rica de entrega é opcional e não bloqueia o aceite. O mínimo operacional permanece junto ao código do produto."
+        },
         "actions": {
           "analyze": "Analyze",
           "authorize": "Authorize BUILD",
-          "compile": "Compile BuildMission"
+          "compile": "Compile BuildMission",
+          "requestChanges": "Solicitar ajustes",
+          "accept": "Aceitar entrega"
         }
       }
     },
@@ -1997,10 +2018,12 @@
       "body": "Selecione ou crie um projeto para ver os documentos.",
       "cta": "Ver projetos"
     },
-    "intro": "Aqui ficam os documentos que a equipe produziu para este projeto: o que já está pronto, o que ainda está sendo escrito e o que aguarda a sua aprovação.",
+    "intro": "Aqui ficam as fontes do projeto, os registros técnicos gerados pelo Poseidon e a documentação de entrega. Requisitos do cliente não se misturam com missões, relatórios internos ou manuais finais.",
     "tabs": {
       "label": "Seções de documentos",
-      "catalog": "Documentos do projeto",
+      "sources": "Fontes",
+      "records": "Registros do Projeto",
+      "delivery": "Documentação de Entrega",
       "approvals": "Aguardando sua aprovação"
     },
     "approvalsTab": {
@@ -2013,8 +2036,8 @@
     },
     "empty": {
       "title": "Ainda não há documentos neste projeto",
-      "body": "Documentos são os artefatos versionados do projeto (visão do produto, especificação, design, manual de operação, notas e relatórios). A equipe os produz sob coordenação e revisão da Bruna — cada correção vira uma nova versão, com histórico e comparação.",
-      "appears": "Assim que alguém da equipe ou uma etapa do fluxo de trabalho gerar um documento, ele aparece aqui com o estado (rascunho, em conferência, aprovado). Você também pode criar o primeiro agora mesmo.",
+      "body": "Documentos são artefatos versionados do projeto: fontes enviadas pelo usuário, registros técnicos do Poseidon e documentação de entrega quando existir.",
+      "appears": "Fontes entram no início do projeto; registros como entendimento, missões e relatórios aparecem conforme o lifecycle avança; documentação rica de entrega é opcional ao final. O código do produto continua exigindo documentação operacional mínima para executar e manter a entrega.",
       "governanceNote": "Procurando editar os arquivos internos do sistema (governança, políticas, manifestos)? Isso fica em Documentos de Governança — outra tela.",
       "governanceLink": "Ir para Documentos de Governança",
       "createCta": "Criar documento",
@@ -2039,7 +2062,7 @@
     },
     "filters": {
       "kind": "Categoria",
-      "phase": "Etapa",
+      "phase": "Vínculo técnico",
       "state": "Estado",
       "inconsistentTechnical": "Inconsistentes",
       "waiverTechnical": "Com dispensa registrada",
@@ -2051,15 +2074,21 @@
     },
     "catalog": {
       "label": "Catálogo de documentos",
-      "noPhase": "Sem etapa",
+      "noPhase": "Sem vínculo técnico",
       "columns": {
         "title": "Título",
-        "kind": "Categoria",
-        "phase": "Etapa",
+        "category": "Categoria V3",
+        "kind": "Tipo",
+        "phase": "Vínculo técnico",
         "state": "Estado",
         "version": "Versão",
         "updatedAt": "Atualizado"
       }
+    },
+    "category": {
+      "sources": "Fonte",
+      "records": "Registro do Projeto",
+      "delivery": "Documentação de Entrega"
     },
     "detail": {
       "back": "Voltar ao catálogo",
@@ -2109,12 +2138,12 @@
       "diffSummary": "{{added}} linha(s) adicionada(s), {{removed}} removida(s)"
     },
     "orphans": {
-      "title": "Documentos órfãos",
-      "body": "Documentos sem vínculo com uma etapa do fluxo de trabalho. Classifique para integrá-los ao trabalho.",
+      "title": "Documentos sem vínculo técnico",
+      "body": "Documentos sem metadado técnico legado de fluxo de trabalho. Isto é visível somente no modo técnico; no V3 de negócio eles continuam classificados por categoria documental.",
       "classify": "Classificar",
       "dialogTitle": "Classificar \"{{title}}\"",
-      "phaseLabel": "Etapa do fluxo de trabalho",
-      "phaseHint": "Sugestão: etapas da versão ativa do fluxo de trabalho do projeto.",
+      "phaseLabel": "Vínculo técnico",
+      "phaseHint": "Sugestão técnica: vínculos existentes do fluxo legado quando houver.",
       "classificationsLabel": "Classificações",
       "classificationsHint": "Separadas por vírgula."
     },

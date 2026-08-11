@@ -4,6 +4,7 @@ import { Activity } from 'lucide-react';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
 import { usePresentationMode } from '@/app/presentation';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
+import { useV3ProjectContext } from '@/features/projects/hooks/use-v3-understand';
 import { ActivityFeed } from '@/features/cockpit/components/activity-feed';
 import {
   BlockedTasksCard,
@@ -17,7 +18,6 @@ import { WorkflowProgress } from '@/features/cockpit/components/workflow-progres
 import { GoldenPathChecklist } from '@/features/onboarding/components/golden-path-checklist';
 import { SimulatedModeBadge } from '@/features/shared/components/simulated-mode-badge';
 import { ProgressTracks } from '@/features/cockpit/components/progress-tracks';
-import { ProjectTimeline } from '@/features/cockpit/components/project-timeline';
 import { TasksByStateChart } from '@/features/cockpit/components/tasks-by-state-chart';
 import {
   useCockpitActivity,
@@ -55,6 +55,7 @@ export default function CockpitPage() {
   const budgetsQuery = useCockpitBudgets(technical);
   const activityQuery = useCockpitActivity();
   const workflowData = useCockpitWorkflow(projectId);
+  const v3Context = useV3ProjectContext(projectId);
   const phaseProgress = useCockpitPhaseProgress(
     workflowData.run?.id ?? null,
     workflowData.phases,
@@ -203,11 +204,7 @@ export default function CockpitPage() {
             </>
           ) : (
             <>
-              <ProjectTimeline
-                phases={workflowData.phases}
-                gates={workflowData.gates}
-                overallProgress={acceptedProgress}
-              />
+              <V3LifecycleOverview lifecycle={v3Context.data?.currentLifecycleState ?? null} />
               <TeamCapacityCard />
               <PendingApprovalsCard approvals={humanApprovals} />
             </>
@@ -244,4 +241,115 @@ export default function CockpitPage() {
       )}
     </div>
   );
+}
+
+const V3_LIFECYCLE_STEPS = [
+  {
+    id: 'understand',
+    labelKey: 'cockpit.v3Lifecycle.steps.understand',
+    states: ['DRAFT', 'UNDERSTANDING', 'AWAITING_INPUT', 'READY_TO_START'],
+  },
+  {
+    id: 'build',
+    labelKey: 'cockpit.v3Lifecycle.steps.build',
+    states: ['BUILDING', 'PAUSED_QUOTA', 'BLOCKED'],
+  },
+  {
+    id: 'validate',
+    labelKey: 'cockpit.v3Lifecycle.steps.validate',
+    states: ['VALIDATING'],
+  },
+  {
+    id: 'humanAcceptance',
+    labelKey: 'cockpit.v3Lifecycle.steps.humanAcceptance',
+    states: ['READY_FOR_HUMAN_ACCEPTANCE', 'HUMAN_ACCEPTED'],
+  },
+] as const;
+
+function V3LifecycleOverview({ lifecycle }: { lifecycle: string | null }) {
+  const { t } = useTranslation();
+  const current = lifecycle ?? 'UNDERSTANDING';
+  const activeIndex = Math.max(
+    0,
+    V3_LIFECYCLE_STEPS.findIndex((step) =>
+      step.states.some((state) => state === current),
+    ),
+  );
+  const percent = lifecycle ? V3LifecyclePercent(lifecycle) : 5;
+
+  return (
+    <Card className="lg:col-span-2">
+      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <CardTitle>{t('cockpit.v3Lifecycle.title')}</CardTitle>
+          <p className="text-xs text-foreground-muted">{t('cockpit.v3Lifecycle.subtitle')}</p>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <span className="font-heading text-3xl font-semibold tabular-nums">{percent}%</span>
+          <span className="text-xs text-foreground-muted">
+            {t('cockpit.v3Lifecycle.progress')}
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <ol
+          aria-label={t('cockpit.v3Lifecycle.ariaLabel')}
+          className="grid gap-2 md:grid-cols-2 xl:grid-cols-4"
+        >
+          {V3_LIFECYCLE_STEPS.map((step, index) => {
+            const accepted = lifecycle === 'HUMAN_ACCEPTED';
+            const done = accepted || index < activeIndex;
+            const active = !accepted && index === activeIndex;
+            return (
+              <li
+                key={step.id}
+                className={
+                  active
+                    ? 'rounded-lg border border-brand bg-primary/10 p-3 text-brand-strong'
+                    : done
+                      ? 'rounded-lg border border-success/40 bg-success/10 p-3 text-success'
+                      : 'rounded-lg border border-border bg-surface-elevated/30 p-3 text-foreground-muted'
+                }
+              >
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <span aria-hidden="true">{done ? '✓' : active ? '●' : '○'}</span>
+                  <span>{t(step.labelKey)}</span>
+                </div>
+                {active && lifecycle === 'READY_FOR_HUMAN_ACCEPTANCE' ? (
+                  <Badge className="mt-2" variant="success">
+                    {t('cockpit.v3Lifecycle.ready')}
+                  </Badge>
+                ) : null}
+              </li>
+            );
+          })}
+        </ol>
+      </CardContent>
+    </Card>
+  );
+}
+
+function V3LifecyclePercent(value: string): number {
+  switch (value) {
+    case 'DRAFT':
+      return 0;
+    case 'UNDERSTANDING':
+      return 5;
+    case 'AWAITING_INPUT':
+      return 10;
+    case 'READY_TO_START':
+      return 15;
+    case 'BUILDING':
+    case 'PAUSED_QUOTA':
+    case 'BLOCKED':
+      return 35;
+    case 'VALIDATING':
+      return 80;
+    case 'READY_FOR_HUMAN_ACCEPTANCE':
+      return 95;
+    case 'HUMAN_ACCEPTED':
+      return 100;
+    default:
+      return 0;
+  }
 }

@@ -127,6 +127,7 @@ import {
   v3AccountAuthInstructionSchema,
   v3BuildMissionSchema,
   v3ChiefAssignmentSchema,
+  v3HumanAcceptanceSchema,
   v3MissionPageSchema,
   v3ProjectContextSchema,
   channelLinkSchema,
@@ -136,6 +137,7 @@ import {
   type V3AuthorizeBuildInput,
   type V3BuildMission,
   type V3ChiefAssignment,
+  type V3HumanAcceptance,
   type V3ProjectContext,
   type V3UnderstandAnalyzeInput,
   type ChannelLink,
@@ -847,6 +849,27 @@ export class HttpApiClient implements ApiClient {
       input,
     );
     return v3ProjectContextSchema.parse(response);
+  }
+
+  async acceptV3HumanAcceptance(projectId: string, note?: string): Promise<V3HumanAcceptance> {
+    const response = await this.#request<unknown>(
+      'POST',
+      `/v3/projects/${encodeURIComponent(projectId)}/human-acceptance/accept`,
+      { note: note ?? null },
+    );
+    return v3HumanAcceptanceSchema.parse(response);
+  }
+
+  async requestV3HumanAcceptanceChanges(
+    projectId: string,
+    note?: string,
+  ): Promise<V3HumanAcceptance> {
+    const response = await this.#request<unknown>(
+      'POST',
+      `/v3/projects/${encodeURIComponent(projectId)}/human-acceptance/request-changes`,
+      { note: note ?? null },
+    );
+    return v3HumanAcceptanceSchema.parse(response);
   }
 
   async compileV3BuildMission(projectId: string): Promise<V3BuildMission> {

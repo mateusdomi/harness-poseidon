@@ -7,14 +7,15 @@
  * para cá com a aba já escolhida, e porque um link enviado no chat precisa abrir
  * exatamente na aba que o remetente estava vendo.
  */
-export const DOCUMENT_TABS = ['catalog', 'approvals'] as const;
+export const DOCUMENT_TABS = ['sources', 'records', 'delivery', 'approvals'] as const;
 
 export type DocumentTabId = (typeof DOCUMENT_TABS)[number];
 
-export const DEFAULT_DOCUMENT_TAB: DocumentTabId = 'catalog';
+export const DEFAULT_DOCUMENT_TAB: DocumentTabId = 'sources';
 
 /** Valor de `?tab=` vindo da URL — que pode ser lixo. Na dúvida, o catálogo. */
 export function parseDocumentTab(value: string | null | undefined): DocumentTabId {
+  if (value === 'catalog') return DEFAULT_DOCUMENT_TAB;
   return DOCUMENT_TABS.includes(value as DocumentTabId)
     ? (value as DocumentTabId)
     : DEFAULT_DOCUMENT_TAB;

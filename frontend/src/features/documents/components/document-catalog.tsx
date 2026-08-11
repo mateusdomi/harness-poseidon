@@ -6,16 +6,68 @@ import { Badge } from '@/design-system';
 import { formatDateTime } from '@/lib/format';
 import { documentStateVariant } from '@/lib/status';
 
+export type DocumentV3Category = 'sources' | 'records' | 'delivery';
+
 export interface DocumentCatalogProps {
   documents: Document[];
   onOpen: (documentId: string) => void;
+  showTechnicalDetails?: boolean;
+}
+
+function normalizedTokens(doc: Document): string {
+  return [doc.title, doc.kind, ...doc.classifications]
+    .join(' ')
+    .toLocaleLowerCase('pt-BR');
+}
+
+export function documentV3Category(doc: Document): DocumentV3Category {
+  const tokens = normalizedTokens(doc);
+  if (
+    tokens.includes('buildmission') ||
+    tokens.includes('validationmission') ||
+    tokens.includes('context manifest') ||
+    tokens.includes('manifesto de contexto') ||
+    tokens.includes('execution') ||
+    tokens.includes('execução') ||
+    tokens.includes('validation report') ||
+    tokens.includes('relatório de validação') ||
+    tokens.includes('system-record') ||
+    tokens.includes('technical-record') ||
+    tokens.includes('mission')
+  ) {
+    return 'records';
+  }
+
+  if (
+    tokens.includes('source') ||
+    tokens.includes('fonte') ||
+    tokens.includes('requirement') ||
+    tokens.includes('requisito') ||
+    tokens.includes('primary') ||
+    tokens.includes('input') ||
+    tokens.includes('referência') ||
+    tokens.includes('reference') ||
+    tokens.includes('protótipo') ||
+    tokens.includes('prototype') ||
+    doc.kind === 'prd' ||
+    doc.kind === 'spec' ||
+    doc.kind === 'design'
+  ) {
+    return 'sources';
+  }
+
+  return 'delivery';
 }
 
 /**
  * Catálogo de documentos: cards no mobile (<md) e tabela densa no desktop.
  * Flags de inconsistência e waiver aparecem junto ao estado.
  */
-export function DocumentCatalog({ documents, onOpen }: DocumentCatalogProps) {
+export function DocumentCatalog({
+  documents,
+  onOpen,
+  showTechnicalDetails = false,
+}: DocumentCatalogProps) {
   const { t, i18n } = useTranslation();
 
   const flags = (doc: Document) => (
@@ -49,13 +101,18 @@ export function DocumentCatalog({ documents, onOpen }: DocumentCatalogProps) {
               <span className="text-sm font-semibold">{doc.title}</span>
               <span className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline">{t(`status.documentKind.${doc.kind}`)}</Badge>
+                <Badge variant="info">
+                  {t(`documents.category.${documentV3Category(doc)}`)}
+                </Badge>
                 <Badge variant={documentStateVariant(doc.state)}>
                   {t(`status.documentState.${doc.state}`)}
                 </Badge>
                 {flags(doc)}
               </span>
               <span className="text-xs text-foreground-muted">
-                {doc.phaseName ?? t('documents.catalog.noPhase')} ·{' '}
+                {showTechnicalDetails
+                  ? `${doc.phaseName ?? t('documents.catalog.noPhase')} · `
+                  : null}
                 {t('documents.detail.version', { version: doc.currentVersion })} ·{' '}
                 {formatDateTime(doc.updatedAt, i18n.language)}
               </span>
@@ -73,11 +130,13 @@ export function DocumentCatalog({ documents, onOpen }: DocumentCatalogProps) {
                 {t('documents.catalog.columns.title')}
               </th>
               <th scope="col" className="px-3 py-2 font-medium">
-                {t('documents.catalog.columns.kind')}
+                {t('documents.catalog.columns.category')}
               </th>
-              <th scope="col" className="px-3 py-2 font-medium">
-                {t('documents.catalog.columns.phase')}
-              </th>
+              {showTechnicalDetails && (
+                <th scope="col" className="px-3 py-2 font-medium">
+                  {t('documents.catalog.columns.phase')}
+                </th>
+              )}
               <th scope="col" className="px-3 py-2 font-medium">
                 {t('documents.catalog.columns.state')}
               </th>
@@ -109,8 +168,19 @@ export function DocumentCatalog({ documents, onOpen }: DocumentCatalogProps) {
                     {flags(doc)}
                   </span>
                 </td>
-                <td className="px-3 py-2">{t(`status.documentKind.${doc.kind}`)}</td>
-                <td className="px-3 py-2">{doc.phaseName ?? t('documents.catalog.noPhase')}</td>
+                <td className="px-3 py-2">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <Badge variant="info">
+                      {t(`documents.category.${documentV3Category(doc)}`)}
+                    </Badge>
+                    <span className="text-xs text-foreground-muted">
+                      {t(`status.documentKind.${doc.kind}`)}
+                    </span>
+                  </span>
+                </td>
+                {showTechnicalDetails && (
+                  <td className="px-3 py-2">{doc.phaseName ?? t('documents.catalog.noPhase')}</td>
+                )}
                 <td className="px-3 py-2">
                   <Badge variant={documentStateVariant(doc.state)}>
                     {t(`status.documentState.${doc.state}`)}

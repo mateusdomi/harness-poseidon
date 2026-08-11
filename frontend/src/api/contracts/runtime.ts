@@ -182,6 +182,15 @@ export const v3ProjectContextSchema = z.object({
 });
 export type V3ProjectContext = z.infer<typeof v3ProjectContextSchema>;
 
+export const v3HumanAcceptanceSchema = z.object({
+  projectId: z.string(),
+  lifecycleState: z.string(),
+  status: z.string(),
+  updatedAt: isoDateTimeSchema,
+  message: z.string(),
+});
+export type V3HumanAcceptance = z.infer<typeof v3HumanAcceptanceSchema>;
+
 export const v3KnowledgeReferenceSchema = z.object({
   path: z.string(),
   reason: z.string(),

@@ -894,6 +894,19 @@
         "support": "Support"
       }
     },
+    "v3Lifecycle": {
+      "title": "V3 Lifecycle",
+      "subtitle": "Official flow: Understand → Build → Validate → Human Acceptance.",
+      "progress": "progress",
+      "ariaLabel": "Project V3 lifecycle",
+      "ready": "Ready for human acceptance",
+      "steps": {
+        "understand": "Understand",
+        "build": "Build",
+        "validate": "Validate",
+        "humanAcceptance": "Human Acceptance"
+      }
+    },
     "empty": {
       "title": "No active project",
       "body": "The Dashboard shows the team, stages, progress, and blockers. Create your first project to get started.",
@@ -1712,10 +1725,18 @@
         "readiness": "Readiness",
         "buildMission": "BuildMission {{missionId}} — {{status}}",
         "missionMeta": "{{chars}} chars · executor: {{executor}}",
+        "humanAcceptance": {
+          "readyTitle": "Ready for human acceptance",
+          "readyDescription": "Technical validation is complete. The product is not accepted yet; only an explicit human action can accept or request changes.",
+          "acceptedTitle": "Human acceptance recorded",
+          "documentationOffer": "Rich delivery documentation is optional and does not block acceptance. The operational minimum remains with the product code."
+        },
         "actions": {
           "analyze": "Analyze",
           "authorize": "Authorize BUILD",
-          "compile": "Compile BuildMission"
+          "compile": "Compile BuildMission",
+          "requestChanges": "Request changes",
+          "accept": "Accept delivery"
         }
       }
     },
@@ -1997,10 +2018,12 @@
       "body": "Select or create a project to see its documents.",
       "cta": "View projects"
     },
-    "intro": "These are the documents your team produced for this project: what is ready, what is still being written, and what is waiting for your approval.",
+    "intro": "This is where project sources, Poseidon technical records and delivery documentation are kept. Customer requirements are not mixed with missions, internal reports or final manuals.",
     "tabs": {
       "label": "Document sections",
-      "catalog": "Project documents",
+      "sources": "Sources",
+      "records": "Project Records",
+      "delivery": "Delivery Documentation",
       "approvals": "Waiting for your approval"
     },
     "approvalsTab": {
@@ -2013,8 +2036,8 @@
     },
     "empty": {
       "title": "No documents in this project yet",
-      "body": "Documents are the versioned project artifacts (product vision, specification, design, operations manual, notes and reports). The team produces them under Bruna's coordination and review — each correction becomes a new version, with history and comparison.",
-      "appears": "As soon as someone on the team or a workflow stage generates a document, it shows up here with its state (draft, in review, approved). You can also create the first one right now.",
+      "body": "Documents are versioned project artifacts: user-provided sources, Poseidon technical records and delivery documentation when it exists.",
+      "appears": "Sources enter at project start; records such as understanding snapshots, missions and reports appear as the lifecycle advances; rich delivery documentation is optional at the end. The product code still requires minimum operational documentation to run and maintain the delivery.",
       "governanceNote": "Looking to edit the system's internal files (governance, policies, manifests)? That lives in Governance Documents — a separate screen.",
       "governanceLink": "Go to Governance Documents",
       "createCta": "Create document",
@@ -2039,7 +2062,7 @@
     },
     "filters": {
       "kind": "Category",
-      "phase": "Stage",
+      "phase": "Technical link",
       "state": "State",
       "inconsistentTechnical": "Inconsistent",
       "waiverTechnical": "With recorded exemption",
@@ -2051,15 +2074,21 @@
     },
     "catalog": {
       "label": "Document catalog",
-      "noPhase": "No stage",
+      "noPhase": "No technical link",
       "columns": {
         "title": "Title",
-        "kind": "Category",
-        "phase": "Stage",
+        "category": "V3 category",
+        "kind": "Type",
+        "phase": "Technical link",
         "state": "State",
         "version": "Version",
         "updatedAt": "Updated"
       }
+    },
+    "category": {
+      "sources": "Source",
+      "records": "Project Record",
+      "delivery": "Delivery Documentation"
     },
     "detail": {
       "back": "Back to catalog",
@@ -2109,12 +2138,12 @@
       "diffSummary": "{{added}} line(s) added, {{removed}} removed"
     },
     "orphans": {
-      "title": "Orphan documents",
-      "body": "Documents not linked to a workflow stage. Classify them to bring them into the work.",
+      "title": "Documents without technical link",
+      "body": "Documents without legacy workflow metadata. This is visible only in technical mode; in V3 business mode they remain classified by document category.",
       "classify": "Classify",
       "dialogTitle": "Classify \"{{title}}\"",
-      "phaseLabel": "Workflow stage",
-      "phaseHint": "Suggestion: stages of the project's active workflow version.",
+      "phaseLabel": "Technical link",
+      "phaseHint": "Technical suggestion: existing legacy workflow links, when available.",
       "classificationsLabel": "Classifications",
       "classificationsHint": "Comma separated."
     },
