@@ -32,6 +32,9 @@ function reliability(overrides: Partial<ProjectReliability> = {}): ProjectReliab
         tasksTouched: 4,
         successes: 8,
         totalTokens: 120_000,
+        exactTokens: 110_000,
+        estimatedTokens: 10_000,
+        usageUnavailableInvocations: 1,
         estimatedCostUsd: 3.5,
         lastInvokedAt: '2026-07-31T12:00:00Z',
       },
@@ -85,7 +88,9 @@ describe('tela de produtividade da fleet', () => {
     const linha = await findRow(/US\$ 3\.50/);
     // 8 de 10 execuções com sucesso — a taxa é derivada, não um campo que o backend manda pronto.
     expect(linha).toHaveTextContent('80%');
-    expect(linha).toHaveTextContent((120_000).toLocaleString('pt-BR'));
+    expect(linha).toHaveTextContent(`${(110_000).toLocaleString('pt-BR')} exatos`);
+    expect(linha).toHaveTextContent(`${(10_000).toLocaleString('pt-BR')} estimados`);
+    expect(linha).toHaveTextContent('1 sem usage');
   });
 
   it('mostra pass@1 e pass@k por par conta+modelo com a recomendação de rodadas', async () => {

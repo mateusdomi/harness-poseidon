@@ -84,7 +84,7 @@ public static class V3BuildRuntimeEndpoints
         [FromServices] AgentAccountRegistry accounts,
         IChannelLinkStore channelLinks,
         IConfiguration configuration,
-        V3BuildRuntimeService runtime,
+        [FromServices] V3BuildRuntimeService runtime,
         CancellationToken token)
     {
         var resolved = await ResolveAsync(projectId, request, profiles, projects, token);
@@ -121,7 +121,7 @@ public static class V3BuildRuntimeEndpoints
         [FromServices] AgentAccountRegistry accounts,
         IChannelLinkStore channelLinks,
         IConfiguration configuration,
-        V3BuildRuntimeService runtime,
+        [FromServices] V3BuildRuntimeService runtime,
         CancellationToken token)
     {
         var resolved = await ResolveAsync(projectId, request, profiles, projects, token);
@@ -174,7 +174,7 @@ public static class V3BuildRuntimeEndpoints
         ILocalProfileStore profiles,
         [FromServices] AgentAccountRegistry accounts,
         IConfiguration configuration,
-        V3BuildRuntimeService runtime,
+        [FromServices] V3BuildRuntimeService runtime,
         CancellationToken token)
     {
         if (!UlidValue.TryParse(executionId, out _)) return Problem(400, "invalid_execution_id", "Execution ID must be a ULID.");

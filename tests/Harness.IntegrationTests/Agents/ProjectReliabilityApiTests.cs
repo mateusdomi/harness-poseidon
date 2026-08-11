@@ -73,6 +73,10 @@ public sealed class ProjectReliabilityApiTests
                     "failed", DateTimeOffset.UtcNow.AddSeconds(1), 500, 1m, timeout.Token);
                 await RecordAsync(invocations, tenantId, projectId, cardB, "assinatura-secundaria",
                     "success", DateTimeOffset.UtcNow.AddSeconds(2), 700, 1.5m, timeout.Token);
+                await RecordAsync(invocations, tenantId, projectId, cardB, "assinatura-estimada",
+                    "success|usage_estimated", DateTimeOffset.UtcNow.AddSeconds(3), 300, 0m, timeout.Token);
+                await RecordAsync(invocations, tenantId, projectId, cardB, "assinatura-sem-usage",
+                    "success|usage_unknown", DateTimeOffset.UtcNow.AddSeconds(4), 0, 0m, timeout.Token);
 
                 using var response = await client.GetAsync(
                     $"/api/v1/projects/{projectId}/reliability?k=3", timeout.Token);
@@ -83,7 +87,7 @@ public sealed class ProjectReliabilityApiTests
                 Assert.False(body.RootElement.GetProperty("sampleTruncated").GetBoolean());
 
                 var subscriptions = body.RootElement.GetProperty("subscriptions").EnumerateArray().ToArray();
-                Assert.Equal(2, subscriptions.Length);
+                Assert.Equal(4, subscriptions.Length);
 
                 var secondary = subscriptions.Single(item =>
                     item.GetProperty("accountAlias").GetString() == "assinatura-secundaria");
@@ -91,11 +95,28 @@ public sealed class ProjectReliabilityApiTests
                 Assert.Equal(1, secondary.GetProperty("tasksTouched").GetInt32());
                 Assert.Equal(1, secondary.GetProperty("successes").GetInt32());
                 Assert.Equal(1600, secondary.GetProperty("totalTokens").GetInt64()); // (200+500) + (200+700)
+                Assert.Equal(1600, secondary.GetProperty("exactTokens").GetInt64());
+                Assert.Equal(0, secondary.GetProperty("estimatedTokens").GetInt64());
+                Assert.Equal(0, secondary.GetProperty("usageUnavailableInvocations").GetInt32());
                 Assert.Equal(2.5m, secondary.GetProperty("estimatedCostUsd").GetDecimal());
 
                 var primary = subscriptions.Single(item =>
                     item.GetProperty("accountAlias").GetString() == "assinatura-principal");
                 Assert.Equal(1, primary.GetProperty("invocations").GetInt32());
+                Assert.Equal(primary.GetProperty("totalTokens").GetInt64(), primary.GetProperty("exactTokens").GetInt64());
+
+                var estimated = subscriptions.Single(item =>
+                    item.GetProperty("accountAlias").GetString() == "assinatura-estimada");
+                Assert.Equal(0, estimated.GetProperty("exactTokens").GetInt64());
+                Assert.Equal(500, estimated.GetProperty("estimatedTokens").GetInt64());
+                Assert.Equal(500, estimated.GetProperty("totalTokens").GetInt64());
+
+                var unknown = subscriptions.Single(item =>
+                    item.GetProperty("accountAlias").GetString() == "assinatura-sem-usage");
+                Assert.Equal(0, unknown.GetProperty("exactTokens").GetInt64());
+                Assert.Equal(0, unknown.GetProperty("estimatedTokens").GetInt64());
+                Assert.Equal(0, unknown.GetProperty("totalTokens").GetInt64());
+                Assert.Equal(1, unknown.GetProperty("usageUnavailableInvocations").GetInt32());
 
                 // A medida de capacidade EXISTE mesmo sem nenhuma falha classificada — era
                 // exatamente isso que o recorte anterior impedia.

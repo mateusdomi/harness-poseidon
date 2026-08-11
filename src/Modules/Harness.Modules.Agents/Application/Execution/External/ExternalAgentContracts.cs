@@ -68,13 +68,31 @@ public enum ExternalAgentEventKind
     Failed,
 }
 
+/// <summary>Precisão do consumo publicado pelo adapter.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<ExternalAgentUsagePrecision>))]
+public enum ExternalAgentUsagePrecision
+{
+    /// <summary>O provider/CLI reportou o uso explicitamente.</summary>
+    Exact,
+
+    /// <summary>O adapter estimou o uso a partir de saída observável.</summary>
+    Estimated,
+}
+
 /// <summary>Consumo observado. Nulo significa DESCONHECIDO; nunca zero inventado.</summary>
 public sealed record ExternalAgentUsage(
     long? InputTokens,
     long? CachedInputTokens,
     long? OutputTokens,
     decimal? CostUsd,
-    int? TurnCount);
+    int? TurnCount)
+{
+    /// <summary>
+    /// Diferencia token real de token aproximado. Isso é deliberadamente fora dos números: quem
+    /// lê a projeção não pode somar estimado e exato e apresentar como medição exata.
+    /// </summary>
+    public ExternalAgentUsagePrecision Precision { get; init; } = ExternalAgentUsagePrecision.Exact;
+}
 
 /// <summary>
 /// Evento do stream, já sanitizado. `Text` nunca carrega segredo: passa por

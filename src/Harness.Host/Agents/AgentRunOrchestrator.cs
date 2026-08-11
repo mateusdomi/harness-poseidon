@@ -2150,6 +2150,7 @@ public sealed partial class AgentRunOrchestrator(
             now);
 
         var usage = execution?.Usage;
+        var outcomeCode = UsageQualifiedOutcome(kind, usage);
         await invocations.RecordInvocationAsync(
             new ModelInvocationRecord(
                 UlidValue.New(now).ToString(),
@@ -2164,7 +2165,7 @@ public sealed partial class AgentRunOrchestrator(
                 (int)(usage?.OutputTokens ?? 0),
                 usage?.CostUsd ?? 0m,
                 execution?.DurationMs ?? 0,
-                usage is null ? $"{kind}|usage_unknown" : kind,
+                outcomeCode,
                 now,
                 // Onda 0.4 — pedido vs. recebido, por tentativa. `resolved_*` é o que a CLI
                 // efetivamente recebeu no argv (o adapter RECUSA valor não suportado em vez de
@@ -2200,6 +2201,7 @@ public sealed partial class AgentRunOrchestrator(
                 outcome.Kind == AgentRunOutcomeKind.Completed ? "success" : kind,
                 now);
             var usage = execution?.Usage;
+            var outcomeCode = UsageQualifiedOutcome($"review:{kind}", usage);
             await invocations.RecordInvocationAsync(
                 new ModelInvocationRecord(
                     UlidValue.New(now).ToString(),
@@ -2214,7 +2216,7 @@ public sealed partial class AgentRunOrchestrator(
                     (int)(usage?.OutputTokens ?? 0),
                     usage?.CostUsd ?? 0m,
                     execution?.DurationMs ?? 0,
-                    usage is null ? $"review:{kind}|usage_unknown" : $"review:{kind}",
+                    outcomeCode,
                     now,
                     RequestedModel: command.Model ?? string.Empty,
                     ResolvedModel: command.Model ?? string.Empty),
@@ -2225,6 +2227,13 @@ public sealed partial class AgentRunOrchestrator(
             // Telemetria não pode mudar o veredito do revisor nem impedir o fallback.
         }
     }
+
+    private static string UsageQualifiedOutcome(string outcome, ExternalAgentUsage? usage) =>
+        usage is null
+            ? $"{outcome}|usage_unknown"
+            : usage.Precision == ExternalAgentUsagePrecision.Estimated
+                ? $"{outcome}|usage_estimated"
+                : outcome;
 
     /// <summary>
     /// O prompt entregue ao executor é o bundle AUTORIZADO mais a instrução. O conteúdo do

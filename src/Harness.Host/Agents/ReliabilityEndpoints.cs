@@ -5,6 +5,7 @@ using Harness.Persistence.Abstractions.Coordination;
 using Harness.Persistence.Abstractions.Identity;
 using Harness.Persistence.Abstractions.Providers;
 using Harness.SharedKernel.Identifiers;
+using Harness.SharedKernel.Providers;
 
 namespace Harness.Host.Agents;
 
@@ -102,15 +103,29 @@ public static class ReliabilityEndpoints
         // pass@k não dá — uma conta pode acertar muito e consumir desproporcionalmente.
         var usage = projectInvocations
             .GroupBy(item => item.AccountAlias, StringComparer.Ordinal)
-            .Select(group => new SubscriptionUsageContract(
-                group.Key,
-                group.Select(item => item.Provider).Distinct(StringComparer.Ordinal).OrderBy(item => item, StringComparer.Ordinal).ToArray(),
-                group.Count(),
-                group.Select(item => item.WorkTaskId).Distinct(StringComparer.Ordinal).Count(),
-                group.Count(item => item.Outcome.Contains("success", StringComparison.OrdinalIgnoreCase)),
-                group.Sum(item => (long)item.InputTokens + item.OutputTokens),
-                group.Sum(item => item.EstimatedCostUsd),
-                group.Max(item => item.InvokedAt)))
+            .Select(group =>
+            {
+                var items = group.ToArray();
+                var exactTokens = items
+                    .Where(IsExactUsage)
+                    .Sum(item => (long)item.InputTokens + item.OutputTokens);
+                var estimatedTokens = items
+                    .Where(IsEstimatedUsage)
+                    .Sum(item => (long)item.InputTokens + item.OutputTokens);
+                var unknown = items.Count(IsUnknownUsage);
+                return new SubscriptionUsageContract(
+                    group.Key,
+                    items.Select(item => item.Provider).Distinct(StringComparer.Ordinal).OrderBy(item => item, StringComparer.Ordinal).ToArray(),
+                    items.Length,
+                    items.Select(item => item.WorkTaskId).Distinct(StringComparer.Ordinal).Count(),
+                    items.Count(item => item.Outcome.Contains("success", StringComparison.OrdinalIgnoreCase)),
+                    exactTokens + estimatedTokens,
+                    exactTokens,
+                    estimatedTokens,
+                    unknown,
+                    items.Where(item => !IsUnknownUsage(item)).Sum(item => item.EstimatedCostUsd),
+                    items.Max(item => item.InvokedAt));
+            })
             .OrderByDescending(item => item.Invocations)
             .ThenBy(item => item.AccountAlias, StringComparer.Ordinal)
             .ToArray();
@@ -177,6 +192,16 @@ public static class ReliabilityEndpoints
             MastAdvice.Recommend(distribution),
             ranked));
     }
+
+    private static bool IsUnknownUsage(ModelInvocationRecord invocation) =>
+        invocation.Outcome.Contains("usage_unknown", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsEstimatedUsage(ModelInvocationRecord invocation) =>
+        !IsUnknownUsage(invocation) &&
+        invocation.Outcome.Contains("usage_estimated", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsExactUsage(ModelInvocationRecord invocation) =>
+        !IsUnknownUsage(invocation) && !IsEstimatedUsage(invocation);
 }
 
 /// <param name="Advice">
@@ -222,7 +247,15 @@ public sealed record SubscriptionUsageContract(
     int Invocations,
     int TasksTouched,
     int Successes,
+    /// <summary>Compatibilidade: soma de tokens exatos + estimados; nunca inclui unknown.</summary>
     long TotalTokens,
+    long ExactTokens,
+    long EstimatedTokens,
+    int UsageUnavailableInvocations,
+    /// <summary>
+    /// Custo reportado/estimado pela CLI quando existe usage. Assinatura/CLI sem custo observado
+    /// não deve ser lida como US$ 0 marginal.
+    /// </summary>
     decimal EstimatedCostUsd,
     DateTimeOffset LastInvokedAt);
 

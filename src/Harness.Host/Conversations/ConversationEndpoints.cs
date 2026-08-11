@@ -16,6 +16,7 @@ using Harness.Persistence.Abstractions.WorkChain;
 using Harness.SharedKernel.Identifiers;
 using Harness.SharedKernel.Time;
 using Harness.Modules.Readiness.Contracts;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Harness.Host.Conversations;
 
@@ -457,10 +458,10 @@ public static class ConversationEndpoints
         IPrototypeStore prototypes,
         ChiefInvocationRoutingService routing,
         Readiness.ProjectReadinessService readiness,
-        AgentAccountRegistry accounts,
+        [FromServices] AgentAccountRegistry accounts,
         IChannelLinkStore channelLinks,
         IConfiguration configuration,
-        V3BuildRuntimeService v3Runtime,
+        [FromServices] V3BuildRuntimeService v3Runtime,
         IClock clock,
         CancellationToken cancellationToken)
     {

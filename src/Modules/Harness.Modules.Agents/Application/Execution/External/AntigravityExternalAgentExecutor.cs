@@ -183,7 +183,10 @@ public sealed class AntigravityExternalAgentExecutor(
             if (joined.Length > 0)
             {
                 var estimatedOutputTokens = Math.Max(1, joined.Length / 4);
-                Usage = new ExternalAgentUsage(null, null, estimatedOutputTokens, null, null);
+                Usage = new ExternalAgentUsage(null, null, estimatedOutputTokens, null, null)
+                {
+                    Precision = ExternalAgentUsagePrecision.Estimated,
+                };
             }
 
             // Resposta vazia sem sentinela é ainda assim uma NÃO-resposta: fail-closed. O

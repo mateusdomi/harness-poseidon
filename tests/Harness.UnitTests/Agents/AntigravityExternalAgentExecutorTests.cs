@@ -213,6 +213,7 @@ public sealed class AntigravityExternalAgentExecutorTests : IDisposable
         Assert.Null(parser.Usage!.InputTokens);
         Assert.True(parser.Usage.OutputTokens > 0, "output tokens should be estimated");
         Assert.Equal(Math.Max(1, output.Length / 4), parser.Usage.OutputTokens);
+        Assert.Equal(ExternalAgentUsagePrecision.Estimated, parser.Usage.Precision);
     }
 
     public void Dispose()

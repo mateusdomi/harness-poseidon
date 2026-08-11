@@ -1,7 +1,7 @@
 {
   "reliability": {
-    "title": "Produtividade da fleet",
-    "subtitle": "Quanto cada assinatura entregou, com que taxa de acerto e a que custo — e onde o sistema erra. Medido sobre execuções reais do projeto, não sobre estimativa.",
+    "title": "Produtividade dos executores",
+    "subtitle": "Quanto cada assinatura entregou, com que taxa de acerto e a que custo — e onde o sistema erra. Tokens exatos, estimados e indisponíveis ficam separados.",
     "roundsLabel": "Rodadas (k)",
     "sampleTruncated": "O histórico deste projeto é maior que a amostra lida: os números abaixo cobrem as execuções mais recentes, não todas.",
     "noProject": {
@@ -14,13 +14,16 @@
     },
     "subscriptions": {
       "title": "Por assinatura",
-      "help": "Uma conta pode acertar muito e consumir desproporcionalmente — por isso taxa de acerto e custo aparecem lado a lado.",
+      "help": "Uma conta pode acertar muito e consumir desproporcionalmente — por isso taxa de acerto e uso aparecem lado a lado.",
       "account": "Assinatura",
       "provider": "Provedor",
-      "tasks": "Cards",
+      "tasks": "Itens",
       "invocations": "Execuções",
       "successRate": "Acerto",
       "tokens": "Tokens",
+      "exactTokens": "{{value}} exatos",
+      "estimatedTokens": "{{value}} estimados",
+      "unavailableUsage": "{{count}} sem usage",
       "cost": "Custo estimado"
     },
     "capabilities": {
@@ -28,7 +31,7 @@
       "help": "pass@1 é acertar de primeira; pass@k é acertar em até k tentativas. A recomendação diz quantas rodadas vale dar antes de trocar de conta.",
       "empty": "Ainda não há execuções suficientes para medir acerto por rodada.",
       "model": "Modelo",
-      "observed": "Cards observados",
+      "observed": "Itens observados",
       "passAt1": "pass@1",
       "passAtK": "pass@{{k}}",
       "recommended": "Rodadas recomendadas"

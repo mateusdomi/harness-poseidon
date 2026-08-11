@@ -30,4 +30,18 @@ public sealed class KimiExternalAgentExecutorTests
         Assert.Equal(ExternalFailureKind.Unknown, parser.FailureKind);
         Assert.Equal(string.Empty, parser.FinalMessage);
     }
+
+    [Fact]
+    public void NonEmptyOutputIsExplicitlyEstimatedUsage()
+    {
+        var parser = new KimiExternalAgentExecutor.KimiTextParser();
+
+        _ = parser.ParseLine("resposta observável do kimi").ToArray();
+        parser.Complete();
+
+        Assert.NotNull(parser.Usage);
+        Assert.Equal(ExternalAgentUsagePrecision.Estimated, parser.Usage!.Precision);
+        Assert.Null(parser.Usage.InputTokens);
+        Assert.True(parser.Usage.OutputTokens > 0);
+    }
 }

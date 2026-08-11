@@ -135,7 +135,10 @@ public sealed class KimiExternalAgentExecutor(
             if (joined.Length > 0)
             {
                 var estimatedOutputTokens = Math.Max(1, joined.Length / 4);
-                Usage = new ExternalAgentUsage(null, null, estimatedOutputTokens, null, null);
+                Usage = new ExternalAgentUsage(null, null, estimatedOutputTokens, null, null)
+                {
+                    Precision = ExternalAgentUsagePrecision.Estimated,
+                };
             }
 
             if (FailureCode is null && joined.Length == 0)

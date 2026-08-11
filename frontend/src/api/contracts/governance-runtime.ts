@@ -440,6 +440,9 @@ export const subscriptionUsageSchema = z.object({
   tasksTouched: z.number().int(),
   successes: z.number().int(),
   totalTokens: z.number().int(),
+  exactTokens: z.number().int(),
+  estimatedTokens: z.number().int(),
+  usageUnavailableInvocations: z.number().int(),
   estimatedCostUsd: z.number(),
   lastInvokedAt: z.string(),
 });

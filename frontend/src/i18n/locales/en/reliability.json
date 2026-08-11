@@ -1,7 +1,7 @@
 {
   "reliability": {
-    "title": "Fleet productivity",
-    "subtitle": "How much each subscription delivered, at what success rate and at what cost — and where the system fails. Measured over real project executions, not estimates.",
+    "title": "Executor productivity",
+    "subtitle": "How much each subscription delivered, at what success rate and at what cost — and where the system fails. Exact, estimated and unavailable tokens stay separate.",
     "roundsLabel": "Rounds (k)",
     "sampleTruncated": "This project's history is larger than the sample read: the numbers below cover the most recent executions, not all of them.",
     "noProject": {
@@ -14,13 +14,16 @@
     },
     "subscriptions": {
       "title": "Per subscription",
-      "help": "An account can succeed often and still consume disproportionately — success rate and cost sit side by side for that reason.",
+      "help": "An account can succeed often and still consume disproportionately — success rate and usage sit side by side for that reason.",
       "account": "Subscription",
       "provider": "Provider",
-      "tasks": "Cards",
+      "tasks": "Items",
       "invocations": "Executions",
       "successRate": "Success",
       "tokens": "Tokens",
+      "exactTokens": "{{value}} exact",
+      "estimatedTokens": "{{value}} estimated",
+      "unavailableUsage": "{{count}} unavailable",
       "cost": "Estimated cost"
     },
     "capabilities": {
@@ -28,7 +31,7 @@
       "help": "pass@1 is getting it right first try; pass@k is getting it right within k attempts. The recommendation says how many rounds are worth spending before switching accounts.",
       "empty": "Not enough executions yet to measure success per round.",
       "model": "Model",
-      "observed": "Cards observed",
+      "observed": "Items observed",
       "passAt1": "pass@1",
       "passAtK": "pass@{{k}}",
       "recommended": "Recommended rounds"

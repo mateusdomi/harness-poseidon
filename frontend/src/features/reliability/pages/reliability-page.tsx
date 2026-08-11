@@ -41,6 +41,19 @@ export default function UreliabilityPage() {
   // Formata pelo idioma ESCOLHIDO na aplicação, não pelo locale do sistema onde ela roda: o mesmo
   // número não pode aparecer diferente para dois operadores da mesma instalação.
   const number = (value: number) => value.toLocaleString(i18n.language);
+  const tokenBreakdown = (row: { exactTokens: number; estimatedTokens: number; usageUnavailableInvocations: number }) => {
+    const parts = [];
+    if (row.exactTokens > 0) {
+      parts.push(t('reliability.subscriptions.exactTokens', { value: number(row.exactTokens) }));
+    }
+    if (row.estimatedTokens > 0) {
+      parts.push(t('reliability.subscriptions.estimatedTokens', { value: number(row.estimatedTokens) }));
+    }
+    if (row.usageUnavailableInvocations > 0) {
+      parts.push(t('reliability.subscriptions.unavailableUsage', { count: row.usageUnavailableInvocations }));
+    }
+    return parts.length === 0 ? '—' : parts.join(' · ');
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -177,7 +190,7 @@ export default function UreliabilityPage() {
                         <td className="py-2 pr-4">
                           {row.invocations === 0 ? '—' : percent(row.successes / row.invocations)}
                         </td>
-                        <td className="py-2 pr-4">{number(row.totalTokens)}</td>
+                        <td className="py-2 pr-4">{tokenBreakdown(row)}</td>
                         <td className="py-2">{`US$ ${row.estimatedCostUsd.toFixed(2)}`}</td>
                       </tr>
                     ))}
