@@ -236,6 +236,41 @@ public sealed class ExternalAgentExecutorTests : IDisposable
     }
 
     [Fact]
+    public void CodexCli147TaskCompleteAuthErrorBecomesStructuredAuthFailure()
+    {
+        // Codex CLI 0.147.0 mudou o envelope JSONL observado de `turn.failed` para
+        // `event_msg/task_complete` com `error`. Sem este parse, a tentativa saía com código
+        // zero, sem mensagem final, e o V3 registrava STALLED vazio em vez de AUTH_REQUIRED.
+        var parser = new CodexExternalAgentExecutor.CodexJsonlParser(
+            Path.Combine(Path.GetTempPath(), $"missing-last-{Guid.NewGuid():N}.txt"));
+
+        var events = parser.ParseLine(
+            """
+            {"type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-1","last_agent_message":null,"error":{"message":"unexpected status 401 Unauthorized: Missing bearer or basic authentication in header, url: https://api.openai.com/v1/responses","codex_error_info":"other"},"duration_ms":18882}}
+            """).ToArray();
+
+        Assert.Contains(events, @event => @event.Kind == ExternalAgentEventKind.Failed);
+        Assert.Equal("executor.authentication_required", parser.FailureCode);
+        Assert.Equal(ExternalFailureKind.AuthenticationRequired, parser.FailureKind);
+    }
+
+    [Fact]
+    public void CodexCli147ResponseItemAssistantMessageIsCapturedAsFinalMessage()
+    {
+        var parser = new CodexExternalAgentExecutor.CodexJsonlParser(
+            Path.Combine(Path.GetTempPath(), $"missing-last-{Guid.NewGuid():N}.txt"));
+
+        var events = parser.ParseLine(
+            """
+            {"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"POSEIDON_VALIDATION_COMPLETE"}]}}
+            """).ToArray();
+
+        var delta = Assert.Single(events);
+        Assert.Equal(ExternalAgentEventKind.Delta, delta.Kind);
+        Assert.Equal("POSEIDON_VALIDATION_COMPLETE", parser.FinalMessage);
+    }
+
+    [Fact]
     public void SandboxedExecutionRewritesHostPathsToContainerPaths()
     {
         var provisioner = new AccountProfileProvisioner(_root);

@@ -114,7 +114,15 @@ public sealed class CodexExternalAgentExecutor(
 
         private void ObserveFailureText(string text)
         {
-            if (text.Contains("not supported when using", StringComparison.OrdinalIgnoreCase))
+            if (text.Contains("401 Unauthorized", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("Missing bearer", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("not logged in", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("please run login", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("authentication required", StringComparison.OrdinalIgnoreCase))
+            {
+                Fail("executor.authentication_required", ExternalFailureKind.AuthenticationRequired);
+            }
+            else if (text.Contains("not supported when using", StringComparison.OrdinalIgnoreCase))
             {
                 Fail("executor.account_model_unsupported", ExternalFailureKind.AccountModelUnsupported);
             }
@@ -122,6 +130,13 @@ public sealed class CodexExternalAgentExecutor(
                      text.Contains("rate_limit", StringComparison.OrdinalIgnoreCase))
             {
                 Fail("executor.quota_exhausted", ExternalFailureKind.QuotaExhausted);
+            }
+            else if (text.Contains("fetch failed", StringComparison.OrdinalIgnoreCase) ||
+                     text.Contains("ECONNRESET", StringComparison.OrdinalIgnoreCase) ||
+                     text.Contains("connection reset", StringComparison.OrdinalIgnoreCase) ||
+                     text.Contains("unexpected status 5", StringComparison.OrdinalIgnoreCase))
+            {
+                Fail("executor.provider_unreachable", ExternalFailureKind.Transient);
             }
         }
 
@@ -185,6 +200,34 @@ public sealed class CodexExternalAgentExecutor(
 
             switch (typeElement.GetString())
             {
+                case "session_meta":
+                    if (TryGetPayload(root, out var sessionMeta) &&
+                        sessionMeta.TryGetProperty("session_id", out var session) &&
+                        session.ValueKind == JsonValueKind.String)
+                    {
+                        SessionId = session.GetString();
+                        yield return new ExternalAgentEvent(
+                            ExternalAgentEventKind.Started, SessionId: SessionId);
+                    }
+
+                    break;
+
+                case "response_item":
+                    foreach (var @event in ParseResponseItem(root))
+                    {
+                        yield return @event;
+                    }
+
+                    break;
+
+                case "event_msg":
+                    foreach (var @event in ParseEventMessage(root))
+                    {
+                        yield return @event;
+                    }
+
+                    break;
+
                 case "thread.started":
                     if (root.TryGetProperty("thread_id", out var thread) &&
                         thread.ValueKind == JsonValueKind.String)
@@ -252,6 +295,114 @@ public sealed class CodexExternalAgentExecutor(
                 default:
                     break;
             }
+        }
+
+        private IEnumerable<ExternalAgentEvent> ParseEventMessage(JsonElement root)
+        {
+            if (!TryGetPayload(root, out var payload) ||
+                !payload.TryGetProperty("type", out var payloadType) ||
+                payloadType.ValueKind != JsonValueKind.String)
+            {
+                yield break;
+            }
+
+            switch (payloadType.GetString())
+            {
+                case "task_started":
+                    yield return new ExternalAgentEvent(
+                        ExternalAgentEventKind.Started, SessionId: SessionId);
+                    break;
+
+                case "task_complete":
+                    if (payload.TryGetProperty("last_agent_message", out var message) &&
+                        message.ValueKind == JsonValueKind.String &&
+                        !string.IsNullOrWhiteSpace(message.GetString()))
+                    {
+                        FinalMessage = message.GetString();
+                        yield return new ExternalAgentEvent(
+                            ExternalAgentEventKind.Delta,
+                            ExternalAgentRedaction.Redact(FinalMessage));
+                    }
+
+                    if (payload.TryGetProperty("error", out var error) &&
+                        error.ValueKind == JsonValueKind.Object)
+                    {
+                        if (error.TryGetProperty("message", out var errorMessage) &&
+                            errorMessage.ValueKind == JsonValueKind.String)
+                        {
+                            ObserveFailureText(errorMessage.GetString()!);
+                        }
+
+                        if (FailureCode is null)
+                        {
+                            Fail("executor.turn_failed", ExternalFailureKind.Permanent);
+                        }
+
+                        yield return new ExternalAgentEvent(
+                            ExternalAgentEventKind.Failed, Code: FailureCode);
+                        yield break;
+                    }
+
+                    yield return new ExternalAgentEvent(
+                        ExternalAgentEventKind.Completed, SessionId: SessionId, Usage: Usage);
+                    break;
+            }
+        }
+
+        private IEnumerable<ExternalAgentEvent> ParseResponseItem(JsonElement root)
+        {
+            if (!TryGetPayload(root, out var payload) ||
+                !payload.TryGetProperty("type", out var itemType) ||
+                itemType.ValueKind != JsonValueKind.String ||
+                !string.Equals(itemType.GetString(), "message", StringComparison.Ordinal) ||
+                !payload.TryGetProperty("role", out var role) ||
+                role.ValueKind != JsonValueKind.String ||
+                !string.Equals(role.GetString(), "assistant", StringComparison.Ordinal))
+            {
+                yield break;
+            }
+
+            var text = ExtractMessageText(payload);
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                yield break;
+            }
+
+            FinalMessage = text;
+            yield return new ExternalAgentEvent(
+                ExternalAgentEventKind.Delta,
+                ExternalAgentRedaction.Redact(FinalMessage));
+        }
+
+        private static bool TryGetPayload(JsonElement root, out JsonElement payload) =>
+            root.TryGetProperty("payload", out payload) && payload.ValueKind == JsonValueKind.Object;
+
+        private static string? ExtractMessageText(JsonElement message)
+        {
+            if (!message.TryGetProperty("content", out var content) ||
+                content.ValueKind != JsonValueKind.Array)
+            {
+                return null;
+            }
+
+            var parts = new List<string>();
+            foreach (var item in content.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object ||
+                    !item.TryGetProperty("text", out var text) ||
+                    text.ValueKind != JsonValueKind.String)
+                {
+                    continue;
+                }
+
+                var value = text.GetString();
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    parts.Add(value);
+                }
+            }
+
+            return parts.Count == 0 ? null : string.Join(Environment.NewLine, parts);
         }
 
         private IEnumerable<ExternalAgentEvent> ParseItem(JsonElement root)
