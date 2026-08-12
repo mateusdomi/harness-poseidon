@@ -37,6 +37,8 @@ public sealed class V3BuildRuntimeTests : IDisposable
         Assert.Equal(1, result.Execution.ContinueCount);
         Assert.Equal(2, fake.Calls.Count);
         Assert.Contains("Continue a missão original autonomamente", fake.Calls[1].Prompt.Text);
+        Assert.Contains("## ORIGINAL MISSION TEXT", fake.Calls[1].Prompt.Text);
+        Assert.Contains(mission.MissionText, fake.Calls[1].Prompt.Text);
         Assert.Equal("VALIDATING", understand.ReadProject(state.ProjectId)!.LifecycleState);
     }
 

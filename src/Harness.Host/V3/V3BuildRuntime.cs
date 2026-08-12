@@ -606,7 +606,7 @@ public sealed class V3BuildRuntimeService(
 
             var prompt = continuationPrompt ?? (execution.ContinueCount == 0
                 ? BuildInitialPrompt(mission)
-                : BuildContinuePrompt(mission.MissionType));
+                : BuildContinuePrompt(mission));
             continuationPrompt = null;
             var outcome = await executor.RunAsync(
                 active,
@@ -953,8 +953,8 @@ public sealed class V3BuildRuntimeService(
     private static string BuildInitialPrompt(V3BuildMissionRecord mission) =>
         mission.MissionText + Environment.NewLine + Environment.NewLine + ExitContract(mission.MissionType);
 
-    private static string BuildContinuePrompt(string missionType) =>
-        """
+    private static string BuildContinuePrompt(V3BuildMissionRecord mission) =>
+        $"""
         Continue a missão original autonomamente.
 
         Você ainda não declarou o marcador de conclusão correto.
@@ -965,7 +965,11 @@ public sealed class V3BuildRuntimeService(
 
         Somente encerre ao satisfazer a Definition of Done ou encontrar um blocker genuinamente humano.
 
-        """ + Environment.NewLine + ExitContract(missionType);
+        ## ORIGINAL MISSION TEXT
+
+        {mission.MissionText}
+
+        """ + Environment.NewLine + ExitContract(mission.MissionType);
 
     private static string BuildQuotaFailoverPrompt(
         V3BuildMissionRecord mission,
