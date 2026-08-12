@@ -206,14 +206,18 @@ export function useCockpitWorkflow(projectId: Ulid | null) {
  * filtrar/fatiar no cliente mantém o feed realtime (evento novo entra no
  * topo sem refetch de página).
  */
+/** Limite de eventos de auditoria no feed do cockpit (mais recentes). */
+const ACTIVITY_FEED_LIMIT = 32;
+
 export function useCockpitActivity() {
   const api = useApi();
   return useQuery({
     queryKey: cockpitKeys.audit,
     queryFn: async () =>
-      (await api.list('audit-events')).items.sort((a, b) =>
+      (await api.list('audit-events', { limit: ACTIVITY_FEED_LIMIT })).items.sort((a, b) =>
         b.occurredAt.localeCompare(a.occurredAt),
       ),
+    staleTime: 30_000,
   });
 }
 

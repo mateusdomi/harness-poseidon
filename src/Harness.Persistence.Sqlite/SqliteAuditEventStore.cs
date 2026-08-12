@@ -16,10 +16,58 @@ public sealed class SqliteAuditEventStore(SqliteWriteDispatcher dispatcher) : IA
     public Task<IReadOnlyList<AuditEventRecord>> ListAsync(AuditEventQuery query, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync<IReadOnlyList<AuditEventRecord>>(async (connection, token) =>
         {
+            // Caminho rápido para o dashboard/feed: sem filtros, basta os N mais
+            // recentes ordenados por id (ULID temporal). Evita ler todo o ledger
+            // em memória conforme a massa de auditoria cresce.
+            if (IsUnfiltered(query))
+            {
+                return await ListRecentAsync(connection, query.TenantId, query.AfterId, query.Limit, token);
+            }
+
             var values = (await ReadRowsAsync(connection, query.TenantId, token)).Select(Map).Where(value => Matches(value, query));
             if (query.AfterId is not null) values = values.Where(value => string.CompareOrdinal(value.Id, query.AfterId) > 0);
             return values.OrderBy(value => value.Id, StringComparer.Ordinal).Take(query.Limit).ToArray();
         }, cancellationToken);
+
+    private static bool IsUnfiltered(AuditEventQuery query) =>
+        query.ActorKind is null &&
+        query.ActorId is null &&
+        query.Action is null &&
+        query.TargetType is null &&
+        query.TargetId is null &&
+        query.From is null &&
+        query.To is null;
+
+    private static async Task<IReadOnlyList<AuditEventRecord>> ListRecentAsync(
+        SqliteConnection connection,
+        string tenantId,
+        string? afterId,
+        int limit,
+        CancellationToken token)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            "SELECT id,sequence,previous_hash,event_hash,event_type,payload_json,occurred_at " +
+            "FROM audit_ledger WHERE tenant_id=$tenant " +
+            (afterId is null ? "" : "AND id>$after ") +
+            "ORDER BY id DESC LIMIT $limit;";
+        command.Parameters.AddWithValue("$tenant", tenantId);
+        command.Parameters.AddWithValue("$limit", limit);
+        if (afterId is not null) command.Parameters.AddWithValue("$after", afterId);
+
+        var rows = new List<LedgerRow>();
+        await using var reader = await command.ExecuteReaderAsync(token);
+        while (await reader.ReadAsync(token))
+        {
+            rows.Add(new(
+                reader.GetString(0), reader.GetInt64(1), reader.GetString(2), reader.GetString(3),
+                reader.GetString(4), reader.GetString(5), Parse(reader.GetString(6))));
+        }
+
+        // Mantém ordem canônica crescente por id (ULID) para cursor estável.
+        rows.Reverse();
+        return rows.Select(Map).ToArray();
+    }
 
     public Task<AuditEventRecord?> GetAsync(string tenantId, string id, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync(async (connection, token) =>
