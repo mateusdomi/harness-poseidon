@@ -322,14 +322,29 @@ public static class V3ValidationEvidenceGate
         {
             if (root.TryGetProperty(propertyName, out var value) &&
                 value.ValueKind == JsonValueKind.Object &&
-                value.TryGetProperty("canonicalItemsReference", out var reference) &&
-                reference.ValueKind == JsonValueKind.String)
+                TryGetReferenceProperty(value, out var reference))
             {
-                return reference.GetString();
+                return reference;
             }
         }
 
         return null;
+    }
+
+    private static bool TryGetReferenceProperty(JsonElement value, out string? reference)
+    {
+        foreach (var propertyName in new[] { "canonicalItemsReference", "itemsReference" })
+        {
+            if (value.TryGetProperty(propertyName, out var property) &&
+                property.ValueKind == JsonValueKind.String)
+            {
+                reference = property.GetString();
+                return true;
+            }
+        }
+
+        reference = null;
+        return false;
     }
 
     private static string? ResolveReferencePath(string repository, string reference)
