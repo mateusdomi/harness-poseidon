@@ -403,6 +403,55 @@ public sealed class V3BuildRuntimeTests : IDisposable
     }
 
     [Fact]
+    public async Task RecoveryResumeFailoversPausedQuotaExecutionWhenAlternateExecutorIsAvailable()
+    {
+        var repo = CreateGitRepository();
+        var fake = new FakeBuildExecutor(new FakeOutcome("retomado por executor alternativo\nPOSEIDON_MISSION_COMPLETE"));
+        var (service, understand) = Runtime(fake);
+        var (state, mission, _) = ArrangeProject(repo, includeBackup: true);
+        var paused = new V3BuildExecutionRecord(
+            "01K00000000000000000000029",
+            mission.MissionId,
+            state.ProjectId,
+            "BUILD",
+            "worker-a",
+            "openai",
+            "PAUSED_QUOTA",
+            _clock.UtcNow,
+            _clock.UtcNow,
+            null,
+            V3GitSnapshot.Capture(repo).Head,
+            V3GitSnapshot.Capture(repo).Head,
+            0,
+            V3GitSnapshot.Capture(repo).CommitCount,
+            null,
+            0,
+            0,
+            "quota",
+            null,
+            null,
+            "EXHAUSTED",
+            [],
+            []);
+        new V3BuildRuntimeStore(_directory).WriteExecution(paused);
+        var accounts = new[]
+        {
+            Account("worker-a", priority: 10, state: AgentAccountState.QuotaLimited),
+            Account("worker-b", priority: 20),
+        };
+
+        var resumed = await service.ResumeExecutionAsync(paused, accounts, "tenant-1", CancellationToken.None);
+
+        Assert.NotNull(resumed.Execution);
+        Assert.Equal("COMPLETED", resumed.Execution!.Status);
+        Assert.Equal("worker-b", resumed.Execution.ExecutorAccountId);
+        Assert.Single(fake.Calls);
+        Assert.Equal("worker-b", fake.Calls[0].Account.Alias);
+        Assert.Contains(resumed.Execution.Events, item => item.Type == "BUILD_RECOVERY_RESUMED");
+        Assert.Equal("VALIDATING", understand.ReadProject(state.ProjectId)!.LifecycleState);
+    }
+
+    [Fact]
     public async Task QuotaWithoutAlternateExecutorPausesProject()
     {
         var repo = CreateGitRepository();

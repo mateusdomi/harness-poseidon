@@ -560,9 +560,10 @@ public sealed partial class V3BuildRuntimeService(
         token.ThrowIfCancellationRequested();
         if (!string.Equals(execution.Status, "RUNNING", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(execution.Status, "STALLED", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(execution.Status, "PAUSED_QUOTA", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(execution.Status, "PAUSED_PROVIDER", StringComparison.OrdinalIgnoreCase))
         {
-            return Task.FromResult(Conflict("build_resume_not_allowed", "Only RUNNING, STALLED or PAUSED_PROVIDER executions can be resumed by recovery."));
+            return Task.FromResult(Conflict("build_resume_not_allowed", "Only RUNNING, STALLED, PAUSED_QUOTA or PAUSED_PROVIDER executions can be resumed by recovery."));
         }
 
         var mission = understandStore.ReadMission(execution.MissionId);
