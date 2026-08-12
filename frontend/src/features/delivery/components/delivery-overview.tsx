@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -9,10 +10,11 @@ import {
   CardTitle,
   Skeleton,
 } from '@/design-system';
+import type { V3DeliveryHandoff } from '@/api';
 
 import { formatDate, formatDateTime, formatUsd } from '../lib/format';
 import { attentionSignalLabel } from '../lib/attention-signal';
-import { useV3ProjectContext } from '@/features/projects/hooks/use-v3-understand';
+import { useV3DeliveryHandoff, useV3ProjectContext } from '@/features/projects/hooks/use-v3-understand';
 import { projectV3Lifecycle } from '@/features/projects/lib/v3-lifecycle';
 import {
   useDeliveryTraceability,
@@ -159,6 +161,136 @@ function MetricTable({ title, metrics }: { title: string; metrics: DeliveryMetri
   );
 }
 
+function HandoffAccessCard({ handoff }: { handoff: V3DeliveryHandoff }) {
+  const { t, i18n } = useTranslation();
+  const [showCredentials, setShowCredentials] = useState(false);
+  const access = handoff.productAccess;
+  const hasUrl = Boolean(access.applicationUrl || access.swaggerUrl || access.healthUrl);
+  const accounts = access.testAccounts;
+
+  return (
+    <Card data-testid="delivery-handoff-access">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
+        <div>
+          <CardTitle>{t('delivery.overview.handoff.title')}</CardTitle>
+          <p className="mt-1 text-sm text-foreground-muted">
+            {t('delivery.overview.handoff.subtitle')}
+          </p>
+          <p className="mt-2 text-sm font-medium text-success">
+            {t('delivery.overview.handoff.readyState')}
+          </p>
+        </div>
+        <Badge variant={access.runtimeStatus === 'REPORTED_HEALTHY' ? 'success' : 'outline'}>
+          {access.runtimeStatus === 'REPORTED_HEALTHY'
+            ? t('delivery.overview.handoff.runtimeReported')
+            : t('delivery.overview.handoff.runtimeUnknown')}
+        </Badge>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {hasUrl ? (
+          <div className="flex flex-wrap gap-2">
+            {access.applicationUrl && (
+              <Button asChild>
+                <a href={access.applicationUrl} target="_blank" rel="noreferrer">
+                  {t('delivery.overview.handoff.openProduct')}
+                </a>
+              </Button>
+            )}
+            {access.swaggerUrl && (
+              <Button asChild variant="outline">
+                <a href={access.swaggerUrl} target="_blank" rel="noreferrer">
+                  {t('delivery.overview.handoff.openSwagger')}
+                </a>
+              </Button>
+            )}
+            {access.healthUrl && (
+              <Button asChild variant="outline">
+                <a href={access.healthUrl} target="_blank" rel="noreferrer">
+                  {t('delivery.overview.handoff.openHealth')}
+                </a>
+              </Button>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-warning">{t('delivery.overview.handoff.noUrl')}</p>
+        )}
+
+        <dl className="grid gap-3 md:grid-cols-3">
+          <Stat label={t('delivery.overview.handoff.deliveredHead')} value={handoff.deliveredHead ?? '—'} />
+          <Stat label={t('delivery.overview.handoff.lifecycle')} value={t('delivery.overview.handoff.readyState')} />
+          <Stat
+            label={t('delivery.overview.handoff.lastVerified')}
+            value={formatDateTime(access.lastVerifiedAt, i18n.language) ?? '—'}
+          />
+          <Stat label={t('delivery.overview.handoff.validationExecution')} value={handoff.validationExecutionId} />
+        </dl>
+
+        {(access.startCommand || access.statusCommand || access.stopCommand) && (
+          <div className="rounded-lg border border-border bg-surface-subtle p-3">
+            <p className="text-xs font-medium text-foreground-muted">
+              {t('delivery.overview.handoff.commands')}
+            </p>
+            <div className="mt-2 grid gap-2 text-xs md:grid-cols-3">
+              {access.startCommand && <code className="break-all text-foreground">{access.startCommand}</code>}
+              {access.statusCommand && <code className="break-all text-foreground">{access.statusCommand}</code>}
+              {access.stopCommand && <code className="break-all text-foreground">{access.stopCommand}</code>}
+            </div>
+          </div>
+        )}
+
+        {accounts.length > 0 && (
+          <div className="rounded-lg border border-border p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {t('delivery.overview.handoff.testAccounts')}
+                </p>
+                <p className="text-xs text-foreground-muted">
+                  {t('delivery.overview.handoff.testAccountsHint')}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCredentials((value) => !value)}
+              >
+                {showCredentials
+                  ? t('delivery.overview.handoff.hideCredentials')
+                  : t('delivery.overview.handoff.showCredentials')}
+              </Button>
+            </div>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full min-w-[28rem] border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-border-strong text-left text-xs text-foreground-muted">
+                    <th className="py-1 pr-2 font-medium">{t('delivery.overview.handoff.role')}</th>
+                    <th className="py-1 pr-2 font-medium">{t('delivery.overview.handoff.username')}</th>
+                    <th className="py-1 pr-2 font-medium">{t('delivery.overview.handoff.password')}</th>
+                    <th className="py-1 font-medium">{t('delivery.overview.handoff.classification')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {accounts.map((account) => (
+                    <tr key={`${account.role}-${account.username}`} className="border-b border-border">
+                      <td className="py-1 pr-2 text-foreground">{account.role}</td>
+                      <td className="py-1 pr-2 font-mono text-xs text-foreground">{account.username}</td>
+                      <td className="py-1 pr-2 font-mono text-xs text-foreground">
+                        {showCredentials ? account.password ?? '—' : '••••••••'}
+                      </td>
+                      <td className="py-1 text-xs text-foreground-muted">{account.classification}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 /**
  * Entrega 360 (DEL-02/06/09): resumo executivo, plano & marcos com histórico
  * de previsão (nunca sobrescrita), saúde técnica, riscos & dependências,
@@ -172,6 +304,7 @@ export function DeliveryOverview({ deliveryId }: { deliveryId: string }) {
   const recalc = useRecalcForecast(deliveryId);
   const traceQuery = useDeliveryTraceability(overviewQuery.data?.projectId ?? null);
   const v3Context = useV3ProjectContext(overviewQuery.data?.projectId ?? null);
+  const handoffQuery = useV3DeliveryHandoff(overviewQuery.data?.projectId ?? null);
 
   if (overviewQuery.isLoading) {
     return <Skeleton className="h-96 w-full" />;
@@ -256,6 +389,8 @@ export function DeliveryOverview({ deliveryId }: { deliveryId: string }) {
           </div>
         </CardContent>
       </Card>
+
+      {handoffQuery.data && <HandoffAccessCard handoff={handoffQuery.data} />}
 
       <Card>
         <CardHeader>

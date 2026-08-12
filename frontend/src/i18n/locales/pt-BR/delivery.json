@@ -186,6 +186,30 @@
         "nextSteps": "Próximos passos",
         "noNextSteps": "Nenhuma pendência derivável dos dados atuais.",
         "createDocument": "Produzir ou classificar o documento: {{name}}"
+      },
+      "handoff": {
+        "title": "Homologação",
+        "subtitle": "Informações persistidas para abrir o produto, verificar o ambiente e acessar contas de teste.",
+        "readyState": "Aceite Humano · Pronto para homologação",
+        "runtimeReported": "Ambiente reportado",
+        "runtimeUnknown": "Status não verificado",
+        "openProduct": "Abrir produto",
+        "openSwagger": "Abrir Swagger",
+        "openHealth": "Abrir health",
+        "noUrl": "Nenhuma URL de homologação foi registrada para esta entrega.",
+        "deliveredHead": "HEAD entregue",
+        "lifecycle": "Estado",
+        "lastVerified": "Última verificação",
+        "validationExecution": "Validação",
+        "commands": "Comandos operacionais",
+        "testAccounts": "Contas de teste",
+        "testAccountsHint": "Credenciais locais de homologação. Não são enviadas por notificações externas.",
+        "showCredentials": "Mostrar credenciais",
+        "hideCredentials": "Ocultar credenciais",
+        "role": "Perfil",
+        "username": "Usuário",
+        "password": "Senha",
+        "classification": "Classificação"
       }
     },
     "sources": {

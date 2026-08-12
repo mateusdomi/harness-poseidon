@@ -243,6 +243,42 @@ export const v3HumanAcceptanceSchema = z.object({
 });
 export type V3HumanAcceptance = z.infer<typeof v3HumanAcceptanceSchema>;
 
+export const v3TestAccountInfoSchema = z.object({
+  role: z.string(),
+  username: z.string(),
+  password: z.string().nullable().optional(),
+  classification: z.string(),
+  notes: z.string().nullable().optional(),
+});
+export type V3TestAccountInfo = z.infer<typeof v3TestAccountInfoSchema>;
+
+export const v3ProductAccessInfoSchema = z.object({
+  applicationUrl: z.string().nullable(),
+  apiUrl: z.string().nullable(),
+  swaggerUrl: z.string().nullable(),
+  healthUrl: z.string().nullable(),
+  startCommand: z.string().nullable(),
+  stopCommand: z.string().nullable(),
+  statusCommand: z.string().nullable(),
+  testAccounts: z.array(v3TestAccountInfoSchema),
+  runtimeStatus: z.string(),
+  lastVerifiedAt: isoDateTimeSchema.nullable(),
+});
+export type V3ProductAccessInfo = z.infer<typeof v3ProductAccessInfoSchema>;
+
+export const v3DeliveryHandoffSchema = z.object({
+  projectId: z.string(),
+  validationExecutionId: z.string(),
+  validationMissionId: z.string(),
+  deliveredHead: z.string().nullable(),
+  conversationId: z.string(),
+  conversationMessageId: z.string(),
+  notificationId: z.string(),
+  productAccess: v3ProductAccessInfoSchema,
+  createdAt: isoDateTimeSchema,
+});
+export type V3DeliveryHandoff = z.infer<typeof v3DeliveryHandoffSchema>;
+
 export const v3KnowledgeReferenceSchema = z.object({
   path: z.string(),
   reason: z.string(),

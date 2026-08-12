@@ -186,6 +186,30 @@
         "nextSteps": "Next steps",
         "noNextSteps": "No pending item can be derived from current data.",
         "createDocument": "Produce or classify the document: {{name}}"
+      },
+      "handoff": {
+        "title": "Human acceptance",
+        "subtitle": "Persisted information to open the product, verify the environment, and access test accounts.",
+        "readyState": "Human Acceptance · Ready for acceptance review",
+        "runtimeReported": "Environment reported",
+        "runtimeUnknown": "Status not verified",
+        "openProduct": "Open product",
+        "openSwagger": "Open Swagger",
+        "openHealth": "Open health",
+        "noUrl": "No acceptance URL was recorded for this delivery.",
+        "deliveredHead": "Delivered HEAD",
+        "lifecycle": "State",
+        "lastVerified": "Last verified",
+        "validationExecution": "Validation",
+        "commands": "Operational commands",
+        "testAccounts": "Test accounts",
+        "testAccountsHint": "Local acceptance credentials. They are not sent through external notifications.",
+        "showCredentials": "Show credentials",
+        "hideCredentials": "Hide credentials",
+        "role": "Role",
+        "username": "Username",
+        "password": "Password",
+        "classification": "Classification"
       }
     },
     "sources": {

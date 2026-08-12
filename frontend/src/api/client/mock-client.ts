@@ -115,6 +115,7 @@ import {
   type V3AuthorizeBuildInput,
   type V3BuildMission,
   type V3ChiefAssignment,
+  type V3DeliveryHandoff,
   type V3HumanAcceptance,
   type V3ProjectContext,
   type V3UnderstandAnalyzeInput,
@@ -2618,6 +2619,13 @@ export class MockApiClient implements ApiClient {
       updatedAt: this.#options.now(),
       message: note ? `Human changes requested. ${note}` : 'Human changes requested.',
     };
+  }
+
+  async getV3DeliveryHandoff(projectId: string): Promise<V3DeliveryHandoff | null> {
+    await this.#simulate();
+    const project = this.#table('projects').get(projectId);
+    if (!project) throw this.#notFound('projects', projectId);
+    return null;
   }
 
   async compileV3BuildMission(projectId: string): Promise<V3BuildMission> {

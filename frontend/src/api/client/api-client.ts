@@ -95,6 +95,7 @@ import type {
   V3ChiefAssignment,
   V3AuthorizeBuildInput,
   V3BuildMission,
+  V3DeliveryHandoff,
   V3HumanAcceptance,
   V3ProjectContext,
   V3UnderstandAnalyzeInput,
@@ -454,6 +455,7 @@ export interface ApiClient {
   authorizeV3Build(projectId: Ulid, input: V3AuthorizeBuildInput): Promise<V3ProjectContext>;
   acceptV3HumanAcceptance(projectId: Ulid, note?: string): Promise<V3HumanAcceptance>;
   requestV3HumanAcceptanceChanges(projectId: Ulid, note?: string): Promise<V3HumanAcceptance>;
+  getV3DeliveryHandoff(projectId: Ulid): Promise<V3DeliveryHandoff | null>;
   compileV3BuildMission(projectId: Ulid): Promise<V3BuildMission>;
   listV3BuildMissions(projectId: Ulid): Promise<V3BuildMission[]>;
 

@@ -6,6 +6,7 @@ import { useApi } from '@/app/api-context';
 export const v3UnderstandKeys = {
   context: (projectId: Ulid | null) => ['v3-understand', 'context', projectId ?? 'none'] as const,
   missions: (projectId: Ulid | null) => ['v3-understand', 'missions', projectId ?? 'none'] as const,
+  handoff: (projectId: Ulid | null) => ['v3-understand', 'handoff', projectId ?? 'none'] as const,
 };
 
 export function useV3ProjectContext(projectId: Ulid | null) {
@@ -23,6 +24,16 @@ export function useV3BuildMissions(projectId: Ulid | null) {
     queryKey: v3UnderstandKeys.missions(projectId),
     enabled: projectId !== null,
     queryFn: () => api.listV3BuildMissions(projectId!),
+  });
+}
+
+export function useV3DeliveryHandoff(projectId: Ulid | null) {
+  const api = useApi();
+  return useQuery({
+    queryKey: v3UnderstandKeys.handoff(projectId),
+    enabled: projectId !== null,
+    retry: false,
+    queryFn: () => api.getV3DeliveryHandoff(projectId!),
   });
 }
 

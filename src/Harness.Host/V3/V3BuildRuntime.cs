@@ -81,6 +81,12 @@ public static class V3BuildRuntimeEndpoints
             .ProducesProblem(401)
             .ProducesProblem(404)
             .ProducesProblem(409);
+        endpoints.MapGet("/api/v1/v3/projects/{projectId}/handoff/latest", GetLatestHandoffAsync)
+            .WithTags("v3-delivery-handoff")
+            .Produces<V3DeliveryHandoffRecord>()
+            .ProducesProblem(400)
+            .ProducesProblem(401)
+            .ProducesProblem(404);
 
         return endpoints;
     }
@@ -252,6 +258,25 @@ public static class V3BuildRuntimeEndpoints
         var record = await handoff.EnsureAsync(resolved.Profile!.TenantId, execution, token);
         return record is null
             ? Problem(409, "handoff_not_created", "Handoff could not be created from the persisted validation execution.")
+            : Results.Ok(record);
+    }
+
+    private static async Task<IResult> GetLatestHandoffAsync(
+        string projectId,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IProjectStore projects,
+        [FromServices] V3DeliveryHandoffStore handoffs,
+        CancellationToken token)
+    {
+        var resolved = await ResolveAsync(projectId, request, profiles, projects, token);
+        if (resolved.Result is not null) return resolved.Result;
+
+        var record = handoffs.ListProject(projectId)
+            .OrderByDescending(item => item.CreatedAt)
+            .FirstOrDefault();
+        return record is null
+            ? Problem(404, "handoff_not_found", "No delivery handoff exists for this project.")
             : Results.Ok(record);
     }
 

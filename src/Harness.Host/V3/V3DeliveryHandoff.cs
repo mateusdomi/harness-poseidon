@@ -81,16 +81,24 @@ public sealed partial class V3DeliveryHandoffService(
             return null;
         }
 
-        if (store.Read(validationExecution.ProjectId, validationExecution.MissionExecutionId) is { } existing)
-        {
-            return existing;
-        }
-
         var project = await projects.GetAsync(tenantId, validationExecution.ProjectId, token);
         if (project is null)
         {
             LogHandoffSkipped(logger, validationExecution.ProjectId, "project_not_found");
             return null;
+        }
+
+        var state = understandStore.ReadProject(validationExecution.ProjectId);
+        var access = ProductAccessInfo.From(
+            validationExecution,
+            runtimeStore,
+            validationExecution.ProjectId,
+            state?.Repository);
+        if (store.Read(validationExecution.ProjectId, validationExecution.MissionExecutionId) is { } existing)
+        {
+            var refreshed = existing with { ProductAccess = access };
+            store.Write(refreshed);
+            return refreshed;
         }
 
         var conversation = (await conversations.ListConversationsAsync(
@@ -111,12 +119,6 @@ public sealed partial class V3DeliveryHandoffService(
         conversation ??= await CreatePrimaryConversationAsync(
             tenantId, validationExecution.ProjectId, owner.Id, now, token);
 
-        var state = understandStore.ReadProject(validationExecution.ProjectId);
-        var access = ProductAccessInfo.From(
-            validationExecution,
-            runtimeStore,
-            validationExecution.ProjectId,
-            state?.Repository);
         var messageId = UlidValue.New(now).ToString();
         var notificationId = UlidValue.New(now.AddTicks(1)).ToString();
         var content = V3DeliveryHandoffMessage.Compose(

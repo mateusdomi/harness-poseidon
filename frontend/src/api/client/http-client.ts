@@ -131,6 +131,7 @@ import {
   v3AgentAccountsResponseSchema,
   v3BuildMissionSchema,
   v3ChiefAssignmentSchema,
+  v3DeliveryHandoffSchema,
   v3HumanAcceptanceSchema,
   v3MissionPageSchema,
   v3ProjectContextSchema,
@@ -143,6 +144,7 @@ import {
   type V3AuthorizeBuildInput,
   type V3BuildMission,
   type V3ChiefAssignment,
+  type V3DeliveryHandoff,
   type V3HumanAcceptance,
   type V3ProjectContext,
   type V3UnderstandAnalyzeInput,
@@ -918,6 +920,22 @@ export class HttpApiClient implements ApiClient {
       { note: note ?? null },
     );
     return v3HumanAcceptanceSchema.parse(response);
+  }
+
+  async getV3DeliveryHandoff(projectId: string): Promise<V3DeliveryHandoff | null> {
+    try {
+      const response = await this.#request<unknown>(
+        'GET',
+        `/v3/projects/${encodeURIComponent(projectId)}/handoff/latest`,
+      );
+      return v3DeliveryHandoffSchema.parse(response);
+    } catch (error) {
+      if (error instanceof ApiError && error.problem.status === 404) {
+        return null;
+      }
+
+      throw error;
+    }
   }
 
   async compileV3BuildMission(projectId: string): Promise<V3BuildMission> {
