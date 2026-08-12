@@ -325,10 +325,16 @@ public static class V3UnderstandEndpoints
 
         var retryableStatus =
             string.Equals(state.Status, "RECOVERY_STALLED", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(state.Status, "STALLED", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(state.Status, "PROVIDER_TRANSPORT_TRANSIENT", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(latestExecution.QuotaState, "PROVIDER_TRANSPORT_TRANSIENT", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(latestExecution.LastFailureCode, "startup_recovery_requires_explicit_resume", StringComparison.OrdinalIgnoreCase);
-        return retryableStatus && latestExecution.StartedAt <= now;
+        var noFunctionalValidationEvidence =
+            latestExecution.ValidationReport is null &&
+            latestExecution.HumanBlocker is null &&
+            string.IsNullOrWhiteSpace(latestExecution.LastOutput) &&
+            latestExecution.CommitDelta == 0;
+        return retryableStatus && noFunctionalValidationEvidence && latestExecution.StartedAt <= now;
     }
 
     private static async Task<IResult> CompilePlatformMaintenanceMissionAsync(
