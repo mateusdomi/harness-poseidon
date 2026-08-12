@@ -67,6 +67,13 @@ public static class V3BuildRuntimeEndpoints
             .ProducesProblem(401)
             .ProducesProblem(404)
             .ProducesProblem(409);
+        endpoints.MapPost("/api/v1/v3/build-executions/{executionId}/resume", ResumeExecutionAsync)
+            .WithTags("v3-build-runtime")
+            .Produces<V3BuildExecutionResponse>()
+            .ProducesProblem(400)
+            .ProducesProblem(401)
+            .ProducesProblem(404)
+            .ProducesProblem(409);
 
         return endpoints;
     }
@@ -186,6 +193,23 @@ public static class V3BuildRuntimeEndpoints
         var execution = V3BuildRuntimeStore.ForConfiguration(configuration).ReadExecution(executionId);
         if (execution is null) return Problem(404, "build_execution_not_found", "The requested BUILD execution does not exist.");
         var result = await runtime.ContinueWithHumanAnswerAsync(execution, input.Answer, accounts.List(), token);
+        return result.Result is not null ? result.Result : Results.Ok(V3BuildExecutionResponse.From(result.Execution!));
+    }
+
+    private static async Task<IResult> ResumeExecutionAsync(
+        string executionId,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        [FromServices] AgentAccountRegistry accounts,
+        IConfiguration configuration,
+        [FromServices] V3BuildRuntimeService runtime,
+        CancellationToken token)
+    {
+        if (!UlidValue.TryParse(executionId, out _)) return Problem(400, "invalid_execution_id", "Execution ID must be a ULID.");
+        if (await LocalProfileSession.ResolveAsync(request, profiles, token) is null) return SessionRequired();
+        var execution = V3BuildRuntimeStore.ForConfiguration(configuration).ReadExecution(executionId);
+        if (execution is null) return Problem(404, "build_execution_not_found", "The requested BUILD execution does not exist.");
+        var result = await runtime.ResumeExecutionAsync(execution, accounts.List(), "local", token);
         return result.Result is not null ? result.Result : Results.Ok(V3BuildExecutionResponse.From(result.Execution!));
     }
 
@@ -334,7 +358,7 @@ public sealed class V3BuildRuntimeService(
         };
         store.WriteExecution(running);
         understandStore.WriteMission(command.Mission with { Status = "RUNNING" });
-        return await RunLoopAsync(running, command.Mission, selected.Account, command.Accounts, command.State, null, command.TenantId, token);
+        return await RunLoopAsync(running, command.Mission, selected.Account, command.Accounts, command.State, null, command.TenantId, CancellationToken.None);
     }
 
     public async Task<IReadOnlyList<V3BuildExecutionRecord>> RecoverRunningExecutionsAsync(
@@ -448,7 +472,76 @@ public sealed class V3BuildRuntimeService(
         };
         store.WriteExecution(resumed);
         UpdateLifecycle(state, RunningLifecycleFor(execution.MissionType), $"{execution.MissionType.ToUpperInvariant()}_RUNNING");
-        return RunLoopAsync(resumed, mission, account, accounts, state, BuildHumanAnswerPrompt(answer, mission.MissionType), "local", token);
+        return RunLoopAsync(resumed, mission, account, accounts, state, BuildHumanAnswerPrompt(answer, mission.MissionType), "local", CancellationToken.None);
+    }
+
+    public Task<V3BuildRuntimeResult> ResumeExecutionAsync(
+        V3BuildExecutionRecord execution,
+        IReadOnlyList<AgentAccountContract> accounts,
+        string tenantId,
+        CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        if (!string.Equals(execution.Status, "RUNNING", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(execution.Status, "STALLED", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(execution.Status, "PAUSED_PROVIDER", StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.FromResult(Conflict("build_resume_not_allowed", "Only RUNNING, STALLED or PAUSED_PROVIDER executions can be resumed by recovery."));
+        }
+
+        var mission = understandStore.ReadMission(execution.MissionId);
+        if (mission is null)
+        {
+            return Task.FromResult(Conflict("mission_not_found", "Original mission was not found."));
+        }
+
+        if (string.IsNullOrWhiteSpace(mission.Repository) ||
+            !Directory.Exists(mission.Repository))
+        {
+            return Task.FromResult(Conflict("repository_unreachable", "Mission repository is unreachable."));
+        }
+
+        var state = understandStore.ReadProject(execution.ProjectId) ??
+            V3ProjectUnderstandState.Create(execution.ProjectId, clock.UtcNow);
+        var account = SelectResumeAccount(execution, accounts);
+        if (account is null)
+        {
+            var paused = execution with
+            {
+                Status = "PAUSED_QUOTA",
+                LastActivityAt = clock.UtcNow,
+                LastFailureCode = "executor_not_available",
+                QuotaState = "NO_EXECUTOR",
+                Events = Append(execution.Events, $"{MissionPrefix(execution)}_RECOVERY_PAUSED", null,
+                    "Recovery resume requested but no compatible executor is available."),
+            };
+            store.WriteExecution(paused);
+            UpdateLifecycle(state, "PAUSED_QUOTA", "RECOVERY_PAUSED");
+            return Task.FromResult(new V3BuildRuntimeResult(paused, null));
+        }
+
+        var resumed = execution with
+        {
+            Status = "RUNNING",
+            ExecutorAccountId = account.Alias,
+            Provider = account.ProviderKind,
+            LastActivityAt = clock.UtcNow,
+            CompletedAt = null,
+            QuotaState = null,
+            Events = Append(execution.Events, $"{MissionPrefix(execution)}_RECOVERY_RESUMED", account.Alias,
+                "Execution resumed from persisted state after orphan/stall/provider pause."),
+        };
+        store.WriteExecution(resumed);
+        UpdateLifecycle(state, RunningLifecycleFor(execution.MissionType), $"{execution.MissionType.ToUpperInvariant()}_RUNNING");
+        return RunLoopAsync(
+            resumed,
+            mission,
+            account,
+            accounts,
+            state,
+            BuildRecoveryPrompt(execution, execution.MissionType),
+            tenantId,
+            CancellationToken.None);
     }
 
     private async Task<V3BuildRuntimeResult> RunLoopAsync(
@@ -898,6 +991,18 @@ public sealed class V3BuildRuntimeService(
         missionType.Equals("PLATFORM_MAINTENANCE", StringComparison.OrdinalIgnoreCase)
             ? AgentRoles.PlatformMaintainer
             : AgentRoles.ProjectExecutor;
+
+    private static AgentAccountContract? SelectResumeAccount(
+        V3BuildExecutionRecord execution,
+        IReadOnlyList<AgentAccountContract> accounts)
+    {
+        var preferred = V3BuildExecutorSelector.Select(
+            accounts,
+            execution.ExecutorAccountId,
+            requiredRole: RequiredRoleForMission(execution.MissionType));
+        return preferred.Account ??
+            V3BuildExecutorSelector.Select(accounts, requiredRole: RequiredRoleForMission(execution.MissionType)).Account;
+    }
 
     private static string RunningLifecycleFor(string missionType) =>
         missionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase)

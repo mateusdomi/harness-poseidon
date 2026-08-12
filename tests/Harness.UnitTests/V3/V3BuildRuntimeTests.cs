@@ -238,6 +238,49 @@ public sealed class V3BuildRuntimeTests : IDisposable
     }
 
     [Fact]
+    public async Task RecoveryResumeContinuesOrphanRunningExecution()
+    {
+        var repo = CreateGitRepository();
+        var fake = new FakeBuildExecutor(new FakeOutcome("retomado\nPOSEIDON_MISSION_COMPLETE"));
+        var (service, understand) = Runtime(fake);
+        var (state, mission, accounts) = ArrangeProject(repo);
+        var orphan = new V3BuildExecutionRecord(
+            "01K00000000000000000000019",
+            mission.MissionId,
+            state.ProjectId,
+            "BUILD",
+            "worker-a",
+            "openai",
+            "RUNNING",
+            _clock.UtcNow,
+            _clock.UtcNow,
+            null,
+            V3GitSnapshot.Capture(repo).Head,
+            V3GitSnapshot.Capture(repo).Head,
+            0,
+            V3GitSnapshot.Capture(repo).CommitCount,
+            "session",
+            0,
+            0,
+            "última saída",
+            null,
+            null,
+            null,
+            [],
+            []);
+        new V3BuildRuntimeStore(_directory).WriteExecution(orphan);
+
+        var resumed = await service.ResumeExecutionAsync(orphan, accounts, "tenant-1", CancellationToken.None);
+
+        Assert.NotNull(resumed.Execution);
+        Assert.Equal("COMPLETED", resumed.Execution!.Status);
+        Assert.Single(fake.Calls);
+        Assert.Contains("Continue a missão original após recuperação", fake.Calls[0].Prompt.Text);
+        Assert.Contains(resumed.Execution.Events, item => item.Type == "BUILD_RECOVERY_RESUMED");
+        Assert.Equal("VALIDATING", understand.ReadProject(state.ProjectId)!.LifecycleState);
+    }
+
+    [Fact]
     public async Task QuotaWithoutAlternateExecutorPausesProject()
     {
         var repo = CreateGitRepository();
