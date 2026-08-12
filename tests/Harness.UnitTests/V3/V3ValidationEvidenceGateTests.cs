@@ -180,6 +180,29 @@ public sealed class V3ValidationEvidenceGateTests
     }
 
     [Fact]
+    public void KnownCompositeEvidenceTypeAliasesAreAccepted()
+    {
+        var result = V3ValidationEvidenceGate.Validate(
+            Manifest(firstEvidenceType: "browser/runtime", secondEvidenceType: "inspection/test"),
+            Report(),
+            uiRequired: true);
+
+        Assert.True(result.Accepted, result.Reason);
+    }
+
+    [Fact]
+    public void UnknownEvidenceTypeIsRejected()
+    {
+        var result = V3ValidationEvidenceGate.Validate(
+            Manifest(firstEvidenceType: "storytelling"),
+            Report(),
+            uiRequired: true);
+
+        Assert.False(result.Accepted);
+        Assert.Contains("checklist_evidence_type:Q001", result.Reason);
+    }
+
+    [Fact]
     public void NotApplicableWithoutReasonIsRejected()
     {
         var result = V3ValidationEvidenceGate.Validate(
@@ -262,7 +285,9 @@ public sealed class V3ValidationEvidenceGateTests
         bool handoff = true,
         string? manifestContractVersion = V3ValidationEvidenceGate.ContractVersion,
         string missionId = "m",
-        string executionId = "e")
+        string executionId = "e",
+        string firstEvidenceType = "BROWSER",
+        string secondEvidenceType = "BROWSER")
     {
         checkIds ??= ["Q001", "Q002"];
         var checklist = string.Join(
@@ -272,8 +297,9 @@ public sealed class V3ValidationEvidenceGateTests
                 var id = checkIds[Math.Min(index, checkIds.Length - 1)];
                 var status = index == 1 ? secondStatus : "PASS";
                 var notes = index == 1 ? secondNotes : "verified";
+                var evidenceType = index == 1 ? secondEvidenceType : firstEvidenceType;
                 return $$"""
-                {"checkId":"{{id}}","status":"{{status}}","evidenceType":"{{(status == "N_A" ? "NOT_APPLICABLE" : "BROWSER")}}","evidenceReference":"run#1","notes":{{(notes is null ? "null" : $"\"{notes}\"")}},"executedAt":"2026-08-12T00:00:00Z"}
+                {"checkId":"{{id}}","status":"{{status}}","evidenceType":"{{(status == "N_A" ? "NOT_APPLICABLE" : evidenceType)}}","evidenceReference":"run#1","notes":{{(notes is null ? "null" : $"\"{notes}\"")}},"executedAt":"2026-08-12T00:00:00Z"}
                 """;
             }));
 

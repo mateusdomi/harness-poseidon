@@ -76,7 +76,7 @@ public static class V3ValidationEvidenceGate
         foreach (var item in manifest.Checklist)
         {
             ValidateStatus(errors, item.Status, $"checklist_status:{item.CheckId}");
-            if (!EvidenceTypes.Contains(item.EvidenceType))
+            if (!IsSupportedEvidenceType(item.EvidenceType))
             {
                 errors.Add($"checklist_evidence_type:{item.CheckId}");
             }
@@ -138,6 +138,35 @@ public static class V3ValidationEvidenceGate
             errors.Add(code);
         }
     }
+
+    private static bool IsSupportedEvidenceType(string evidenceType)
+    {
+        if (string.IsNullOrWhiteSpace(evidenceType)) return false;
+        var parts = evidenceType
+            .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(NormalizeEvidenceTypePart)
+            .ToArray();
+        return parts.Length > 0 && parts.All(part => part is not null && EvidenceTypes.Contains(part));
+    }
+
+    private static string? NormalizeEvidenceTypePart(string value) =>
+        value.Trim().ToUpperInvariant().Replace('-', '_').Replace(' ', '_') switch
+        {
+            "BROWSER" => "BROWSER",
+            "TEST" => "TEST_RUN",
+            "TEST_RUN" => "TEST_RUN",
+            "BUILD" => "BUILD",
+            "STATIC_INSPECTION" => "STATIC_INSPECTION",
+            "INSPECTION" => "STATIC_INSPECTION",
+            "API" => "API",
+            "DATABASE" => "DATABASE",
+            "RUNTIME" => "RUNTIME",
+            "SOURCE_INSPECTION" => "SOURCE_INSPECTION",
+            "REQUIREMENTS" => "SOURCE_INSPECTION",
+            "MANUAL_JUDGMENT" => "MANUAL_JUDGMENT",
+            "NOT_APPLICABLE" => "NOT_APPLICABLE",
+            _ => null,
+        };
 
     private static void AddDuplicateErrors(List<string> errors, IEnumerable<string> ids, string prefix)
     {
