@@ -96,6 +96,8 @@ markdownAllowlist:
   reason: Parecer do crítico independente sobre o sub-bloco 0A2 da Fase 0, com data e comandos reproduzíveis; é evidência de gate, não norma.
 - path: docs/architecture/audits/bruna/pareceres/PARECER-RETROATIVO-0A3-0B1-0B2-0C-ANTIGRAVITY.md
   reason: Parecer retroativo do crítico independente sobre os sub-blocos 0A3, 0B1, 0B2 e 0C da Fase 0; é evidência de gate, não norma.
+- path: docs/architecture/external-harness-patterns-adoption.md
+  reason: Registro datado da decisão de adoção de padrões observados em projetos open source; não constitui norma canônica.
 - path: docs/architecture/audits/bruna/pareceres/PARECER-FASE1-ANTIGRAVITY.md
   reason: Parecer do crítico independente sobre os blocos 0-E, 1A, 1B, 1C, 1D e 1E; é evidência de gate, não norma.
 - path: docs/architecture/audits/bruna/pareceres/PARECER-FASE1-FINAL-ANTIGRAVITY.md
