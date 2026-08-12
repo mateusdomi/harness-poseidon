@@ -357,20 +357,20 @@ public sealed class V3BuildRuntimeTests : IDisposable
     }
 
     [Fact]
-    public async Task RecoveryResumeContinuesOrphanRunningExecution()
+    public async Task RecoveryResumeContinuesStalledExecution()
     {
         var repo = CreateGitRepository();
         var fake = new FakeBuildExecutor(new FakeOutcome("retomado\nPOSEIDON_MISSION_COMPLETE"));
         var (service, understand) = Runtime(fake);
         var (state, mission, accounts) = ArrangeProject(repo);
-        var orphan = new V3BuildExecutionRecord(
+        var stalled = new V3BuildExecutionRecord(
             "01K00000000000000000000019",
             mission.MissionId,
             state.ProjectId,
             "BUILD",
             "worker-a",
             "openai",
-            "RUNNING",
+            "STALLED",
             _clock.UtcNow,
             _clock.UtcNow,
             null,
@@ -382,14 +382,14 @@ public sealed class V3BuildRuntimeTests : IDisposable
             0,
             0,
             "última saída",
-            null,
+            "startup_recovery_requires_explicit_resume",
             null,
             null,
             [],
             []);
-        new V3BuildRuntimeStore(_directory).WriteExecution(orphan);
+        new V3BuildRuntimeStore(_directory).WriteExecution(stalled);
 
-        var resumed = await service.ResumeExecutionAsync(orphan, accounts, "tenant-1", CancellationToken.None);
+        var resumed = await service.ResumeExecutionAsync(stalled, accounts, "tenant-1", CancellationToken.None);
 
         Assert.NotNull(resumed.Execution);
         Assert.Equal("COMPLETED", resumed.Execution!.Status);
