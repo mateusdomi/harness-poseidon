@@ -283,6 +283,12 @@ public static class V3ValidationEvidenceGate
 
     private static string? FindCanonicalItemsReference(JsonElement root)
     {
+        if (root.TryGetProperty("canonicalManifest", out var canonicalManifest) &&
+            canonicalManifest.ValueKind == JsonValueKind.String)
+        {
+            return canonicalManifest.GetString();
+        }
+
         foreach (var propertyName in new[] { "requirements", "checklist", "browserRuns" })
         {
             if (root.TryGetProperty(propertyName, out var value) &&
