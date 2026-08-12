@@ -91,8 +91,12 @@ public sealed class ExternalAgentExecutorTests : IDisposable
             Request(handle, ExternalAgentAccess.ReadOnly, resume: "019f8637-2252-7c21-9fd4-e87af6dc6dee"));
 
         Assert.Equal("read-only", arguments[arguments.IndexOf("--sandbox") + 1]);
-        Assert.Equal("resume", arguments[1]);
-        Assert.Equal("019f8637-2252-7c21-9fd4-e87af6dc6dee", arguments[2]);
+        var resumeIndex = arguments.IndexOf("resume");
+        Assert.True(resumeIndex > arguments.IndexOf("--output-last-message"));
+        Assert.True(resumeIndex > arguments.IndexOf("-C"));
+        Assert.True(resumeIndex > arguments.IndexOf("--sandbox"));
+        Assert.Equal("019f8637-2252-7c21-9fd4-e87af6dc6dee", arguments[resumeIndex + 1]);
+        Assert.Equal("-", arguments[^1]);
     }
 
     [Fact]

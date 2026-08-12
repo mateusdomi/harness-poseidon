@@ -30,11 +30,6 @@ public sealed class CodexExternalAgentExecutor(
         ArgumentNullException.ThrowIfNull(context);
 
         var arguments = new List<string> { "exec" };
-        if (request.ResumeSessionId is { Length: > 0 } sessionId)
-        {
-            arguments.AddRange(["resume", sessionId]);
-        }
-
         arguments.AddRange(["--json", "--skip-git-repo-check"]);
         arguments.AddRange(["-C", request.WorkingDirectory]);
         arguments.AddRange([
@@ -65,6 +60,14 @@ public sealed class CodexExternalAgentExecutor(
         foreach (var directory in request.AdditionalDirectories)
         {
             arguments.AddRange(["--add-dir", directory]);
+        }
+
+        if (request.ResumeSessionId is { Length: > 0 } sessionId)
+        {
+            // Codex CLI 0.147.0 accepts workspace/sandbox/output options before the `resume`
+            // subcommand. Putting them after `resume <id>` makes them arguments of the resume
+            // subcommand; `-C`/`--sandbox` are then rejected with exit code 2.
+            arguments.AddRange(["resume", sessionId]);
         }
 
         // `-` faz o Codex ler as instruções do STDIN, mantendo o prompt fora do argv.
