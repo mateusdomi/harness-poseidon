@@ -65,7 +65,10 @@ def account_env(account: dict[str, Any]) -> dict[str, str]:
     if account["executorId"] == "claude-code":
         env["CLAUDE_CONFIG_DIR"] = str(home / "config")
     elif account["executorId"] == "codex":
-        env["CODEX_HOME"] = str(home / "codex")
+        # Must match AccountProfileProvisioner.ConfigHomePath used by the Host runtime.
+        # A previous helper-only `<account>/codex` home made `poseidon agents probe`
+        # green while V3 dispatch used `<account>/config` and failed with 401.
+        env["CODEX_HOME"] = str(home / "config")
     elif account["executorId"] == "kimi-code":
         config_home = home / "config"
         env["HOME"] = str(config_home)
@@ -80,7 +83,7 @@ def ensure_dirs(account: dict[str, Any]) -> None:
     if account["executorId"] == "claude-code":
         (home / "config").mkdir(parents=True, exist_ok=True)
     elif account["executorId"] == "codex":
-        (home / "codex").mkdir(parents=True, exist_ok=True)
+        (home / "config").mkdir(parents=True, exist_ok=True)
     elif account["executorId"] == "kimi-code":
         (home / "config").mkdir(parents=True, exist_ok=True)
 
@@ -484,20 +487,35 @@ def command_probe(args: argparse.Namespace) -> int:
     if account["executorId"] == "claude-code":
         argv = ["claude", "-p", "--safe-mode", "--output-format", "json", "Responda apenas OK."]
     elif account["executorId"] == "codex":
+        last_message = account_home(args.account_id) / "work" / f"probe-last-message-{int(dt.datetime.now().timestamp())}.txt"
         argv = [
             "codex",
             "exec",
+            "--json",
             "--skip-git-repo-check",
+            "-C",
+            cwd,
             "--sandbox",
-            "workspace-write",
-            "Responda apenas OK.",
+            "read-only",
+            "--output-last-message",
+            str(last_message),
+            "-",
         ]
     elif account["executorId"] == "kimi-code":
         argv = ["kimi", "--output-format", "text", "-p", "Responda apenas OK."]
     else:
         raise SystemExit(f"Probe nativo não implementado para executor {account['executorId']}")
     try:
-        result = subprocess.run(argv, cwd=cwd, env=env, text=True, capture_output=True, timeout=120)
+        result = subprocess.run(
+            argv,
+            cwd=cwd,
+            env=env,
+            text=True,
+            input="Probe de disponibilidade do Poseidon. Responda somente: OK\n"
+            if account["executorId"] == "codex"
+            else None,
+            capture_output=True,
+            timeout=120)
     except subprocess.TimeoutExpired:
         if not reserved:
             set_availability(args.account_id, "Unavailable", "availability.probe_timeout")
@@ -545,7 +563,7 @@ def command_status(args: argparse.Namespace) -> int:
         auth_state = "AUTHENTICATED" if (home / "config" / ".claude.json").exists() else "NOT_AUTHENTICATED"
         profile_location = str(home / "config")
     elif account["executorId"] == "codex":
-        codex_home = home / "codex"
+        codex_home = home / "config"
         auth_state = "AUTHENTICATED" if any(codex_home.glob("auth*.json")) or any(codex_home.glob("*.json")) else "UNKNOWN"
         profile_location = str(codex_home)
     elif account["executorId"] == "kimi-code":
