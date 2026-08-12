@@ -336,8 +336,8 @@ public sealed class V3BuildRuntimeService(
             null,
             initialSnapshot.Head,
             initialSnapshot.Head,
-            0,
             initialSnapshot.CommitCount,
+            0,
             null,
             0,
             0,
@@ -735,6 +735,41 @@ public sealed class V3BuildRuntimeService(
             var completionMarker = CompletionMarker(mission.MissionType);
             if (lastOutput.Contains(completionMarker, StringComparison.Ordinal))
             {
+                if (RequiresCleanWorktreeForCompletion(mission.MissionType) &&
+                    V3GitSnapshot.HasUncommittedChanges(mission.Repository!))
+                {
+                    var rejectedCount = CompletionRejectedCount(execution);
+                    if (rejectedCount + 1 >= MaxContinueWithoutProgress)
+                    {
+                        execution = execution with
+                        {
+                            Status = "STALLED",
+                            CompletedAt = now,
+                            LastFailureCode = "completion_requires_clean_worktree",
+                            ConsecutiveNoProgressCount = rejectedCount + 1,
+                            Events = Append(execution.Events, $"{MissionPrefix(mission)}_STALLED", active.Alias,
+                                "Executor declared completion but the repository still has uncommitted changes after recovery attempts."),
+                        };
+                        store.WriteExecution(execution);
+                        if (state is not null) UpdateLifecycle(state, "BLOCKED", "COMPLETION_REQUIRES_CLEAN_WORKTREE");
+                        return new V3BuildRuntimeResult(execution, null);
+                    }
+
+                    execution = execution with
+                    {
+                        Status = "RUNNING",
+                        LastFailureCode = "completion_requires_clean_worktree",
+                        ContinueCount = execution.ContinueCount + 1,
+                        ConsecutiveNoProgressCount = rejectedCount + 1,
+                        Events = Append(execution.Events, $"{MissionPrefix(mission)}_COMPLETION_REJECTED", active.Alias,
+                            "Executor declared completion but the repository still has uncommitted changes."),
+                    };
+                    store.WriteExecution(execution);
+                    continuationPrompt = BuildCompletionRequiresCommitPrompt(mission);
+                    previousSnapshot = currentSnapshot;
+                    continue;
+                }
+
                 var validationReport = mission.MissionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase)
                     ? V3ValidationReport.Parse(lastOutput, currentSnapshot.Head)
                     : null;
@@ -915,6 +950,25 @@ public sealed class V3BuildRuntimeService(
 
         """ + Environment.NewLine + ExitContract(mission.MissionType);
 
+    private static string BuildCompletionRequiresCommitPrompt(V3BuildMissionRecord mission) =>
+        $"""
+        Você declarou o marcador de conclusão da missão, mas o runtime detectou alterações não commitadas no repositório.
+
+        MissionId: {mission.MissionId}
+        Repository: {mission.Repository}
+
+        A missão ainda NÃO está concluída.
+
+        Inspecione `git status`.
+        Preserve o trabalho válido.
+        Faça commits úteis das alterações de produto, testes e documentação mínima.
+        Remova ou ignore somente artefatos gerados que não devem entrar no Git.
+        Rode os gates proporcionais novamente se o commit alterar código.
+
+        Só finalize com o marcador correto depois que o repositório estiver em estado limpo ou houver um blocker genuinamente humano.
+
+        """ + Environment.NewLine + ExitContract(mission.MissionType);
+
     private static string BuildHumanAnswerPrompt(string answer, string missionType) =>
         $"""
         O humano respondeu ao blocker anterior:
@@ -931,6 +985,13 @@ public sealed class V3BuildRuntimeService(
         return execution.Events.Count(item =>
             string.Equals(item.Actor, alias, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(item.Type, $"{prefix}_TRANSIENT_RETRY", StringComparison.Ordinal));
+    }
+
+    private static int CompletionRejectedCount(V3BuildExecutionRecord execution)
+    {
+        var prefix = MissionPrefix(execution);
+        return execution.Events.Count(item =>
+            string.Equals(item.Type, $"{prefix}_COMPLETION_REJECTED", StringComparison.Ordinal));
     }
 
     private async Task RecordV3InvocationAsync(
@@ -991,6 +1052,11 @@ public sealed class V3BuildRuntimeService(
         missionType.Equals("PLATFORM_MAINTENANCE", StringComparison.OrdinalIgnoreCase)
             ? AgentRoles.PlatformMaintainer
             : AgentRoles.ProjectExecutor;
+
+    private static bool RequiresCleanWorktreeForCompletion(string missionType) =>
+        missionType.Equals("BUILD", StringComparison.OrdinalIgnoreCase) ||
+        missionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase) ||
+        missionType.Equals("PLATFORM_MAINTENANCE", StringComparison.OrdinalIgnoreCase);
 
     private static AgentAccountContract? SelectResumeAccount(
         V3BuildExecutionRecord execution,
@@ -1392,6 +1458,9 @@ public sealed record V3GitSnapshot(
         !string.Equals(Head, previous.Head, StringComparison.Ordinal) ||
         CommitCount != previous.CommitCount ||
         !string.Equals(StatusFingerprint, previous.StatusFingerprint, StringComparison.Ordinal);
+
+    public static bool HasUncommittedChanges(string repository) =>
+        !string.IsNullOrWhiteSpace(Git(repository, "status", "--porcelain=v1"));
 
     private static string? Git(string repository, params string[] args)
     {

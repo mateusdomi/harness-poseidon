@@ -20,7 +20,13 @@ public sealed class V3BuildRuntimeTests : IDisposable
         var repo = CreateGitRepository();
         var fake = new FakeBuildExecutor(
             new FakeOutcome("implementei parte; vou continuar", repository => File.WriteAllText(Path.Combine(repository, "feature.txt"), "progress")),
-            new FakeOutcome("feito\nPOSEIDON_MISSION_COMPLETE"));
+            new FakeOutcome(
+                "feito\nPOSEIDON_MISSION_COMPLETE",
+                repository =>
+                {
+                    RunGit(repository, "add", "feature.txt");
+                    RunGit(repository, "commit", "-m", "feat: add feature");
+                }));
         var (service, understand) = Runtime(fake);
         var (state, mission, accounts) = ArrangeProject(repo);
 
@@ -31,6 +37,37 @@ public sealed class V3BuildRuntimeTests : IDisposable
         Assert.Equal(1, result.Execution.ContinueCount);
         Assert.Equal(2, fake.Calls.Count);
         Assert.Contains("Continue a missão original autonomamente", fake.Calls[1].Prompt.Text);
+        Assert.Equal("VALIDATING", understand.ReadProject(state.ProjectId)!.LifecycleState);
+    }
+
+    [Fact]
+    public async Task CompletionWithDirtyWorktreeQueuesCommitContinuationBeforeCompleting()
+    {
+        var repo = CreateGitRepository();
+        var fake = new FakeBuildExecutor(
+            new FakeOutcome(
+                "feito\nPOSEIDON_MISSION_COMPLETE",
+                repository => File.WriteAllText(Path.Combine(repository, "feature.txt"), "uncommitted")),
+            new FakeOutcome(
+                "commit criado\nPOSEIDON_MISSION_COMPLETE",
+                repository =>
+                {
+                    RunGit(repository, "add", "feature.txt");
+                    RunGit(repository, "commit", "-m", "feat: add feature");
+                }));
+        var (service, understand) = Runtime(fake);
+        var (state, mission, accounts) = ArrangeProject(repo);
+
+        var result = await service.DispatchAsync(Command(state, mission, accounts), CancellationToken.None);
+
+        Assert.NotNull(result.Execution);
+        Assert.Equal("COMPLETED", result.Execution!.Status);
+        Assert.Equal(1, result.Execution.ContinueCount);
+        Assert.Equal(1, result.Execution.CommitDelta);
+        Assert.Equal(2, fake.Calls.Count);
+        Assert.Contains("alterações não commitadas", fake.Calls[1].Prompt.Text);
+        Assert.Contains(result.Execution.Events, item => item.Type == "BUILD_COMPLETION_REJECTED");
+        Assert.False(V3GitSnapshot.HasUncommittedChanges(repo));
         Assert.Equal("VALIDATING", understand.ReadProject(state.ProjectId)!.LifecycleState);
     }
 
