@@ -25,9 +25,12 @@ public static class V3ValidationEvidenceGate
     public static V3ValidationEvidenceGateResult Validate(
         string output,
         V3ValidationReport report,
-        bool uiRequired)
+        bool uiRequired,
+        string? repository = null,
+        string? expectedMissionId = null,
+        string? expectedExecutionId = null)
     {
-        if (!TryExtractManifest(output, out var manifest, out var parseError))
+        if (!TryExtractManifest(output, repository, out var manifest, out var parseError))
         {
             return V3ValidationEvidenceGateResult.Invalid(parseError ?? "validation_manifest_missing");
         }
@@ -39,6 +42,16 @@ public static class V3ValidationEvidenceGate
         if (!string.Equals(manifest.ManifestContractVersion, ContractVersion, StringComparison.OrdinalIgnoreCase))
         {
             errors.Add($"manifest_contract_version:{manifest.ManifestContractVersion ?? "missing"}");
+        }
+        if (!string.IsNullOrWhiteSpace(expectedMissionId) &&
+            !string.Equals(manifest.MissionId, expectedMissionId, StringComparison.Ordinal))
+        {
+            errors.Add($"manifest_mission_id:{manifest.MissionId ?? "missing"}");
+        }
+        if (!string.IsNullOrWhiteSpace(expectedExecutionId) &&
+            !string.Equals(manifest.ExecutionId, expectedExecutionId, StringComparison.Ordinal))
+        {
+            errors.Add($"manifest_execution_id:{manifest.ExecutionId ?? "missing"}");
         }
         if (manifest.Requirements.Count != requirementExpected)
         {
@@ -136,6 +149,7 @@ public static class V3ValidationEvidenceGate
 
     private static bool TryExtractManifest(
         string output,
+        string? repository,
         out V3ValidationResultManifest manifest,
         out string? error)
     {
@@ -183,10 +197,24 @@ public static class V3ValidationEvidenceGate
             {
                 try
                 {
-                    manifest = JsonSerializer.Deserialize<V3ValidationResultManifest>(
-                        output.Substring(jsonStart, i - jsonStart + 1),
-                        Json) ?? manifest;
-                    return true;
+                    var json = output.Substring(jsonStart, i - jsonStart + 1);
+                    try
+                    {
+                        manifest = JsonSerializer.Deserialize<V3ValidationResultManifest>(
+                            json,
+                            Json) ?? manifest;
+                        return true;
+                    }
+                    catch (JsonException exception)
+                    {
+                        if (TryResolveReferencedManifest(json, repository, out manifest, out var referenceError))
+                        {
+                            return true;
+                        }
+
+                        error = referenceError ?? $"validation_manifest_invalid_json:{exception.GetType().Name}";
+                        return false;
+                    }
                 }
                 catch (JsonException exception)
                 {
@@ -198,6 +226,89 @@ public static class V3ValidationEvidenceGate
 
         error = "validation_manifest_json_unclosed";
         return false;
+    }
+
+    private static bool TryResolveReferencedManifest(
+        string json,
+        string? repository,
+        out V3ValidationResultManifest manifest,
+        out string? error)
+    {
+        manifest = new V3ValidationResultManifest("unknown", "unknown", "unknown", "unknown", "unknown", [], [], [], null);
+        error = null;
+        if (string.IsNullOrWhiteSpace(repository))
+        {
+            error = "validation_manifest_invalid_json:JsonException";
+            return false;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var reference = FindCanonicalItemsReference(document.RootElement);
+            if (string.IsNullOrWhiteSpace(reference))
+            {
+                error = "validation_manifest_invalid_json:JsonException";
+                return false;
+            }
+
+            var path = ResolveReferencePath(repository, reference);
+            if (path is null || !File.Exists(path))
+            {
+                error = "validation_manifest_reference_unreadable";
+                return false;
+            }
+
+            manifest = JsonSerializer.Deserialize<V3ValidationResultManifest>(
+                File.ReadAllText(path),
+                Json) ?? manifest;
+            return true;
+        }
+        catch (JsonException exception)
+        {
+            error = $"validation_manifest_invalid_json:{exception.GetType().Name}";
+            return false;
+        }
+        catch (IOException)
+        {
+            error = "validation_manifest_reference_unreadable";
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            error = "validation_manifest_reference_unreadable";
+            return false;
+        }
+    }
+
+    private static string? FindCanonicalItemsReference(JsonElement root)
+    {
+        foreach (var propertyName in new[] { "requirements", "checklist", "browserRuns" })
+        {
+            if (root.TryGetProperty(propertyName, out var value) &&
+                value.ValueKind == JsonValueKind.Object &&
+                value.TryGetProperty("canonicalItemsReference", out var reference) &&
+                reference.ValueKind == JsonValueKind.String)
+            {
+                return reference.GetString();
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ResolveReferencePath(string repository, string reference)
+    {
+        var pathPart = reference.Split('#', 2)[0];
+        if (string.IsNullOrWhiteSpace(pathPart)) return null;
+        var repositoryRoot = Path.GetFullPath(repository);
+        var candidate = Path.IsPathRooted(pathPart)
+            ? Path.GetFullPath(pathPart)
+            : Path.GetFullPath(Path.Combine(repositoryRoot, pathPart));
+        return candidate.StartsWith(repositoryRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal) ||
+               string.Equals(candidate, repositoryRoot, StringComparison.Ordinal)
+            ? candidate
+            : null;
     }
 }
 

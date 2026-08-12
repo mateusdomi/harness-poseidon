@@ -674,7 +674,7 @@ public sealed partial class V3BuildRuntimeService(
             }
 
             var prompt = continuationPrompt ?? (execution.ContinueCount == 0
-                ? BuildInitialPrompt(mission)
+                ? BuildInitialPrompt(mission, execution)
                 : BuildContinuePrompt(mission));
             continuationPrompt = null;
             var outcome = await executor.RunAsync(
@@ -928,7 +928,10 @@ public sealed partial class V3BuildRuntimeService(
                     var evidence = V3ValidationEvidenceGate.Validate(
                         lastOutput,
                         validationReport,
-                        UiRequired(mission));
+                        UiRequired(mission),
+                        mission.Repository,
+                        mission.MissionId,
+                        execution.MissionExecutionId);
                     if (!evidence.Accepted)
                     {
                         execution = execution with
@@ -1055,8 +1058,20 @@ public sealed partial class V3BuildRuntimeService(
             ? "POSEIDON_VALIDATION_COMPLETE"
             : "POSEIDON_MISSION_COMPLETE";
 
-    private static string BuildInitialPrompt(V3BuildMissionRecord mission) =>
-        mission.MissionText + Environment.NewLine + Environment.NewLine + ExitContract(mission.MissionType);
+    private static string BuildInitialPrompt(V3BuildMissionRecord mission, V3BuildExecutionRecord execution) =>
+        $"""
+        ## RUNTIME EXECUTION IDENTITY
+        MissionId: {mission.MissionId}
+        MissionExecutionId: {execution.MissionExecutionId}
+        MissionType: {mission.MissionType}
+        Repository: {mission.Repository}
+
+        Use these exact IDs in any structured result manifest that asks for missionId and executionId.
+
+        ## ORIGINAL MISSION TEXT
+
+        {mission.MissionText}
+        """ + Environment.NewLine + Environment.NewLine + ExitContract(mission.MissionType);
 
     private static string BuildContinuePrompt(V3BuildMissionRecord mission) =>
         $"""

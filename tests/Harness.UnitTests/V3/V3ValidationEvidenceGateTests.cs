@@ -66,6 +66,64 @@ public sealed class V3ValidationEvidenceGateTests
     }
 
     [Fact]
+    public void MismatchedMissionIdentityIsRejectedWhenExpected()
+    {
+        var result = V3ValidationEvidenceGate.Validate(
+            Manifest(missionId: "wrong-mission", executionId: "wrong-execution"),
+            Report(),
+            uiRequired: true,
+            expectedMissionId: "m",
+            expectedExecutionId: "e");
+
+        Assert.False(result.Accepted);
+        Assert.Contains("manifest_mission_id:wrong-mission", result.Reason);
+        Assert.Contains("manifest_execution_id:wrong-execution", result.Reason);
+    }
+
+    [Fact]
+    public void CanonicalManifestFileReferenceIsAcceptedWhenInsideRepository()
+    {
+        var repository = Path.Combine(Path.GetTempPath(), $"poseidon-validation-gate-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(Path.Combine(repository, "docs"));
+        try
+        {
+            File.WriteAllText(Path.Combine(repository, "docs", "manifest.json"), FullManifestJson());
+            var output = """
+            POSEIDON_VALIDATION_MANIFEST
+            {
+              "manifestContractVersion":"v3.validation.2",
+              "checklistVersion":"test",
+              "checklistSha256":"sha256:test",
+              "missionId":"m",
+              "executionId":"e",
+              "requirements":{"canonicalItemsReference":"docs/manifest.json#/requirements"},
+              "checklist":{"canonicalItemsReference":"docs/manifest.json#/checklist"},
+              "browserRuns":{"canonicalItemsReference":"docs/manifest.json#/browserRuns"},
+              "handoffReadiness":{"applicationUrl":"http://localhost:5000","runtimeReachable":true,"healthPass":true,"cleanAcceptanceEnvironment":true,"accessInformationCaptured":true,"testCredentialsCapturedWhenApplicable":true}
+            }
+            POSEIDON_VALIDATION_COMPLETE
+            """;
+
+            var result = V3ValidationEvidenceGate.Validate(
+                output,
+                Report(),
+                uiRequired: true,
+                repository: repository,
+                expectedMissionId: "m",
+                expectedExecutionId: "e");
+
+            Assert.True(result.Accepted, result.Reason);
+        }
+        finally
+        {
+            if (Directory.Exists(repository))
+            {
+                Directory.Delete(repository, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public void DuplicateChecklistItemIsRejected()
     {
         var result = V3ValidationEvidenceGate.Validate(
@@ -158,7 +216,9 @@ public sealed class V3ValidationEvidenceGateTests
         string? secondNotes = "verified",
         bool browser = true,
         bool handoff = true,
-        string? manifestContractVersion = V3ValidationEvidenceGate.ContractVersion)
+        string? manifestContractVersion = V3ValidationEvidenceGate.ContractVersion,
+        string missionId = "m",
+        string executionId = "e")
     {
         checkIds ??= ["Q001", "Q002"];
         var checklist = string.Join(
@@ -190,8 +250,8 @@ public sealed class V3ValidationEvidenceGateTests
           {{(manifestContractVersion is null ? "" : $"\"manifestContractVersion\":\"{manifestContractVersion}\",")}}
           "checklistVersion":"test",
           "checklistSha256":"sha256:test",
-          "missionId":"m",
-          "executionId":"e",
+          "missionId":"{{missionId}}",
+          "executionId":"{{executionId}}",
           "requirements":[
             {"requirementId":"AC01","status":"PASS","evidenceReference":"run#1","notes":"ok"},
             {"requirementId":"AC02","status":"PASS","evidenceReference":"run#1","notes":"ok"}
@@ -202,5 +262,13 @@ public sealed class V3ValidationEvidenceGateTests
         }
         POSEIDON_VALIDATION_COMPLETE
         """;
+    }
+
+    private static string FullManifestJson()
+    {
+        var manifest = Manifest();
+        var start = manifest.IndexOf('{');
+        var end = manifest.LastIndexOf('}');
+        return manifest.Substring(start, end - start + 1);
     }
 }
