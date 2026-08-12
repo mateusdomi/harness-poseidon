@@ -100,14 +100,14 @@ public sealed class ExternalAgentExecutorTests : IDisposable
     }
 
     [Fact]
-    public void ClaudeActorAcceptsEditsWhileTheCriticHasNoWriteToolAtAll()
+    public void ClaudeActorBypassesPermissionsWhileTheCriticHasNoWriteToolAtAll()
     {
         var provisioner = new AccountProfileProvisioner(_root);
         var chief = Provision(provisioner, "chief-claude-primary", ExecutorCatalog.ClaudeCode);
         var executor = ClaudeCodeExternalAgentExecutor.ForClaudeCode(provisioner);
 
         var actor = Arguments(executor, Request(chief));
-        Assert.Equal("acceptEdits", actor[actor.IndexOf("--permission-mode") + 1]);
+        Assert.Equal("bypassPermissions", actor[actor.IndexOf("--permission-mode") + 1]);
 
         var critic = Arguments(executor, Request(chief, ExternalAgentAccess.ReadOnly));
         var tools = critic[critic.IndexOf("--tools") + 1].Split(',');

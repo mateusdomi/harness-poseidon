@@ -163,7 +163,7 @@ public sealed class ClaudeCodeExternalAgentExecutor(
 
         if (request.Access == ExternalAgentAccess.Workspace)
         {
-            arguments.AddRange(["--permission-mode", "acceptEdits"]);
+            arguments.AddRange(["--permission-mode", "bypassPermissions"]);
         }
         else
         {
