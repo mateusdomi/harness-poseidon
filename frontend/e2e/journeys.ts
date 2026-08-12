@@ -128,7 +128,11 @@ export async function createProject(
 /** Torna um projeto o ativo, pelo seletor global do Dashboard. */
 export async function activateProject(page: Page, name: string) {
   await navTo(page, 'Dashboard');
-  await page.getByLabel('Projeto ativo').selectOption({ label: name });
+  const selector = page.locator('#global-project-selector');
+  await selector.waitFor({ state: 'visible' });
+  // O <select> nativo é o controle real; as <option>s ficam ocultas quando ele
+  // está fechado, então selecionamos por label sem exigir visibilidade delas.
+  await selector.selectOption({ label: name });
 }
 
 /** Escapa o que for metacaractere de regex num nome livre digitado pelo dono. */

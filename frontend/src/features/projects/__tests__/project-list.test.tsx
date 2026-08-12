@@ -98,9 +98,9 @@ describe('FR-4 — filtro de arquivados', () => {
   const mixed = [...projects, archivedProject];
 
   it('filterProjects: ativos, arquivados ou todos', () => {
-    expect(filterProjects(mixed, { ...EMPTY_FILTERS, archive: '' })).toHaveLength(3);
+    expect(filterProjects(mixed, { ...EMPTY_FILTERS, archive: '' })).toHaveLength(4);
     const active = filterProjects(mixed, { ...EMPTY_FILTERS, archive: 'active' });
-    expect(active).toHaveLength(2);
+    expect(active).toHaveLength(3);
     expect(active.every((p) => p.state !== 'archived')).toBe(true);
     const archived = filterProjects(mixed, { ...EMPTY_FILTERS, archive: 'archived' });
     expect(archived).toEqual([archivedProject]);

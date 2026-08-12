@@ -761,6 +761,29 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     createdAt: tick(),
     lastActivityAt: tick(),
   };
+  const projetoPrismaCert: Project = {
+    id: id(),
+    organizationId: orgPoseidon.id,
+    name: 'PRISMA-V3-CERTIFICATION',
+    key: 'PRISMA',
+    description: 'Certificação V3 do produto Prisma — controle de reservas de salas.',
+    state: 'active',
+    criticality: 'high',
+    repositoryUrl: 'https://github.com/poseidon-labs/prismav2',
+    repositoryProvider: 'github',
+    defaultBranch: 'main',
+    technologies: ['React', 'TypeScript', 'ASP.NET Core', 'PostgreSQL'],
+    brand: { logoUrl: null, primaryColor: null, secondaryColor: null, typography: null },
+    memberProfileIds: [profile.id],
+    configVersion: 1,
+    configHistory: [],
+    chiefAgentId: chefePoseidon.id,
+    operationMode: 'manual',
+    prototyping: { mode: 'autonomousGeneration', waiver: null },
+    createdAt: tick(),
+    lastActivityAt: tick(),
+  };
+
   chefePoseidon.projectId = projetoPoseidon.id;
   chefePagamentos.projectId = projetoPagamentos.id;
   agenteBackend.projectId = projetoPoseidon.id;
@@ -1114,6 +1137,15 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     createdAt: tick(),
     lastMessageAt: null,
   };
+  const conversaPrismaCert: Conversation = {
+    id: id(),
+    projectId: projetoPrismaCert.id,
+    title: 'Certificação PRISMA V3',
+    state: 'active',
+    createdByProfileId: profile.id,
+    createdAt: tick(),
+    lastMessageAt: null,
+  };
 
   const messages: Message[] = [];
   const addMessage = (
@@ -1178,6 +1210,28 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
     chefePagamentos.id,
   );
   addMessage(conversaPagamentos, 'user', 'Perfeito, obrigado.');
+  addMessage(
+    conversaPrismaCert,
+    'user',
+    'Bruna, qual o status da certificação V3 do Prisma?',
+  );
+  addMessage(
+    conversaPrismaCert,
+    'chief',
+    'A certificação V3 do Prisma está em READY_FOR_HUMAN_ACCEPTANCE. A aplicação, documentação da API e evidências de validação estão disponíveis no Handoff.',
+    chefePoseidon.id,
+  );
+  addMessage(
+    conversaPrismaCert,
+    'user',
+    'Onde encontro as credenciais de homologação?',
+  );
+  addMessage(
+    conversaPrismaCert,
+    'chief',
+    'As credenciais TEST_ONLY não são enviadas por canais de chat. Abra a Central de Entregas do projeto PRISMA-V3-CERTIFICATION para visualizar e copiar as credenciais de homologação.',
+    chefePoseidon.id,
+  );
 
   /* ---- documentos (+ versões, classificações, waiver) ---- */
 
@@ -1774,8 +1828,8 @@ export function buildFixtures(seed: number = FIXTURE_SEED): FixtureData {
   const data: FixtureData['data'] = {
     profiles: [profile, profileAna],
     organizations: [orgPoseidon, orgPessoal],
-    projects: [projetoPoseidon, projetoPagamentos],
-    conversations: [conversaSprint, conversaGate, conversaPagamentos],
+    projects: [projetoPoseidon, projetoPagamentos, projetoPrismaCert],
+    conversations: [conversaSprint, conversaGate, conversaPagamentos, conversaPrismaCert],
     messages,
     solicitations: [sol1, sol2, sol3, sol4],
     demands: [demandaCsv, demandaLogin, demandaCustos, demandaConciliacao],

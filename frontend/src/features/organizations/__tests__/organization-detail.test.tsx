@@ -48,7 +48,7 @@ describe('OrganizationDetail', () => {
 
     // Projeto associado aparece após o carregamento do mock
     expect(await screen.findByText('Poseidon Frontend')).toBeInTheDocument();
-    expect(screen.getByText('Ativo')).toBeInTheDocument();
+    expect(screen.getAllByText('Ativo').length).toBeGreaterThanOrEqual(1);
   });
 
   it('mostra somente marca e projetos no modo Negócio', async () => {
