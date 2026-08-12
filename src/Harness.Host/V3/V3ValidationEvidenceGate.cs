@@ -4,6 +4,8 @@ namespace Harness.Host.V3;
 
 public static class V3ValidationEvidenceGate
 {
+    public const string ContractVersion = V3MissionCompiler.ValidationMissionContractVersion;
+
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private static readonly HashSet<string> Statuses = ["PASS", "FIXED", "N_A", "FAIL"];
     private static readonly HashSet<string> EvidenceTypes =
@@ -34,6 +36,10 @@ public static class V3ValidationEvidenceGate
         var requirementExpected = report.RequirementsChecked;
         var checklistExpected = report.ChecklistTotal;
 
+        if (!string.Equals(manifest.ManifestContractVersion, ContractVersion, StringComparison.OrdinalIgnoreCase))
+        {
+            errors.Add($"manifest_contract_version:{manifest.ManifestContractVersion ?? "missing"}");
+        }
         if (manifest.Requirements.Count != requirementExpected)
         {
             errors.Add($"requirements_count:{manifest.Requirements.Count}/{requirementExpected}");
@@ -133,7 +139,7 @@ public static class V3ValidationEvidenceGate
         out V3ValidationResultManifest manifest,
         out string? error)
     {
-        manifest = new V3ValidationResultManifest("unknown", "unknown", "unknown", "unknown", [], [], [], null);
+        manifest = new V3ValidationResultManifest("unknown", "unknown", "unknown", "unknown", "unknown", [], [], [], null);
         error = null;
         var marker = output.IndexOf("POSEIDON_VALIDATION_MANIFEST", StringComparison.Ordinal);
         if (marker < 0)
@@ -208,6 +214,7 @@ public sealed record V3ValidationEvidenceGateResult(
 }
 
 public sealed record V3ValidationResultManifest(
+    string ManifestContractVersion,
     string ChecklistVersion,
     string ChecklistSha256,
     string MissionId,

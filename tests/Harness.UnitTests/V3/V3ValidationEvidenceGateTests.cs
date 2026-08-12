@@ -42,6 +42,30 @@ public sealed class V3ValidationEvidenceGateTests
     }
 
     [Fact]
+    public void MissingManifestContractVersionIsRejected()
+    {
+        var result = V3ValidationEvidenceGate.Validate(
+            Manifest(manifestContractVersion: null),
+            Report(),
+            uiRequired: true);
+
+        Assert.False(result.Accepted);
+        Assert.Contains("manifest_contract_version:missing", result.Reason);
+    }
+
+    [Fact]
+    public void WrongManifestContractVersionIsRejected()
+    {
+        var result = V3ValidationEvidenceGate.Validate(
+            Manifest(manifestContractVersion: "v3.validation.1"),
+            Report(),
+            uiRequired: true);
+
+        Assert.False(result.Accepted);
+        Assert.Contains("manifest_contract_version:v3.validation.1", result.Reason);
+    }
+
+    [Fact]
     public void DuplicateChecklistItemIsRejected()
     {
         var result = V3ValidationEvidenceGate.Validate(
@@ -133,7 +157,8 @@ public sealed class V3ValidationEvidenceGateTests
         string secondStatus = "PASS",
         string? secondNotes = "verified",
         bool browser = true,
-        bool handoff = true)
+        bool handoff = true,
+        string? manifestContractVersion = V3ValidationEvidenceGate.ContractVersion)
     {
         checkIds ??= ["Q001", "Q002"];
         var checklist = string.Join(
@@ -162,6 +187,7 @@ public sealed class V3ValidationEvidenceGateTests
         return $$"""
         POSEIDON_VALIDATION_MANIFEST
         {
+          {{(manifestContractVersion is null ? "" : $"\"manifestContractVersion\":\"{manifestContractVersion}\",")}}
           "checklistVersion":"test",
           "checklistSha256":"sha256:test",
           "missionId":"m",

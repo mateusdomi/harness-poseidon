@@ -655,6 +655,42 @@ public sealed class V3BuildRuntimeTests : IDisposable
     }
 
     [Fact]
+    public async Task ValidationContractV2RejectsSummaryOnlyEvidence()
+    {
+        var repo = CreateGitRepository();
+        var fake = new FakeBuildExecutor(new FakeOutcome("""
+            RequirementsChecked: 1
+            RequirementsPassed: 1
+            RequirementsFailed: 0
+            ChecklistTotal: 2
+            ChecklistPass: 2
+            ChecklistFixed: 0
+            ChecklistNA: 0
+            ChecklistFail: 0
+            BrowserTestsPassed: 1
+            BrowserTestsFailed: 0
+            BrowserTestsSkipped: 0
+            BugsFound: 0
+            BugsFixed: 0
+            BugsRemaining: 0
+            POSEIDON_VALIDATION_COMPLETE
+            """));
+        var (service, understand) = Runtime(fake);
+        var (state, mission, accounts) = ArrangeValidationProject(repo);
+        mission = mission with { MissionContractVersion = V3MissionCompiler.ValidationMissionContractVersion };
+
+        var result = await service.DispatchAsync(Command(state, mission, accounts), CancellationToken.None);
+
+        Assert.NotNull(result.Execution);
+        Assert.Equal("BLOCKED", result.Execution!.Status);
+        Assert.Equal("validation_evidence_rejected", result.Execution.LastFailureCode);
+        Assert.Contains(result.Execution.Events, item =>
+            item.Type == "VALIDATION_EVIDENCE_REJECTED" &&
+            item.Detail.Contains("validation_manifest_missing", StringComparison.Ordinal));
+        Assert.Equal("VALIDATING", understand.ReadProject(state.ProjectId)!.LifecycleState);
+    }
+
+    [Fact]
     public async Task ValidationCompletionWithBlockingFailuresDoesNotReachHumanAcceptance()
     {
         var repo = CreateGitRepository();

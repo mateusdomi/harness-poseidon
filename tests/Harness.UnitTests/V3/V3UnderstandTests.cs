@@ -361,6 +361,9 @@ public sealed class V3UnderstandTests : IDisposable
             reference.Path == "docs/product/checklist-auto-auditoria-ia.md" &&
             File.Exists(reference.ReadablePath));
         Assert.Contains("BROWSER-FIRST POLICY", validation.MissionText, StringComparison.Ordinal);
+        Assert.Equal("v3.validation.2", validation.MissionContractVersion);
+        Assert.Contains("MissionContractVersion: v3.validation.2", validation.MissionText, StringComparison.Ordinal);
+        Assert.Contains("\"manifestContractVersion\": \"v3.validation.2\"", validation.MissionText, StringComparison.Ordinal);
         Assert.Contains("POSEIDON_VALIDATION_COMPLETE", validation.MissionText, StringComparison.Ordinal);
     }
 

@@ -1697,6 +1697,7 @@ public static class V3MissionContextMaterializer
 public static class V3MissionCompiler
 {
     public const string BuildMissionContractVersion = "v3.1";
+    public const string ValidationMissionContractVersion = "v3.validation.2";
 
     private static readonly JsonSerializerOptions MissionPlanJson = new(JsonSerializerDefaults.Web)
     {
@@ -1768,7 +1769,7 @@ public static class V3MissionCompiler
             executor)
         {
             PrimaryRequirementsCoverage = context.PrimaryRequirementsCoverage,
-            MissionContractVersion = "v3.validation.2",
+            MissionContractVersion = ValidationMissionContractVersion,
         };
     }
 
@@ -2281,8 +2282,9 @@ public static class V3MissionCompiler
             "- BugsRemaining: <n>",
             "",
             "## STRUCTURED VALIDATION MANIFEST REQUIRED",
+            $"- MissionContractVersion: {ValidationMissionContractVersion}",
             "- Antes do marcador final, publique um bloco `POSEIDON_VALIDATION_MANIFEST` com JSON válido.",
-            "- O JSON precisa conter: checklistVersion, checklistSha256, missionId, executionId, requirements[], checklist[], browserRuns[], handoffReadiness.",
+            $"- O JSON precisa conter: manifestContractVersion=\"{ValidationMissionContractVersion}\", checklistVersion, checklistSha256, missionId, executionId, requirements[], checklist[], browserRuns[], handoffReadiness.",
             "- requirements[] precisa ter um item por critério/requisito verificado, com requirementId, status, evidenceReference e notes.",
             "- checklist[] precisa ter um item por check do checklist usado, com checkId, status, evidenceType, evidenceReference, notes e executedAt.",
             "- Status permitidos: PASS, FIXED, N_A, FAIL.",
@@ -2294,7 +2296,7 @@ public static class V3MissionCompiler
             "- Exemplo mínimo de cabeçalho:",
             "```text",
             "POSEIDON_VALIDATION_MANIFEST",
-            "{ \"checklistVersion\": \"checklist-auto-auditoria-ia\", \"checklistSha256\": \"...\", \"missionId\": \"...\", \"executionId\": \"...\", \"requirements\": [], \"checklist\": [], \"browserRuns\": [], \"handoffReadiness\": null }",
+            "{ \"manifestContractVersion\": \"v3.validation.2\", \"checklistVersion\": \"checklist-auto-auditoria-ia\", \"checklistSha256\": \"...\", \"missionId\": \"...\", \"executionId\": \"...\", \"requirements\": [], \"checklist\": [], \"browserRuns\": [], \"handoffReadiness\": null }",
             "```",
             "",
             "## MACHINE-READABLE EXIT CONTRACT",
