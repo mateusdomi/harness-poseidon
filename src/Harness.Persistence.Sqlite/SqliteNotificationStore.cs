@@ -17,13 +17,15 @@ public sealed class SqliteNotificationStore(SqliteWriteDispatcher dispatcher) : 
     private static readonly HashSet<string> Themes = ["dark", "light", "system"];
     private readonly SqliteWriteDispatcher _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
 
-    public Task<IReadOnlyList<NotificationRecord>> ListAsync(string tenantId, string profileId, string? afterId, int limit, CancellationToken cancellationToken = default) =>
+    public Task<IReadOnlyList<NotificationRecord>> ListAsync(string tenantId, string profileId, string? afterId, int limit, string? status = null, CancellationToken cancellationToken = default) =>
         _dispatcher.ExecuteAsync<IReadOnlyList<NotificationRecord>>(async (connection, token) =>
         {
             var values = new List<NotificationRecord>();
             await using var query = connection.CreateCommand();
-            query.CommandText = $"{NotificationSelect} WHERE tenant_id=$tenant AND profile_id=$profile AND ($after IS NULL OR id>$after) ORDER BY id LIMIT $limit;";
+            var statusFilter = status is "unread" or "read" or "muted" ? "AND status=$status" : string.Empty;
+            query.CommandText = $"{NotificationSelect} WHERE tenant_id=$tenant AND profile_id=$profile AND ($after IS NULL OR id>$after) {statusFilter} ORDER BY id LIMIT $limit;";
             Add(query, "$tenant", tenantId); Add(query, "$profile", profileId); AddNullable(query, "$after", afterId); Add(query, "$limit", limit);
+            if (statusFilter.Length > 0) Add(query, "$status", status!);
             await using var reader = await query.ExecuteReaderAsync(token);
             while (await reader.ReadAsync(token)) values.Add(ReadNotification(reader));
             return values;

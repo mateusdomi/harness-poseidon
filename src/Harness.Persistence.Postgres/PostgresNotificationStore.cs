@@ -31,15 +31,18 @@ public sealed class PostgresNotificationStore(NpgsqlDataSource dataSource) : INo
         string profileId,
         string? afterId,
         int limit,
+        string? status = null,
         CancellationToken cancellationToken = default)
     {
         var values = new List<NotificationRecord>();
+        var statusFilter = status is "unread" or "read" or "muted" ? "AND status=$5" : string.Empty;
         await using var query = _dataSource.CreateCommand(
-            $"{NotificationSelect} WHERE tenant_id=$1 AND profile_id=$2 AND ($3::text IS NULL OR id>$3) ORDER BY id LIMIT $4;");
+            $"{NotificationSelect} WHERE tenant_id=$1 AND profile_id=$2 AND ($3::text IS NULL OR id>$3) {statusFilter} ORDER BY id LIMIT $4;");
         query.Parameters.Add(Text(tenantId));
         query.Parameters.Add(Text(profileId));
         query.Parameters.Add(NullableText(afterId));
         query.Parameters.Add(Integer(limit));
+        if (statusFilter.Length > 0) query.Parameters.Add(Text(status!));
         await using var reader = await query.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {

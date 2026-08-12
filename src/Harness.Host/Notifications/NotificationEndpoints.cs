@@ -24,11 +24,11 @@ public static class NotificationEndpoints
         return endpoints;
     }
 
-    private static async Task<IResult> ListAsync(string? profileId, string? cursor, int? limit, HttpRequest request, ILocalProfileStore profiles, INotificationStore store, CancellationToken token)
+    private static async Task<IResult> ListAsync(string? profileId, string? cursor, int? limit, string? status, HttpRequest request, ILocalProfileStore profiles, INotificationStore store, CancellationToken token)
     {
         var session = await SessionAsync(request, profiles, token); if (session is null) return Unauthorized();
-        if (!Owned(profileId, session.Id) || cursor is not null && !UlidValue.TryParse(cursor, out _) || limit is < 1 or > 200) return Invalid("invalid_notification_query", "Notification query is invalid.");
-        var size = limit ?? 50; var rows = await store.ListAsync(session.TenantId, session.Id, cursor, size + 1, token); var items = rows.Take(size).Select(ToContract).ToArray();
+        if (!Owned(profileId, session.Id) || cursor is not null && !UlidValue.TryParse(cursor, out _) || limit is < 1 or > 200 || status is not null && status is not ("unread" or "read" or "muted")) return Invalid("invalid_notification_query", "Notification query is invalid.");
+        var size = limit ?? 50; var rows = await store.ListAsync(session.TenantId, session.Id, cursor, size + 1, status, token); var items = rows.Take(size).Select(ToContract).ToArray();
         return Results.Ok(new NotificationPage(items, rows.Count > size ? items[^1].Id : null));
     }
 

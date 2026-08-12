@@ -2,7 +2,7 @@ namespace Harness.Persistence.Abstractions.Notifications;
 
 public interface INotificationStore
 {
-    Task<IReadOnlyList<NotificationRecord>> ListAsync(string tenantId, string profileId, string? afterId, int limit, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<NotificationRecord>> ListAsync(string tenantId, string profileId, string? afterId, int limit, string? status = null, CancellationToken cancellationToken = default);
     Task<NotificationRecord?> GetAsync(string tenantId, string profileId, string id, CancellationToken cancellationToken = default);
     Task<NotificationRecord> CreateAsync(NotificationCreateCommand command, CancellationToken cancellationToken = default);
     Task<int> SetStatusAsync(NotificationStatusCommand command, CancellationToken cancellationToken = default);
