@@ -367,8 +367,10 @@ public static class V3ValidationEvidenceGate
         string? repository)
     {
         if (string.IsNullOrWhiteSpace(repository)) return null;
-        foreach (var reference in manifest.Checklist.Select(item => item.EvidenceReference)
-                     .Concat(manifest.Requirements.Select(item => item.EvidenceReference)))
+        var checklist = manifest.Checklist ?? [];
+        var requirements = manifest.Requirements ?? [];
+        foreach (var reference in checklist.Select(item => item.EvidenceReference)
+                     .Concat(requirements.Select(item => item.EvidenceReference)))
         {
             if (string.IsNullOrWhiteSpace(reference) ||
                 !reference.Contains(".json", StringComparison.OrdinalIgnoreCase))
