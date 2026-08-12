@@ -425,7 +425,12 @@ public sealed class V3BuildRuntimeService(
                     "Startup recovery found a persisted RUNNING execution without a live process. It was reconciled as STALLED to avoid phantom RUNNING state during Host boot."),
             };
             store.WriteExecution(stalled);
-            UpdateLifecycle(state, "BLOCKED", "RECOVERY_STALLED");
+            UpdateLifecycle(
+                state,
+                execution.MissionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase)
+                    ? "VALIDATING"
+                    : "BLOCKED",
+                "RECOVERY_STALLED");
             recovered.Add(stalled);
         }
 
@@ -585,11 +590,19 @@ public sealed class V3BuildRuntimeService(
                             : $"{MissionPrefix(mission)}_STALLED",
                         active.Alias,
                         "Execution exceeded the bounded continuation budget without a completion marker."),
-                };
-                store.WriteExecution(execution);
-                if (state is not null) UpdateLifecycle(state, "BLOCKED", "CONTINUATION_BUDGET_EXHAUSTED");
-                return new V3BuildRuntimeResult(execution, null);
-            }
+                    };
+                    store.WriteExecution(execution);
+                    if (state is not null)
+                    {
+                        UpdateLifecycle(
+                            state,
+                            providerPaused && mission.MissionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase)
+                                ? "VALIDATING"
+                                : "BLOCKED",
+                            providerPaused ? "PROVIDER_TRANSPORT_TRANSIENT" : "CONTINUATION_BUDGET_EXHAUSTED");
+                    }
+                    return new V3BuildRuntimeResult(execution, null);
+                }
 
             var prompt = continuationPrompt ?? (execution.ContinueCount == 0
                 ? BuildInitialPrompt(mission)
@@ -696,7 +709,15 @@ public sealed class V3BuildRuntimeService(
                             "Provider transport/transient failure exceeded the bounded retry/failover budget."),
                     };
                     store.WriteExecution(execution);
-                    if (state is not null) UpdateLifecycle(state, "BLOCKED", "PROVIDER_TRANSPORT_TRANSIENT");
+                    if (state is not null)
+                    {
+                        UpdateLifecycle(
+                            state,
+                            mission.MissionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase)
+                                ? "VALIDATING"
+                                : "BLOCKED",
+                            "PROVIDER_TRANSPORT_TRANSIENT");
+                    }
                     return new V3BuildRuntimeResult(execution, null);
                 }
 
@@ -766,7 +787,15 @@ public sealed class V3BuildRuntimeService(
                         "Persistent provider transport/transient failure; no alternate executor available."),
                 };
                 store.WriteExecution(execution);
-                if (state is not null) UpdateLifecycle(state, "BLOCKED", "PROVIDER_TRANSPORT_TRANSIENT");
+                if (state is not null)
+                {
+                    UpdateLifecycle(
+                        state,
+                        mission.MissionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase)
+                            ? "VALIDATING"
+                            : "BLOCKED",
+                        "PROVIDER_TRANSPORT_TRANSIENT");
+                }
                 return new V3BuildRuntimeResult(execution, null);
             }
 

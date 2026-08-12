@@ -304,6 +304,55 @@ public sealed class V3BuildRuntimeTests : IDisposable
     }
 
     [Fact]
+    public async Task StartupRecoveryForValidationKeepsProjectInValidatingForCleanRetry()
+    {
+        var repo = CreateGitRepository();
+        var fake = new FakeBuildExecutor(new FakeOutcome("não deveria rodar"));
+        var (service, understand) = Runtime(fake);
+        var (state, mission, _) = ArrangeProject(repo);
+        var validatingState = state with { LifecycleState = "VALIDATING", Status = "BUILD_COMPLETED" };
+        var validationMission = mission with { MissionType = "VALIDATE" };
+        understand.WriteProject(validatingState);
+        understand.WriteMission(validationMission);
+        var stale = new V3BuildExecutionRecord(
+            "01K00000000000000000000020",
+            validationMission.MissionId,
+            state.ProjectId,
+            "VALIDATE",
+            "worker-codex-critic",
+            "openai",
+            "RUNNING",
+            _clock.UtcNow,
+            _clock.UtcNow,
+            null,
+            V3GitSnapshot.Capture(repo).Head,
+            V3GitSnapshot.Capture(repo).Head,
+            V3GitSnapshot.Capture(repo).CommitCount,
+            0,
+            "session",
+            0,
+            0,
+            "última saída",
+            null,
+            null,
+            null,
+            [],
+            []);
+        new V3BuildRuntimeStore(_directory).WriteExecution(stale);
+
+        var recovered = await service.RecoverRunningExecutionsAsync(
+            [Account("worker-codex-critic", priority: 1, executorId: ExecutorCatalog.Codex, provider: "openai")],
+            CancellationToken.None);
+
+        Assert.Single(recovered);
+        Assert.Equal("STALLED", recovered[0].Status);
+        Assert.Equal("VALIDATING", understand.ReadProject(state.ProjectId)!.LifecycleState);
+        Assert.Equal("RECOVERY_STALLED", understand.ReadProject(state.ProjectId)!.Status);
+        Assert.Empty(fake.Calls);
+        Assert.Contains(recovered[0].Events, item => item.Type == "BUILD_RECOVERY_STALLED");
+    }
+
+    [Fact]
     public async Task RecoveryResumeContinuesOrphanRunningExecution()
     {
         var repo = CreateGitRepository();
