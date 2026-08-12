@@ -211,6 +211,52 @@ public sealed class V3ValidationEvidenceGateTests
     }
 
     [Fact]
+    public void ChecklistArtifactEvidenceReferenceExpandsCanonicalManifest()
+    {
+        var repository = Path.Combine(Path.GetTempPath(), $"poseidon-validation-gate-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(Path.Combine(repository, "docs"));
+        try
+        {
+            File.WriteAllText(Path.Combine(repository, "docs", "manifest.json"), FullManifestJson());
+            var output = """
+            POSEIDON_VALIDATION_MANIFEST
+            {
+              "manifestContractVersion":"v3.validation.2",
+              "checklistVersion":"test",
+              "checklistSha256":"sha256:test",
+              "missionId":"m",
+              "executionId":"e",
+              "requirements":[
+                {"requirementId":"AC01","status":"PASS","evidenceReference":"run#1","notes":"ok"},
+                {"requirementId":"AC02","status":"PASS","evidenceReference":"run#1","notes":"ok"}
+              ],
+              "checklist":[{"checkId":"1-2","status":"PASS","evidenceType":"manifest-artifact","evidenceReference":"docs/manifest.json#checklist","notes":"Full checklist is in canonical manifest.","executedAt":"2026-08-12T00:00:00Z"}],
+              "browserRuns":[{"runner":"playwright","startedAt":"2026-08-12T00:00:00Z","completedAt":"2026-08-12T00:01:00Z","exitCode":0,"baseUrl":"http://localhost:5000","viewports":["desktop"],"testFiles":["e2e.spec.ts"],"passed":1,"failed":0,"skipped":0,"consoleErrors":0,"networkErrors":0}],
+              "handoffReadiness":{"applicationUrl":"http://localhost:5000","runtimeReachable":true,"healthPass":true,"cleanAcceptanceEnvironment":true,"accessInformationCaptured":true,"testCredentialsCapturedWhenApplicable":true}
+            }
+            POSEIDON_VALIDATION_COMPLETE
+            """;
+
+            var result = V3ValidationEvidenceGate.Validate(
+                output,
+                Report(),
+                uiRequired: true,
+                repository: repository,
+                expectedMissionId: "m",
+                expectedExecutionId: "e");
+
+            Assert.True(result.Accepted, result.Reason);
+        }
+        finally
+        {
+            if (Directory.Exists(repository))
+            {
+                Directory.Delete(repository, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public void DuplicateChecklistItemIsRejected()
     {
         var result = V3ValidationEvidenceGate.Validate(

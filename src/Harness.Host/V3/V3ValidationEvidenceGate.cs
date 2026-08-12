@@ -34,6 +34,7 @@ public static class V3ValidationEvidenceGate
         {
             return V3ValidationEvidenceGateResult.Invalid(parseError ?? "validation_manifest_missing");
         }
+        manifest = ExpandReferencedManifestIfPresent(manifest, repository) ?? manifest;
 
         var errors = new List<string>();
         var requirementExpected = report.RequirementsChecked;
@@ -359,6 +360,52 @@ public static class V3ValidationEvidenceGate
                string.Equals(candidate, repositoryRoot, StringComparison.Ordinal)
             ? candidate
             : null;
+    }
+
+    private static V3ValidationResultManifest? ExpandReferencedManifestIfPresent(
+        V3ValidationResultManifest manifest,
+        string? repository)
+    {
+        if (string.IsNullOrWhiteSpace(repository)) return null;
+        foreach (var reference in manifest.Checklist.Select(item => item.EvidenceReference)
+                     .Concat(manifest.Requirements.Select(item => item.EvidenceReference)))
+        {
+            if (string.IsNullOrWhiteSpace(reference) ||
+                !reference.Contains(".json", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var path = ResolveReferencePath(repository, reference);
+            if (path is null || !File.Exists(path)) continue;
+            try
+            {
+                var candidate = JsonSerializer.Deserialize<V3ValidationResultManifest>(
+                    File.ReadAllText(path),
+                    Json);
+                if (candidate is not null &&
+                    string.Equals(candidate.ManifestContractVersion, manifest.ManifestContractVersion, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(candidate.MissionId, manifest.MissionId, StringComparison.Ordinal) &&
+                    string.Equals(candidate.ExecutionId, manifest.ExecutionId, StringComparison.Ordinal))
+                {
+                    return candidate;
+                }
+            }
+            catch (JsonException)
+            {
+                continue;
+            }
+            catch (IOException)
+            {
+                continue;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                continue;
+            }
+        }
+
+        return null;
     }
 }
 
