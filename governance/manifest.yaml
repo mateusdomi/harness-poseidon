@@ -62,6 +62,8 @@ markdownAllowlist:
   reason: Especificação do produto Prisma fornecida pelo cliente, preservada como evidência da análise de prontidão. É fonte da verdade do PRODUTO, não norma do repositório.
 - path: RELATORIO-VALIDACAO-POSEIDON.md
   reason: Relatório de auditoria das 17 fases da campanha v6, solicitado pelo dono na raiz do repositório. É registro de validação com data fechada, não norma — por isso fica no allowlist e não entre os documentos canônicos.
+- path: RELATORIO-FINAL-POSEIDON-FREEZE.md
+  reason: Relatório final de implementation freeze da missão Poseidon V3, solicitado pelo dono na raiz do repositório. É registro operacional com data fechada, não norma canônica.
 - path: docs/architecture/audits/bruna/AUDITORIA-ARQUITETURAL-BRUNA-FINAL.md
   reason: Relatório arquitetural fechado solicitado pelo dono; registra evidências do estado observado e não constitui norma canônica.
 - path: docs/architecture/audits/bruna/BRUNA-CORE-ARQUITETURA-AS-IS.md
