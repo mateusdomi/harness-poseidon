@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useQueries } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Building2 } from 'lucide-react';
@@ -22,6 +23,7 @@ import {
   useProjects,
   useUpdateProject,
 } from '@/features/projects/hooks/use-projects';
+import { v3UnderstandKeys } from '@/features/projects/hooks/use-v3-understand';
 import { deriveProjectOperationalSummary } from '@/features/projects/lib/project-operational';
 
 type View = { kind: 'list' } | { kind: 'create' } | { kind: 'edit'; project: Project };
@@ -54,6 +56,13 @@ export default function ProjectsPage() {
   const [view, setView] = useState<View>({ kind: 'list' });
   const editingProjectId = view.kind === 'edit' ? view.project.id : null;
   const startedQuery = useProjectStarted(editingProjectId);
+  const projectV3Contexts = useQueries({
+    queries: (projectsQuery.data ?? []).map((project) => ({
+      queryKey: v3UnderstandKeys.context(project.id),
+      queryFn: () => api.getV3ProjectContext(project.id),
+      staleTime: 15_000,
+    })),
+  });
 
   // Deep link `?new=1&org=<id>` (golden path / retorno da criação de org).
   const wantsCreate = searchParams.get('new') === '1';
@@ -141,24 +150,32 @@ export default function ProjectsPage() {
     projectsQuery.isLoading ||
     organizationsQuery.isLoading ||
     operationalQuery.isLoading ||
-    workflowCatalogQuery.isLoading;
+    workflowCatalogQuery.isLoading ||
+    projectV3Contexts.some((query) => query.isLoading);
   const errored =
     projectsQuery.isError ||
     organizationsQuery.isError ||
     operationalQuery.isError ||
-    workflowCatalogQuery.isError;
+    workflowCatalogQuery.isError ||
+    projectV3Contexts.some((query) => query.isError);
   const hasOrganizations = organizations.length > 0;
   const breadcrumbBase = { label: t('features.projects.title'), to: '/projects' };
   const operationalByProject = useMemo(() => {
     const data = operationalQuery.data;
     if (!data) return new Map<string, ReturnType<typeof deriveProjectOperationalSummary>>();
+    const v3ByProject = new Map(
+      projectV3Contexts
+        .map((query) => query.data)
+        .filter((value): value is NonNullable<typeof value> => value != null)
+        .map((context) => [context.projectId, context]),
+    );
     return new Map(
       (projectsQuery.data ?? []).map((project) => [
         project.id,
-        deriveProjectOperationalSummary(project, data),
+        deriveProjectOperationalSummary(project, data, v3ByProject.get(project.id) ?? null),
       ]),
     );
-  }, [operationalQuery.data, projectsQuery.data]);
+  }, [operationalQuery.data, projectV3Contexts, projectsQuery.data]);
 
   function retry() {
     void projectsQuery.refetch();

@@ -4,6 +4,7 @@ import type { Project } from '@/api';
 import { usePresentationMode } from '@/app/presentation';
 import { Badge } from '@/design-system';
 import type { ProjectOperationalSummary } from '@/features/projects/lib/project-operational';
+import { V3_LIFECYCLE_MACROS, v3LifecycleMacroIndex } from '@/features/projects/lib/v3-lifecycle';
 import { formatRelativeTime } from '@/lib/format';
 import { priorityVariant, projectStateVariant } from '@/lib/status';
 
@@ -69,7 +70,8 @@ export function ProjectCard({
       <span className="grid gap-2 text-xs md:grid-cols-2">
         <span>
           <strong>{t('projects.card.lifecycle')}:</strong>{' '}
-          {t(`projects.card.lifecycleStates.${operational?.lifecycleState ?? 'understand'}`)}
+          {operational?.lifecycleLabel ?? t('projects.card.lifecycleStates.understand')}
+          {operational?.lifecycleStatus ? ` · ${operational.lifecycleStatus}` : ''}
         </span>
         <span>
           <strong>{t('projects.card.responsible')}:</strong>{' '}
@@ -112,22 +114,15 @@ function LifecycleSegments({
 }: {
   current: NonNullable<ProjectOperationalSummary['lifecycleState']>;
 }) {
-  const { t } = useTranslation();
-  const order: Array<ProjectOperationalSummary['lifecycleState']> = [
-    'understand',
-    'build',
-    'validate',
-    'acceptance',
-  ];
-  const currentIndex = order.indexOf(current);
+  const currentIndex = v3LifecycleMacroIndex(current);
   return (
     <span className="grid grid-cols-2 gap-1 text-[11px] md:grid-cols-4">
-      {order.map((state, index) => {
+      {V3_LIFECYCLE_MACROS.map((state, index) => {
         const done = index < currentIndex;
         const active = index === currentIndex;
         return (
           <span
-            key={state}
+            key={state.id}
             className={
               done
                 ? 'rounded bg-success/15 px-2 py-1 text-success'
@@ -137,7 +132,7 @@ function LifecycleSegments({
             }
           >
             {done ? '✓ ' : active ? '● ' : '○ '}
-            {t(`projects.card.lifecycleShort.${state}`)}
+            {state.label}
           </span>
         );
       })}

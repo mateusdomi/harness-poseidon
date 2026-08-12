@@ -12,6 +12,8 @@ import {
 
 import { formatDate, formatDateTime, formatUsd } from '../lib/format';
 import { attentionSignalLabel } from '../lib/attention-signal';
+import { useV3ProjectContext } from '@/features/projects/hooks/use-v3-understand';
+import { projectV3Lifecycle } from '@/features/projects/lib/v3-lifecycle';
 import {
   useDeliveryTraceability,
   useForecast,
@@ -169,6 +171,7 @@ export function DeliveryOverview({ deliveryId }: { deliveryId: string }) {
   const metricsQuery = useMetrics(deliveryId);
   const recalc = useRecalcForecast(deliveryId);
   const traceQuery = useDeliveryTraceability(overviewQuery.data?.projectId ?? null);
+  const v3Context = useV3ProjectContext(overviewQuery.data?.projectId ?? null);
 
   if (overviewQuery.isLoading) {
     return <Skeleton className="h-96 w-full" />;
@@ -195,6 +198,9 @@ export function DeliveryOverview({ deliveryId }: { deliveryId: string }) {
     trace?.phases.find((phase) => phase.state === 'active') ??
     [...(trace?.phases ?? [])].sort((a, b) => b.order - a.order).find((phase) => phase.state === 'completed') ??
     null;
+  const v3Lifecycle = v3Context.data?.currentLifecycleState
+    ? projectV3Lifecycle(v3Context.data.currentLifecycleState)
+    : null;
   const relatedTasks = [...(trace?.tasks ?? [])].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const evidenceAttempts = [...(trace?.attempts ?? [])]
     .filter((attempt) => attempt.summary || attempt.commitRefs.length > 0 || attempt.failureReason)
@@ -268,8 +274,14 @@ export function DeliveryOverview({ deliveryId }: { deliveryId: string }) {
           ) : (
             <dl className="grid gap-3 md:grid-cols-3">
               <Stat label={t('delivery.overview.trace.objective')} value={trace.project.description || '—'} />
-              <Stat label={t('delivery.overview.trace.phase')} value={activePhase?.name ?? t('delivery.overview.trace.noPhase')} />
-              <Stat label={t('delivery.overview.trace.workflow')} value={trace.workflow ? t('delivery.overview.trace.linked') : t('delivery.overview.trace.notLinked')} />
+              <Stat
+                label={v3Lifecycle ? t('delivery.overview.trace.lifecycle') : t('delivery.overview.trace.phase')}
+                value={v3Lifecycle ? `${v3Lifecycle.macroLabel} · ${v3Lifecycle.statusLabel}` : activePhase?.name ?? t('delivery.overview.trace.noPhase')}
+              />
+              <Stat
+                label={t('delivery.overview.trace.workflow')}
+                value={v3Lifecycle ? t('delivery.overview.trace.v3Runtime') : trace.workflow ? t('delivery.overview.trace.linked') : t('delivery.overview.trace.notLinked')}
+              />
             </dl>
           )}
         </CardContent>

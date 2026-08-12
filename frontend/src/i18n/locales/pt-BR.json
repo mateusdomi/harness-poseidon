@@ -1492,7 +1492,8 @@
         "build": "Desenvolvimento",
         "validate": "Validação",
         "humanAcceptance": "Aceite Humano",
-        "readyForHumanAcceptance": "Pronto para homologação humana"
+        "readyForHumanAcceptance": "Pronto para homologação humana",
+        "handoffReady": "O produto está no estado de aceite humano. Abra a Central de Entregas para URL, validação e instruções de homologação."
       },
       "phaseProgress": "Progresso da etapa {{phase}}",
       "documentsLabel": "Documentos da etapa {{phase}}",
@@ -1537,6 +1538,8 @@
       "progress": "{{percent}}% do trabalho desta etapa concluído",
       "deliveries": "Entregas",
       "noDeliveries": "Nenhuma entrega publicada nesta etapa ainda.",
+      "validation": "Validação",
+      "acceptanceCriteria": "Critérios de aceite",
       "pending": "Pendências",
       "humanDecisions": "Decisões que precisam de você",
       "blockers": "Impedimentos",

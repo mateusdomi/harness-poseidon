@@ -148,7 +148,8 @@ export type V3EffectiveStack = z.infer<typeof v3EffectiveStackSchema>;
 
 export const v3SourceCoverageSchema = z.object({
   artifactId: z.string(),
-  fileName: z.string(),
+  name: z.string().optional(),
+  fileName: z.string().optional(),
   role: z.string(),
   totalSections: z.number().int(),
   consumedSections: z.number().int(),

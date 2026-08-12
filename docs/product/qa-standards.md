@@ -82,6 +82,18 @@ O aceite do usuário é momento próprio, com roteiro derivado dos critérios de
 O que o UAT encontra vira finding rastreado com o critério violado citado; "não gostei" sem
 critério é feedback de produto, e entra como requisito/decisão nova.
 
+Antes de entregar um produto Web para UAT, a validação precisa produzir um handoff auditável:
+
+- URL da aplicação e health/status verificados no ambiente de homologação local/controlado;
+- credenciais de teste classificadas como `TEST_ONLY` quando autenticação existir;
+- dados criados pelo validador limpos ou explicitamente preservados como seed intencional;
+- ambiente compartilhado/real nunca sofre reset automático; remover apenas dados de teste com
+  ownership claro;
+- credenciais e senhas de teste não devem ficar expostas na tela final de login, salvo requisito
+  explícito de demonstração pública;
+- checklist e critérios de aceite precisam de resultados individuais com referência de evidência,
+  não apenas totais agregados.
+
 ## 8. Toolchain local de navegador
 
 Executores devem assumir que a máquina de desenvolvimento pode ter browsers e ferramentas E2E

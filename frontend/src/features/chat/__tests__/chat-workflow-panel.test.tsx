@@ -234,7 +234,8 @@ describe('WorkflowPanel', () => {
     });
     renderPanel(bundle);
 
-    expect(await screen.findByText('Pronto para homologação humana')).toBeInTheDocument();
+    expect(await screen.findByText('Pronto para homologação')).toBeInTheDocument();
+    expect(screen.getByText(/estado de aceite humano/i)).toBeInTheDocument();
     expect(screen.queryByText('Homologado')).toBeNull();
   });
 
@@ -302,8 +303,9 @@ describe('ChatPage — painel de workflow responsivo', () => {
     expect(
       await within(aside).findByRole('list', { name: 'Lifecycle V3 do projeto' }),
     ).toBeInTheDocument();
-    expect(within(aside).getByText('Entendimento')).toBeInTheDocument();
-    expect(within(aside).getByText('Desenvolvimento')).toBeInTheDocument();
+    const lifecycle = within(aside).getByRole('list', { name: 'Lifecycle V3 do projeto' });
+    expect(within(lifecycle).getByText('Entendimento')).toBeInTheDocument();
+    expect(within(lifecycle).getByText('Desenvolvimento')).toBeInTheDocument();
     expect(within(aside).queryByText(/gate/i)).not.toBeInTheDocument();
 
     // Recolhe e reabre pelo toggle (estado persistido na ui-store).
@@ -354,6 +356,7 @@ describe('ChatPage — painel de workflow responsivo', () => {
     expect(
       await within(aside).findByRole('list', { name: 'Lifecycle V3 do projeto' }),
     ).toBeInTheDocument();
-    expect(within(aside).getByText('Validação')).toBeInTheDocument();
+    const lifecycle = within(aside).getByRole('list', { name: 'Lifecycle V3 do projeto' });
+    expect(within(lifecycle).getByText('Validação')).toBeInTheDocument();
   });
 });

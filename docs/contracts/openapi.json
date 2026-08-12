@@ -385,6 +385,75 @@
                 }
             }
         },
+        "/api/v1/v3/projects/{projectId}/handoff/reconcile": {
+            "post": {
+                "tags": [
+                    "v3-delivery-handoff"
+                ],
+                "parameters": [
+                    {
+                        "name": "projectId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/V3DeliveryHandoffRecord"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/agent-accounts/doctor": {
             "get": {
                 "tags": [
@@ -34402,6 +34471,81 @@
                     }
                 }
             },
+            "ProductAccessInfo": {
+                "required": [
+                    "applicationUrl",
+                    "apiUrl",
+                    "swaggerUrl",
+                    "healthUrl",
+                    "startCommand",
+                    "stopCommand",
+                    "statusCommand",
+                    "testAccounts",
+                    "runtimeStatus",
+                    "lastVerifiedAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "applicationUrl": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "apiUrl": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "swaggerUrl": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "healthUrl": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "startCommand": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "stopCommand": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "statusCommand": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "testAccounts": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/TestAccountInfo"
+                        }
+                    },
+                    "runtimeStatus": {
+                        "type": "string"
+                    },
+                    "lastVerifiedAt": {
+                        "type": [
+                            "null",
+                            "string"
+                        ],
+                        "format": "date-time"
+                    }
+                }
+            },
             "ProductDiagnostic": {
                 "required": [
                     "name",
@@ -38297,6 +38441,39 @@
                     }
                 }
             },
+            "TestAccountInfo": {
+                "required": [
+                    "role",
+                    "username",
+                    "password",
+                    "classification",
+                    "notes"
+                ],
+                "type": "object",
+                "properties": {
+                    "role": {
+                        "type": "string"
+                    },
+                    "username": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "classification": {
+                        "type": "string"
+                    },
+                    "notes": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                }
+            },
             "ToolContract": {
                 "required": [
                     "id",
@@ -39548,6 +39725,53 @@
                             "null",
                             "string"
                         ]
+                    }
+                }
+            },
+            "V3DeliveryHandoffRecord": {
+                "required": [
+                    "projectId",
+                    "validationExecutionId",
+                    "validationMissionId",
+                    "deliveredHead",
+                    "conversationId",
+                    "conversationMessageId",
+                    "notificationId",
+                    "productAccess",
+                    "createdAt"
+                ],
+                "type": "object",
+                "properties": {
+                    "projectId": {
+                        "type": "string"
+                    },
+                    "validationExecutionId": {
+                        "type": "string"
+                    },
+                    "validationMissionId": {
+                        "type": "string"
+                    },
+                    "deliveredHead": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "conversationId": {
+                        "type": "string"
+                    },
+                    "conversationMessageId": {
+                        "type": "string"
+                    },
+                    "notificationId": {
+                        "type": "string"
+                    },
+                    "productAccess": {
+                        "$ref": "#/components/schemas/ProductAccessInfo"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
                     }
                 }
             },
@@ -41592,6 +41816,9 @@
         },
         {
             "name": "v3-build-runtime"
+        },
+        {
+            "name": "v3-delivery-handoff"
         },
         {
             "name": "agent-runs"

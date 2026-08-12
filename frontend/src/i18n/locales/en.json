@@ -1489,10 +1489,11 @@
       "v3Lifecycle": {
         "label": "Project V3 lifecycle",
         "understand": "Understand",
-        "build": "Build",
-        "validate": "Validate",
-        "humanAcceptance": "Human Acceptance",
-        "readyForHumanAcceptance": "Ready for human acceptance"
+      "build": "Build",
+      "validate": "Validate",
+      "humanAcceptance": "Human Acceptance",
+      "readyForHumanAcceptance": "Ready for human acceptance",
+      "handoffReady": "The product is in human acceptance. Open Delivery Center for URL, validation evidence and acceptance instructions."
       },
       "phaseProgress": "Progress of stage {{phase}}",
       "documentsLabel": "Documents of stage {{phase}}",
@@ -1537,6 +1538,8 @@
       "progress": "{{percent}}% of this stage's work completed",
       "deliveries": "Deliveries",
       "noDeliveries": "No delivery has been published for this stage yet.",
+      "validation": "Validation",
+      "acceptanceCriteria": "Acceptance criteria",
       "pending": "Needs attention",
       "humanDecisions": "Decisions that need you",
       "blockers": "Blockers",

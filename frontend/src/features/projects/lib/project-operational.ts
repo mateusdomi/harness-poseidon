@@ -3,13 +3,17 @@ import type {
   Phase,
   Project,
   Task,
+  V3ProjectContext,
   Workflow,
   WorkflowRun,
 } from '@/api';
 import { resolveAgentIdentity } from '@/lib/agent-persona';
+import { projectV3Lifecycle, type V3LifecycleMacro } from './v3-lifecycle';
 
 export interface ProjectOperationalSummary {
-  lifecycleState: 'understand' | 'build' | 'validate' | 'acceptance';
+  lifecycleState: V3LifecycleMacro;
+  lifecycleLabel: string;
+  lifecycleStatus: string;
   responsibleName: string | null;
   health: 'healthy' | 'attention' | 'unavailable';
   runningExecutions: number;
@@ -27,6 +31,7 @@ export interface ProjectOperationalSource {
 export function deriveProjectOperationalSummary(
   project: Project,
   source: ProjectOperationalSource,
+  v3Context?: Pick<V3ProjectContext, 'currentLifecycleState' | 'openQuestions'> | null,
 ): ProjectOperationalSummary {
   const tasks = source.tasks.filter((task) => task.projectId === project.id);
   const workflow = source.workflows.find((item) => item.projectId === project.id) ?? null;
@@ -41,15 +46,21 @@ export function deriveProjectOperationalSummary(
   const responsible =
     source.agents.find((agent) => agent.id === project.chiefAgentId) ?? null;
   const hasAttention =
+    (v3Context?.openQuestions.length ?? 0) > 0 ||
     tasks.some((task) => task.state === 'blocked') ||
     source.agents.some(
       (agent) =>
         agent.projectId === project.id &&
         (agent.state === 'error' || agent.state === 'outOfQuota'),
     );
+  const v3Lifecycle = v3Context?.currentLifecycleState
+    ? projectV3Lifecycle(v3Context.currentLifecycleState)
+    : null;
 
   return {
-    lifecycleState: run ? 'build' : 'understand',
+    lifecycleState: v3Lifecycle?.macro ?? (run ? 'build' : 'understand'),
+    lifecycleLabel: v3Lifecycle?.macroLabel ?? (run ? 'Desenvolvimento' : 'Entendimento'),
+    lifecycleStatus: v3Lifecycle?.statusLabel ?? (run ? 'Em andamento' : 'Em entendimento'),
     responsibleName:
       responsible === null
         ? null

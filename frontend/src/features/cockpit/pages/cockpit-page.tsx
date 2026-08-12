@@ -3,6 +3,11 @@ import { Activity } from 'lucide-react';
 
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/design-system';
 import { usePresentationMode } from '@/app/presentation';
+import {
+  projectV3Lifecycle,
+  V3_LIFECYCLE_MACROS,
+  v3LifecycleMacroIndex,
+} from '@/features/projects/lib/v3-lifecycle';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 import { useV3ProjectContext } from '@/features/projects/hooks/use-v3-understand';
 import { ActivityFeed } from '@/features/cockpit/components/activity-feed';
@@ -246,39 +251,10 @@ export default function CockpitPage() {
   );
 }
 
-const V3_LIFECYCLE_STEPS = [
-  {
-    id: 'understand',
-    labelKey: 'cockpit.v3Lifecycle.steps.understand',
-    states: ['DRAFT', 'UNDERSTANDING', 'AWAITING_INPUT', 'READY_TO_START'],
-  },
-  {
-    id: 'build',
-    labelKey: 'cockpit.v3Lifecycle.steps.build',
-    states: ['BUILDING', 'PAUSED_QUOTA', 'BLOCKED'],
-  },
-  {
-    id: 'validate',
-    labelKey: 'cockpit.v3Lifecycle.steps.validate',
-    states: ['VALIDATING'],
-  },
-  {
-    id: 'humanAcceptance',
-    labelKey: 'cockpit.v3Lifecycle.steps.humanAcceptance',
-    states: ['READY_FOR_HUMAN_ACCEPTANCE', 'HUMAN_ACCEPTED'],
-  },
-] as const;
-
 function V3LifecycleOverview({ lifecycle }: { lifecycle: string | null }) {
   const { t } = useTranslation();
-  const current = lifecycle ?? 'UNDERSTANDING';
-  const activeIndex = Math.max(
-    0,
-    V3_LIFECYCLE_STEPS.findIndex((step) =>
-      step.states.some((state) => state === current),
-    ),
-  );
-  const percent = lifecycle ? V3LifecyclePercent(lifecycle) : 5;
+  const projection = projectV3Lifecycle(lifecycle);
+  const activeIndex = Math.max(0, v3LifecycleMacroIndex(projection.macro));
 
   return (
     <Card className="lg:col-span-2">
@@ -287,20 +263,17 @@ function V3LifecycleOverview({ lifecycle }: { lifecycle: string | null }) {
           <CardTitle>{t('cockpit.v3Lifecycle.title')}</CardTitle>
           <p className="text-xs text-foreground-muted">{t('cockpit.v3Lifecycle.subtitle')}</p>
         </div>
-        <div className="flex items-baseline gap-2">
-          <span className="font-heading text-3xl font-semibold tabular-nums">{percent}%</span>
-          <span className="text-xs text-foreground-muted">
-            {t('cockpit.v3Lifecycle.progress')}
-          </span>
-        </div>
+        <Badge variant={projection.badge}>
+          {projection.macroLabel} · {projection.statusLabel}
+        </Badge>
       </CardHeader>
       <CardContent>
         <ol
           aria-label={t('cockpit.v3Lifecycle.ariaLabel')}
           className="grid gap-2 md:grid-cols-2 xl:grid-cols-4"
         >
-          {V3_LIFECYCLE_STEPS.map((step, index) => {
-            const accepted = lifecycle === 'HUMAN_ACCEPTED';
+          {V3_LIFECYCLE_MACROS.map((step, index) => {
+            const accepted = projection.state === 'HUMAN_ACCEPTED';
             const done = accepted || index < activeIndex;
             const active = !accepted && index === activeIndex;
             return (
@@ -316,9 +289,9 @@ function V3LifecycleOverview({ lifecycle }: { lifecycle: string | null }) {
               >
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <span aria-hidden="true">{done ? '✓' : active ? '●' : '○'}</span>
-                  <span>{t(step.labelKey)}</span>
+                  <span>{step.label}</span>
                 </div>
-                {active && lifecycle === 'READY_FOR_HUMAN_ACCEPTANCE' ? (
+                {active && projection.state === 'READY_FOR_HUMAN_ACCEPTANCE' ? (
                   <Badge className="mt-2" variant="success">
                     {t('cockpit.v3Lifecycle.ready')}
                   </Badge>
@@ -333,34 +306,5 @@ function V3LifecycleOverview({ lifecycle }: { lifecycle: string | null }) {
 }
 
 function V3LifecycleStepLabelKey(value: string | null): string {
-  const current = value ?? 'UNDERSTANDING';
-  const step = V3_LIFECYCLE_STEPS.find((item) =>
-    item.states.some((state) => state === current),
-  );
-  return step?.labelKey ?? 'cockpit.v3Lifecycle.steps.understand';
-}
-
-function V3LifecyclePercent(value: string): number {
-  switch (value) {
-    case 'DRAFT':
-      return 0;
-    case 'UNDERSTANDING':
-      return 5;
-    case 'AWAITING_INPUT':
-      return 10;
-    case 'READY_TO_START':
-      return 15;
-    case 'BUILDING':
-    case 'PAUSED_QUOTA':
-    case 'BLOCKED':
-      return 35;
-    case 'VALIDATING':
-      return 80;
-    case 'READY_FOR_HUMAN_ACCEPTANCE':
-      return 95;
-    case 'HUMAN_ACCEPTED':
-      return 100;
-    default:
-      return 0;
-  }
+  return projectV3Lifecycle(value).macroLabel;
 }

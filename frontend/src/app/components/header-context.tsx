@@ -5,6 +5,7 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button, Select, Skeleton } from '@/design-system';
 import { useCockpitAgents, useCockpitWorkflow } from '@/features/cockpit/hooks/use-cockpit';
 import { useV3ProjectContext } from '@/features/projects/hooks/use-v3-understand';
+import { projectV3Lifecycle } from '@/features/projects/lib/v3-lifecycle';
 import { useActiveProject } from '@/features/shared/hooks/use-active-project';
 
 /**
@@ -32,8 +33,10 @@ export function HeaderContext() {
   const agentsQuery = useCockpitAgents(projectId);
 
   const activePhase = phases.find((phase) => phase.state === 'active') ?? null;
-  const v3Lifecycle = v3Context.data?.currentLifecycleState ?? null;
-  const lifecycleLabel = v3Lifecycle ? v3LifecycleLabel(v3Lifecycle) : null;
+  const v3Lifecycle = v3Context.data?.currentLifecycleState
+    ? projectV3Lifecycle(v3Context.data.currentLifecycleState)
+    : null;
+  const shouldShowLegacyPhase = !v3Context.isLoading && !v3Lifecycle;
   const workingCount = (agentsQuery.data ?? []).filter((agent) => agent.state === 'working').length;
 
   function changeProject(projectId: string) {
@@ -116,17 +119,19 @@ export function HeaderContext() {
           `aria-label` é um grupo sem conteúdo para quem usa leitor de tela (e
           `aria-prohibited-attr` no axe). Antes ele nascia sempre que havia projeto
           ativo, mesmo sem etapa e sem ninguém trabalhando. */}
-      {activeProject && (lifecycleLabel !== null || activePhase !== null || workingCount > 0) && (
+      {activeProject && (v3Lifecycle !== null || (shouldShowLegacyPhase && activePhase !== null) || workingCount > 0) && (
         <div
           aria-label={t('shell.context.label')}
           className="hidden min-w-0 items-center gap-2 text-xs text-foreground-muted lg:flex"
         >
-          {lifecycleLabel ? (
-            <span className="truncate">{t('shell.context.phase', { name: lifecycleLabel })}</span>
-          ) : activePhase ? (
+          {v3Lifecycle ? (
+            <span className="truncate">
+              {v3Lifecycle.macroLabel} · {v3Lifecycle.statusLabel}
+            </span>
+          ) : shouldShowLegacyPhase && activePhase ? (
             <span className="truncate">{t('shell.context.phase', { name: activePhase.name })}</span>
           ) : null}
-          {(lifecycleLabel || activePhase) && workingCount > 0 && <span aria-hidden="true">•</span>}
+          {(v3Lifecycle || (shouldShowLegacyPhase && activePhase)) && workingCount > 0 && <span aria-hidden="true">•</span>}
           {workingCount > 0 && (
             <span className="whitespace-nowrap">
               {t('shell.context.agentsWorking', { count: workingCount })}
@@ -136,25 +141,4 @@ export function HeaderContext() {
       )}
     </div>
   );
-}
-
-function v3LifecycleLabel(value: string): string {
-  switch (value) {
-    case 'DRAFT':
-    case 'UNDERSTANDING':
-    case 'AWAITING_INPUT':
-    case 'READY_TO_START':
-      return 'Entendimento';
-    case 'BUILDING':
-    case 'PAUSED_QUOTA':
-    case 'BLOCKED':
-      return 'Desenvolvimento';
-    case 'VALIDATING':
-      return 'Validação';
-    case 'READY_FOR_HUMAN_ACCEPTANCE':
-    case 'HUMAN_ACCEPTED':
-      return 'Aceite Humano';
-    default:
-      return value;
-  }
 }

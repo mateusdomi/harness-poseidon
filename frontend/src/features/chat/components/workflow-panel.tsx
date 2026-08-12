@@ -53,6 +53,11 @@ import { formatNumber } from '@/lib/format';
 import { phaseStateVariant } from '@/lib/status';
 import { cn } from '@/lib/utils';
 import { useV3ProjectContext } from '@/features/projects/hooks/use-v3-understand';
+import {
+  projectV3Lifecycle,
+  V3_LIFECYCLE_MACROS,
+  v3LifecycleMacroIndex,
+} from '@/features/projects/lib/v3-lifecycle';
 
 /** Texto + ícone + cor por conceito documental (nunca só cor — D-068). */
 const HEALTH_META: Record<DocumentHealth, { Icon: LucideIcon; className: string }> = {
@@ -69,65 +74,90 @@ const HEALTH_META: Record<DocumentHealth, { Icon: LucideIcon; className: string 
 /** Eventos do stream do projeto que mantêm o painel fresco (D-069). */
 const PANEL_EVENT_TYPES = ['document.stateChanged', 'gate.changed', 'progress.updated'] as const;
 
-const V3_STAGES = [
-  {
-    id: 'UNDERSTAND',
-    labelKey: 'chat.workflowPanel.v3Lifecycle.understand',
-    states: ['DRAFT', 'UNDERSTANDING', 'AWAITING_INPUT', 'READY_TO_START'],
-  },
-  {
-    id: 'BUILD',
-    labelKey: 'chat.workflowPanel.v3Lifecycle.build',
-    states: ['BUILDING', 'PAUSED_QUOTA', 'BLOCKED'],
-  },
-  {
-    id: 'VALIDATE',
-    labelKey: 'chat.workflowPanel.v3Lifecycle.validate',
-    states: ['VALIDATING'],
-  },
-  {
-    id: 'HUMAN_ACCEPTANCE',
-    labelKey: 'chat.workflowPanel.v3Lifecycle.humanAcceptance',
-    states: ['READY_FOR_HUMAN_ACCEPTANCE', 'HUMAN_ACCEPTED'],
-  },
-] as const;
-
-function V3LifecyclePanel({ lifecycle }: { lifecycle: string }) {
+function V3LifecyclePanel({
+  lifecycle,
+  acceptanceCriteriaCount,
+  openQuestionsCount,
+}: {
+  lifecycle: string;
+  acceptanceCriteriaCount: number;
+  openQuestionsCount: number;
+}) {
   const { t } = useTranslation();
-  const activeIndex = Math.max(
-    0,
-    V3_STAGES.findIndex((stage) => stage.states.some((state) => state === lifecycle)),
-  );
+  const projection = projectV3Lifecycle(lifecycle);
+  const activeIndex = Math.max(0, v3LifecycleMacroIndex(projection.macro));
   return (
-    <ol aria-label={t('chat.workflowPanel.v3Lifecycle.label')} className="flex flex-col gap-2">
-      {V3_STAGES.map((stage, index) => {
-        const done = index < activeIndex || lifecycle === 'HUMAN_ACCEPTED';
-        const active = index === activeIndex && lifecycle !== 'HUMAN_ACCEPTED';
-        return (
-          <li
-            key={stage.id}
-            className={cn(
-              'flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-sm',
-              active
-                ? 'border-brand bg-primary/10 text-brand-strong'
-                : done
-                  ? 'border-success/40 bg-success/10 text-success'
-                  : 'border-border bg-surface-elevated/30 text-foreground-muted',
-            )}
-          >
-            <span aria-hidden="true" className="w-5 text-center">
-              {done ? '✓' : active ? '●' : '○'}
-            </span>
-            <span className="font-medium">{t(stage.labelKey)}</span>
-            {active && lifecycle === 'READY_FOR_HUMAN_ACCEPTANCE' && (
-              <Badge variant="success">
-                {t('chat.workflowPanel.v3Lifecycle.readyForHumanAcceptance')}
+    <div className="flex flex-col gap-4">
+      <section className="rounded-xl border border-brand/30 bg-primary/5 p-4">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-brand-strong">
+          <Activity aria-hidden="true" className="size-4" />
+          {t('chat.projectPanel.now')}
+        </div>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-heading text-lg font-semibold">{projection.macroLabel}</h3>
+          <Badge variant={projection.badge}>{projection.statusLabel}</Badge>
+        </div>
+        {projection.state === 'READY_FOR_HUMAN_ACCEPTANCE' ? (
+          <p className="mt-2 text-sm text-foreground-muted">
+            {t('chat.workflowPanel.v3Lifecycle.handoffReady')}
+          </p>
+        ) : null}
+      </section>
+
+      <ol aria-label={t('chat.workflowPanel.v3Lifecycle.label')} className="flex flex-col gap-2">
+        {V3_LIFECYCLE_MACROS.map((stage, index) => {
+          const done = index < activeIndex || projection.state === 'HUMAN_ACCEPTED';
+          const active = index === activeIndex && projection.state !== 'HUMAN_ACCEPTED';
+          return (
+            <li
+              key={stage.id}
+              className={cn(
+                'flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-sm',
+                active
+                  ? 'border-brand bg-primary/10 text-brand-strong'
+                  : done
+                    ? 'border-success/40 bg-success/10 text-success'
+                    : 'border-border bg-surface-elevated/30 text-foreground-muted',
+              )}
+            >
+              <span aria-hidden="true" className="w-5 text-center">
+                {done ? '✓' : active ? '●' : '○'}
+              </span>
+              <span className="font-medium">{stage.label}</span>
+            </li>
+          );
+        })}
+      </ol>
+
+      <section aria-labelledby="chat-project-validation" className="flex flex-col gap-2">
+        <h3 id="chat-project-validation" className="flex items-center gap-2 text-sm font-semibold">
+          <ClipboardCheck aria-hidden="true" className="size-4 text-info" />
+          {t('chat.projectPanel.validation')}
+        </h3>
+        <dl className="grid grid-cols-2 gap-2">
+          <div className="rounded-lg border border-border bg-surface-elevated/40 p-3">
+            <dt className="text-xs text-foreground-muted">
+              {t('chat.projectPanel.acceptanceCriteria')}
+            </dt>
+            <dd className="mt-1">
+              <Badge variant={acceptanceCriteriaCount > 0 ? 'success' : 'outline'}>
+                {acceptanceCriteriaCount}
               </Badge>
-            )}
-          </li>
-        );
-      })}
-    </ol>
+            </dd>
+          </div>
+          <div className="rounded-lg border border-border bg-surface-elevated/40 p-3">
+            <dt className="text-xs text-foreground-muted">
+              {t('chat.projectPanel.blockers')}
+            </dt>
+            <dd className="mt-1">
+              <Badge variant={openQuestionsCount > 0 ? 'warning' : 'success'}>
+                {openQuestionsCount}
+              </Badge>
+            </dd>
+          </div>
+        </dl>
+      </section>
+    </div>
   );
 }
 
@@ -550,7 +580,13 @@ export function WorkflowPanel({
   const panel = useWorkflowPanel(projectId);
 
   if (v3Context.data?.currentLifecycleState) {
-    return <V3LifecyclePanel lifecycle={v3Context.data.currentLifecycleState} />;
+    return (
+      <V3LifecyclePanel
+        lifecycle={v3Context.data.currentLifecycleState}
+        acceptanceCriteriaCount={v3Context.data.acceptanceCriteria.length}
+        openQuestionsCount={v3Context.data.openQuestions.length}
+      />
+    );
   }
 
   if (panel.isPending || v3Context.isLoading) {

@@ -74,6 +74,13 @@ public static class V3BuildRuntimeEndpoints
             .ProducesProblem(401)
             .ProducesProblem(404)
             .ProducesProblem(409);
+        endpoints.MapPost("/api/v1/v3/projects/{projectId}/handoff/reconcile", ReconcileHandoffAsync)
+            .WithTags("v3-delivery-handoff")
+            .Produces<V3DeliveryHandoffRecord>()
+            .ProducesProblem(400)
+            .ProducesProblem(401)
+            .ProducesProblem(404)
+            .ProducesProblem(409);
 
         return endpoints;
     }
@@ -213,6 +220,41 @@ public static class V3BuildRuntimeEndpoints
         return result.Result is not null ? result.Result : Results.Ok(V3BuildExecutionResponse.From(result.Execution!));
     }
 
+    private static async Task<IResult> ReconcileHandoffAsync(
+        string projectId,
+        HttpRequest request,
+        ILocalProfileStore profiles,
+        IProjectStore projects,
+        IConfiguration configuration,
+        [FromServices] V3DeliveryHandoffService handoff,
+        CancellationToken token)
+    {
+        var resolved = await ResolveAsync(projectId, request, profiles, projects, token);
+        if (resolved.Result is not null) return resolved.Result;
+
+        var state = V3UnderstandStore.ForConfiguration(configuration).ReadProject(projectId);
+        if (!string.Equals(state?.LifecycleState, "READY_FOR_HUMAN_ACCEPTANCE", StringComparison.Ordinal))
+        {
+            return Problem(409, "handoff_not_ready", "Project must be READY_FOR_HUMAN_ACCEPTANCE before handoff reconciliation.");
+        }
+
+        var execution = V3BuildRuntimeStore.ForConfiguration(configuration).ListExecutions()
+            .Where(item => item.ProjectId == projectId &&
+                           string.Equals(item.MissionType, "VALIDATE", StringComparison.OrdinalIgnoreCase) &&
+                           string.Equals(item.Status, "COMPLETED", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(item => item.CompletedAt ?? item.StartedAt)
+            .FirstOrDefault();
+        if (execution is null)
+        {
+            return Problem(404, "validation_execution_not_found", "No completed validation execution exists for this project.");
+        }
+
+        var record = await handoff.EnsureAsync(resolved.Profile!.TenantId, execution, token);
+        return record is null
+            ? Problem(409, "handoff_not_created", "Handoff could not be created from the persisted validation execution.")
+            : Results.Ok(record);
+    }
+
     private static V3BuildMissionRecord? ResolveMission(
         V3UnderstandStore store,
         string projectId,
@@ -258,12 +300,14 @@ public static class V3BuildRuntimeEndpoints
         Results.Problem(statusCode: status, title: code, detail: detail);
 }
 
-public sealed class V3BuildRuntimeService(
+public sealed partial class V3BuildRuntimeService(
     V3BuildRuntimeStore store,
     V3UnderstandStore understandStore,
     IV3BuildExecutor executor,
     IClock clock,
-    IModelInvocationStore? invocations = null)
+    IModelInvocationStore? invocations = null,
+    V3DeliveryHandoffService? handoff = null,
+    ILogger<V3BuildRuntimeService>? logger = null)
 {
     private const int MaxContinueWithoutProgress = 2;
     private const int MaxTransientAttemptsPerExecutor = 3;
@@ -854,6 +898,28 @@ public sealed class V3BuildRuntimeService(
                 var validationReport = mission.MissionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase)
                     ? V3ValidationReport.Parse(lastOutput, currentSnapshot.Head)
                     : null;
+                if (validationReport is not null && RequiresStructuredValidationEvidence(mission))
+                {
+                    var evidence = V3ValidationEvidenceGate.Validate(
+                        lastOutput,
+                        validationReport,
+                        UiRequired(mission));
+                    if (!evidence.Accepted)
+                    {
+                        execution = execution with
+                        {
+                            Status = "BLOCKED",
+                            CompletedAt = now,
+                            LastFailureCode = "validation_evidence_rejected",
+                            ValidationReport = validationReport,
+                            Events = Append(execution.Events, "VALIDATION_EVIDENCE_REJECTED", active.Alias,
+                                evidence.Reason ?? "Structured validation evidence was rejected."),
+                        };
+                        store.WriteExecution(execution);
+                        if (state is not null) UpdateLifecycle(state, "VALIDATING", "VALIDATION_EVIDENCE_REJECTED");
+                        return new V3BuildRuntimeResult(execution, null);
+                    }
+                }
                 if (validationReport is not null && validationReport.HasBlockingFailures)
                 {
                     execution = execution with
@@ -880,6 +946,20 @@ public sealed class V3BuildRuntimeService(
                 };
                 store.WriteExecution(execution);
                 understandStore.WriteMission(mission with { Status = "COMPLETED" });
+                if (validationReport is not null && handoff is not null)
+                {
+                    try
+                    {
+                        _ = await handoff.EnsureAsync(tenantId, execution, token);
+                    }
+                    catch (Exception exception)
+                    {
+                        if (logger is not null)
+                        {
+                            LogHandoffFailed(logger, exception, execution.ProjectId, execution.MissionExecutionId);
+                        }
+                    }
+                }
                 if (state is not null)
                 {
                     UpdateLifecycle(
@@ -1153,6 +1233,22 @@ public sealed class V3BuildRuntimeService(
         missionType.Equals("PLATFORM_MAINTENANCE", StringComparison.OrdinalIgnoreCase)
             ? AgentRoles.PlatformMaintainer
             : AgentRoles.ProjectExecutor;
+
+    [LoggerMessage(EventId = 31002, Level = LogLevel.Warning, Message = "V3 delivery handoff failed for project {ProjectId} and execution {ExecutionId}.")]
+    private static partial void LogHandoffFailed(ILogger logger, Exception exception, string projectId, string executionId);
+
+    private static bool RequiresStructuredValidationEvidence(V3BuildMissionRecord mission) =>
+        mission.MissionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(mission.MissionContractVersion, "v3.validation.2", StringComparison.OrdinalIgnoreCase);
+
+    private static bool UiRequired(V3BuildMissionRecord mission)
+    {
+        var frontend = mission.EffectiveStack.Frontend;
+        return !string.IsNullOrWhiteSpace(frontend) &&
+               !frontend.Contains("n/a", StringComparison.OrdinalIgnoreCase) &&
+               !frontend.Contains("sem frontend", StringComparison.OrdinalIgnoreCase) &&
+               !frontend.Contains("api-only", StringComparison.OrdinalIgnoreCase);
+    }
 
     private static bool RequiresCleanWorktreeForCompletion(string missionType) =>
         missionType.Equals("BUILD", StringComparison.OrdinalIgnoreCase) ||

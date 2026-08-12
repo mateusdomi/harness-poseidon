@@ -59,6 +59,12 @@ em teste ou build; CORS, autenticação e configuração corretos para o ambient
 README ou runbook com: como executar, portas, variáveis necessárias, health check quando
 aplicável, onde estão os logs e qual a estratégia de banco.
 
+Para produto com interface, a passagem para homologação humana exige mais do que código validado:
+ao final da validação o ambiente local/controlado deve estar acessível, com URL e health
+registrados, instruções de start/stop/status disponíveis e credenciais de teste tratadas como
+`TEST_ONLY`. A entrega não deve depender de o humano abrir o repositório e descobrir manualmente
+qual script ou porta usar.
+
 ## Testes que sustentam o DoD
 
 Teste existe para impedir regressão e provar comportamento, não para produzir percentual
@@ -94,6 +100,10 @@ Arquivos principais alterados; comandos e builds executados; resumo dos testes; 
 e URL do contrato; evidência de interface quando aplicável; migration aplicada; limitações
 conhecidas; decisões e ADRs relevantes. Evidência ausente mantém o gate fechado — é o
 Default-FAIL do núcleo aplicado ao produto.
+
+Na validação final, totais como "244 checks, 0 FAIL" não bastam. Cada critério de aceite e cada
+item de checklist obrigatório precisa ter status individual e referência de evidência proporcional
+(browser, teste, build, API, banco, runtime ou inspeção). `N/A` exige razão explícita.
 
 ## Mínimo aceitável de um MVP web genérico
 

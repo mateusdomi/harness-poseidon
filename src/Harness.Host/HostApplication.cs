@@ -932,6 +932,9 @@ public static class HostApplication
             services.GetRequiredService<IConfiguration>()));
         builder.Services.AddSingleton(services => Harness.Host.V3.V3BuildRuntimeStore.ForConfiguration(
             services.GetRequiredService<IConfiguration>()));
+        builder.Services.AddSingleton(services => Harness.Host.V3.V3DeliveryHandoffStore.ForConfiguration(
+            services.GetRequiredService<IConfiguration>()));
+        builder.Services.AddSingleton<Harness.Host.V3.V3DeliveryHandoffService>();
         builder.Services.AddSingleton<IChiefAttachmentNavigator>(services =>
             new Graph.CompositeChiefNavigator([
                 new SolicitationAttachmentNavigator(

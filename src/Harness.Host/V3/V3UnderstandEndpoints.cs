@@ -1768,7 +1768,7 @@ public static class V3MissionCompiler
             executor)
         {
             PrimaryRequirementsCoverage = context.PrimaryRequirementsCoverage,
-            MissionContractVersion = "v3.validation.1",
+            MissionContractVersion = "v3.validation.2",
         };
     }
 
@@ -2279,6 +2279,23 @@ public static class V3MissionCompiler
             "- BugsFound: <n>",
             "- BugsFixed: <n>",
             "- BugsRemaining: <n>",
+            "",
+            "## STRUCTURED VALIDATION MANIFEST REQUIRED",
+            "- Antes do marcador final, publique um bloco `POSEIDON_VALIDATION_MANIFEST` com JSON válido.",
+            "- O JSON precisa conter: checklistVersion, checklistSha256, missionId, executionId, requirements[], checklist[], browserRuns[], handoffReadiness.",
+            "- requirements[] precisa ter um item por critério/requisito verificado, com requirementId, status, evidenceReference e notes.",
+            "- checklist[] precisa ter um item por check do checklist usado, com checkId, status, evidenceType, evidenceReference, notes e executedAt.",
+            "- Status permitidos: PASS, FIXED, N_A, FAIL.",
+            "- Todo N_A precisa de razão em notes.",
+            "- Todo PASS/FIXED precisa de evidenceReference.",
+            "- Projeto com UI precisa de browserRuns[] com execução real de browser, exitCode, baseUrl, viewports, testFiles, passed/failed/skipped, consoleErrors e networkErrors.",
+            "- Projeto com UI precisa de handoffReadiness com applicationUrl, runtimeReachable, healthPass, cleanAcceptanceEnvironment, accessInformationCaptured e testCredentialsCapturedWhenApplicable.",
+            "- Não inclua senhas de produção. Credenciais locais de teste podem ser referenciadas como TEST_ONLY, mas não envie segredo externo.",
+            "- Exemplo mínimo de cabeçalho:",
+            "```text",
+            "POSEIDON_VALIDATION_MANIFEST",
+            "{ \"checklistVersion\": \"checklist-auto-auditoria-ia\", \"checklistSha256\": \"...\", \"missionId\": \"...\", \"executionId\": \"...\", \"requirements\": [], \"checklist\": [], \"browserRuns\": [], \"handoffReadiness\": null }",
+            "```",
             "",
             "## MACHINE-READABLE EXIT CONTRACT",
             "- Checkpoints intermediários podem conter POSEIDON_PROGRESS_CHECKPOINT, mas isso NÃO encerra a missão.",
