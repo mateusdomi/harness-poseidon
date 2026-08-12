@@ -547,7 +547,7 @@ public sealed class V3BuildRuntimeService(
             account,
             accounts,
             state,
-            BuildRecoveryPrompt(execution, execution.MissionType),
+            BuildRecoveryPrompt(execution, mission),
             tenantId,
             CancellationToken.None);
     }
@@ -988,6 +988,10 @@ public sealed class V3BuildRuntimeService(
         Preserve o trabalho válido.
         Continue exatamente de onde o executor anterior parou.
 
+        ## ORIGINAL MISSION TEXT
+
+        {mission.MissionText}
+
         """ + Environment.NewLine + ExitContract(mission.MissionType);
 
     private static string BuildTransientRetryPrompt(
@@ -1028,6 +1032,10 @@ public sealed class V3BuildRuntimeService(
         Inspecione o repositório e os commits atuais.
         Preserve o trabalho válido.
         Continue exatamente de onde a execução anterior parou.
+
+        ## ORIGINAL MISSION TEXT
+
+        {mission.MissionText}
 
         """ + Environment.NewLine + ExitContract(mission.MissionType);
 
@@ -1171,7 +1179,7 @@ public sealed class V3BuildRuntimeService(
             ? "PLATFORM_MAINTENANCE_COMPLETE"
             : "VALIDATING";
 
-    private static string BuildRecoveryPrompt(V3BuildExecutionRecord execution, string missionType) =>
+    private static string BuildRecoveryPrompt(V3BuildExecutionRecord execution, V3BuildMissionRecord mission) =>
         $"""
         Continue a missão original após recuperação de restart/processo.
 
@@ -1184,7 +1192,11 @@ public sealed class V3BuildRuntimeService(
         Inspecione o repositório atual e preserve trabalho válido.
         Continue até satisfazer a Definition of Done ou encontrar um blocker genuinamente humano.
 
-        """ + Environment.NewLine + ExitContract(missionType);
+        ## ORIGINAL MISSION TEXT
+
+        {mission.MissionText}
+
+        """ + Environment.NewLine + ExitContract(mission.MissionType);
 
     public static string ExitContract(string missionType = "BUILD") =>
         missionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase)

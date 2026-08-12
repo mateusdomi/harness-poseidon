@@ -164,6 +164,8 @@ public sealed class V3BuildRuntimeTests : IDisposable
             item.NewExecutor == "worker-b" &&
             item.Reason == "QUOTA_FAILOVER");
         Assert.Null(fake.Calls[1].ResumeSessionId);
+        Assert.Contains("## ORIGINAL MISSION TEXT", fake.Calls[1].Prompt.Text);
+        Assert.Contains(mission.MissionText, fake.Calls[1].Prompt.Text);
         Assert.Equal(repo, mission.Repository);
         Assert.Equal("VALIDATING", understand.ReadProject(state.ProjectId)!.LifecycleState);
     }
@@ -392,6 +394,8 @@ public sealed class V3BuildRuntimeTests : IDisposable
         Assert.Single(fake.Calls);
         Assert.Null(fake.Calls[0].ResumeSessionId);
         Assert.Contains("Continue a missão original após recuperação", fake.Calls[0].Prompt.Text);
+        Assert.Contains("## ORIGINAL MISSION TEXT", fake.Calls[0].Prompt.Text);
+        Assert.Contains(mission.MissionText, fake.Calls[0].Prompt.Text);
         Assert.Contains(resumed.Execution.Events, item => item.Type == "BUILD_RECOVERY_RESUMED");
         Assert.Equal("VALIDATING", understand.ReadProject(state.ProjectId)!.LifecycleState);
     }
@@ -459,6 +463,8 @@ public sealed class V3BuildRuntimeTests : IDisposable
             item.NewExecutor == "worker-b" &&
             item.Reason == "PROVIDER_TRANSPORT_FAILOVER");
         Assert.Null(fake.Calls[3].ResumeSessionId);
+        Assert.Contains("## ORIGINAL MISSION TEXT", fake.Calls[3].Prompt.Text);
+        Assert.Contains(mission.MissionText, fake.Calls[3].Prompt.Text);
         Assert.Contains(result.Execution.Events, item => item.Type == "BUILD_TRANSIENT_FAILOVER");
         Assert.DoesNotContain(result.Execution.Events, item => item.Type == "BUILD_STALLED");
         Assert.Equal("VALIDATING", understand.ReadProject(state.ProjectId)!.LifecycleState);
