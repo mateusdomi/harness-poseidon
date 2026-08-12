@@ -122,6 +122,26 @@ export function isRuntimeAccountAlias(alias: string | null | undefined): boolean
   return RUNTIME_ACCOUNT_PATTERN.test(key);
 }
 
+/**
+ * Extrai provider e identificador seguro de um alias de conta runtime.
+ * Ex.: "worker-claude-secondary" -> { provider: "Claude", identifier: "secondary" }
+ *       "chief-claude-primary"   -> { provider: "Claude", identifier: "primary" }
+ */
+function parseRuntimeAlias(alias: string): { provider: string; identifier: string } {
+  const match = /^(?:chief|worker)-([a-z]+)(?:-(.+))?$/i.exec(alias.trim());
+  const providerKey = match?.[1] ?? alias;
+  const identifier = match?.[2] ?? '';
+  const provider =
+    {
+      claude: 'Claude',
+      codex: 'Codex',
+      openai: 'OpenAI',
+      anthropic: 'Anthropic',
+      kimi: 'Kimi',
+    }[providerKey.toLowerCase()] ?? providerKey.charAt(0).toUpperCase() + providerKey.slice(1);
+  return { provider, identifier };
+}
+
 /** Cores (determinísticas) de um avatar de iniciais. */
 export interface AvatarColors {
   /** Cor de fundo do círculo (HSL estável derivada da semente). */
@@ -185,8 +205,9 @@ export interface ResolvedAgentIdentity {
  * Resolve a identidade de apresentação de um alias técnico. Se o alias estiver
  * no mapa de personas públicas, usa o nome humano e o papel correspondentes.
  * Runtime accounts sem perfil público associado aparecem como infraestrutura
- * técnica, não como pessoas fictícias. O avatar é sempre determinístico a
- * partir do nome público apresentado.
+ * técnica identificada por provider + identificador, nunca como pessoas
+ * fictícias. O avatar é sempre determinístico a partir do nome público
+ * apresentado.
  */
 export function resolveAgentIdentity(
   alias: string | null | undefined,
@@ -194,12 +215,34 @@ export function resolveAgentIdentity(
 ): ResolvedAgentIdentity {
   const key = (alias ?? '').trim();
   const mapped = PERSONA_NAMES[key];
+
+  // Chief runtime accounts (ex.: chief-claude-primary) representam a Bruna.
+  if (!mapped && isChiefRuntimeAccount(key)) {
+    const bruna = PERSONA_NAMES['chief-orchestrator'];
+    return {
+      humanName: bruna.humanName,
+      roleLabel: bruna.roleLabel,
+      alias: key,
+      initials: initialsFor(bruna.humanName),
+      avatar: avatarColorsFor(bruna.humanName),
+    };
+  }
+
   const runtimeAccount = !mapped && isRuntimeAccountAlias(key);
-  const runtimeName = isChiefRuntimeAccount(key)
-    ? 'Conta runtime da Bruna'
-    : 'Perfil público pendente';
-  const humanName = mapped?.humanName ?? (runtimeAccount ? runtimeName : fallbackName?.trim() ?? key ?? '');
-  const roleLabel = mapped?.roleLabel ?? (runtimeAccount ? 'Conta runtime' : null);
+  if (runtimeAccount) {
+    const { provider, identifier } = parseRuntimeAlias(key);
+    const humanName = identifier ? `${provider} — ${identifier}` : provider;
+    return {
+      humanName,
+      roleLabel: 'Executor de Projeto',
+      alias: key,
+      initials: initialsFor(humanName),
+      avatar: avatarColorsFor(humanName),
+    };
+  }
+
+  const humanName = mapped?.humanName ?? fallbackName?.trim() ?? key ?? '';
+  const roleLabel = mapped?.roleLabel ?? null;
   return {
     humanName,
     roleLabel,

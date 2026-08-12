@@ -54,13 +54,16 @@ describe('resolveAgentIdentity', () => {
 
   it('não transforma runtime account sem perfil público em pessoa fake', () => {
     expect(resolveAgentIdentity('worker-codex-frontend')).toMatchObject({
-      humanName: 'Perfil público pendente',
-      roleLabel: 'Conta runtime',
+      humanName: 'Codex — frontend',
+      roleLabel: 'Executor de Projeto',
       alias: 'worker-codex-frontend',
     });
+  });
+
+  it('chief runtime account é apresentado como Bruna Magalhães', () => {
     expect(resolveAgentIdentity('chief-claude-primary')).toMatchObject({
-      humanName: 'Conta runtime da Bruna',
-      roleLabel: 'Conta runtime',
+      humanName: 'Bruna Magalhães',
+      roleLabel: 'Diretora de Engenharia',
       alias: 'chief-claude-primary',
     });
   });
