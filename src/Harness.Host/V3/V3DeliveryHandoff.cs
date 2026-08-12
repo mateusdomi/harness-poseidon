@@ -94,13 +94,78 @@ public sealed partial class V3DeliveryHandoffService(
             runtimeStore,
             validationExecution.ProjectId,
             state?.Repository);
-        if (store.Read(validationExecution.ProjectId, validationExecution.MissionExecutionId) is { } existing)
+        var existing = store.Read(validationExecution.ProjectId, validationExecution.MissionExecutionId);
+        var content = V3DeliveryHandoffMessage.Compose(
+            project.Name,
+            access,
+            validationExecution.ValidationReport,
+            validationExecution.FinalReport);
+
+        if (existing is not null)
         {
-            var refreshed = existing with { ProductAccess = access };
+            var refreshed = await RefreshHandoffAsync(
+                tenantId, project, validationExecution, existing, access, content, token);
+            return refreshed;
+        }
+
+        return await CreateHandoffAsync(
+            tenantId, project, validationExecution, access, content, token);
+    }
+
+    private async Task<V3DeliveryHandoffRecord?> RefreshHandoffAsync(
+        string tenantId,
+        ProjectRecord project,
+        V3BuildExecutionRecord validationExecution,
+        V3DeliveryHandoffRecord existing,
+        ProductAccessInfo access,
+        string content,
+        CancellationToken token)
+    {
+        var now = clock.UtcNow;
+        var refreshed = existing with { ProductAccess = access };
+
+        var previousMessage = await conversations.GetMessageAsync(tenantId, existing.ConversationMessageId, token);
+        if (previousMessage is not null &&
+            string.Equals(previousMessage.Content, content, StringComparison.Ordinal))
+        {
             store.Write(refreshed);
             return refreshed;
         }
 
+        var conversation = await conversations.GetConversationAsync(tenantId, existing.ConversationId, token);
+        if (conversation is null)
+        {
+            store.Write(refreshed);
+            return refreshed;
+        }
+
+        var messageId = UlidValue.New(now).ToString();
+        var message = ConversationApplicationService.CreateChiefMessage(
+            messageId,
+            conversation.Id,
+            project.ChiefAgentId,
+            content,
+            now);
+        var persisted = await conversations.CreateMessageAsync(
+            new MessageCreateCommand(tenantId, ToRecord(tenantId, validationExecution.ProjectId, message), now),
+            token);
+        if (persisted.Status is MessageMutationStatus.Applied or MessageMutationStatus.AlreadyExists)
+        {
+            refreshed = refreshed with { ConversationMessageId = persisted.Message?.Id ?? messageId };
+        }
+
+        store.Write(refreshed);
+        return refreshed;
+    }
+
+    private async Task<V3DeliveryHandoffRecord?> CreateHandoffAsync(
+        string tenantId,
+        ProjectRecord project,
+        V3BuildExecutionRecord validationExecution,
+        ProductAccessInfo access,
+        string content,
+        CancellationToken token)
+    {
         var conversation = (await conversations.ListConversationsAsync(
                 tenantId, validationExecution.ProjectId, null, 200, token))
             .Where(item => string.Equals(item.State, "active", StringComparison.Ordinal))
@@ -121,11 +186,6 @@ public sealed partial class V3DeliveryHandoffService(
 
         var messageId = UlidValue.New(now).ToString();
         var notificationId = UlidValue.New(now.AddTicks(1)).ToString();
-        var content = V3DeliveryHandoffMessage.Compose(
-            project.Name,
-            access,
-            validationExecution.ValidationReport,
-            validationExecution.FinalReport);
 
         var message = ConversationApplicationService.CreateChiefMessage(
             messageId,
@@ -150,7 +210,7 @@ public sealed partial class V3DeliveryHandoffService(
                 "info",
                 "chat",
                 $"{project.Name} está pronto para homologação",
-                "Abra o Poseidon para acessar URL, evidências e instruções de homologação. Credenciais não são enviadas em notificações.",
+                "Abra a Central de Entregas no Poseidon para acessar URLs, evidências e instruções de homologação. As senhas TEST_ONLY ficam em 'Mostrar credenciais'; não são enviadas por notificação.",
                 $"v3-handoff:{validationExecution.ProjectId}:{validationExecution.MissionExecutionId}",
                 $"/delivery?project={validationExecution.ProjectId}",
                 now),
@@ -261,15 +321,18 @@ public sealed record ProductAccessInfo(
         var app = FirstUrl(text, "ApplicationUrl", "Application", "App", "Aplicação");
         var swagger = FirstUrl(text, "Swagger");
         var health = FirstUrl(text, "HealthUrl", "Health", "Readiness");
+        var startCommand = FirstCommand(text, "StartCommand", "Iniciar", "Execução") ?? RelativeScript(repository, "scripts/run.sh");
+        var accessCommand = FirstCommand(text, "Acesso TEST_ONLY", "Acesso", "Access", "Credenciais");
+        var accessScriptText = ReadAccessScript(repository, accessCommand);
         return new ProductAccessInfo(
             app,
             null,
             swagger,
             health,
-            FirstCommand(text, "StartCommand", "Iniciar", "Execução") ?? RelativeScript(repository, "scripts/run.sh"),
+            startCommand,
             FirstCommand(text, "StopCommand", "Parar"),
             FirstCommand(text, "StatusCommand", "Status"),
-            ParseTestAccounts(text),
+            ParseTestAccounts(string.Join('\n', text, accessScriptText)),
             health is null ? "UNKNOWN" : "REPORTED_HEALTHY",
             validationExecution.CompletedAt);
     }
@@ -282,6 +345,17 @@ public sealed record ProductAccessInfo(
         }
 
         var path = Path.Combine(repository, "README.md");
+        return File.Exists(path) ? File.ReadAllText(path) : null;
+    }
+
+    private static string? ReadAccessScript(string? repository, string? relativeCommand)
+    {
+        if (string.IsNullOrWhiteSpace(repository) || string.IsNullOrWhiteSpace(relativeCommand))
+        {
+            return null;
+        }
+
+        var path = Path.Combine(repository, relativeCommand.TrimStart('.', '/'));
         return File.Exists(path) ? File.ReadAllText(path) : null;
     }
 
@@ -329,11 +403,12 @@ public sealed record ProductAccessInfo(
         var accounts = new List<TestAccountInfo>();
         foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(
                      text,
-                     @"(?im)^\|\s*(?<role>[^|\r\n]+?)\s*\|\s*`?(?<user>[^`|\s]+@[^`|\s]+)`?\s*\|\s*`?(?<password>[^`|\r\n]+)`?\s*\|"))
+                     @"(?im)^\s*\|?\s*(?<role>[^|\r\n]+?)\s*\|\s*`?(?<user>[^`|\s]+@[^`|\s]+)`?\s*\|\s*`?(?<password>[^`|\r\n]+)`?"))
         {
             var role = match.Groups["role"].Value.Trim();
             if (role.Equals("---", StringComparison.Ordinal) ||
-                role.Contains("perfil", StringComparison.OrdinalIgnoreCase))
+                role.Contains("perfil", StringComparison.OrdinalIgnoreCase) ||
+                role.Contains("Perfil", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
@@ -382,11 +457,15 @@ public static class V3DeliveryHandoffMessage
         if (access.TestAccounts.Count > 0)
         {
             lines.Add("");
-            lines.Add("Acesso de teste:");
+            lines.Add("Acesso de homologação:");
             foreach (var account in access.TestAccounts)
             {
-                lines.Add($"- {account.Role}: {account.Username} ({account.Classification}; senha disponível apenas nos detalhes internos de homologação)");
+                lines.Add($"- {account.Role}: {account.Username}");
             }
+
+            lines.Add("");
+            lines.Add("A senha de homologação não é enviada pelo chat ou por notificações.");
+            lines.Add("Abra a Central de Entregas no Poseidon e clique em 'Mostrar credenciais' para visualizar/copiar as credenciais TEST_ONLY.");
         }
         if (report is not null)
         {

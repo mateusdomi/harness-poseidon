@@ -203,7 +203,7 @@
         "validationExecution": "Validação",
         "commands": "Comandos operacionais",
         "testAccounts": "Contas de teste",
-        "testAccountsHint": "Credenciais locais de homologação. Não são enviadas por notificações externas.",
+        "testAccountsHint": "Credenciais locais de homologação. Use 'Mostrar credenciais' para visualizar; não são enviadas por notificações externas.",
         "showCredentials": "Mostrar credenciais",
         "hideCredentials": "Ocultar credenciais",
         "role": "Perfil",

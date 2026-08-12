@@ -203,7 +203,7 @@
         "validationExecution": "Validation",
         "commands": "Operational commands",
         "testAccounts": "Test accounts",
-        "testAccountsHint": "Local acceptance credentials. They are not sent through external notifications.",
+        "testAccountsHint": "Local acceptance credentials. Click 'Show credentials' to reveal them; they are not sent through external notifications.",
         "showCredentials": "Show credentials",
         "hideCredentials": "Hide credentials",
         "role": "Role",
