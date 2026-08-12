@@ -268,6 +268,7 @@ public sealed class V3BuildRuntimeService(
     private const int MaxContinueWithoutProgress = 2;
     private const int MaxTransientAttemptsPerExecutor = 3;
     private const int MaxTransientContinuationsPerExecution = 8;
+    private const int MaxTotalContinuationsPerExecution = 8;
 
     public async Task<V3BuildRuntimeResult> DispatchAsync(V3BuildDispatchCommand command, CancellationToken token)
     {
@@ -563,6 +564,33 @@ public sealed class V3BuildRuntimeService(
         while (true)
         {
             token.ThrowIfCancellationRequested();
+            if (execution.ContinueCount >= MaxTotalContinuationsPerExecution)
+            {
+                var budgetNow = clock.UtcNow;
+                var budgetSnapshot = V3GitSnapshot.Capture(mission.Repository!);
+                var providerPaused = string.Equals(
+                    execution.QuotaState,
+                    "PROVIDER_TRANSPORT_TRANSIENT",
+                    StringComparison.OrdinalIgnoreCase);
+                execution = execution with
+                {
+                    Status = providerPaused ? "PAUSED_PROVIDER" : "STALLED",
+                    LastActivityAt = budgetNow,
+                    CompletedAt = providerPaused ? null : budgetNow,
+                    CurrentHead = budgetSnapshot.Head,
+                    CommitDelta = Math.Max(0, budgetSnapshot.CommitCount - execution.InitialCommitCount),
+                    LastFailureCode = execution.LastFailureCode ?? "continuation_budget_exhausted",
+                    Events = Append(execution.Events, providerPaused
+                            ? $"{MissionPrefix(mission)}_PROVIDER_PAUSED"
+                            : $"{MissionPrefix(mission)}_STALLED",
+                        active.Alias,
+                        "Execution exceeded the bounded continuation budget without a completion marker."),
+                };
+                store.WriteExecution(execution);
+                if (state is not null) UpdateLifecycle(state, "BLOCKED", "CONTINUATION_BUDGET_EXHAUSTED");
+                return new V3BuildRuntimeResult(execution, null);
+            }
+
             var prompt = continuationPrompt ?? (execution.ContinueCount == 0
                 ? BuildInitialPrompt(mission)
                 : BuildContinuePrompt(mission.MissionType));
