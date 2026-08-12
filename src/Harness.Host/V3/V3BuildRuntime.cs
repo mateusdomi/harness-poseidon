@@ -590,19 +590,19 @@ public sealed class V3BuildRuntimeService(
                             : $"{MissionPrefix(mission)}_STALLED",
                         active.Alias,
                         "Execution exceeded the bounded continuation budget without a completion marker."),
-                    };
-                    store.WriteExecution(execution);
-                    if (state is not null)
-                    {
-                        UpdateLifecycle(
-                            state,
-                            providerPaused && mission.MissionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase)
-                                ? "VALIDATING"
-                                : "BLOCKED",
-                            providerPaused ? "PROVIDER_TRANSPORT_TRANSIENT" : "CONTINUATION_BUDGET_EXHAUSTED");
-                    }
-                    return new V3BuildRuntimeResult(execution, null);
+                };
+                store.WriteExecution(execution);
+                if (state is not null)
+                {
+                    UpdateLifecycle(
+                        state,
+                        providerPaused && mission.MissionType.Equals("VALIDATE", StringComparison.OrdinalIgnoreCase)
+                            ? "VALIDATING"
+                            : "BLOCKED",
+                        providerPaused ? "PROVIDER_TRANSPORT_TRANSIENT" : "CONTINUATION_BUDGET_EXHAUSTED");
                 }
+                return new V3BuildRuntimeResult(execution, null);
+            }
 
             var prompt = continuationPrompt ?? (execution.ContinueCount == 0
                 ? BuildInitialPrompt(mission)
