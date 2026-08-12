@@ -72,6 +72,34 @@ public sealed class V3BuildRuntimeTests : IDisposable
     }
 
     [Fact]
+    public async Task CompletionIgnoresRuntimePoseidonContextPackageWhenCheckingCleanWorktree()
+    {
+        var repo = CreateGitRepository();
+        var fake = new FakeBuildExecutor(
+            new FakeOutcome(
+                "commit criado\nPOSEIDON_MISSION_COMPLETE",
+                repository =>
+                {
+                    Directory.CreateDirectory(Path.Combine(repository, ".poseidon", "context"));
+                    File.WriteAllText(Path.Combine(repository, ".poseidon", "context", "INDEX.md"), "runtime context");
+                    File.WriteAllText(Path.Combine(repository, "feature.txt"), "committed");
+                    RunGit(repository, "add", "feature.txt");
+                    RunGit(repository, "commit", "-m", "feat: add feature");
+                }));
+        var (service, understand) = Runtime(fake);
+        var (state, mission, accounts) = ArrangeProject(repo);
+
+        var result = await service.DispatchAsync(Command(state, mission, accounts), CancellationToken.None);
+
+        Assert.NotNull(result.Execution);
+        Assert.Equal("COMPLETED", result.Execution!.Status);
+        Assert.Equal(1, result.Execution.CommitDelta);
+        Assert.Single(fake.Calls);
+        Assert.False(V3GitSnapshot.HasUncommittedChanges(repo));
+        Assert.Equal("VALIDATING", understand.ReadProject(state.ProjectId)!.LifecycleState);
+    }
+
+    [Fact]
     public async Task V3RuntimeRecordsUsageUnavailableInvocationWithoutInventingTokens()
     {
         var repo = CreateGitRepository();
@@ -135,6 +163,7 @@ public sealed class V3BuildRuntimeTests : IDisposable
             item.PreviousExecutor == "worker-a" &&
             item.NewExecutor == "worker-b" &&
             item.Reason == "QUOTA_FAILOVER");
+        Assert.Null(fake.Calls[1].ResumeSessionId);
         Assert.Equal(repo, mission.Repository);
         Assert.Equal("VALIDATING", understand.ReadProject(state.ProjectId)!.LifecycleState);
     }
@@ -379,6 +408,7 @@ public sealed class V3BuildRuntimeTests : IDisposable
             item.PreviousExecutor == "worker-a" &&
             item.NewExecutor == "worker-b" &&
             item.Reason == "PROVIDER_TRANSPORT_FAILOVER");
+        Assert.Null(fake.Calls[3].ResumeSessionId);
         Assert.Contains(result.Execution.Events, item => item.Type == "BUILD_TRANSIENT_FAILOVER");
         Assert.DoesNotContain(result.Execution.Events, item => item.Type == "BUILD_STALLED");
         Assert.Equal("VALIDATING", understand.ReadProject(state.ProjectId)!.LifecycleState);
@@ -408,6 +438,29 @@ public sealed class V3BuildRuntimeTests : IDisposable
         var stateAfter = understand.ReadProject(state.ProjectId)!;
         Assert.Equal("BLOCKED", stateAfter.LifecycleState);
         Assert.Equal("PROVIDER_TRANSPORT_TRANSIENT", stateAfter.Status);
+    }
+
+    [Fact]
+    public async Task TransientProviderFailureHasGlobalBudgetAcrossFailovers()
+    {
+        var repo = CreateGitRepository();
+        var outcomes = Enumerable.Range(0, 12)
+            .Select(_ => new FakeOutcome("ECONNRESET", Status: ExternalAgentRunStatus.Failed, FailureKind: ExternalFailureKind.Transient, FailureCode: "executor.provider_unreachable"))
+            .ToArray();
+        var fake = new FakeBuildExecutor(outcomes);
+        var (service, understand) = Runtime(fake);
+        var (state, mission, accounts) = ArrangeProject(repo, includeBackup: true);
+
+        var result = await service.DispatchAsync(Command(state, mission, accounts), CancellationToken.None);
+
+        Assert.NotNull(result.Execution);
+        Assert.Equal("PAUSED_PROVIDER", result.Execution!.Status);
+        Assert.Equal("PROVIDER_TRANSPORT_TRANSIENT", result.Execution.QuotaState);
+        Assert.Equal("executor.provider_unreachable", result.Execution.LastFailureCode);
+        Assert.True(result.Execution.ContinueCount <= 8);
+        Assert.Equal(9, fake.Calls.Count);
+        Assert.Contains(result.Execution.Events, item => item.Type == "BUILD_PROVIDER_PAUSED");
+        Assert.Equal("BLOCKED", understand.ReadProject(state.ProjectId)!.LifecycleState);
     }
 
     [Fact]
@@ -809,7 +862,7 @@ public sealed class V3BuildRuntimeTests : IDisposable
     private sealed class FakeBuildExecutor(params FakeOutcome[] outcomes) : IV3BuildExecutor
     {
         private readonly Queue<FakeOutcome> _outcomes = new(outcomes);
-        public List<(AgentAccountContract Account, V3BuildExecutionPrompt Prompt, string Repository)> Calls { get; } = [];
+        public List<(AgentAccountContract Account, V3BuildExecutionPrompt Prompt, string Repository, string? ResumeSessionId)> Calls { get; } = [];
 
         public Task<V3BuildExecutorOutcome> RunAsync(
             AgentAccountContract account,
@@ -818,7 +871,7 @@ public sealed class V3BuildRuntimeTests : IDisposable
             string? resumeSessionId,
             CancellationToken token)
         {
-            Calls.Add((account, prompt, repository));
+            Calls.Add((account, prompt, repository, resumeSessionId));
             if (_outcomes.Count == 0)
             {
                 throw new InvalidOperationException("No fake outcome configured.");

@@ -267,6 +267,7 @@ public sealed class V3BuildRuntimeService(
 {
     private const int MaxContinueWithoutProgress = 2;
     private const int MaxTransientAttemptsPerExecutor = 3;
+    private const int MaxTransientContinuationsPerExecution = 8;
 
     public async Task<V3BuildRuntimeResult> DispatchAsync(V3BuildDispatchCommand command, CancellationToken token)
     {
@@ -620,6 +621,7 @@ public sealed class V3BuildRuntimeService(
                 {
                     ExecutorAccountId = active.Alias,
                     Provider = active.ProviderKind,
+                    SessionId = null,
                     Status = "RUNNING",
                     ContinueCount = execution.ContinueCount + 1,
                     ConsecutiveNoProgressCount = 0,
@@ -648,8 +650,28 @@ public sealed class V3BuildRuntimeService(
 
             if (classifiedOutcome.Kind == AgentRunOutcomeKind.Transient)
             {
-                var transientAttempts = TransientAttemptsFor(execution, active.Alias) + 1;
+                var transientContinuations = TransientContinuationCount(execution);
                 var failureCode = outcome.FailureCode ?? classifiedOutcome.ReasonCode;
+                if (transientContinuations >= MaxTransientContinuationsPerExecution)
+                {
+                    execution = execution with
+                    {
+                        Status = "PAUSED_PROVIDER",
+                        LastFailureCode = failureCode,
+                        QuotaState = "PROVIDER_TRANSPORT_TRANSIENT",
+                        ConsecutiveNoProgressCount = 0,
+                        Events = Append(
+                            execution.Events,
+                            $"{MissionPrefix(mission)}_PROVIDER_PAUSED",
+                            active.Alias,
+                            "Provider transport/transient failure exceeded the bounded retry/failover budget."),
+                    };
+                    store.WriteExecution(execution);
+                    if (state is not null) UpdateLifecycle(state, "BLOCKED", "PROVIDER_TRANSPORT_TRANSIENT");
+                    return new V3BuildRuntimeResult(execution, null);
+                }
+
+                var transientAttempts = TransientAttemptsFor(execution, active.Alias) + 1;
                 if (transientAttempts < MaxTransientAttemptsPerExecutor)
                 {
                     execution = execution with
@@ -683,6 +705,7 @@ public sealed class V3BuildRuntimeService(
                     {
                         ExecutorAccountId = active.Alias,
                         Provider = active.ProviderKind,
+                        SessionId = null,
                         Status = "RUNNING",
                         LastFailureCode = failureCode,
                         QuotaState = "PROVIDER_TRANSPORT_TRANSIENT",
@@ -992,6 +1015,14 @@ public sealed class V3BuildRuntimeService(
         var prefix = MissionPrefix(execution);
         return execution.Events.Count(item =>
             string.Equals(item.Type, $"{prefix}_COMPLETION_REJECTED", StringComparison.Ordinal));
+    }
+
+    private static int TransientContinuationCount(V3BuildExecutionRecord execution)
+    {
+        var prefix = MissionPrefix(execution);
+        return execution.Events.Count(item =>
+            string.Equals(item.Type, $"{prefix}_TRANSIENT_RETRY", StringComparison.Ordinal) ||
+            string.Equals(item.Type, $"{prefix}_TRANSIENT_FAILOVER", StringComparison.Ordinal));
     }
 
     private async Task RecordV3InvocationAsync(
@@ -1449,7 +1480,7 @@ public sealed record V3GitSnapshot(
     {
         var head = Git(repository, "rev-parse", "HEAD");
         var countText = Git(repository, "rev-list", "--count", "HEAD");
-        var status = Git(repository, "status", "--porcelain=v1") ?? string.Empty;
+        var status = Git(repository, "status", "--porcelain=v1", "--", ".", ":!.poseidon") ?? string.Empty;
         _ = int.TryParse(countText, out var count);
         return new V3GitSnapshot(head, count, Fingerprint(status));
     }
@@ -1460,7 +1491,7 @@ public sealed record V3GitSnapshot(
         !string.Equals(StatusFingerprint, previous.StatusFingerprint, StringComparison.Ordinal);
 
     public static bool HasUncommittedChanges(string repository) =>
-        !string.IsNullOrWhiteSpace(Git(repository, "status", "--porcelain=v1"));
+        !string.IsNullOrWhiteSpace(Git(repository, "status", "--porcelain=v1", "--", ".", ":!.poseidon"));
 
     private static string? Git(string repository, params string[] args)
     {
