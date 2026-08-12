@@ -268,6 +268,22 @@ public static class V3UnderstandEndpoints
         var context = await V3ProjectContextBuilder.BuildAsync(
             resolved.Profile!, resolved.Project!, board, attachments, documents, documentContent, prototypes,
             attachmentStorage, readiness, accounts, channelLinks, store, token);
+        var buildRuntimeStore = V3BuildRuntimeStore.ForConfiguration(configuration);
+        var buildExecution = buildRuntimeStore.LatestCompletedBuildForProject(projectId);
+        if (!string.Equals(context.CurrentLifecycleState, "VALIDATING", StringComparison.OrdinalIgnoreCase) &&
+            IsRetryableValidationRuntimePause(context.State, buildExecution, buildRuntimeStore.LatestForProject(projectId), clock.UtcNow))
+        {
+            store.WriteProject(context.State! with
+            {
+                LifecycleState = "VALIDATING",
+                Status = "VALIDATION_RETRY_READY",
+                UpdatedAt = clock.UtcNow,
+            });
+            context = await V3ProjectContextBuilder.BuildAsync(
+                resolved.Profile!, resolved.Project!, board, attachments, documents, documentContent, prototypes,
+                attachmentStorage, readiness, accounts, channelLinks, store, token);
+        }
+
         if (!string.Equals(context.CurrentLifecycleState, "VALIDATING", StringComparison.OrdinalIgnoreCase))
         {
             return Problem(409, "validation_not_reached", "VALIDATION mission compilation requires lifecycle VALIDATING.");
@@ -281,8 +297,6 @@ public static class V3UnderstandEndpoints
                 "VALIDATION mission compilation requires 100% coverage of primary requirement sources.");
         }
 
-        var buildExecution = V3BuildRuntimeStore.ForConfiguration(configuration)
-            .LatestCompletedBuildForProject(projectId);
         var mission = V3MissionCompiler.CompileValidationMission(
             context,
             buildExecution,
@@ -290,6 +304,31 @@ public static class V3UnderstandEndpoints
             clock.UtcNow);
         store.WriteMission(mission);
         return Results.Ok(V3BuildMissionResponse.From(mission));
+    }
+
+    private static bool IsRetryableValidationRuntimePause(
+        V3ProjectUnderstandState? state,
+        V3BuildExecutionRecord? completedBuild,
+        V3BuildExecutionRecord? latestExecution,
+        DateTimeOffset now)
+    {
+        if (state is null || completedBuild is null || latestExecution is null) return false;
+        if (!string.Equals(latestExecution.MissionType, "VALIDATE", StringComparison.OrdinalIgnoreCase)) return false;
+        if (!string.Equals(latestExecution.ProjectId, state.ProjectId, StringComparison.Ordinal)) return false;
+        if (latestExecution.ValidationReport?.HasBlockingFailures == true) return false;
+        if (latestExecution.StartedAt < (completedBuild.CompletedAt ?? completedBuild.LastActivityAt)) return false;
+        if (!string.Equals(latestExecution.Status, "STALLED", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(latestExecution.Status, "PAUSED_PROVIDER", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var retryableStatus =
+            string.Equals(state.Status, "RECOVERY_STALLED", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(state.Status, "PROVIDER_TRANSPORT_TRANSIENT", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(latestExecution.QuotaState, "PROVIDER_TRANSPORT_TRANSIENT", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(latestExecution.LastFailureCode, "startup_recovery_requires_explicit_resume", StringComparison.OrdinalIgnoreCase);
+        return retryableStatus && latestExecution.StartedAt <= now;
     }
 
     private static async Task<IResult> CompilePlatformMaintenanceMissionAsync(
