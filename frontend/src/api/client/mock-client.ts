@@ -2681,6 +2681,7 @@ export class MockApiClient implements ApiClient {
       {
         id: '01J0CHANNELTELEGRAM000000001',
         kind: 'telegram',
+        displayName: null,
         externalIdentity: '@poseidon_ops_bot:512044',
         projectId: project.id,
         conversationId: conversation?.id ?? project.id,
@@ -2703,6 +2704,7 @@ export class MockApiClient implements ApiClient {
     const link: ChannelLink = {
       id: this.#options.nextId(),
       kind: input.kind,
+      displayName: null,
       externalIdentity: identity,
       projectId: input.projectId,
       conversationId: input.conversationId ?? this.#options.nextId(),

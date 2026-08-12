@@ -7,7 +7,7 @@ public sealed class PostgresChannelLinkStore(NpgsqlDataSource dataSource) : ICha
 {
     private const string Select =
         "SELECT tenant_id,id,kind,external_identity,profile_id,project_id,conversation_id,linked_at," +
-        "last_inbound_at FROM harness.channel_links";
+        "last_inbound_at,display_name FROM harness.channel_links";
 
     private readonly NpgsqlDataSource _dataSource =
         dataSource ?? throw new ArgumentNullException(nameof(dataSource));
@@ -77,8 +77,8 @@ public sealed class PostgresChannelLinkStore(NpgsqlDataSource dataSource) : ICha
             insert.CommandText =
                 """
                 INSERT INTO harness.channel_links
-                    (tenant_id,id,kind,external_identity,profile_id,project_id,conversation_id,linked_at)
-                VALUES ($1,$2,$3,$4,$5,$6,$7,$8);
+                    (tenant_id,id,kind,external_identity,profile_id,project_id,conversation_id,linked_at,display_name)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9);
                 """;
             insert.Parameters.Add(Text(command.TenantId));
             insert.Parameters.Add(Text(command.Id));
@@ -88,6 +88,7 @@ public sealed class PostgresChannelLinkStore(NpgsqlDataSource dataSource) : ICha
             insert.Parameters.Add(Text(command.ProjectId));
             insert.Parameters.Add(Text(command.ConversationId));
             insert.Parameters.Add(Timestamp(command.OccurredAt));
+            insert.Parameters.Add(command.DisplayName is null ? DBNull.Value : Text(command.DisplayName));
             await insert.ExecuteNonQueryAsync(cancellationToken);
         }
 
@@ -100,7 +101,8 @@ public sealed class PostgresChannelLinkStore(NpgsqlDataSource dataSource) : ICha
             command.ProfileId,
             command.ProjectId,
             command.ConversationId,
-            command.OccurredAt);
+            command.OccurredAt,
+            DisplayName: command.DisplayName);
     }
 
     public async Task MarkInboundAsync(
@@ -112,6 +114,20 @@ public sealed class PostgresChannelLinkStore(NpgsqlDataSource dataSource) : ICha
         await using var update = _dataSource.CreateCommand(
             "UPDATE harness.channel_links SET last_inbound_at=$1 WHERE tenant_id=$2 AND id=$3;");
         update.Parameters.Add(Timestamp(occurredAt));
+        update.Parameters.Add(Text(tenantId));
+        update.Parameters.Add(Text(linkId));
+        await update.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task UpdateDisplayNameAsync(
+        string tenantId,
+        string linkId,
+        string displayName,
+        CancellationToken cancellationToken = default)
+    {
+        await using var update = _dataSource.CreateCommand(
+            "UPDATE harness.channel_links SET display_name=$1 WHERE tenant_id=$2 AND id=$3;");
+        update.Parameters.Add(Text(displayName));
         update.Parameters.Add(Text(tenantId));
         update.Parameters.Add(Text(linkId));
         await update.ExecuteNonQueryAsync(cancellationToken);
@@ -144,7 +160,8 @@ public sealed class PostgresChannelLinkStore(NpgsqlDataSource dataSource) : ICha
         reader.GetString(5).TrimEnd(),
         reader.GetString(6).TrimEnd(),
         reader.GetFieldValue<DateTimeOffset>(7),
-        reader.IsDBNull(8) ? null : reader.GetFieldValue<DateTimeOffset>(8));
+        reader.IsDBNull(8) ? null : reader.GetFieldValue<DateTimeOffset>(8),
+        reader.IsDBNull(9) ? null : reader.GetString(9));
 
     private static NpgsqlParameter<string> Text(string value) => new() { TypedValue = value };
 

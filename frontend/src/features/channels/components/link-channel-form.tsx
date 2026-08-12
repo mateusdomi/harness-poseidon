@@ -20,6 +20,7 @@ const IDENTITY_HINT_KEY: Partial<Record<ChannelKind, string>> = {
 const KNOWN_ERROR_TITLES = new Set([
   'invalid_channel_kind',
   'invalid_external_identity',
+  'invalid_external_identity_format',
   'invalid_project_id',
   'invalid_conversation_id',
   'project_not_found',
@@ -27,6 +28,13 @@ const KNOWN_ERROR_TITLES = new Set([
   'conversation_inactive',
   'channel_already_linked',
 ]);
+
+function isValidExternalIdentity(kind: ChannelKind, identity: string): boolean {
+  const trimmed = identity.trim();
+  if (trimmed.length === 0) return false;
+  if (kind === 'telegram') return /^\d+$/.test(trimmed);
+  return true;
+}
 
 export interface LinkChannelFormProps {
   projects: Project[];
@@ -81,8 +89,11 @@ export function LinkChannelForm({
     return 'channels.link.errors.generic';
   })();
 
+  const identityValid = isValidExternalIdentity(kind, identity);
+
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
+    if (!identityValid) return;
     setSuccess(false);
     mutation.mutate(
       {
@@ -195,6 +206,11 @@ export function LinkChannelForm({
         </Field>
       )}
 
+      {!identityValid && identity.trim().length > 0 ? (
+        <p role="alert" className="text-sm text-error">
+          {t('channels.link.errors.invalid_external_identity_format')}
+        </p>
+      ) : null}
       {errorKey ? (
         <p role="alert" className="text-sm text-error">
           {t(errorKey)}
@@ -209,7 +225,7 @@ export function LinkChannelForm({
       <div className="flex items-center gap-2">
         <Button
           type="submit"
-          disabled={mutation.isPending || identity.trim().length === 0 || selectedProject === ''}
+          disabled={mutation.isPending || !identityValid || selectedProject === ''}
         >
           {mutation.isPending ? t('channels.link.submitting') : t('channels.link.submit')}
         </Button>

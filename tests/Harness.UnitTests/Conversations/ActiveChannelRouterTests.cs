@@ -135,5 +135,12 @@ public sealed class ActiveChannelRouterTests
             DateTimeOffset occurredAt,
             CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
+
+        public Task UpdateDisplayNameAsync(
+            string tenantId,
+            string linkId,
+            string displayName,
+            CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
     }
 }

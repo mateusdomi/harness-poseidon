@@ -16,7 +16,8 @@
     "columns": {
       "identity": "External identity",
       "project": "Project",
-      "linkedAt": "Linked at"
+      "linkedAt": "Linked at",
+      "chatId": "Chat ID"
     },
     "empty": {
       "title": "No channel linked to a project",
@@ -75,6 +76,7 @@
       "errors": {
         "invalid_channel_kind": "Invalid channel kind.",
         "invalid_external_identity": "External identity is required and limited to 200 characters.",
+        "invalid_external_identity_format": "For Telegram, the identity must be the numeric chat id.",
         "invalid_project_id": "Select a valid project.",
         "invalid_conversation_id": "Select a valid conversation.",
         "project_not_found": "The selected project no longer exists.",

@@ -31,8 +31,8 @@ public sealed class SqliteChannelLinkStore(SqliteWriteDispatcher dispatcher) : I
                 insert.CommandText =
                     """
                     INSERT INTO channel_links
-                        (tenant_id,id,kind,external_identity,profile_id,project_id,conversation_id,linked_at)
-                    VALUES ($tenant,$id,$kind,$identity,$profile,$project,$conversation,$at);
+                        (tenant_id,id,kind,external_identity,profile_id,project_id,conversation_id,linked_at,display_name)
+                    VALUES ($tenant,$id,$kind,$identity,$profile,$project,$conversation,$at,$displayName);
                     """;
                 insert.Parameters.AddWithValue("$tenant", command.TenantId);
                 insert.Parameters.AddWithValue("$id", command.Id);
@@ -43,6 +43,7 @@ public sealed class SqliteChannelLinkStore(SqliteWriteDispatcher dispatcher) : I
                 insert.Parameters.AddWithValue("$conversation", command.ConversationId);
                 insert.Parameters.AddWithValue(
                     "$at", command.OccurredAt.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
+                insert.Parameters.AddWithValue("$displayName", command.DisplayName ?? (object)DBNull.Value);
                 await insert.ExecuteNonQueryAsync(token);
             }
 
@@ -55,7 +56,8 @@ public sealed class SqliteChannelLinkStore(SqliteWriteDispatcher dispatcher) : I
                 command.ProfileId,
                 command.ProjectId,
                 command.ConversationId,
-                command.OccurredAt);
+                command.OccurredAt,
+                DisplayName: command.DisplayName);
         }, cancellationToken);
     }
 
@@ -109,9 +111,26 @@ public sealed class SqliteChannelLinkStore(SqliteWriteDispatcher dispatcher) : I
             return true;
         }, cancellationToken);
 
+    public Task UpdateDisplayNameAsync(
+        string tenantId,
+        string linkId,
+        string displayName,
+        CancellationToken cancellationToken = default) =>
+        _dispatcher.ExecuteAsync(async (connection, token) =>
+        {
+            await using var update = connection.CreateCommand();
+            update.CommandText =
+                "UPDATE channel_links SET display_name=$displayName WHERE tenant_id=$tenant AND id=$id;";
+            update.Parameters.AddWithValue("$displayName", displayName);
+            update.Parameters.AddWithValue("$tenant", tenantId);
+            update.Parameters.AddWithValue("$id", linkId);
+            await update.ExecuteNonQueryAsync(token);
+            return true;
+        }, cancellationToken);
+
     private const string Select =
         "SELECT tenant_id,id,kind,external_identity,profile_id,project_id,conversation_id,linked_at," +
-        "last_inbound_at FROM channel_links";
+        "last_inbound_at,display_name FROM channel_links";
 
     private static async Task<ChannelLinkRecord?> ReadByIdentityAsync(
         SqliteConnection connection,
@@ -145,5 +164,6 @@ public sealed class SqliteChannelLinkStore(SqliteWriteDispatcher dispatcher) : I
         reader.IsDBNull(8)
             ? null
             : DateTimeOffset.Parse(
-                reader.GetString(8), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind));
+                reader.GetString(8), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
+        reader.IsDBNull(9) ? null : reader.GetString(9));
 }

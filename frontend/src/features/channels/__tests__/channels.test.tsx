@@ -77,6 +77,7 @@ describe('ChannelsPage', () => {
       const link = {
         id: '01J0CHANNELTELEGRAM000000009',
         kind: input.kind,
+        displayName: null,
         externalIdentity: input.externalIdentity,
         projectId: input.projectId,
         conversationId: '01J0CHANNELCONV000000000009',
@@ -110,6 +111,7 @@ describe('ChannelsPage', () => {
       return Promise.resolve({
         id: '01J0CHANNELWHATSAPP000000009',
         kind: input.kind,
+        displayName: null,
         externalIdentity: input.externalIdentity,
         projectId: input.projectId,
         conversationId: input.conversationId ?? '01J0CHANNELCONV000000000009',

@@ -352,6 +352,8 @@ export const channelLinkSchema = z.object({
   kind: channelKindSchema,
   /** Identidade externa (ex.: chat id do Telegram). Nunca um segredo de bot. */
   externalIdentity: z.string(),
+  /** Nome humanizado do canal (ex.: título do chat ou nome do usuário). */
+  displayName: z.string().nullable(),
   projectId: ulidSchema,
   conversationId: ulidSchema,
   linkedAt: isoDateTimeSchema,

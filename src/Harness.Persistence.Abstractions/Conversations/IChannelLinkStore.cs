@@ -26,6 +26,17 @@ public interface IChannelLinkStore
         string linkId,
         DateTimeOffset occurredAt,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Atualiza o nome de exibição humanizado do vínculo quando o adapter
+    /// descobre metadados do canal (ex.: título/username do chat Telegram).
+    /// Não falha se o vínculo não existir mais.
+    /// </summary>
+    Task UpdateDisplayNameAsync(
+        string tenantId,
+        string linkId,
+        string displayName,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record ChannelLinkRecord(
@@ -37,7 +48,8 @@ public sealed record ChannelLinkRecord(
     string ProjectId,
     string ConversationId,
     DateTimeOffset LinkedAt,
-    DateTimeOffset? LastInboundAt = null);
+    DateTimeOffset? LastInboundAt = null,
+    string? DisplayName = null);
 
 public sealed record ChannelLinkCreateCommand(
     string TenantId,
@@ -47,4 +59,5 @@ public sealed record ChannelLinkCreateCommand(
     string ProfileId,
     string ProjectId,
     string ConversationId,
-    DateTimeOffset OccurredAt);
+    DateTimeOffset OccurredAt,
+    string? DisplayName = null);

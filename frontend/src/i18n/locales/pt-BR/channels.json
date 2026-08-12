@@ -16,7 +16,8 @@
     "columns": {
       "identity": "Identidade externa",
       "project": "Projeto",
-      "linkedAt": "Vinculado em"
+      "linkedAt": "Vinculado em",
+      "chatId": "Chat ID"
     },
     "empty": {
       "title": "Nenhum canal vinculado a um projeto",
@@ -75,6 +76,7 @@
       "errors": {
         "invalid_channel_kind": "Tipo de canal inválido.",
         "invalid_external_identity": "A identidade externa é obrigatória e limitada a 200 caracteres.",
+        "invalid_external_identity_format": "Para Telegram, a identidade deve ser o chat id numérico.",
         "invalid_project_id": "Selecione um projeto válido.",
         "invalid_conversation_id": "Selecione uma conversa válida.",
         "project_not_found": "O projeto selecionado não existe mais.",

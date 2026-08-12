@@ -193,6 +193,15 @@ public static class ChannelEndpoints
                 "A identidade externa é obrigatória e limitada a 200 caracteres.");
         }
 
+        if (string.Equals(input.Kind, "telegram", StringComparison.OrdinalIgnoreCase) &&
+            !long.TryParse(input.ExternalIdentity.Trim(), out _))
+        {
+            return Problem(
+                400,
+                "invalid_external_identity_format",
+                "Para Telegram, a identidade externa deve ser o chat id numérico.");
+        }
+
         if (!UlidValue.TryParse(input.ProjectId, out _))
         {
             return Problem(400, "invalid_project_id", "Project ID must be a ULID.");
@@ -499,7 +508,8 @@ public static class ChannelEndpoints
         value.ExternalIdentity,
         value.ProjectId,
         value.ConversationId,
-        value.LinkedAt);
+        value.LinkedAt,
+        value.DisplayName);
 
     private static IResult SessionRequired() =>
         Problem(401, "local_session_required", "A local profile session is required.");
@@ -526,7 +536,8 @@ public sealed record ChannelLinkContract(
     string ExternalIdentity,
     string ProjectId,
     string ConversationId,
-    DateTimeOffset LinkedAt);
+    DateTimeOffset LinkedAt,
+    string? DisplayName = null);
 
 public sealed record ChannelLinkPage(
     IReadOnlyList<ChannelLinkContract> Items,

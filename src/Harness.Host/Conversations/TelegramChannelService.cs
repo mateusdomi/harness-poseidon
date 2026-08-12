@@ -117,7 +117,9 @@ public sealed partial class TelegramChannelBackgroundService(
         using var telemetry = new ChannelTelemetryScope("telegram", "inbound");
         try
         {
-            var chatId = update.Message!.Chat!.Id.ToString(CultureInfo.InvariantCulture);
+            var chat = update.Message!.Chat!;
+            var chatId = chat.Id.ToString(CultureInfo.InvariantCulture);
+            var displayName = HumanizedChatDisplayName(chat);
             var allProfiles = await profiles.ListAsync(cancellationToken);
             foreach (var tenantId in allProfiles.Select(profile => profile.TenantId)
                          .Distinct(StringComparer.Ordinal))
@@ -128,6 +130,11 @@ public sealed partial class TelegramChannelBackgroundService(
                 if (link is null)
                 {
                     continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(displayName) && string.IsNullOrWhiteSpace(link.DisplayName))
+                {
+                    await links.UpdateDisplayNameAsync(tenantId, link.Id, displayName, cancellationToken);
                 }
 
                 var turnId = ChannelEndpoints.DeterministicUlid(
@@ -293,6 +300,29 @@ public sealed partial class TelegramChannelBackgroundService(
         base.Dispose();
     }
 
+    private static string HumanizedChatDisplayName(TelegramChat chat)
+    {
+        if (!string.IsNullOrWhiteSpace(chat.Title))
+        {
+            return chat.Title.Trim();
+        }
+
+        var parts = new List<string?>();
+        if (!string.IsNullOrWhiteSpace(chat.FirstName)) parts.Add(chat.FirstName.Trim());
+        if (!string.IsNullOrWhiteSpace(chat.LastName)) parts.Add(chat.LastName.Trim());
+        if (parts.Count > 0)
+        {
+            return string.Join(' ', parts);
+        }
+
+        if (!string.IsNullOrWhiteSpace(chat.Username))
+        {
+            return $"@{chat.Username.Trim()}";
+        }
+
+        return string.Empty;
+    }
+
     [LoggerMessage(
         EventId = 5101,
         Level = LogLevel.Information,
@@ -324,7 +354,11 @@ public sealed record TelegramMessage(
     [property: JsonPropertyName("text")] string? Text);
 
 public sealed record TelegramChat(
-    [property: JsonPropertyName("id")] long Id);
+    [property: JsonPropertyName("id")] long Id,
+    [property: JsonPropertyName("title")] string? Title,
+    [property: JsonPropertyName("username")] string? Username,
+    [property: JsonPropertyName("first_name")] string? FirstName,
+    [property: JsonPropertyName("last_name")] string? LastName);
 
 public sealed record TelegramSendMessageRequest(
     [property: JsonPropertyName("chat_id")] string ChatId,

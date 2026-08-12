@@ -120,8 +120,8 @@ export default function UchannelsPage() {
   const { t } = useTranslation();
   const { showTechnicalDetails } = usePresentationMode();
   const linksQuery = useChannelLinks();
-  const conversationsQuery = useConversations();
-  const { projects } = useActiveProject();
+  const { activeProject, projects } = useActiveProject();
+  const conversationsQuery = useConversations(activeProject?.id ?? null);
   const [selectedLinkId, setSelectedLinkId] = useState<Ulid | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const messagesQuery = useChannelMessages(selectedLinkId);
@@ -235,9 +235,16 @@ export default function UchannelsPage() {
                     className={selected ? 'min-w-0 border-primary ring-1 ring-primary' : 'min-w-0'}
                   >
                     <CardHeader className="flex flex-col items-start gap-2 md:flex-row md:items-center md:justify-between">
-                      <CardTitle className="flex min-w-0 max-w-full items-center gap-2 break-all text-base">
-                        <Send className="size-4 shrink-0" aria-hidden />
-                        <span>{link.externalIdentity}</span>
+                      <CardTitle className="flex min-w-0 max-w-full flex-col gap-0.5 break-words text-base">
+                        <span className="flex items-center gap-2">
+                          <Send className="size-4 shrink-0" aria-hidden />
+                          <span>{link.displayName ?? link.externalIdentity}</span>
+                        </span>
+                        {link.displayName && showTechnicalDetails && (
+                          <span className="text-xs font-normal text-foreground-muted">
+                            {t('channels.columns.chatId')}: {link.externalIdentity}
+                          </span>
+                        )}
                       </CardTitle>
                       <Badge variant={KIND_VARIANT[link.kind]}>
                         {t(`channels.kind.${link.kind}`)}
@@ -249,6 +256,12 @@ export default function UchannelsPage() {
                         <dd className="break-words text-foreground">
                           {projectName(link.projectId)}
                         </dd>
+                        {link.displayName && !showTechnicalDetails && (
+                          <>
+                            <dt>{t('channels.columns.chatId')}</dt>
+                            <dd className="break-words text-foreground">{link.externalIdentity}</dd>
+                          </>
+                        )}
                         <dt>{t('channels.columns.linkedAt')}</dt>
                         <dd className="break-words text-foreground">
                           {formatDateTime(link.linkedAt)}
