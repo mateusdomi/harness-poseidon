@@ -52,7 +52,7 @@ export default function UconversationsPage() {
   const navigate = useNavigate();
   const { profileId, activeProject, isPending, isError, refetch } = useActiveProject();
   const rememberConversation = useConversationPreferencesStore((state) => state.selectConversation);
-  const conversationsQuery = useConversations();
+  const conversationsQuery = useConversations(activeProject?.id ?? null);
   const profilesQuery = useProfiles();
   const updateConversation = useUpdateConversation();
 
