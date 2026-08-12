@@ -526,6 +526,7 @@ public sealed class V3BuildRuntimeService(
             Status = "RUNNING",
             ExecutorAccountId = account.Alias,
             Provider = account.ProviderKind,
+            SessionId = null,
             LastActivityAt = clock.UtcNow,
             CompletedAt = null,
             QuotaState = null,

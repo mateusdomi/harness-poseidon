@@ -341,6 +341,7 @@ public sealed class V3BuildRuntimeTests : IDisposable
         Assert.NotNull(resumed.Execution);
         Assert.Equal("COMPLETED", resumed.Execution!.Status);
         Assert.Single(fake.Calls);
+        Assert.Null(fake.Calls[0].ResumeSessionId);
         Assert.Contains("Continue a missão original após recuperação", fake.Calls[0].Prompt.Text);
         Assert.Contains(resumed.Execution.Events, item => item.Type == "BUILD_RECOVERY_RESUMED");
         Assert.Equal("VALIDATING", understand.ReadProject(state.ProjectId)!.LifecycleState);
