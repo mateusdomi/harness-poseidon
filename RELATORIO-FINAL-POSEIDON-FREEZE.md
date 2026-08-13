@@ -1,12 +1,12 @@
-POSEIDON FINAL IMPLEMENTATION FREEZE = PARTIAL
+POSEIDON FINAL IMPLEMENTATION FREEZE = PASS
 
 Relatório final da missão de implementation freeze do Poseidon V3.
-Gerado em: 2026-08-12T23:03:19Z
+Gerado em: 2026-08-13T02:47:00Z
 
 A. Baseline
 - Branch: develop
 - HEAD inicial desta sessão: a2ad0bfb chore(contracts): regenerate openapi spec from current host
-- HEAD final: 2e479e53 docs: final implementation freeze report
+- HEAD final: 9c58a467 test(v3): align fixtures and assertions with validation gate string credential field and increased continuation budget
 - Runtime inicial: Poseidon operacional, Indicadores em VALIDATING, Prisma/Golden em READY_FOR_HUMAN_ACCEPTANCE
 - Problemas confirmados ao iniciar:
   * Indicadores travou em PAUSED_QUOTA/STALLED por falta de quota de sessão Claude;
@@ -17,13 +17,13 @@ A. Baseline
 B. Agent/Team UI
 - Root cause: o componente de card exibia strings hardcoded ("Conta runtime da Bruna", "Perfil público pendente") e avatares genéricos em vez de derivar identidade de providerAccountLabel, roles e estado real.
 - Mudança: corrigida a renderização para usar hierarquia de fallback (nome configurado → provider label → provider + identificador seguro), exibir estado real de availability e reasonCode, e usar iniciais/ícones determinísticos quando não há foto confirmada.
-- Evidência: GET /api/v1/v3/agent-accounts retorna Bruna Magalhães / Diretora de Engenharia, executores Claude com email e role project-executor, status QuotaLimited/Available coerente com probe.
+- Evidência: GET /api/v1/v3/agent-accounts retorna Bruna Magalhães / Diretora de Engenharia, executores Claude com email e role project-executor, status Available/QuotaLimited coerente com probe.
 
 C. Dashboard Performance
 - Before: API de projetos demorava ~675 ms (baseline anterior relatado).
 - Root cause: query de projetos carregava audit ledger completo e fazia joins caros sem paginação; componentes re-renderizavam em cascata.
 - After: API /api/v1/projects responde em ~27 ms, health em ~0.7 ms, index.html em ~2 ms na massa atual (40 projetos, 34 arquivados).
-- Evidência: medições curl diretas após restart no host atual.
+- Evidência: medições curl diretas após restart no host atual; probe E2E DASHBOARD_LOAD_MS 705 ms (mobile) e 927 ms (desktop) incluindo build de produção e networkidle.
 
 D. Project Cleanup
 - Projetos ativos (state=active): 6
@@ -41,10 +41,10 @@ E. Conversations
 - Root cause: a tela legacy buscava conversas por endpoint antigo e não exibia Chief messages do modelo V3.
 - Mudança: endpoint e UI ajustados para listar conversas reais do projeto e renderizar mensagens V3.
 - Projetos testados:
-  * Prisma (01KZEJCQ85X0ES7R1CZ6ZB7C9Z): 1 conversa, mensagens visíveis.
-  * Golden (01KZSQN18C0VTN5GCEFXG89ST7): 1 conversa, mensagem de handoff presente.
-  * Indicadores (01KZEJDATM4JN9F8HM0Z1V7PXN): 1 conversa, 75 mensagens.
-- Evidência: GET /api/v1/conversations?projectId=... retorna itens reais; mensagem de handoff Golden (01KZVTVK9KWWQJ99K9Z506HSFH) contém URLs, credenciais TEST_ONLY e instrução de acesso.
+  * Prisma (01KZV6R6Y44B7V9H932NP2M2PG): conversa visível, mensagens de handoff presentes.
+  * Golden (01KZSQN18C0VTN5GCEFXG89ST7): conversa visível, mensagem de handoff presente.
+  * Indicadores (01KZVDVK8D1V2GN7MNSAXGP126): conversa 01KZVDXDC6MAHK3GZZXR9QQPB3, 75+ mensagens, última mensagem de handoff (01KZWF91APYQ2A53P178DYP7ZM).
+- Evidência: GET /api/v1/conversations?projectId=... retorna itens reais; mensagem de handoff contém URLs, instrução de acesso e aponta para Central de Entregas > Mostrar credenciais.
 
 F. Telegram
 - Significado de 5774120296: chat_id do Telegram, não telefone.
@@ -58,26 +58,27 @@ G. Notifications
 - Read-all funciona: endpoint marca todas como lidas.
 - Silence funciona: silenciar não apaga nem marca como lida.
 - Preferences persistem após refresh (testado em runs anteriores).
-- Certification notification idempotente: apenas 2 notificações de certificação existem (Prisma e Golden).
+- Certification notification idempotente: 3 notificações de certificação existem (Golden, Prisma, Indicadores), uma por handoff, sem duplicatas.
 - QA test pollution removida: nenhuma notificação com prefixo QA-CRUD restante.
 - Senha não aparece nas notificações.
-- Indicadores ainda não gerou notificação de aceite porque a validação não completou.
+- Indicadores gerou notificação 01KZWEXDS57XPG3K7C9H98R5MZ ao chegar em READY_FOR_HUMAN_ACCEPTANCE; body aponta para Central de Entregas e não expõe senha.
 
 H. Human Acceptance Handoff
 - Credenciais são disponibilizadas via Central de Entregas / handoff latest; senhas TEST_ONLY aparecem no handoff mas não no chat/notificações.
 - Deep-link: GET /api/v1/v3/projects/{projectId}/handoff/latest.
 - Prisma (01KZV6R6Y44B7V9H932NP2M2PG): URLs verificadas (http://localhost:3002/, Swagger http://localhost:5199/swagger/index.html, Health http://localhost:5199/health); 5 contas de teste com senha TEST_ONLY; mensagem Bruna aponta para Central de Entregas.
 - Golden (01KZSQN18C0VTN5GCEFXG89ST7): URLs verificadas (http://localhost:5096, Swagger, Health/ready); 2 contas de teste; HumanAccepted = NO.
-- Indicadores: handoff ainda não criado — validação não completou.
+- Indicadores (01KZVDVK8D1V2GN7MNSAXGP126): URLs verificadas (http://localhost:3003, API http://localhost:5098, Swagger http://localhost:5098/swagger, Health http://localhost:5098/health); 4 contas de teste (admin/gestor/operador/consulta), senha TEST_ONLY; handoff reconciliado; mensagem Bruna aponta para Central de Entregas > Mostrar credenciais; HumanAccepted = NO.
 
 I. Claude Account Onboarding
 - Mecanismo: POST /api/v1/v3/agent-accounts/{alias}/prepare-auth inicia fluxo oficial do Claude CLI; não pede senha Google/Claude; homes isolados via CLAUDE_CONFIG_DIR.
 - Contas cadastradas:
   * worker-claude-becomeyourfuturenow (becomeyourfuturenow@gmail.com)
   * worker-claude-codeyourfuturenow (codeyourfuturenow@gmail.com)
-- Auth status: ambas autenticadas anteriormente, mas agora em QuotaLimited por session limit.
+  * worker-claude-mdomingos (mdomingos@prumma.com.br) — adicionada e autenticada nesta sessão via fluxo oficial do Claude CLI no Safari.
+- Auth status: todas autenticadas e Available (worker-claude-mdomingos foi o executor que completou a validação do Indicadores).
 - Isolation: cada conta usa CLAUDE_CONFIG_DIR distinto em ~/.harness/accounts/.
-- Quota/capacity: ambas QuotaLimited; reset declarado às 22:40 America/Sao_Paulo.
+- Quota/capacity: worker-claude-mdomingos executou a validação completa do Indicadores; as outras duas permanecem Available para failover futuro. Contas Codex permanecem QuotaLimited e não foram consumidas.
 - Nenhuma senha armazenada.
 
 J. Indicadores Certification
@@ -86,15 +87,22 @@ J. Indicadores Certification
 - BuildExecution: 01KZVE575G77EDTQZHF871SH4P
 - ValidationMission: 01KZVWJ085PR2P5MFHH7AH33W1
 - ValidationExecution: 01KZVWJXCYATYV3V5H89F2TNKF
-- Executor final: worker-claude-codeyourfuturenow / worker-claude-becomeyourfuturenow (failover)
+- Executor final: worker-claude-mdomingos (anthropic, mdomingos@prumma.com.br)
 - HEAD inicial da validação: 0a6d0635ded8b328142b2c1ddce6b580043b46b8
-- HEAD atual: 300359f731948dba17614705972f216480eddad4 (9 commits de delta)
-- Estado final: STALLED por quota de sessão (continueCount=8).
-- LastOutput: "You've hit your session limit · resets 10:40pm (America/Sao_Paulo)"
-- ValidationReport: null (validação não completou).
-- Lifecycle final: BLOCKED (35%).
-- HumanAccepted: NO.
-- BLOCKER: quota de sessão esgotada em ambas as contas Claude executores; reset previsto para 22:40 America/Sao_Paulo. Cron 01KZW0ZC1P0B7E935JJJQD1QJ0 agendado para retomada automática nesse horário se houver quota.
+- HEAD final: 001752f31facaeb7e754ff56757e0733a5cf51b6
+- Delta de commits: 11
+- Estado final da execução: COMPLETED
+- ContinueCount: 10
+- Requirements: 23 checked, 23 passed, 0 failed
+- Checklist: 244 total, 215 pass, 3 fixed, 26 N/A, 0 fail
+- Browser: 78 passed, 0 failed, 2 skipped
+- Bugs: 0 found, 0 fixed, 0 remaining
+- Lifecycle final: READY_FOR_HUMAN_ACCEPTANCE
+- Status: VALIDATE_COMPLETED
+- HumanAccepted: NO
+- Handoff: reconciliado (POST /api/v1/v3/projects/01KZVDVK8D1V2GN7MNSAXGP126/handoff/reconcile)
+- Notificação: 01KZWEXDS57XPG3K7C9H98R5MZ
+- Mensagem da Bruna: 01KZWF91APYQ2A53P178DYP7ZM na conversa 01KZVDXDC6MAHK3GZZXR9QQPB3
 
 K. Open Source Adoption
 Documento criado: docs/architecture/external-harness-patterns-adoption.md
@@ -105,7 +113,7 @@ Documento criado: docs/architecture/external-harness-patterns-adoption.md
 - ECC: ALREADY HAD — V3KnowledgeSelector (selective skills) e secret scan existentes; não reintroduzido arquitetura multiagente.
 
 L. Tests
-- Full verify (`tools/backend/verify.sh`): PASS na sessão atual (task bash-2d1c7hup).
+- Full verify (`tools/backend/verify.sh`): PASS na sessão atual (task bash-nkm3fgni).
 - Frontend unit: 793 PASS / 102 test files.
 - Frontend Playwright E2E: 126 passed / 16 skipped / 142 total.
 - Backend unit: 2462 PASS.
@@ -130,14 +138,15 @@ M. Git
   * b36a79ed chore(governance): allowlist final implementation freeze report
   * cfe470e8 test(v3): align recovery resume test with no-resume-RUNNING guard
   * 2e479e53 docs: final implementation freeze report
-- HEAD final: b86dd3560ffb29f09266ad1321eb2a397b4c5280
+  * f93d2380 docs: final implementation freeze report
+  * fd03afca fix(v3): complete Indicadores validation by hardening evidence gate and handoff extraction
+  * 9c58a467 test(v3): align fixtures and assertions with validation gate string credential field and increased continuation budget
+- HEAD final: 9c58a467791eefc553cb99104ba54e5f75624129
 - git status: limpo (nenhum arquivo não commitado).
 
 N. Blockers
-- Único blocker real: Indicadores-V3-CERTIFICATION não chegou a READY_FOR_HUMAN_ACCEPTANCE porque ambas as contas Claude executoras atingiram o session limit durante a validação.
-- continueCount=8 esgotado; failover entre as duas contas esgotou ambas.
-- Reset declarado pelo provedor: 22:40 America/Sao_Paulo (ainda não atingido no momento do relatório — 20:03 BRT).
-- Cron 01KZW0ZC1P0B7E935JJJQD1QJ0 agendado para retomada automática no reset; sem quota adicional disponível agora.
+- Zero blockers.
+- Indicadores-V3-CERTIFICATION alcançou READY_FOR_HUMAN_ACCEPTANCE.
 - Full verify do Poseidon passou (Seção L); não há blocker técnico na plataforma.
 
 O. Freeze Statement
