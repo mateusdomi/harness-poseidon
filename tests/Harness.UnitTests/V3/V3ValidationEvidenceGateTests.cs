@@ -99,7 +99,7 @@ public sealed class V3ValidationEvidenceGateTests
               "requirements":{"canonicalItemsReference":"docs/manifest.json#/requirements"},
               "checklist":{"canonicalItemsReference":"docs/manifest.json#/checklist"},
               "browserRuns":{"canonicalItemsReference":"docs/manifest.json#/browserRuns"},
-              "handoffReadiness":{"applicationUrl":"http://localhost:5000","runtimeReachable":true,"healthPass":true,"cleanAcceptanceEnvironment":true,"accessInformationCaptured":true,"testCredentialsCapturedWhenApplicable":true}
+              "handoffReadiness":{"applicationUrl":"http://localhost:5000","runtimeReachable":true,"healthPass":true,"cleanAcceptanceEnvironment":true,"accessInformationCaptured":true,"testCredentialsCapturedWhenApplicable":"TEST_ONLY"}
             }
             POSEIDON_VALIDATION_COMPLETE
             """;
@@ -142,7 +142,7 @@ public sealed class V3ValidationEvidenceGateTests
               "requirements":"see canonical manifest",
               "checklist":"see canonical manifest",
               "browserRuns":"see canonical manifest",
-              "handoffReadiness":{"applicationUrl":"http://localhost:5000","runtimeReachable":true,"healthPass":true,"cleanAcceptanceEnvironment":true,"accessInformationCaptured":true,"testCredentialsCapturedWhenApplicable":true},
+              "handoffReadiness":{"applicationUrl":"http://localhost:5000","runtimeReachable":true,"healthPass":true,"cleanAcceptanceEnvironment":true,"accessInformationCaptured":true,"testCredentialsCapturedWhenApplicable":"TEST_ONLY"},
               "canonicalManifest":"docs/manifest.json"
             }
             POSEIDON_VALIDATION_COMPLETE
@@ -186,7 +186,7 @@ public sealed class V3ValidationEvidenceGateTests
               "requirements":{"itemsReference":"docs/manifest.json#/requirements"},
               "checklist":{"itemsReference":"docs/manifest.json#/checklist"},
               "browserRuns":[{"runner":"playwright","startedAt":"2026-08-12T00:00:00Z","completedAt":"2026-08-12T00:01:00Z","exitCode":0,"baseUrl":"http://localhost:5000","viewports":["desktop"],"testFiles":["e2e.spec.ts"],"passed":1,"failed":0,"skipped":0,"consoleErrors":0,"networkErrors":0}],
-              "handoffReadiness":{"applicationUrl":"http://localhost:5000","runtimeReachable":true,"healthPass":true,"cleanAcceptanceEnvironment":true,"accessInformationCaptured":true,"testCredentialsCapturedWhenApplicable":true}
+              "handoffReadiness":{"applicationUrl":"http://localhost:5000","runtimeReachable":true,"healthPass":true,"cleanAcceptanceEnvironment":true,"accessInformationCaptured":true,"testCredentialsCapturedWhenApplicable":"TEST_ONLY"}
             }
             POSEIDON_VALIDATION_COMPLETE
             """;
@@ -232,7 +232,7 @@ public sealed class V3ValidationEvidenceGateTests
               ],
               "checklist":[{"checkId":"1-2","status":"PASS","evidenceType":"manifest-artifact","evidenceReference":"docs/manifest.json#checklist","notes":"Full checklist is in canonical manifest.","executedAt":"2026-08-12T00:00:00Z"}],
               "browserRuns":[{"runner":"playwright","startedAt":"2026-08-12T00:00:00Z","completedAt":"2026-08-12T00:01:00Z","exitCode":0,"baseUrl":"http://localhost:5000","viewports":["desktop"],"testFiles":["e2e.spec.ts"],"passed":1,"failed":0,"skipped":0,"consoleErrors":0,"networkErrors":0}],
-              "handoffReadiness":{"applicationUrl":"http://localhost:5000","runtimeReachable":true,"healthPass":true,"cleanAcceptanceEnvironment":true,"accessInformationCaptured":true,"testCredentialsCapturedWhenApplicable":true}
+              "handoffReadiness":{"applicationUrl":"http://localhost:5000","runtimeReachable":true,"healthPass":true,"cleanAcceptanceEnvironment":true,"accessInformationCaptured":true,"testCredentialsCapturedWhenApplicable":"TEST_ONLY"}
             }
             POSEIDON_VALIDATION_COMPLETE
             """;
@@ -399,7 +399,7 @@ public sealed class V3ValidationEvidenceGateTests
             : "[]";
         var handoffReadiness = handoff
             ? """
-              {"applicationUrl":"http://localhost:5000","runtimeReachable":true,"healthPass":true,"cleanAcceptanceEnvironment":true,"accessInformationCaptured":true,"testCredentialsCapturedWhenApplicable":true}
+              {"applicationUrl":"http://localhost:5000","runtimeReachable":true,"healthPass":true,"cleanAcceptanceEnvironment":true,"accessInformationCaptured":true,"testCredentialsCapturedWhenApplicable":"TEST_ONLY"}
               """
             : "null";
 

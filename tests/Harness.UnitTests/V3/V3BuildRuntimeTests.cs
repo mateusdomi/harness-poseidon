@@ -565,7 +565,7 @@ public sealed class V3BuildRuntimeTests : IDisposable
         Assert.Equal("PROVIDER_TRANSPORT_TRANSIENT", result.Execution.QuotaState);
         Assert.Equal("executor.provider_unreachable", result.Execution.LastFailureCode);
         Assert.True(result.Execution.ContinueCount <= 8);
-        Assert.Equal(8, fake.Calls.Count);
+        Assert.Equal(9, fake.Calls.Count);
         Assert.Contains(result.Execution.Events, item => item.Type == "BUILD_PROVIDER_PAUSED");
         Assert.Equal("BLOCKED", understand.ReadProject(state.ProjectId)!.LifecycleState);
     }
@@ -574,7 +574,7 @@ public sealed class V3BuildRuntimeTests : IDisposable
     public async Task MixedQuotaAndNoMarkerContinuationsHaveGlobalBudget()
     {
         var repo = CreateGitRepository();
-        var outcomes = Enumerable.Range(0, 12)
+        var outcomes = Enumerable.Range(0, 18)
             .Select(index => index % 2 == 0
                 ? new FakeOutcome("quota", FailureKind: ExternalFailureKind.QuotaExhausted, FailureCode: "executor.quota_exhausted")
                 : new FakeOutcome("checkpoint sem marcador"))
@@ -588,8 +588,8 @@ public sealed class V3BuildRuntimeTests : IDisposable
         Assert.NotNull(result.Execution);
         Assert.Equal("STALLED", result.Execution!.Status);
         Assert.Equal("continuation_budget_exhausted", result.Execution.LastFailureCode);
-        Assert.Equal(8, result.Execution.ContinueCount);
-        Assert.Equal(8, fake.Calls.Count);
+        Assert.Equal(16, result.Execution.ContinueCount);
+        Assert.Equal(16, fake.Calls.Count);
         Assert.Contains(result.Execution.Events, item =>
             item.Type == "BUILD_STALLED" &&
             item.Detail.Contains("bounded continuation budget", StringComparison.OrdinalIgnoreCase));
