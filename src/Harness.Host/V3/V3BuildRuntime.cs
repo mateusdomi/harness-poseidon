@@ -337,7 +337,7 @@ public sealed partial class V3BuildRuntimeService(
     private const int MaxContinueWithoutProgress = 2;
     private const int MaxTransientAttemptsPerExecutor = 3;
     private const int MaxTransientContinuationsPerExecution = 8;
-    private const int MaxTotalContinuationsPerExecution = 8;
+    private const int MaxTotalContinuationsPerExecution = 16;
 
     public async Task<V3BuildRuntimeResult> DispatchAsync(V3BuildDispatchCommand command, CancellationToken token)
     {
@@ -1427,7 +1427,7 @@ public sealed partial class V3BuildRuntimeService(
     {
         if (string.IsNullOrWhiteSpace(output)) return string.Empty;
         var trimmed = output.Trim();
-        return trimmed.Length <= 8_000 ? trimmed : trimmed[..8_000];
+        return trimmed.Length <= 256_000 ? trimmed : trimmed[..256_000];
     }
 }
 
@@ -1796,9 +1796,40 @@ public sealed record V3ValidationReport(
         BrowserTestsFailed > 0 ||
         BugsRemaining > 0;
 
-    public static V3ValidationReport Parse(string output, string? finalHead) =>
-        new(
-            Number(output, "RequirementsChecked"),
+    public static V3ValidationReport Parse(string output, string? finalHead)
+    {
+        var requirementsChecked = Number(output, "RequirementsChecked");
+        if (requirementsChecked == 0 && V3ValidationEvidenceGate.TryExtractManifest(output, null, out var manifest, out _))
+        {
+            var requirements = manifest.Requirements ?? [];
+            var checklist = manifest.Checklist ?? [];
+            var browserRuns = manifest.BrowserRuns ?? [];
+            var requirementsPassed = requirements.Count(r => IsPassingStatus(r.Status));
+            var requirementsFailed = requirements.Count(r => string.Equals(r.Status, "FAIL", StringComparison.OrdinalIgnoreCase));
+            var checklistPass = checklist.Count(c => string.Equals(c.Status, "PASS", StringComparison.OrdinalIgnoreCase));
+            var checklistFixed = checklist.Count(c => string.Equals(c.Status, "FIXED", StringComparison.OrdinalIgnoreCase));
+            var checklistNa = checklist.Count(c => string.Equals(c.Status, "N_A", StringComparison.OrdinalIgnoreCase));
+            var checklistFail = checklist.Count(c => string.Equals(c.Status, "FAIL", StringComparison.OrdinalIgnoreCase));
+            return new V3ValidationReport(
+                requirements.Count,
+                requirementsPassed,
+                requirementsFailed,
+                checklist.Count,
+                checklistPass,
+                checklistFixed,
+                checklistNa,
+                checklistFail,
+                browserRuns.Sum(run => run.Passed),
+                browserRuns.Sum(run => run.Failed),
+                browserRuns.Sum(run => run.Skipped),
+                Number(output, "BugsFound"),
+                Number(output, "BugsFixed"),
+                Number(output, "BugsRemaining"),
+                finalHead);
+        }
+
+        return new V3ValidationReport(
+            requirementsChecked,
             Number(output, "RequirementsPassed"),
             Number(output, "RequirementsFailed"),
             Number(output, "ChecklistTotal"),
@@ -1813,6 +1844,13 @@ public sealed record V3ValidationReport(
             Number(output, "BugsFixed"),
             Number(output, "BugsRemaining"),
             finalHead);
+    }
+
+    private static bool IsPassingStatus(string? status) =>
+        status is not null &&
+        (string.Equals(status, "PASS", StringComparison.OrdinalIgnoreCase) ||
+         string.Equals(status, "FIXED", StringComparison.OrdinalIgnoreCase) ||
+         string.Equals(status, "N_A", StringComparison.OrdinalIgnoreCase));
 
     private static int Number(string output, string key)
     {

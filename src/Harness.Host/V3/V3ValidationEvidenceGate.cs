@@ -14,11 +14,14 @@ public static class V3ValidationEvidenceGate
         "TEST_RUN",
         "BUILD",
         "STATIC_INSPECTION",
+        "CODE_REVIEW",
         "API",
         "DATABASE",
         "RUNTIME",
         "SOURCE_INSPECTION",
         "MANUAL_JUDGMENT",
+        "REPRODUCTION",
+        "DOC",
         "NOT_APPLICABLE",
     ];
 
@@ -159,12 +162,16 @@ public static class V3ValidationEvidenceGate
             "BUILD" => "BUILD",
             "STATIC_INSPECTION" => "STATIC_INSPECTION",
             "INSPECTION" => "STATIC_INSPECTION",
+            "CODE_REVIEW" => "CODE_REVIEW",
             "API" => "API",
             "DATABASE" => "DATABASE",
             "RUNTIME" => "RUNTIME",
             "SOURCE_INSPECTION" => "SOURCE_INSPECTION",
             "REQUIREMENTS" => "SOURCE_INSPECTION",
             "MANUAL_JUDGMENT" => "MANUAL_JUDGMENT",
+            "MANUAL_BROWSER" => "MANUAL_JUDGMENT",
+            "REPRODUCTION" => "REPRODUCTION",
+            "DOC" => "DOC",
             "NOT_APPLICABLE" => "NOT_APPLICABLE",
             _ => null,
         };
@@ -177,7 +184,7 @@ public static class V3ValidationEvidenceGate
         }
     }
 
-    private static bool TryExtractManifest(
+    internal static bool TryExtractManifest(
         string output,
         string? repository,
         out V3ValidationResultManifest manifest,
@@ -185,7 +192,7 @@ public static class V3ValidationEvidenceGate
     {
         manifest = new V3ValidationResultManifest("unknown", "unknown", "unknown", "unknown", "unknown", [], [], [], null);
         error = null;
-        var marker = output.IndexOf("POSEIDON_VALIDATION_MANIFEST", StringComparison.Ordinal);
+        var marker = output.LastIndexOf("POSEIDON_VALIDATION_MANIFEST", StringComparison.Ordinal);
         if (marker < 0)
         {
             error = "validation_manifest_missing";
@@ -446,21 +453,25 @@ public sealed record V3CheckResult(
     string EvidenceType,
     string EvidenceReference,
     string? Notes,
-    DateTimeOffset ExecutedAt);
+    DateTimeOffset? ExecutedAt);
 
 public sealed record V3BrowserRunResult(
-    string Runner,
-    DateTimeOffset StartedAt,
-    DateTimeOffset CompletedAt,
+    string? Runner,
+    DateTimeOffset? StartedAt,
+    DateTimeOffset? CompletedAt,
     int ExitCode,
-    string BaseUrl,
-    IReadOnlyList<string> Viewports,
-    IReadOnlyList<string> TestFiles,
+    string? BaseUrl,
+    IReadOnlyList<string>? Viewports,
+    IReadOnlyList<string>? TestFiles,
     int Passed,
     int Failed,
     int Skipped,
     int ConsoleErrors,
-    int NetworkErrors);
+    int NetworkErrors,
+    string? RunId = null,
+    string? ApiUrl = null,
+    string? Viewport = null,
+    string? Notes = null);
 
 public sealed record V3HandoffReadinessResult(
     string? ApplicationUrl,
@@ -468,4 +479,4 @@ public sealed record V3HandoffReadinessResult(
     bool HealthPass,
     bool CleanAcceptanceEnvironment,
     bool AccessInformationCaptured,
-    bool TestCredentialsCapturedWhenApplicable);
+    string? TestCredentialsCapturedWhenApplicable);

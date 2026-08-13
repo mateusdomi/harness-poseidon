@@ -312,29 +312,82 @@ public sealed record ProductAccessInfo(
     {
         var readme = ReadRepositoryReadme(repository);
         var text = string.Join('\n', validationExecution.FinalReport, validationExecution.LastOutput, readme);
+        var manifestAccess = TryExtractFromManifest(text);
         var latestBuild = runtimeStore.ListExecutions()
             .Where(item => item.ProjectId == projectId &&
                            string.Equals(item.MissionType, "BUILD", StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(item => item.StartedAt)
             .FirstOrDefault();
         _ = latestBuild;
-        var app = FirstUrl(text, "ApplicationUrl", "Application", "App", "Aplicação");
-        var swagger = FirstUrl(text, "Swagger");
-        var health = FirstUrl(text, "HealthUrl", "Health", "Readiness");
+        var app = manifestAccess.ApplicationUrl ?? FirstUrl(text, "ApplicationUrl", "Application", "App", "Aplicação");
+        var apiUrl = manifestAccess.ApiUrl;
+        var swagger = manifestAccess.SwaggerUrl ?? FirstUrl(text, "Swagger");
+        var health = manifestAccess.HealthUrl ?? FirstUrl(text, "HealthUrl", "Health", "Readiness");
         var startCommand = FirstCommand(text, "StartCommand", "Iniciar", "Execução") ?? RelativeScript(repository, "scripts/run.sh");
         var accessCommand = FirstCommand(text, "Acesso TEST_ONLY", "Acesso", "Access", "Credenciais");
         var accessScriptText = ReadAccessScript(repository, accessCommand);
+        var accounts = manifestAccess.TestAccounts.Count > 0
+            ? manifestAccess.TestAccounts
+            : ParseTestAccounts(string.Join('\n', text, accessScriptText));
+        var effectiveHealth = health ?? apiUrl;
         return new ProductAccessInfo(
             app,
-            null,
+            apiUrl,
             swagger,
             health,
             startCommand,
             FirstCommand(text, "StopCommand", "Parar"),
             FirstCommand(text, "StatusCommand", "Status"),
-            ParseTestAccounts(string.Join('\n', text, accessScriptText)),
-            health is null ? "UNKNOWN" : "REPORTED_HEALTHY",
+            accounts,
+            effectiveHealth is null ? "UNKNOWN" : "REPORTED_HEALTHY",
             validationExecution.CompletedAt);
+    }
+
+    private static (string? ApplicationUrl, string? ApiUrl, string? SwaggerUrl, string? HealthUrl, IReadOnlyList<TestAccountInfo> TestAccounts)
+        TryExtractFromManifest(string text)
+    {
+        if (!V3ValidationEvidenceGate.TryExtractManifest(text, null, out var manifest, out _) || manifest.HandoffReadiness is null)
+        {
+            return (null, null, null, null, []);
+        }
+
+        var readiness = manifest.HandoffReadiness;
+        var app = readiness.ApplicationUrl;
+        var apiUrl = manifest.BrowserRuns.FirstOrDefault(run => !string.IsNullOrWhiteSpace(run.ApiUrl))?.ApiUrl;
+        var swagger = apiUrl is not null ? $"{apiUrl.TrimEnd('/')}/swagger" : null;
+        var health = apiUrl is not null ? $"{apiUrl.TrimEnd('/')}/health" : null;
+        var accounts = ParseTestAccountsFromCredentialString(readiness.TestCredentialsCapturedWhenApplicable);
+        return (app, apiUrl, swagger, health, accounts);
+    }
+
+    private static readonly char[] CredentialRoleSeparators = ['/', ',', ';'];
+
+    private static List<TestAccountInfo> ParseTestAccountsFromCredentialString(string? credentialText)
+    {
+        if (string.IsNullOrWhiteSpace(credentialText)) return [];
+        var accounts = new List<TestAccountInfo>();
+        var passwordMatch = System.Text.RegularExpressions.Regex.Match(
+            credentialText,
+            @"(?im)senha\s*[:=]?\s*([^\s,;()]+)");
+        var password = passwordMatch.Success ? passwordMatch.Groups[1].Value.Trim() : null;
+        var labelMatch = System.Text.RegularExpressions.Regex.Match(
+            credentialText,
+            @"(?im)(?:TEST_ONLY\s*[:=]?\s*)([^,;()]+)");
+        if (!labelMatch.Success) return accounts;
+        var rolesPart = labelMatch.Groups[1].Value.Trim();
+        foreach (var role in rolesPart.Split(CredentialRoleSeparators, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var trimmed = role.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed) || trimmed.Equals("senha", StringComparison.OrdinalIgnoreCase)) continue;
+            accounts.Add(new TestAccountInfo(
+                trimmed,
+                trimmed,
+                password,
+                "TEST_ONLY",
+                "Credencial local de homologação registrada pelo produto; não enviar por canais externos."));
+        }
+
+        return accounts;
     }
 
     private static string? ReadRepositoryReadme(string? repository)
