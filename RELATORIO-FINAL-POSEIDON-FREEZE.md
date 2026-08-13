@@ -8,7 +8,7 @@ Auditoria de transparência: RELATORIO-AUDITORIA-POSEIDON-FREEZE.md (2026-08-13T
 A. Baseline
 - Branch: develop
 - HEAD inicial desta sessão: a2ad0bfb chore(contracts): regenerate openapi spec from current host
-- HEAD final: 61868c7c docs: final implementation freeze report PASS
+- HEAD final: 67b8e71265f5059f3c7734311f67f088e8cb659e
 - Runtime inicial: Poseidon operacional, Indicadores em VALIDATING, Prisma/Golden em READY_FOR_HUMAN_ACCEPTANCE
 - Problemas confirmados ao iniciar:
   * Indicadores travou em PAUSED_QUOTA/STALLED por falta de quota de sessão Claude;
