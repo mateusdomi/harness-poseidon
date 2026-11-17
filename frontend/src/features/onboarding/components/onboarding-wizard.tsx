@@ -278,12 +278,15 @@ export function OnboardingWizard({ onCompleted, onCancel }: OnboardingWizardProp
               </Button>
             ) : null}
             <div className="ms-auto">
+              {/* Chaves distintas: sem elas o React reaproveita o MESMO <button> e só troca o
+                  type para submit — o clique que avança da etapa 3 chegava a enviar o formulário,
+                  pulando a etapa de segurança sem que a pessoa a visse. */}
               {isLastStep ? (
-                <Button type="submit" disabled={isSubmitting}>
+                <Button key="finish" type="submit" disabled={isSubmitting}>
                   {isSubmitting ? t('common.states.loading') : t('common.actions.finish')}
                 </Button>
               ) : (
-                <Button type="button" onClick={goNext}>
+                <Button key="next" type="button" onClick={goNext}>
                   {t('common.actions.next')}
                 </Button>
               )}
