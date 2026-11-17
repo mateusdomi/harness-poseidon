@@ -213,7 +213,20 @@ public static class LauncherApplication
             runnerOutputCancellation?.Dispose();
             if (host is not null)
             {
-                await host.StopAsync(CancellationToken.None);
+                // A limpeza nunca pode substituir a causa raiz. Quando o Host falha DURANTE o
+                // StartAsync (ex.: configuração inválida resolvida por DI), o StopAsync do
+                // framework lança ArgumentNullException por serviços hospedados ainda não
+                // materializados — e era essa exceção, não a original, que chegava ao operador.
+                try
+                {
+                    await host.StopAsync(CancellationToken.None);
+                }
+                catch (Exception cleanupFailure) when (cleanupFailure is not OutOfMemoryException)
+                {
+                    await Console.Error.WriteLineAsync(
+                        $"Aviso: a limpeza do Host após falha de inicialização também falhou ({cleanupFailure.GetType().Name}). A causa original segue abaixo.");
+                }
+
                 await host.DisposeAsync();
             }
             if (File.Exists(tokenFile)) File.Delete(tokenFile);
