@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useChiefAssignment } from '@/features/agents/hooks/use-agent-roster';
 import { Link } from 'react-router-dom';
 import { Info, UserRoundPen } from 'lucide-react';
 
@@ -57,6 +58,7 @@ const HEALTH_VARIANTS: Record<ChiefHealth, BadgeProps['variant']> = {
 const READINESS_VARIANTS: Record<ChiefReadiness, BadgeProps['variant']> = {
   notConfigured: 'outline',
   awaitingProvider: 'warning',
+  awaitingAuthentication: 'warning',
   awaitingWorkflow: 'warning',
   ready: 'success',
   running: 'info',
@@ -171,6 +173,7 @@ export function ChiefCard({
     leadershipProfile.data?.title ?? 'Diretora de Engenharia',
   );
   const processHealth = deriveChiefHealth(chief.state, chief.lastHeartbeatAt, now);
+  const chiefAssignment = useChiefAssignment();
   const readiness = deriveChiefReadiness({
     model,
     account,
@@ -178,6 +181,7 @@ export function ChiefCard({
     agentState: chief.state,
     isRunning,
     health: processHealth,
+    chiefAccountState: chiefAssignment.data?.state ?? null,
   });
   const health = derivePresentedChiefHealth(processHealth, readiness);
   const action = readinessAction(readiness);

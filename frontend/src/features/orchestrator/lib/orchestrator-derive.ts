@@ -48,6 +48,7 @@ export function deriveChiefHealth(
 export type ChiefReadiness =
   | 'notConfigured'
   | 'awaitingProvider'
+  | 'awaitingAuthentication'
   | 'awaitingWorkflow'
   | 'ready'
   | 'running'
@@ -74,6 +75,12 @@ export interface ChiefReadinessInput {
   isRunning: boolean;
   /** Saúde derivada do heartbeat/estado. */
   health: ChiefHealth;
+  /**
+   * Estado da conta runtime que executa a Bruna (`/v3/chief-assignment`). Uma conta no catálogo
+   * de provedores não prova que o CLI está autenticado: sem login válido a Bruna não executa,
+   * mesmo com modelo, conta e fluxo vinculados. Ausente = sinal indisponível (não bloqueia).
+   */
+  chiefAccountState?: string | null;
 }
 
 /**
@@ -88,6 +95,7 @@ export function deriveChiefReadiness(input: ChiefReadinessInput): ChiefReadiness
     return 'notConfigured';
   }
   if (input.model === null || input.account === null) return 'awaitingProvider';
+  if (input.chiefAccountState === 'AuthenticationRequired') return 'awaitingAuthentication';
   if (!input.hasWorkflow) return 'awaitingWorkflow';
   if (input.isRunning) return 'running';
   return 'ready';
@@ -116,6 +124,7 @@ export function readinessAction(readiness: ChiefReadiness): ChiefReadinessAction
     case 'awaitingWorkflow':
       return 'linkWorkflow';
     case 'degraded':
+    case 'awaitingAuthentication':
       return 'reviewAgents';
     case 'ready':
     case 'running':

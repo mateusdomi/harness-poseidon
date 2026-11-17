@@ -66,6 +66,10 @@ export function deriveProjectOperationalSummary(
         ? null
         : resolveAgentIdentity('chief-orchestrator', responsible.name).humanName,
     health: tasks.length === 0 && !workflow ? 'unavailable' : hasAttention ? 'attention' : 'healthy',
-    runningExecutions: run && phase ? 1 : 0,
+    // Só conta como "em execução" o que de fato está andando: projeto ativo e execução no
+    // estado `running`. Um projeto recém-criado nasce pausado (criar ≠ começar) e já recebe a
+    // execução do fluxo com a fase de triagem aberta; contá-la exibia "1 em execução" ao lado de
+    // "Pausado" — e com a equipe bloqueada por falta de executor autenticado.
+    runningExecutions: run && phase && run.state === 'running' && project.state === 'active' ? 1 : 0,
   };
 }

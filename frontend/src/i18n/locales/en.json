@@ -1489,11 +1489,11 @@
       "v3Lifecycle": {
         "label": "Project V3 lifecycle",
         "understand": "Understand",
-      "build": "Build",
-      "validate": "Validate",
-      "humanAcceptance": "Human Acceptance",
-      "readyForHumanAcceptance": "Ready for human acceptance",
-      "handoffReady": "The product is in human acceptance. Open Delivery Center for URL, validation evidence and acceptance instructions."
+        "build": "Build",
+        "validate": "Validate",
+        "humanAcceptance": "Human Acceptance",
+        "readyForHumanAcceptance": "Ready for human acceptance",
+        "handoffReady": "The product is in human acceptance. Open Delivery Center for URL, validation evidence and acceptance instructions."
       },
       "phaseProgress": "Progress of stage {{phase}}",
       "documentsLabel": "Documents of stage {{phase}}",
@@ -1730,17 +1730,17 @@
       "title": "Projects",
       "description": "List and details of the projects delivered by the team.",
       "v3Understand": {
-        "title": "V3 — Understand + Mission Compiler",
+        "title": "Understanding and build mission",
         "loadError": "Could not load the V3 context.",
-        "summary": "Artifacts: {{artifacts}} · Docs: {{documents}} · Slots: {{slots}}",
+        "summary": "Sources: {{artifacts}} · Documents: {{documents}} · Execution slots: {{slots}}",
         "stack": "Stack",
         "repositoryDeadline": "Code location / Deadline",
         "repositoryManaged": "Poseidon-managed local code workspace",
         "deadlineMissing": "Deadline not provided",
         "openQuestions": "Open questions",
-        "readiness": "Readiness",
-        "buildMission": "BuildMission {{missionId}} — {{status}}",
-        "missionMeta": "{{chars}} chars · executor: {{executor}}",
+        "readiness": "Readiness to build",
+        "buildMission": "Build mission {{missionId}} — {{status}}",
+        "missionMeta": "{{chars}} characters · executor: {{executor}}",
         "humanAcceptance": {
           "readyTitle": "Ready for human acceptance",
           "readyDescription": "Technical validation is complete. The product is not accepted yet; only an explicit human action can accept or request changes.",
@@ -1748,11 +1748,34 @@
           "documentationOffer": "Rich delivery documentation is optional and does not block acceptance. The operational minimum remains with the product code."
         },
         "actions": {
-          "analyze": "Analyze",
-          "authorize": "Authorize BUILD",
-          "compile": "Compile BuildMission",
+          "analyze": "Analyze requirements",
+          "authorize": "Authorize build",
+          "compile": "Compile mission",
           "requestChanges": "Request changes",
           "accept": "Accept delivery"
+        },
+        "executorBlocked": "blocked — no authenticated account available",
+        "readinessStatus": {
+          "PASS": "Met",
+          "ACTION_REQUIRED": "Action required",
+          "NOT_APPLICABLE": "Not applicable",
+          "FAIL": "Failed",
+          "BLOCKED": "Blocked",
+          "WARNING": "Warning",
+          "PENDING": "Pending"
+        },
+        "readinessCategory": {
+          "Requirements": "Requirements",
+          "Artifacts": "Project sources",
+          "OpenQuestions": "Open questions",
+          "Deadline": "Deadline",
+          "Repository": "Code location",
+          "EffectiveStack": "Technology stack",
+          "RuntimeEnvironment": "Execution environment",
+          "Database": "Database",
+          "Notification": "Notifications",
+          "ExecutionCapacity": "Execution capacity",
+          "Authentication": "Team account access"
         }
       }
     },

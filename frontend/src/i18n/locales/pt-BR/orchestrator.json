@@ -424,7 +424,8 @@
         "awaitingWorkflow": "Aguardando fluxo de trabalho",
         "ready": "Pronto",
         "running": "Em execução",
-        "degraded": "Degradado"
+        "degraded": "Degradado",
+        "awaitingAuthentication": "Aguardando autenticação"
       },
       "explanations": {
         "notConfigured": "A Bruna ainda não tem equipe contratada, modo de trabalho nem fluxo de trabalho. Configure isso para habilitar a execução.",
@@ -432,7 +433,8 @@
         "awaitingWorkflow": "Equipe e modo de trabalho prontos. Vincule um fluxo de trabalho ao projeto para definir as etapas e o que é preciso para avançar.",
         "ready": "Dependências satisfeitas: Bruna pode executar neste projeto.",
         "running": "A Bruna está em uma rodada de trabalho agora.",
-        "degraded": "A Bruna está indisposta ou sem jornada. Revise o quadro da equipe antes de continuar."
+        "degraded": "A Bruna está indisposta ou sem jornada. Revise o quadro da equipe antes de continuar.",
+        "awaitingAuthentication": "A conta que a Bruna usa para trabalhar precisa ser autenticada. Sem acesso válido ela não executa — conclua a autenticação no quadro da equipe."
       },
       "actions": {
         "configureProvider": "Concluir contratação",

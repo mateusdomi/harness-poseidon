@@ -10,6 +10,28 @@ import {
   useV3BuildMissions,
   useV3ProjectContext,
 } from '@/features/projects/hooks/use-v3-understand';
+import { projectV3Lifecycle } from '@/features/projects/lib/v3-lifecycle';
+
+type BadgeVariant = 'success' | 'warning' | 'error' | 'outline' | 'default';
+
+/** Prontidão em linguagem humana: o código bruto (PASS, ACTION_REQUIRED…) vira rótulo e cor. */
+function readinessVariant(status: string): BadgeVariant {
+  switch (status) {
+    case 'PASS':
+      return 'success';
+    case 'ACTION_REQUIRED':
+    case 'WARNING':
+    case 'PENDING':
+      return 'warning';
+    case 'FAIL':
+    case 'BLOCKED':
+      return 'error';
+    case 'NOT_APPLICABLE':
+      return 'outline';
+    default:
+      return 'default';
+  }
+}
 
 export function V3UnderstandPanel({ project }: { project: Project }) {
   const { t } = useTranslation();
@@ -39,7 +61,12 @@ export function V3UnderstandPanel({ project }: { project: Project }) {
         ) : (
           <>
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="info">{data.currentLifecycleState}</Badge>
+              <Badge variant="info" title={data.currentLifecycleState}>
+                {(() => {
+                  const lifecycle = projectV3Lifecycle(data.currentLifecycleState);
+                  return `${lifecycle.macroLabel} · ${lifecycle.statusLabel}`;
+                })()}
+              </Badge>
               <span className="text-sm text-foreground-muted">
                 {t('features.projects.v3Understand.summary', {
                   artifacts: data.artifacts.length,
@@ -85,8 +112,20 @@ export function V3UnderstandPanel({ project }: { project: Project }) {
               <p className="text-sm font-medium">{t('features.projects.v3Understand.readiness')}</p>
               <div className="mt-2 grid gap-2 md:grid-cols-2">
                 {data.readiness.map((item) => (
-                  <div key={item.category} className="rounded-md border border-border p-2 text-sm">
-                    <span className="font-medium">{item.category}</span>: {item.status}
+                  <div
+                    key={item.category}
+                    className="flex items-center justify-between gap-2 rounded-md border border-border p-2 text-sm"
+                  >
+                    <span className="font-medium">
+                      {t(`features.projects.v3Understand.readinessCategory.${item.category}`, {
+                        defaultValue: item.category,
+                      })}
+                    </span>
+                    <Badge variant={readinessVariant(item.status)} title={item.status}>
+                      {t(`features.projects.v3Understand.readinessStatus.${item.status}`, {
+                        defaultValue: item.status,
+                      })}
+                    </Badge>
                   </div>
                 ))}
               </div>
@@ -103,7 +142,9 @@ export function V3UnderstandPanel({ project }: { project: Project }) {
                 <p className="text-sm text-foreground-muted">
                   {t('features.projects.v3Understand.missionMeta', {
                     chars: latestMission.approximateCharacters,
-                    executor: latestMission.recommendedExecutor.accountAlias ?? 'BLOCKED',
+                    executor:
+                      latestMission.recommendedExecutor.accountAlias ??
+                      t('features.projects.v3Understand.executorBlocked'),
                   })}
                 </p>
                 <pre className="mt-2 max-h-64 overflow-auto rounded bg-surface-subtle p-2 text-xs">

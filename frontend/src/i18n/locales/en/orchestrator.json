@@ -424,7 +424,8 @@
         "awaitingWorkflow": "Awaiting workflow",
         "ready": "Ready",
         "running": "Running",
-        "degraded": "Degraded"
+        "degraded": "Degraded",
+        "awaitingAuthentication": "Awaiting authentication"
       },
       "explanations": {
         "notConfigured": "Bruna has no hired team, working mode or workflow yet. Configure those to enable execution.",
@@ -432,7 +433,8 @@
         "awaitingWorkflow": "Team and working mode are ready. Link a workflow to the project to define its stages and what is needed to advance.",
         "ready": "Dependencies satisfied: Bruna can run on this project.",
         "running": "Bruna is in a work round right now.",
-        "degraded": "Bruna is unwell or out of workload. Review the team board before continuing."
+        "degraded": "Bruna is unwell or out of workload. Review the team board before continuing.",
+        "awaitingAuthentication": "The account Bruna works with must be authenticated. Without valid access she cannot execute — finish authentication in the team roster."
       },
       "actions": {
         "configureProvider": "Finish hiring",

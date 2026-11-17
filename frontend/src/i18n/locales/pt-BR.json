@@ -1730,17 +1730,17 @@
       "title": "Projetos",
       "description": "Lista e detalhes dos projetos entregues pela equipe.",
       "v3Understand": {
-        "title": "V3 — Understand + Mission Compiler",
+        "title": "Entendimento e missão de desenvolvimento",
         "loadError": "Não foi possível carregar o contexto V3.",
-        "summary": "Artifacts: {{artifacts}} · Docs: {{documents}} · Slots: {{slots}}",
-        "stack": "Stack",
+        "summary": "Fontes: {{artifacts}} · Documentos: {{documents}} · Vagas de execução: {{slots}}",
+        "stack": "Tecnologias",
         "repositoryDeadline": "Local do código / Prazo",
         "repositoryManaged": "Área local de código gerenciada pelo Poseidon",
         "deadlineMissing": "Prazo não informado",
-        "openQuestions": "Open questions",
-        "readiness": "Readiness",
-        "buildMission": "BuildMission {{missionId}} — {{status}}",
-        "missionMeta": "{{chars}} chars · executor: {{executor}}",
+        "openQuestions": "Perguntas em aberto",
+        "readiness": "Prontidão para desenvolver",
+        "buildMission": "Missão de desenvolvimento {{missionId}} — {{status}}",
+        "missionMeta": "{{chars}} caracteres · executor: {{executor}}",
         "humanAcceptance": {
           "readyTitle": "Pronto para homologação humana",
           "readyDescription": "A validação técnica foi concluída. O produto ainda não está homologado; apenas uma ação humana explícita pode aceitar ou solicitar ajustes.",
@@ -1748,11 +1748,34 @@
           "documentationOffer": "A documentação rica de entrega é opcional e não bloqueia o aceite. O mínimo operacional permanece junto ao código do produto."
         },
         "actions": {
-          "analyze": "Analyze",
-          "authorize": "Authorize BUILD",
-          "compile": "Compile BuildMission",
+          "analyze": "Analisar requisitos",
+          "authorize": "Autorizar desenvolvimento",
+          "compile": "Compilar missão",
           "requestChanges": "Solicitar ajustes",
           "accept": "Aceitar entrega"
+        },
+        "executorBlocked": "bloqueado — nenhuma conta autenticada disponível",
+        "readinessStatus": {
+          "PASS": "Atendido",
+          "ACTION_REQUIRED": "Ação necessária",
+          "NOT_APPLICABLE": "Não se aplica",
+          "FAIL": "Reprovado",
+          "BLOCKED": "Bloqueado",
+          "WARNING": "Atenção",
+          "PENDING": "Pendente"
+        },
+        "readinessCategory": {
+          "Requirements": "Requisitos",
+          "Artifacts": "Fontes do projeto",
+          "OpenQuestions": "Perguntas em aberto",
+          "Deadline": "Prazo",
+          "Repository": "Local do código",
+          "EffectiveStack": "Tecnologias definidas",
+          "RuntimeEnvironment": "Ambiente de execução",
+          "Database": "Banco de dados",
+          "Notification": "Notificações",
+          "ExecutionCapacity": "Capacidade de execução",
+          "Authentication": "Acesso das contas da equipe"
         }
       }
     },
