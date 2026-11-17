@@ -24,7 +24,9 @@ public sealed class ProjectReadinessService(
     // Opcional para não quebrar quem constrói o serviço em teste: ausente, assume-se o padrão,
     // e a sonda continua sendo a fonte da verdade sobre runtime e imagem.
     Execution.IsolatedExecutionSettings? executionSettings = null,
-    IConfiguration? configuration = null)
+    IConfiguration? configuration = null,
+    // Opcional pelo mesmo motivo: ausente, a autenticação da conta da Bruna não é afirmada nem negada.
+    Harness.Modules.Agents.Application.Accounts.AgentAccountRegistry? accountRegistry = null)
 {
     // ULIDs do auto-seed de conveniência da RC3 (ADR-018). Enquanto o seed existir (até a
     // Fatia B removê-lo), esses recursos são marcados como Simulated para que a prontidão
@@ -106,8 +108,34 @@ public sealed class ProjectReadinessService(
             chiefFact,
             dispatchEnabled,
             repositoryReachable,
-            executionRuntimeReady);
+            executionRuntimeReady,
+            ChiefAccountAuthenticated());
         return ReadinessEvaluator.Evaluate(inputs);
+    }
+
+    /// <summary>
+    /// A conta runtime da Bruna (papel chief-orchestrator) tem login válido no CLI. O catálogo de
+    /// provedores registra a conta, mas não prova autenticação: sem este fato a prontidão dizia
+    /// "pronto", o turno era aceito e só falhava no executor — e o dono recebia uma desculpa
+    /// genérica em vez de um bloqueio acionável. Com executor simulado (demonstração/testes) não
+    /// há conta real a autenticar.
+    /// </summary>
+    private bool ChiefAccountAuthenticated()
+    {
+        if (accountRegistry is null) return true;
+        var simulated = configuration is not null &&
+            (configuration.GetValue<bool>("Harness:Demo:Enabled") ||
+             string.Equals(configuration["Harness:AgentExecutors:Mode"], "simulated", StringComparison.OrdinalIgnoreCase));
+        if (simulated) return true;
+        return accountRegistry.List().Any(account =>
+            account.AllowedRoles.Contains(
+                Harness.Modules.Agents.Application.Accounts.AgentRoles.ChiefOrchestrator, StringComparer.OrdinalIgnoreCase) &&
+            account.State is Harness.Modules.Agents.Contracts.AgentAccountState.Available
+                or Harness.Modules.Agents.Contracts.AgentAccountState.Reserved
+                or Harness.Modules.Agents.Contracts.AgentAccountState.Running
+                or Harness.Modules.Agents.Contracts.AgentAccountState.CoolingDown
+                or Harness.Modules.Agents.Contracts.AgentAccountState.QuotaLimited
+                or Harness.Modules.Agents.Contracts.AgentAccountState.Degraded);
     }
 
     /// <summary>

@@ -549,7 +549,8 @@
       "agent.recover": "Bring a team member back",
       "conversation.start": "Start conversation",
       "dispatch.enable": "Turn the pipeline on",
-      "project.fixRepository": "Fix the project folder"
+      "project.fixRepository": "Fix the project folder",
+      "chief.authenticate": "Authenticate Bruna's account"
     },
     "blockers": {
       "profile.missing": "No active local profile.",
@@ -565,7 +566,8 @@
       "agent.degraded": "Someone on the team is unwell.",
       "dispatch.disabled": "The pipeline is switched off: work gets organised, but nobody starts executing it.",
       "repository.unreachable": "I could not find this project's working folder on your computer.",
-      "execution_runtime.unavailable": "I cannot run any work right now: the isolated environment the team works in is not available on this computer."
+      "execution_runtime.unavailable": "I cannot run any work right now: the isolated environment the team works in is not available on this computer.",
+      "chief_account.authentication_required": "The account Bruna works with must be authenticated before any execution."
     }
   },
   "onboarding": {

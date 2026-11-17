@@ -39,6 +39,11 @@ public sealed record ChiefFact(
 /// computador. O doctor já distinguia "Docker de pé" de "posso executar"; o preflight, que é o
 /// que a Bruna consulta antes de o dono ir embora, não olhava para isso.
 /// </param>
+/// <param name="ChiefAccountAuthenticated">
+/// A conta runtime que executa a Bruna (papel chief-orchestrator) está autenticada no CLI.
+/// Sem login válido, o turno era aceito, falhava no executor com "nenhuma conta do Chefe" e a
+/// resposta ao dono era uma desculpa genérica — em vez de um bloqueio com o que fazer.
+/// </param>
 public sealed record ReadinessInputs(
     bool ProfileReady,
     bool OrganizationReady,
@@ -50,7 +55,8 @@ public sealed record ReadinessInputs(
     ChiefFact Chief,
     bool DispatchEnabled = true,
     bool RepositoryReachable = true,
-    bool ExecutionRuntimeReady = true);
+    bool ExecutionRuntimeReady = true,
+    bool ChiefAccountAuthenticated = true);
 
 /// <summary>
 /// Avaliador puro e determinístico do read model de prontidão (ADR-017). Não persiste
@@ -220,7 +226,8 @@ public static class ReadinessEvaluator
         // ficar parado sem ninguém perceber, e por isso entram aqui: a esteira desligada, o
         // repositório inacessível e o runtime de execução ausente.
         if (accountReal && modelReal && inputs.WorkflowBound && chiefReal &&
-            inputs.DispatchEnabled && inputs.RepositoryReachable && inputs.ExecutionRuntimeReady)
+            inputs.DispatchEnabled && inputs.RepositoryReachable && inputs.ExecutionRuntimeReady &&
+            inputs.ChiefAccountAuthenticated)
         {
             return Step(ReadinessStep.ExecutionReady, "execution", ConfigurationState.Ready,
                 nextAction: new ReadinessNextAction("conversation.start", "/projects", inputs.ProjectId));
@@ -231,6 +238,11 @@ public static class ReadinessEvaluator
         if (!inputs.ExecutionRuntimeReady)
         {
             blockers.Add(new ReadinessBlocker("execution_runtime.unavailable", []));
+        }
+
+        if (!inputs.ChiefAccountAuthenticated)
+        {
+            blockers.Add(new ReadinessBlocker("chief_account.authentication_required", []));
         }
 
         if (!inputs.RepositoryReachable)
@@ -272,6 +284,8 @@ public static class ReadinessEvaluator
                 "model.none_chat_enabled" => new ReadinessNextAction("model.enable", "/providers", null),
                 "workflow.unbound" => new ReadinessNextAction("workflow.bind", "/workflows", null),
                 "agent.degraded" => new ReadinessNextAction("agent.recover", "/agents", inputs.Chief.AgentId),
+                "chief_account.authentication_required" =>
+                    new ReadinessNextAction("chief.authenticate", "/agents", null),
                 _ => new ReadinessNextAction("chief.configureModel", "/agents", null),
             };
         return Step(ReadinessStep.ExecutionReady, "execution", state, blockers: blockers, nextAction: nextAction);

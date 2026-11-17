@@ -549,7 +549,8 @@
       "agent.recover": "Reativar pessoa da equipe",
       "conversation.start": "Iniciar conversa",
       "dispatch.enable": "Ligar a esteira",
-      "project.fixRepository": "Corrigir a pasta do projeto"
+      "project.fixRepository": "Corrigir a pasta do projeto",
+      "chief.authenticate": "Autenticar a conta da Bruna"
     },
     "blockers": {
       "profile.missing": "Nenhum perfil local ativo.",
@@ -565,7 +566,8 @@
       "agent.degraded": "Alguém da equipe está indisposto.",
       "dispatch.disabled": "A esteira está desligada: o trabalho é organizado, mas ninguém começa a executar.",
       "repository.unreachable": "Não encontrei a pasta de trabalho deste projeto no seu computador.",
-      "execution_runtime.unavailable": "Não consigo executar trabalho nenhum agora: o ambiente isolado onde a equipe trabalha não está disponível neste computador."
+      "execution_runtime.unavailable": "Não consigo executar trabalho nenhum agora: o ambiente isolado onde a equipe trabalha não está disponível neste computador.",
+      "chief_account.authentication_required": "A conta que a Bruna usa para trabalhar precisa ser autenticada antes de qualquer execução."
     }
   },
   "onboarding": {

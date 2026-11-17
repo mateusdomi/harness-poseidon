@@ -82,6 +82,18 @@ public sealed class ReadinessEvaluatorTests
     }
 
     [Fact]
+    public void ContaDaBrunaSemAutenticacaoBloqueiaAExecucaoComAcaoDeAutenticar()
+    {
+        var snapshot = ReadinessEvaluator.Evaluate(FullyReal() with { ChiefAccountAuthenticated = false });
+
+        var execution = StepOf(snapshot, ReadinessStep.ExecutionReady);
+        Assert.NotEqual(ConfigurationState.Ready, execution.State);
+        Assert.Contains(
+            execution.Blockers, blocker => blocker.Code == "chief_account.authentication_required");
+        Assert.Equal("chief.authenticate", execution.NextAction?.Code);
+    }
+
+    [Fact]
     public void ComTudoRealEOperacionalEmPeAExecucaoEstaPronta()
     {
         var execution = StepOf(
