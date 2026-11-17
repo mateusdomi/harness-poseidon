@@ -1109,6 +1109,7 @@ public static class HostApplication
         app.MapProjects();
         app.MapProjectActivity();
         app.MapReadiness();
+        app.MapIsolationStatus();
         app.MapV3Foundation();
         app.MapV3Understand();
         app.MapV3BuildRuntime();

@@ -7,17 +7,31 @@ import { SUPPORTED_LANGUAGES } from '@/i18n';
  * Schema do wizard de primeiro uso. Mensagens de erro são CHAVES i18n —
  * traduzidas na renderização (`t(message)`).
  */
-export const onboardingFormSchema = z.object({
+const protectedOnboardingSchema = z.object({
   displayName: z.string().trim().min(2, 'common.validation.min2'),
   email: z.union([z.literal(''), z.string().trim().email('common.validation.email')]),
   language: z.enum(SUPPORTED_LANGUAGES),
   theme: themeSchema,
   workingDirectory: z.string().trim(),
+  unsafeAccepted: z.boolean().optional(),
+});
+
+/** Schema estrito (ambiente sem proteção de isolamento): o aceite explícito é obrigatório. */
+export const onboardingFormSchema = protectedOnboardingSchema.extend({
   unsafeAccepted: z.literal(true, {
     errorMap: () => ({ message: 'onboarding.wizard.safety.required' }),
   }),
 });
-export type OnboardingFormValues = z.infer<typeof onboardingFormSchema>;
+export type OnboardingFormValues = z.infer<typeof protectedOnboardingSchema>;
+
+/**
+ * Schema efetivo conforme a proteção REAL do ambiente. Com isolamento operante (Docker + imagem),
+ * não há risco a aceitar e o aceite do modo inseguro deixa de ser exigido; sem ele — ou enquanto o
+ * estado não é conhecido — o aceite explícito continua obrigatório (fail-closed).
+ */
+export function onboardingSchemaFor(isolationProtected: boolean) {
+  return isolationProtected ? protectedOnboardingSchema : onboardingFormSchema;
+}
 
 export const ONBOARDING_STEPS = ['profile', 'preferences', 'workspace', 'safety'] as const;
 export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];

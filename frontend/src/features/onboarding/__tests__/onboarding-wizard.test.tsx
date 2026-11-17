@@ -2,6 +2,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { OnboardingWizard } from '@/features/onboarding/components/onboarding-wizard';
+import { createTestBundle } from '@/api/__tests__/test-utils';
 import { renderWithApi } from '@/test/render-with-providers';
 
 async function advanceToSafetyStep(user: ReturnType<typeof userEvent.setup>) {
@@ -62,5 +63,30 @@ describe('OnboardingWizard', () => {
     expect(settings).toBeDefined();
     expect(settings.unsafeModeAcceptedAt).not.toBeNull();
     expect(settings.workingDirectory).toBe('~/projetos');
+  });
+
+  it('com isolamento operante, informa a proteção e conclui sem aceite de risco', async () => {
+    const user = userEvent.setup();
+    const onCompleted = vi.fn();
+    const bundle = createTestBundle();
+    vi.spyOn(bundle.api, 'getIsolationStatus').mockResolvedValue({
+      mode: 'docker',
+      containerRuntimeReady: true,
+      agentImageReady: true,
+      protected: true,
+      message: null,
+    });
+    renderWithApi(<OnboardingWizard onCompleted={onCompleted} />, bundle);
+
+    await advanceToSafetyStep(user);
+    expect(await screen.findByText(/proteção de isolamento ativa/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/entendo os riscos/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /concluir/i }));
+    await waitFor(() => expect(onCompleted).toHaveBeenCalledTimes(1));
+    const profile = onCompleted.mock.calls[0][0];
+    const settings = (await bundle.api.list('settings', { filter: { profileId: profile.id } }))
+      .items[0];
+    expect(settings.unsafeModeAcceptedAt).toBeNull();
   });
 });

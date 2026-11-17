@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useForm, type Resolver } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
 import { themeSchema, type Profile } from '@/api';
@@ -12,7 +13,7 @@ import { useCreateProfile } from '@/features/shared/hooks/use-profiles';
 import {
   ONBOARDING_STEP_FIELDS,
   ONBOARDING_STEPS,
-  onboardingFormSchema,
+  onboardingSchemaFor,
   type OnboardingFormValues,
 } from '@/features/onboarding/components/onboarding-schema';
 
@@ -35,6 +36,16 @@ export function OnboardingWizard({ onCompleted, onCancel }: OnboardingWizardProp
   const setThemePreference = useThemeStore((s) => s.setPreference);
   const [stepIndex, setStepIndex] = useState(0);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Proteção real do ambiente: com isolamento operante não há risco a aceitar. Enquanto o estado
+  // não chega (ou falha), a etapa continua exigindo o aceite explícito — fail-closed.
+  const isolation = useQuery({
+    queryKey: ['onboarding', 'isolation-status'],
+    queryFn: () => api.getIsolationStatus(),
+    retry: false,
+  });
+  const isolationProtected = isolation.data?.protected === true;
+  const protectedRef = useRef(isolationProtected);
+  protectedRef.current = isolationProtected;
 
   const {
     register,
@@ -42,7 +53,12 @@ export function OnboardingWizard({ onCompleted, onCancel }: OnboardingWizardProp
     trigger,
     formState: { errors, isSubmitting },
   } = useForm<OnboardingFormValues>({
-    resolver: zodResolver(onboardingFormSchema),
+    resolver: ((values, context, options) =>
+      zodResolver(onboardingSchemaFor(protectedRef.current))(
+        values,
+        context,
+        options,
+      )) as Resolver<OnboardingFormValues>,
     defaultValues: {
       displayName: '',
       email: '',
@@ -50,7 +66,7 @@ export function OnboardingWizard({ onCompleted, onCancel }: OnboardingWizardProp
       theme: 'system',
       workingDirectory: '',
       // checkbox começa desmarcado — aceite deve ser explícito
-      unsafeAccepted: undefined as unknown as true,
+      unsafeAccepted: undefined,
     },
     mode: 'onSubmit',
     reValidateMode: 'onChange',
@@ -85,7 +101,8 @@ export function OnboardingWizard({ onCompleted, onCancel }: OnboardingWizardProp
           theme: values.theme,
           language: values.language,
           workingDirectory: values.workingDirectory === '' ? null : values.workingDirectory,
-          unsafeModeAcceptedAt: new Date().toISOString(),
+          // Só existe aceite de risco quando o ambiente NÃO está protegido.
+          unsafeModeAcceptedAt: isolationProtected ? null : new Date().toISOString(),
         });
       }
       setThemePreference(values.theme as ThemePreference);
@@ -196,7 +213,21 @@ export function OnboardingWizard({ onCompleted, onCancel }: OnboardingWizardProp
               </Field>
             )}
 
-            {step === 'safety' && (
+            {step === 'safety' && isolationProtected && (
+              <div
+                role="status"
+                className="rounded-md border border-success bg-surface-elevated p-4 text-sm text-foreground"
+              >
+                <p className="font-medium text-success">
+                  {t('onboarding.wizard.safety.protectedTitle')}
+                </p>
+                <p className="mt-1 text-foreground-muted">
+                  {t('onboarding.wizard.safety.protectedBody')}
+                </p>
+              </div>
+            )}
+
+            {step === 'safety' && !isolationProtected && (
               <div className="flex flex-col gap-4">
                 <div
                   role="alert"

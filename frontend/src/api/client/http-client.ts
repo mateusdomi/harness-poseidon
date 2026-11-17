@@ -131,6 +131,7 @@ import {
   v3AgentAccountsResponseSchema,
   v3BuildMissionSchema,
   v3ChiefAssignmentSchema,
+  isolationStatusSchema,
   v3DeliveryHandoffSchema,
   v3HumanAcceptanceSchema,
   v3MissionPageSchema,
@@ -144,6 +145,7 @@ import {
   type V3AuthorizeBuildInput,
   type V3BuildMission,
   type V3ChiefAssignment,
+  type IsolationStatus,
   type V3DeliveryHandoff,
   type V3HumanAcceptance,
   type V3ProjectContext,
@@ -867,6 +869,11 @@ export class HttpApiClient implements ApiClient {
   async getChiefAssignment(): Promise<V3ChiefAssignment> {
     const response = await this.#request<unknown>('GET', '/v3/chief-assignment');
     return v3ChiefAssignmentSchema.parse(response);
+  }
+
+  async getIsolationStatus(): Promise<IsolationStatus> {
+    const response = await this.#request<unknown>('GET', '/isolation-status');
+    return isolationStatusSchema.parse(response);
   }
 
   async getV3ProjectContext(projectId: string): Promise<V3ProjectContext> {

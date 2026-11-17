@@ -613,7 +613,9 @@
         "title": "Modo inseguro",
         "warning": "A proteção de isolamento não está disponível neste ambiente. A equipe executará comandos diretamente na sua máquina, sem essa proteção. Prossiga somente se você confia no conteúdo executado.",
         "accept": "Entendo os riscos e aceito executar em modo inseguro",
-        "required": "O aceite explícito do modo inseguro é obrigatório para concluir."
+        "required": "O aceite explícito do modo inseguro é obrigatório para concluir.",
+        "protectedTitle": "Proteção de isolamento ativa",
+        "protectedBody": "Cada execução da equipe acontece em um ambiente isolado, separado do seu computador. Nenhum aceite de risco é necessário."
       }
     }
   },

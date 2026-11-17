@@ -119,6 +119,25 @@
         }
       }
     },
+    "/api/v1/isolation-status": {
+      "get": {
+        "tags": [
+          "isolation"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IsolationStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/v3/missions/{missionId}": {
       "get": {
         "tags": [
@@ -31675,6 +31694,36 @@
           }
         }
       },
+      "IsolationStatusResponse": {
+        "required": [
+          "mode",
+          "containerRuntimeReady",
+          "agentImageReady",
+          "protected",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string"
+          },
+          "containerRuntimeReady": {
+            "type": "boolean"
+          },
+          "agentImageReady": {
+            "type": "boolean"
+          },
+          "protected": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "JsonElement": { },
       "LeadershipProfileRecord": {
         "required": [
@@ -41882,6 +41931,9 @@
     },
     {
       "name": "projects"
+    },
+    {
+      "name": "isolation"
     },
     {
       "name": "v3-understand"

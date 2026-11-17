@@ -93,6 +93,7 @@ import type {
   V3AgentAccountsResponse,
   V3AccountAuthInstruction,
   V3ChiefAssignment,
+  IsolationStatus,
   V3AuthorizeBuildInput,
   V3BuildMission,
   V3DeliveryHandoff,
@@ -450,6 +451,8 @@ export interface ApiClient {
   prepareAgentAccountAuth(alias: string): Promise<V3AccountAuthInstruction>;
   setChiefPrimary(alias: string): Promise<V3ChiefAssignment>;
   getChiefAssignment(): Promise<V3ChiefAssignment>;
+  /** Proteção de isolamento efetivamente operante (consultável antes do perfil existir). */
+  getIsolationStatus(): Promise<IsolationStatus>;
   getV3ProjectContext(projectId: Ulid): Promise<V3ProjectContext>;
   analyzeV3Project(projectId: Ulid, input?: V3UnderstandAnalyzeInput): Promise<V3ProjectContext>;
   authorizeV3Build(projectId: Ulid, input: V3AuthorizeBuildInput): Promise<V3ProjectContext>;

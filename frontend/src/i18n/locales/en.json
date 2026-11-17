@@ -613,7 +613,9 @@
         "title": "Unsafe mode",
         "warning": "The isolation protection is not available in this environment. The team will run commands directly on your machine, without that protection. Proceed only if you trust the executed content.",
         "accept": "I understand the risks and accept running in unsafe mode",
-        "required": "Explicit acceptance of unsafe mode is required to finish."
+        "required": "Explicit acceptance of unsafe mode is required to finish.",
+        "protectedTitle": "Isolation protection active",
+        "protectedBody": "Every team execution runs in an isolated environment, separate from your computer. No risk acceptance is needed."
       }
     }
   },

@@ -115,6 +115,7 @@ import {
   type V3AuthorizeBuildInput,
   type V3BuildMission,
   type V3ChiefAssignment,
+  type IsolationStatus,
   type V3DeliveryHandoff,
   type V3HumanAcceptance,
   type V3ProjectContext,
@@ -2545,6 +2546,19 @@ export class MockApiClient implements ApiClient {
       executorId: account.executorId,
       state: account.state,
       accountsFilePath: '/tmp/poseidon-mock/agent-accounts.json',
+    };
+  }
+
+  async getIsolationStatus(): Promise<IsolationStatus> {
+    await this.#simulate();
+    // O mock não tem contêiner: reporta a proteção como indisponível (fail-closed), o que mantém o
+    // aceite explícito do modo inseguro no fluxo de primeiro uso.
+    return {
+      mode: 'disabled',
+      containerRuntimeReady: false,
+      agentImageReady: false,
+      protected: false,
+      message: null,
     };
   }
 

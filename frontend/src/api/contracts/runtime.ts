@@ -105,6 +105,16 @@ export const v3AgentAccountUpsertInputSchema = z.object({
 });
 export type V3AgentAccountUpsertInput = z.infer<typeof v3AgentAccountUpsertInputSchema>;
 
+/** Estado real da proteção de isolamento (`GET /api/v1/isolation-status`, sem sessão). */
+export const isolationStatusSchema = z.object({
+  mode: z.string(),
+  containerRuntimeReady: z.boolean(),
+  agentImageReady: z.boolean(),
+  protected: z.boolean(),
+  message: z.string().nullable(),
+});
+export type IsolationStatus = z.infer<typeof isolationStatusSchema>;
+
 export const v3ChiefAssignmentSchema = z.object({
   primaryAlias: z.string().nullable(),
   providerKind: z.string().nullable().optional(),
